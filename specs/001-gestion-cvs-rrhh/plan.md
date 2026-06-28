@@ -1,0 +1,177 @@
+# Implementation Plan: Gestion de CVs para RRHH
+
+**Branch**: `001-gestion-cvs-rrhh` | **Date**: 2026-06-28 | **Spec**: [spec.md](./spec.md)
+
+**Input**: Feature specification from `specs/001-gestion-cvs-rrhh/spec.md`
+
+## Summary
+
+Build an internal RRHH web application for secure candidate CV management. The
+MVP delivers authenticated role-based access, candidate maintenance, professional
+profile enrichment, private CV storage/opening, advanced search, controlled
+export, and controlled Access/CSV import. The technical approach follows the
+existing corporate Angular + Supabase pattern, with Supabase RLS and private
+Storage as the real authorization boundary.
+
+## Technical Context
+
+**Language/Version**: TypeScript 5.9, SQL/PostgreSQL 17, Deno/TypeScript for
+Supabase Edge Functions
+
+**Primary Dependencies**: Angular 21 standalone components, RxJS, Angular CDK,
+Tailwind CSS 3, `@ngx-translate`, `@supabase/supabase-js`, Supabase Auth,
+Supabase Storage, Supabase Edge Functions
+
+**Storage**: Supabase PostgreSQL for relational data; private Supabase Storage
+bucket `candidate-cvs` for PDF CV documents; Access `.accdb`/CSV only as a
+migration input and functional reference
+
+**Testing**: Jest 30 with `jest-preset-angular`, Playwright E2E, SQL/RLS
+validation scripts, storage-policy validation scripts
+
+**Target Platform**: Internal browser-based SPA served by Nginx unprivileged
+1.27 Alpine; Supabase self-hosted in Docker according to the documented project
+pattern
+
+**Project Type**: Web application with Supabase backend/BaaS and frontend SPA
+
+**Performance Goals**: Primary RRHH flows complete within normal interactive
+web expectations; advanced search returns acceptance-dataset results without
+duplicates and supports combined filters; export and import provide progress or
+clear completion/error feedback for representative MVP batches
+
+**Constraints**: No service-role key in frontend; no public CV bucket; no Access
+runtime dependency; all business tables use RLS; migrations are idempotent and
+include required grants; frontend authorization checks are UX aids only and do
+not replace RLS
+
+**Scale/Scope**: MVP covers internal RRHH usage, manager/readonly access,
+candidate records, related profile entities, document metadata, one principal
+CV per candidate, controlled export, and initial Access/CSV migration
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+
+- Personal data protection: PASS. Plan identifies candidate data, consent,
+  retention/review dates, audit needs, export limits, logical deletion, and
+  private CV document controls.
+- Stack boundary: PASS. Plan stays within Angular 21 + Supabase + Docker/Nginx
+  stack from the source documents. Access is migration/reference only.
+- Authorization: PASS. RLS, roles, private Storage, signed URL generation, and
+  service-role isolation are explicit design obligations.
+- Test evidence: PASS. Jest, Playwright, SQL/RLS, and storage-policy checks are
+  planned for the surfaces they cover.
+- Traceability: PASS. User stories in `spec.md` map to plan contracts and task
+  phases; MVP slices remain independently testable.
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-gestion-cvs-rrhh/
+|-- plan.md
+|-- research.md
+|-- data-model.md
+|-- quickstart.md
+|-- contracts/
+|   |-- edge-functions.md
+|   |-- rpc-search-candidates.md
+|   |-- ui-routes.md
+|   `-- export-import.md
+|-- checklists/
+|   |-- requirements.md
+|   `-- security-data.md
+`-- tasks.md
+```
+
+### Source Code (repository root)
+
+```text
+src/
+|-- app/
+|   |-- core/
+|   |   |-- auth/
+|   |   |-- guards/
+|   |   |-- interceptors/
+|   |   |-- layout/
+|   |   |-- services/
+|   |   `-- supabase/
+|   |-- shared/
+|   |   |-- components/
+|   |   |-- directives/
+|   |   |-- models/
+|   |   |-- pipes/
+|   |   `-- utils/
+|   |-- features/
+|   |   |-- admin/
+|   |   |-- candidates/
+|   |   |-- catalogs/
+|   |   |-- documents/
+|   |   `-- search/
+|   |-- app.config.ts
+|   `-- app.routes.ts
+|-- assets/
+|   `-- i18n/
+|       |-- es.json
+|       `-- en.json
+supabase/
+|-- functions/
+|   |-- candidate-create-signed-cv-url/
+|   |-- candidate-export-results/
+|   |-- candidate-import-access-csv/
+|   `-- candidate-retention-check/
+`-- migrations/
+tests/
+|-- e2e/
+|-- integration/
+|-- security/
+`-- unit/
+scripts/
+|-- check-rls.js
+`-- check-storage-policies.js
+```
+
+**Structure Decision**: Use a domain-oriented Angular SPA under `src/app`, with
+Supabase migrations and Edge Functions under `supabase/`. Tests are grouped by
+risk surface: unit, integration, E2E, and security.
+
+## Phase 0: Research Summary
+
+See [research.md](./research.md). All technical unknowns from this plan are
+resolved by documented project constraints.
+
+## Phase 1: Design Summary
+
+See [data-model.md](./data-model.md) for entities, relationships, validation
+rules, and state transitions.
+
+See [contracts/](./contracts/) for the application interface contracts:
+
+- [rpc-search-candidates.md](./contracts/rpc-search-candidates.md)
+- [edge-functions.md](./contracts/edge-functions.md)
+- [ui-routes.md](./contracts/ui-routes.md)
+- [export-import.md](./contracts/export-import.md)
+
+See [quickstart.md](./quickstart.md) for validation scenarios that prove the MVP
+without implementing code in this phase.
+
+## Post-Design Constitution Check
+
+- Personal data protection: PASS. Data model records consent/review metadata,
+  logical deletion, audit events, document metadata, and controlled export.
+- Stack boundary: PASS. Contracts keep Supabase as backend boundary and Angular
+  as frontend boundary.
+- Authorization: PASS. Contracts include RLS, storage denial, signed URL, role,
+  and Edge Function authorization expectations.
+- Test evidence: PASS. Quickstart and tasks require unit, E2E, SQL/RLS, and
+  storage checks before implementation is accepted.
+- Traceability: PASS. Tasks are grouped by user story and map back to FR/SC
+  identifiers and contracts.
+
+## Complexity Tracking
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| None | N/A | N/A |

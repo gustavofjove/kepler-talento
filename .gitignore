@@ -1,0 +1,32 @@
+# Local agent/runtime state
+.agents/
+
+# Sensitive local data sources
+*.accdb
+*.mdb
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Node / Angular outputs
+node_modules/
+dist/
+.angular/
+coverage/
+playwright-report/
+test-results/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
