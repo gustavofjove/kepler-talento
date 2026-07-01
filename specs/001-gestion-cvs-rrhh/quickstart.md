@@ -6,6 +6,8 @@ not implementation code.
 ## Prerequisites
 
 - Supabase stack available with Auth, PostgreSQL, Storage, and Functions.
+- Frontend container port `63151` available for RRHH BBDD, or an alternate
+  `FRONTEND_PORT` defined when another local frontend is already using it.
 - Frontend configuration provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
   `APP_ENV`, and `APP_VERSION`.
 - Test users exist for `rrhh_admin`, `rrhh_user`, `manager_reader`, `readonly`,
@@ -125,5 +127,6 @@ Expected outcome: all security checks pass and fail closed where expected.
 - `npm run security:storage` runs the current storage policy validation script placeholder without errors.
 - `npm run build` generates the Angular production bundle successfully.
 - `docker compose -f docker-compose.frontend.yml build` completes successfully and produces the frontend image.
+- `docker compose -f docker-compose.frontend.yml up -d` serves RRHH BBDD on `63151`; in the shared local environment `KeplerDesk` is mapped to `63153` to avoid port collisions.
 - `npx prettier --check src/assets/i18n/es.json src/assets/i18n/en.json` passes for the updated translation files.
 - `get_errors` across `src`, `supabase`, `tests`, and `scripts` reported no current TypeScript or script errors in the workspace snapshot.

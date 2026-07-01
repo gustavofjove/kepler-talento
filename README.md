@@ -107,6 +107,16 @@ $env:FRONTEND_PORT="63152"
 docker compose -f docker-compose.frontend.yml up -d --build
 ```
 
+## Convivencia de frontends locales
+
+En el entorno actual conviven dos frontends del ecosistema Kepler:
+
+- `RRHH BBDD` en `http://localhost:63151`
+- `KeplerDesk` en `http://localhost:63153`
+
+Si necesitas volver a mover `KeplerDesk`, recreate el contenedor con otro
+puerto host libre manteniendo `63151` reservado para RRHH BBDD.
+
 URL local:
 
 ```text
