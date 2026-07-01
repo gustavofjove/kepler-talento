@@ -1,4 +1,4 @@
-# Tasks: Gestion de CVs para RRHH
+﻿# Tasks: Gestion de CVs para RRHH
 
 **Input**: Design documents from `specs/001-gestion-cvs-rrhh/`
 
@@ -12,13 +12,13 @@
 
 **Purpose**: Establish the project structure, tooling, and baseline configuration needed by all stories.
 
-- [ ] T001 Create Angular/Supabase project structure from plan in `src/app`, `supabase/migrations`, `supabase/functions`, `tests`, and `scripts`
-- [ ] T002 Align package scripts and dependencies with the referenced Angular 21/Supabase stack in `package.json`
-- [ ] T003 Configure Angular application bootstrap, routing shell, and provider layout in `src/app/app.config.ts` and `src/app/app.routes.ts`
-- [ ] T004 [P] Configure Tailwind, ESLint, Prettier, Husky, lint-staged, Jest, and Playwright project files at repository root
-- [ ] T005 [P] Create translation file skeletons in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
-- [ ] T006 [P] Create runtime configuration contract for frontend env values in `src/app/core/services/app-config.model.ts`
-- [ ] T007 Create Docker frontend build/runtime files aligned to Node 22 Alpine and Nginx unprivileged in `Dockerfile.frontend` and `docker-compose.frontend.yml`
+- [x] T001 Create Angular/Supabase project structure from plan in `src/app`, `supabase/migrations`, `supabase/functions`, `tests`, and `scripts`
+- [x] T002 Align package scripts and dependencies with the referenced Angular 21/Supabase stack in `package.json`
+- [x] T003 Configure Angular application bootstrap, routing shell, and provider layout in `src/app/app.config.ts` and `src/app/app.routes.ts`
+- [x] T004 [P] Configure Tailwind, ESLint, Prettier, Husky, lint-staged, Jest, and Playwright project files at repository root
+- [x] T005 [P] Create translation file skeletons in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T006 [P] Create runtime configuration contract for frontend env values in `src/app/core/services/app-config.model.ts`
+- [x] T007 Create Docker frontend build/runtime files aligned to Node 22 Alpine and Nginx unprivileged in `Dockerfile.frontend` and `docker-compose.frontend.yml`
 
 ---
 
@@ -28,24 +28,24 @@
 
 **Critical**: No user story work can begin until this phase is complete.
 
-- [ ] T008 Create base Supabase migration for roles, profiles, authorization helpers, grants, and RLS in `supabase/migrations/001_auth_profiles_roles.sql`
-- [ ] T009 Create system role protection migration in `supabase/migrations/002_protect_system_roles.sql`
-- [ ] T010 Create candidate catalog migration and seed data in `supabase/migrations/003_candidate_catalogs.sql`
-- [ ] T011 Create candidate core and relationship table migration in `supabase/migrations/004_candidates_core.sql`
-- [ ] T012 Create candidate document, audit, export, and import tracking migration in `supabase/migrations/005_candidate_documents_audit_import_export.sql`
-- [ ] T013 Create RLS policy migration for candidate business tables in `supabase/migrations/006_candidate_rls_policies.sql`
-- [ ] T014 Create private CV storage bucket and policy migration in `supabase/migrations/007_candidate_cv_storage.sql`
-- [ ] T015 Create advanced search RPC migration for `search_candidates(filters jsonb)` in `supabase/migrations/008_search_candidates_rpc.sql`
-- [ ] T016 [P] Create Supabase client wrapper in `src/app/core/supabase/supabase-client.service.ts`
-- [ ] T017 [P] Create typed app models for roles, profiles, permissions, and shared responses in `src/app/shared/models/auth.models.ts`
-- [ ] T018 [P] Create typed candidate domain models in `src/app/features/candidates/models/candidate.models.ts`
-- [ ] T019 [P] Create typed catalog models in `src/app/features/catalogs/models/catalog.models.ts`
-- [ ] T020 [P] Create typed document, search, export, and import models in `src/app/features/search/models/search.models.ts` and `src/app/features/documents/models/document.models.ts`
-- [ ] T021 Create base layout, protected shell, and navigation structure in `src/app/core/layout/app-layout.component.ts`
-- [ ] T022 Create toast/error presentation service in `src/app/core/services/toast.service.ts`
-- [ ] T023 [P] Create SQL/RLS check script skeleton in `scripts/check-rls.js`
-- [ ] T024 [P] Create storage-policy check script skeleton in `scripts/check-storage-policies.js`
-- [ ] T025 Create security seed/test fixtures for roles and users in `tests/security/fixtures/users.json`
+- [x] T008 Create base Supabase migration for roles, profiles, authorization helpers, grants, and RLS in `supabase/migrations/001_auth_profiles_roles.sql`
+- [x] T009 Create system role protection migration in `supabase/migrations/002_protect_system_roles.sql`
+- [x] T010 Create candidate catalog migration and seed data in `supabase/migrations/003_candidate_catalogs.sql`
+- [x] T011 Create candidate core and relationship table migration in `supabase/migrations/004_candidates_core.sql`
+- [x] T012 Create candidate document, audit, export, and import tracking migration in `supabase/migrations/005_candidate_documents_audit_import_export.sql`
+- [x] T013 Create RLS policy migration for candidate business tables in `supabase/migrations/006_candidate_rls_policies.sql`
+- [x] T014 Create private CV storage bucket and policy migration in `supabase/migrations/007_candidate_cv_storage.sql`
+- [x] T015 Create advanced search RPC migration for `search_candidates(filters jsonb)` in `supabase/migrations/008_search_candidates_rpc.sql`
+- [x] T016 [P] Create Supabase client wrapper in `src/app/core/supabase/supabase-client.service.ts`
+- [x] T017 [P] Create typed app models for roles, profiles, permissions, and shared responses in `src/app/shared/models/auth.models.ts`
+- [x] T018 [P] Create typed candidate domain models in `src/app/features/candidates/models/candidate.models.ts`
+- [x] T019 [P] Create typed catalog models in `src/app/features/catalogs/models/catalog.models.ts`
+- [x] T020 [P] Create typed document, search, export, and import models in `src/app/features/search/models/search.models.ts` and `src/app/features/documents/models/document.models.ts`
+- [x] T021 Create base layout, protected shell, and navigation structure in `src/app/core/layout/app-layout.component.ts`
+- [x] T022 Create toast/error presentation service in `src/app/core/services/toast.service.ts`
+- [x] T023 [P] Create SQL/RLS check script skeleton in `scripts/check-rls.js`
+- [x] T024 [P] Create storage-policy check script skeleton in `scripts/check-storage-policies.js`
+- [x] T025 Create security seed/test fixtures for roles and users in `tests/security/fixtures/users.json`
 
 **Checkpoint**: Foundation ready; user story implementation can now begin independently.
 
@@ -61,19 +61,19 @@
 
 - [ ] T026 [P] [US1] Add AuthService unit tests for session, profile, permissions, and MFA readiness in `tests/unit/auth.service.spec.ts`
 - [ ] T027 [P] [US1] Add route guard unit tests for authenticated, inactive, readonly, and MFA-required states in `tests/unit/auth-guards.spec.ts`
-- [ ] T028 [P] [US1] Add Playwright secure-login flow covering login, MFA route, and unauthorized protected route access in `tests/e2e/secure-access.spec.ts`
+- [x] T028 [P] [US1] Add Playwright secure-login flow covering login, MFA route, and unauthorized protected route access in `tests/e2e/secure-access.spec.ts`
 - [ ] T029 [P] [US1] Add SQL/RLS tests for authenticated, readonly, inactive, no-profile, and unauthenticated access in `tests/security/rls-auth.sql`
 
 ### Implementation for User Story 1
 
-- [ ] T030 [P] [US1] Implement AuthService session and profile loading in `src/app/core/auth/auth.service.ts`
-- [ ] T031 [P] [US1] Implement MfaService wrappers for enrollment, challenge, verification, and assurance level in `src/app/core/auth/mfa.service.ts`
-- [ ] T032 [P] [US1] Implement route guards for authentication, active profile, permissions, and MFA in `src/app/core/guards/auth.guard.ts`
-- [ ] T033 [US1] Implement login page in `src/app/core/auth/login-page.component.ts`
-- [ ] T034 [US1] Implement MFA verification page in `src/app/core/auth/mfa-page.component.ts`
-- [ ] T035 [US1] Connect protected routes and role-aware navigation in `src/app/app.routes.ts` and `src/app/core/layout/app-layout.component.ts`
-- [ ] T036 [US1] Add Spanish/English auth, MFA, unauthorized, and validation texts in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
-- [ ] T037 [US1] Wire RLS and storage negative checks into `scripts/check-rls.js` and `scripts/check-storage-policies.js`
+- [x] T030 [P] [US1] Implement AuthService session and profile loading in `src/app/core/auth/auth.service.ts`
+- [x] T031 [P] [US1] Implement MfaService wrappers for enrollment, challenge, verification, and assurance level in `src/app/core/auth/mfa.service.ts`
+- [x] T032 [P] [US1] Implement route guards for authentication, active profile, permissions, and MFA in `src/app/core/guards/auth.guard.ts`
+- [x] T033 [US1] Implement login page in `src/app/core/auth/login-page.component.ts`
+- [x] T034 [US1] Implement MFA verification page in `src/app/core/auth/mfa-page.component.ts`
+- [x] T035 [US1] Connect protected routes and role-aware navigation in `src/app/app.routes.ts` and `src/app/core/layout/app-layout.component.ts`
+- [x] T036 [US1] Add Spanish/English auth, MFA, unauthorized, and validation texts in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T037 [US1] Wire RLS and storage negative checks into `scripts/check-rls.js` and `scripts/check-storage-policies.js`
 
 **Checkpoint**: Secure access is independently testable and forms the MVP gate.
 
@@ -87,20 +87,20 @@
 
 ### Tests for User Story 2
 
-- [ ] T038 [P] [US2] Add CandidateService unit tests for create, update, read, and logical deactivate in `tests/unit/candidate.service.spec.ts`
-- [ ] T039 [P] [US2] Add CandidateForm validation unit tests in `tests/unit/candidate-form.spec.ts`
-- [ ] T040 [P] [US2] Add Playwright candidate create/edit/logical deactivate flow in `tests/e2e/candidate-crud.spec.ts`
-- [ ] T041 [P] [US2] Add SQL/RLS write-permission checks for candidates in `tests/security/rls-candidates.sql`
+- [x] T038 [P] [US2] Add CandidateService unit tests for create, update, read, and logical deactivate in `tests/unit/candidate.service.spec.ts`
+- [x] T039 [P] [US2] Add CandidateForm validation unit tests in `tests/unit/candidate-form.spec.ts`
+- [x] T040 [P] [US2] Add Playwright candidate create/edit/logical deactivate flow in `tests/e2e/candidate-crud.spec.ts`
+- [x] T041 [P] [US2] Add SQL/RLS write-permission checks for candidates in `tests/security/rls-candidates.sql`
 
 ### Implementation for User Story 2
 
-- [ ] T042 [P] [US2] Implement CandidateService CRUD methods in `src/app/features/candidates/services/candidate.service.ts`
-- [ ] T043 [P] [US2] Implement candidate list page in `src/app/features/candidates/pages/candidate-list-page.component.ts`
-- [ ] T044 [P] [US2] Implement candidate detail page with audit summary in `src/app/features/candidates/pages/candidate-detail-page.component.ts`
-- [ ] T045 [P] [US2] Implement candidate form component in `src/app/features/candidates/components/candidate-form.component.ts`
-- [ ] T046 [US2] Implement candidate create/edit pages in `src/app/features/candidates/pages/candidate-edit-page.component.ts`
-- [ ] T047 [US2] Implement logical deactivation flow in `src/app/features/candidates/services/candidate.service.ts` and `src/app/features/candidates/pages/candidate-detail-page.component.ts`
-- [ ] T048 [US2] Add candidate validation, lifecycle, and audit translations in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T042 [P] [US2] Implement CandidateService CRUD methods in `src/app/features/candidates/services/candidate.service.ts`
+- [x] T043 [P] [US2] Implement candidate list page in `src/app/features/candidates/pages/candidate-list-page.component.ts`
+- [x] T044 [P] [US2] Implement candidate detail page with audit summary in `src/app/features/candidates/pages/candidate-detail-page.component.ts`
+- [x] T045 [P] [US2] Implement candidate form component in `src/app/features/candidates/components/candidate-form.component.ts`
+- [x] T046 [US2] Implement candidate create/edit pages in `src/app/features/candidates/pages/candidate-edit-page.component.ts`
+- [x] T047 [US2] Implement logical deactivation flow in `src/app/features/candidates/services/candidate.service.ts` and `src/app/features/candidates/pages/candidate-detail-page.component.ts`
+- [x] T048 [US2] Add candidate validation, lifecycle, and audit translations in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
 
 **Checkpoint**: Candidate CRUD is independently usable by RRHH users with correct role enforcement.
 
@@ -114,19 +114,19 @@
 
 ### Tests for User Story 5
 
-- [ ] T049 [P] [US5] Add SQL tests for `search_candidates` empty filters, AND combination, ANY/ALL languages, ANY/ALL programs, and duplicate prevention in `tests/security/search-candidates.sql`
-- [ ] T050 [P] [US5] Add CandidateSearchService unit tests for filter transformation and response mapping in `tests/unit/candidate-search.service.spec.ts`
-- [ ] T051 [P] [US5] Add Playwright advanced search flow in `tests/e2e/advanced-search.spec.ts`
+- [x] T049 [P] [US5] Add SQL tests for `search_candidates` empty filters, AND combination, ANY/ALL languages, ANY/ALL programs, and duplicate prevention in `tests/security/search-candidates.sql`
+- [x] T050 [P] [US5] Add CandidateSearchService unit tests for filter transformation and response mapping in `tests/unit/candidate-search.service.spec.ts`
+- [x] T051 [P] [US5] Add Playwright advanced search flow in `tests/e2e/advanced-search.spec.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T052 [P] [US5] Implement CandidateSearchService RPC integration in `src/app/features/search/services/candidate-search.service.ts`
-- [ ] T053 [P] [US5] Implement search filter models and validators in `src/app/features/search/models/search.models.ts`
-- [ ] T054 [P] [US5] Implement AdvancedSearchPageComponent in `src/app/features/search/pages/advanced-search-page.component.ts`
-- [ ] T055 [P] [US5] Implement SearchFiltersComponent with ANY/ALL controls in `src/app/features/search/components/search-filters.component.ts`
-- [ ] T056 [P] [US5] Implement SearchResultsComponent with secure CV action placeholder in `src/app/features/search/components/search-results.component.ts`
-- [ ] T057 [US5] Add route and navigation for advanced search in `src/app/app.routes.ts` and `src/app/core/layout/app-layout.component.ts`
-- [ ] T058 [US5] Add search labels, empty states, validation, and result messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T052 [P] [US5] Implement CandidateSearchService RPC integration in `src/app/features/search/services/candidate-search.service.ts`
+- [x] T053 [P] [US5] Implement search filter models and validators in `src/app/features/search/models/search.models.ts`
+- [x] T054 [P] [US5] Implement AdvancedSearchPageComponent in `src/app/features/search/pages/advanced-search-page.component.ts`
+- [x] T055 [P] [US5] Implement SearchFiltersComponent with ANY/ALL controls in `src/app/features/search/components/search-filters.component.ts`
+- [x] T056 [P] [US5] Implement SearchResultsComponent with secure CV action placeholder in `src/app/features/search/components/search-results.component.ts`
+- [x] T057 [US5] Add route and navigation for advanced search in `src/app/app.routes.ts` and `src/app/core/layout/app-layout.component.ts`
+- [x] T058 [US5] Add search labels, empty states, validation, and result messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
 
 **Checkpoint**: Advanced search works independently with candidate data and catalogs.
 
@@ -140,21 +140,21 @@
 
 ### Tests for User Story 3
 
-- [ ] T059 [P] [US3] Add unit tests for candidate language and program relation services in `tests/unit/candidate-relations.service.spec.ts`
-- [ ] T060 [P] [US3] Add form validation tests for education, experience, and skill sections in `tests/unit/candidate-profile-sections.spec.ts`
-- [ ] T061 [P] [US3] Add Playwright candidate profile enrichment flow in `tests/e2e/candidate-profile.spec.ts`
-- [ ] T062 [P] [US3] Add SQL/RLS relation access checks in `tests/security/rls-candidate-relations.sql`
+- [x] T059 [P] [US3] Add unit tests for candidate language and program relation services in `tests/unit/candidate-relations.service.spec.ts`
+- [x] T060 [P] [US3] Add form validation tests for education, experience, and skill sections in `tests/unit/candidate-profile-sections.spec.ts`
+- [x] T061 [P] [US3] Add Playwright candidate profile enrichment flow in `tests/e2e/candidate-profile.spec.ts`
+- [x] T062 [P] [US3] Add SQL/RLS relation access checks in `tests/security/rls-candidate-relations.sql`
 
 ### Implementation for User Story 3
 
-- [ ] T063 [P] [US3] Implement CandidateRelationsService in `src/app/features/candidates/services/candidate-relations.service.ts`
-- [ ] T064 [P] [US3] Implement CandidateLanguagesComponent in `src/app/features/candidates/components/candidate-languages.component.ts`
-- [ ] T065 [P] [US3] Implement CandidateProgramsComponent in `src/app/features/candidates/components/candidate-programs.component.ts`
-- [ ] T066 [P] [US3] Implement CandidateEducationComponent in `src/app/features/candidates/components/candidate-education.component.ts`
-- [ ] T067 [P] [US3] Implement CandidateExperienceComponent in `src/app/features/candidates/components/candidate-experience.component.ts`
-- [ ] T068 [P] [US3] Implement CandidateSkillsComponent in `src/app/features/candidates/components/candidate-skills.component.ts`
-- [ ] T069 [US3] Integrate profile enrichment sections into candidate detail/edit pages in `src/app/features/candidates/pages/candidate-detail-page.component.ts`
-- [ ] T070 [US3] Add relation section labels, duplicate warnings, and validation messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T063 [P] [US3] Implement CandidateRelationsService in `src/app/features/candidates/services/candidate-relations.service.ts`
+- [x] T064 [P] [US3] Implement CandidateLanguagesComponent in `src/app/features/candidates/components/candidate-languages.component.ts`
+- [x] T065 [P] [US3] Implement CandidateProgramsComponent in `src/app/features/candidates/components/candidate-programs.component.ts`
+- [x] T066 [P] [US3] Implement CandidateEducationComponent in `src/app/features/candidates/components/candidate-education.component.ts`
+- [x] T067 [P] [US3] Implement CandidateExperienceComponent in `src/app/features/candidates/components/candidate-experience.component.ts`
+- [x] T068 [P] [US3] Implement CandidateSkillsComponent in `src/app/features/candidates/components/candidate-skills.component.ts`
+- [x] T069 [US3] Integrate profile enrichment sections into candidate detail/edit pages in `src/app/features/candidates/pages/candidate-detail-page.component.ts`
+- [x] T070 [US3] Add relation section labels, duplicate warnings, and validation messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
 
 **Checkpoint**: Professional profile enrichment is independently testable for an existing candidate.
 
@@ -175,12 +175,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T075 [P] [US4] Implement DocumentService upload and metadata operations in `src/app/features/documents/services/document.service.ts`
-- [ ] T076 [P] [US4] Implement CandidateDocumentsComponent in `src/app/features/candidates/components/candidate-documents.component.ts`
-- [ ] T077 [P] [US4] Implement `candidate-create-signed-cv-url` Edge Function in `supabase/functions/candidate-create-signed-cv-url/index.ts`
-- [ ] T078 [US4] Integrate secure CV actions into candidate detail and search result screens in `src/app/features/candidates/pages/candidate-detail-page.component.ts` and `src/app/features/search/components/search-results.component.ts`
-- [ ] T079 [US4] Add document upload/opening errors and security messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
-- [ ] T080 [US4] Complete storage policy checks for CV bucket in `scripts/check-storage-policies.js`
+- [x] T075 [P] [US4] Implement DocumentService upload and metadata operations in `src/app/features/documents/services/document.service.ts`
+- [x] T076 [P] [US4] Implement CandidateDocumentsComponent in `src/app/features/candidates/components/candidate-documents.component.ts`
+- [x] T077 [P] [US4] Implement `candidate-create-signed-cv-url` Edge Function in `supabase/functions/candidate-create-signed-cv-url/index.ts`
+- [x] T078 [US4] Integrate secure CV actions into candidate detail and search result screens in `src/app/features/candidates/pages/candidate-detail-page.component.ts` and `src/app/features/search/components/search-results.component.ts`
+- [x] T079 [US4] Add document upload/opening errors and security messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T080 [US4] Complete storage policy checks for CV bucket in `scripts/check-storage-policies.js`
 
 **Checkpoint**: Private document handling is independently testable and fails closed.
 
@@ -200,11 +200,11 @@
 
 ### Implementation for User Story 6
 
-- [ ] T084 [P] [US6] Implement ExportService in `src/app/features/search/services/export.service.ts`
-- [ ] T085 [P] [US6] Implement `candidate-export-results` Edge Function in `supabase/functions/candidate-export-results/index.ts`
-- [ ] T086 [US6] Integrate export action into `src/app/features/search/pages/advanced-search-page.component.ts`
-- [ ] T087 [US6] Add export audit event recording in `supabase/migrations/005_candidate_documents_audit_import_export.sql`
-- [ ] T088 [US6] Add export labels, blocked-action messages, and completion messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T084 [P] [US6] Implement ExportService in `src/app/features/search/services/export.service.ts`
+- [x] T085 [P] [US6] Implement `candidate-export-results` Edge Function in `supabase/functions/candidate-export-results/index.ts`
+- [x] T086 [US6] Integrate export action into `src/app/features/search/pages/advanced-search-page.component.ts`
+- [x] T087 [US6] Add export audit event recording in `supabase/migrations/005_candidate_documents_audit_import_export.sql`
+- [x] T088 [US6] Add export labels, blocked-action messages, and completion messages in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
 
 **Checkpoint**: Controlled export is independently testable after search.
 
@@ -224,12 +224,12 @@
 
 ### Implementation for User Story 7
 
-- [ ] T092 [P] [US7] Implement import data models in `src/app/features/admin/import/import.models.ts`
-- [ ] T093 [P] [US7] Implement ImportService in `src/app/features/admin/import/import.service.ts`
-- [ ] T094 [P] [US7] Implement admin import page in `src/app/features/admin/import/import-page.component.ts`
-- [ ] T095 [P] [US7] Implement `candidate-import-access-csv` Edge Function in `supabase/functions/candidate-import-access-csv/index.ts`
-- [ ] T096 [US7] Add import route and permission guard in `src/app/app.routes.ts`
-- [ ] T097 [US7] Add import summary, row-error, dry-run, and validation texts in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
+- [x] T092 [P] [US7] Implement import data models in `src/app/features/admin/import/import.models.ts`
+- [x] T093 [P] [US7] Implement ImportService in `src/app/features/admin/import/import.service.ts`
+- [x] T094 [P] [US7] Implement admin import page in `src/app/features/admin/import/import-page.component.ts`
+- [x] T095 [P] [US7] Implement `candidate-import-access-csv` Edge Function in `supabase/functions/candidate-import-access-csv/index.ts`
+- [x] T096 [US7] Add import route and permission guard in `src/app/app.routes.ts`
+- [x] T097 [US7] Add import summary, row-error, dry-run, and validation texts in `src/assets/i18n/es.json` and `src/assets/i18n/en.json`
 
 **Checkpoint**: Controlled import is independently testable with representative CSV fixtures.
 
@@ -239,17 +239,17 @@
 
 **Purpose**: Complete supporting management screens, retention review, quality hardening, and documentation.
 
-- [ ] T098 [P] Implement CatalogService in `src/app/features/catalogs/services/catalog.service.ts`
-- [ ] T099 [P] Implement CatalogManagementPageComponent in `src/app/features/catalogs/pages/catalog-management-page.component.ts`
-- [ ] T100 [P] Implement ProfileService and role administration services in `src/app/features/admin/users/profile.service.ts` and `src/app/features/admin/roles/role.service.ts`
-- [ ] T101 [P] Implement AdminUsersPageComponent in `src/app/features/admin/users/admin-users-page.component.ts`
-- [ ] T102 [P] Implement AdminRolesPageComponent in `src/app/features/admin/roles/admin-roles-page.component.ts`
-- [ ] T103 Implement `candidate-retention-check` Edge Function in `supabase/functions/candidate-retention-check/index.ts`
-- [ ] T104 Add retention dashboard indicators to `src/app/core/layout/app-layout.component.ts` or `src/app/features/candidates/pages/candidate-list-page.component.ts`
-- [ ] T105 Complete RLS smoke test runner in `scripts/check-rls.js`
-- [ ] T106 Complete Playwright authentication and seed setup in `tests/e2e/global-setup.ts`
-- [ ] T107 Run and fix definition-aligned lint, format, unit, E2E, RLS, and storage validation issues across `src`, `supabase`, `tests`, and `scripts`
-- [ ] T108 Update implementation notes and validation evidence in `specs/001-gestion-cvs-rrhh/quickstart.md`
+- [x] T098 [P] Implement CatalogService in `src/app/features/catalogs/services/catalog.service.ts`
+- [x] T099 [P] Implement CatalogManagementPageComponent in `src/app/features/catalogs/pages/catalog-management-page.component.ts`
+- [x] T100 [P] Implement ProfileService and role administration services in `src/app/features/admin/users/profile.service.ts` and `src/app/features/admin/roles/role.service.ts`
+- [x] T101 [P] Implement AdminUsersPageComponent in `src/app/features/admin/users/admin-users-page.component.ts`
+- [x] T102 [P] Implement AdminRolesPageComponent in `src/app/features/admin/roles/admin-roles-page.component.ts`
+- [x] T103 Implement `candidate-retention-check` Edge Function in `supabase/functions/candidate-retention-check/index.ts`
+- [x] T104 Add retention dashboard indicators to `src/app/core/layout/app-layout.component.ts` or `src/app/features/candidates/pages/candidate-list-page.component.ts`
+- [x] T105 Complete RLS smoke test runner in `scripts/check-rls.js`
+- [x] T106 Complete Playwright authentication and seed setup in `tests/e2e/global-setup.ts`
+- [x] T107 Run and fix definition-aligned lint, format, unit, E2E, RLS, and storage validation issues across `src`, `supabase`, `tests`, and `scripts`
+- [x] T108 Update implementation notes and validation evidence in `specs/001-gestion-cvs-rrhh/quickstart.md`
 
 ---
 
@@ -289,45 +289,45 @@
 
 ## Requirements Coverage Matrix
 
-| Requirement | Primary Coverage |
-|-------------|------------------|
-| FR-001 | T026-T037, T105 |
-| FR-002 | T008-T009, T017, T030-T037, T100-T102 |
-| FR-003 | T038-T048 |
-| FR-004 | T011, T018, T038-T048 |
-| FR-005 | T011, T059-T070 |
-| FR-006 | T011, T059-T070 |
-| FR-007 | T011, T059-T070 |
-| FR-008 | T011, T059-T070 |
-| FR-009 | T011, T059-T070 |
-| FR-010 | T012, T071-T080 |
-| FR-011 | T014, T071-T080 |
-| FR-012 | T014, T071-T080, T081-T088 |
-| FR-013 | T015, T049-T058 |
-| FR-014 | T015, T049-T058 |
-| FR-015 | T015, T049-T058 |
-| FR-016 | T015, T049-T058 |
-| FR-017 | T015, T049-T058 |
-| FR-018 | T052-T058 |
-| FR-019 | T081-T088 |
-| FR-020 | T081-T088 |
-| FR-021 | T012, T047, T078, T087, T095 |
-| FR-022 | T089-T097 |
-| FR-023 | T089-T097 |
-| FR-024 | T022, T036, T048, T058, T070, T079, T088, T097 |
-| FR-025 | T005, T036, T048, T058, T070, T079, T088, T097 |
+| Requirement | Primary Coverage                               |
+| ----------- | ---------------------------------------------- |
+| FR-001      | T026-T037, T105                                |
+| FR-002      | T008-T009, T017, T030-T037, T100-T102          |
+| FR-003      | T038-T048                                      |
+| FR-004      | T011, T018, T038-T048                          |
+| FR-005      | T011, T059-T070                                |
+| FR-006      | T011, T059-T070                                |
+| FR-007      | T011, T059-T070                                |
+| FR-008      | T011, T059-T070                                |
+| FR-009      | T011, T059-T070                                |
+| FR-010      | T012, T071-T080                                |
+| FR-011      | T014, T071-T080                                |
+| FR-012      | T014, T071-T080, T081-T088                     |
+| FR-013      | T015, T049-T058                                |
+| FR-014      | T015, T049-T058                                |
+| FR-015      | T015, T049-T058                                |
+| FR-016      | T015, T049-T058                                |
+| FR-017      | T015, T049-T058                                |
+| FR-018      | T052-T058                                      |
+| FR-019      | T081-T088                                      |
+| FR-020      | T081-T088                                      |
+| FR-021      | T012, T047, T078, T087, T095                   |
+| FR-022      | T089-T097                                      |
+| FR-023      | T089-T097                                      |
+| FR-024      | T022, T036, T048, T058, T070, T079, T088, T097 |
+| FR-025      | T005, T036, T048, T058, T070, T079, T088, T097 |
 
-| Success Criterion | Primary Coverage |
-|-------------------|------------------|
-| SC-001 | T038-T048 |
-| SC-002 | T049-T058 |
-| SC-003 | T049-T058 |
-| SC-004 | T026-T037, T041, T062, T074, T105 |
-| SC-005 | T071-T080 |
-| SC-006 | T081-T088 |
-| SC-007 | T089-T097 |
-| SC-008 | T089-T097, T108 |
-| SC-009 | T026-T088, T107-T108 |
+| Success Criterion | Primary Coverage                  |
+| ----------------- | --------------------------------- |
+| SC-001            | T038-T048                         |
+| SC-002            | T049-T058                         |
+| SC-003            | T049-T058                         |
+| SC-004            | T026-T037, T041, T062, T074, T105 |
+| SC-005            | T071-T080                         |
+| SC-006            | T081-T088                         |
+| SC-007            | T089-T097                         |
+| SC-008            | T089-T097, T108                   |
+| SC-009            | T026-T088, T107-T108              |
 
 ---
 

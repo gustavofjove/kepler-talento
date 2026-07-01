@@ -91,3 +91,36 @@ especificacion_tecnica_*.md       Documento tecnico fuente del dominio RRHH/CVs
 
 La siguiente fase es implementar siguiendo `tasks.md`, empezando por la
 infraestructura base, migraciones Supabase, autenticacion y controles de acceso.
+
+## Ejecucion local con Docker Desktop
+
+El frontend se puede construir y servir en Docker con Nginx:
+
+```powershell
+docker compose -f docker-compose.frontend.yml up -d --build
+```
+
+Por defecto usa el puerto `63151`. Si ese puerto ya esta ocupado:
+
+```powershell
+$env:FRONTEND_PORT="63152"
+docker compose -f docker-compose.frontend.yml up -d --build
+```
+
+URL local:
+
+```text
+http://localhost:63151
+```
+
+o el puerto alternativo que hayas indicado.
+
+Para parar el contenedor:
+
+```powershell
+docker compose -f docker-compose.frontend.yml down
+```
+
+La aplicacion arranca en modo local/demo si `SUPABASE_URL` y
+`SUPABASE_ANON_KEY` estan vacios. Cuando exista un entorno Supabase, copia
+`.env.example` a `.env` y rellena esas variables.

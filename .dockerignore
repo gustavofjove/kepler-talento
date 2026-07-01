@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.angular/
+.git/
+.agents/
+coverage/
+playwright-report/
+test-results/
+*.log
+.env
+.env.*
+*.accdb
+*.mdb

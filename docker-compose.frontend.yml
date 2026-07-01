@@ -1,0 +1,14 @@
+services:
+  rrhh-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: rrhh-bbdd-frontend
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      APP_ENV: ${APP_ENV:-local}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+    ports:
+      - '${FRONTEND_PORT:-63151}:8080'
+    restart: unless-stopped

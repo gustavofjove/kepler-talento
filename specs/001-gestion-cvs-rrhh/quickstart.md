@@ -109,3 +109,21 @@ reported, and Access remains a reference source only.
 3. Run negative tests for unauthenticated users.
 
 Expected outcome: all security checks pass and fail closed where expected.
+
+## Implementation Notes
+
+- User story 3 relation-section translations are now present in both Spanish and English for languages, programs, education, experience, and skills.
+- Shared validation strings are available for duplicate relation prevention, negative years, invalid date ranges, required degrees, and missing candidates.
+- The repository still has broader formatting debt outside the touched files, so repo-wide formatting checks should be treated separately from feature-specific validation.
+
+## Validation Evidence
+
+- `npm run lint` completes without reported issues.
+- `npm run e2e` passes with 14 Playwright tests.
+- `npm run test` passes with 6 test suites and 41 tests.
+- `npm run security:rls` runs the current RLS validation script placeholder without errors.
+- `npm run security:storage` runs the current storage policy validation script placeholder without errors.
+- `npm run build` generates the Angular production bundle successfully.
+- `docker compose -f docker-compose.frontend.yml build` completes successfully and produces the frontend image.
+- `npx prettier --check src/assets/i18n/es.json src/assets/i18n/en.json` passes for the updated translation files.
+- `get_errors` across `src`, `supabase`, `tests`, and `scripts` reported no current TypeScript or script errors in the workspace snapshot.

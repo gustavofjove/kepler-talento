@@ -1,0 +1,8 @@
+{
+  "users": [
+    { "email": "rrhh.admin@example.com", "role": "rrhh_admin" },
+    { "email": "rrhh.user@example.com", "role": "rrhh_user" },
+    { "email": "manager.reader@example.com", "role": "manager_reader" },
+    { "email": "readonly@example.com", "role": "readonly" }
+  ]
+}
