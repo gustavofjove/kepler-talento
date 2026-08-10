@@ -29,6 +29,15 @@
 - [x] Feature meets measurable outcomes defined in Success Criteria
 - [x] No implementation details leak into specification
 
+## Continuation Coverage
+
+- [x] FR-026 candidate operations center requirements are specified and testable
+- [x] FR-027 saved-search behavior is specified and testable
+- [x] FR-028 sensitive-action confirmation requirement is explicit
+- [x] FR-029 catalog integrity protection in-use values is explicit
+- [x] FR-030 import/export history requirements are explicit
+- [x] FR-031 self-lockout/last-admin prevention requirements are explicit
+
 ## Notes
 
 - Validated against the existing project Markdown documents on 2026-06-28.

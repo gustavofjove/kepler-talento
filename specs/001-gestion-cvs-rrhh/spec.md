@@ -4,11 +4,13 @@
 
 **Created**: 2026-06-28
 
-**Status**: Definition Complete - ready for implementation planning handoff
+**Status**: In Progress - implementation ongoing with backlog-driven continuation
 
 **Input**: User description: "Basandose en los documentos markdown del proyecto, definir la aplicacion interna de RRHH para gestion de CVs con Spec Kit."
 
-## User Scenarios & Testing *(mandatory)*
+**Continuation Backlog**: See [backlog.md](./backlog.md) for prioritized execution waves after the initial MVP implementation.
+
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Acceso seguro a la aplicacion (Priority: P1)
 
@@ -183,6 +185,34 @@ representativos.
    **Then** Access queda solo como referencia historica y no como fuente
    operativa.
 
+---
+
+### User Story 8 - Operacion diaria eficiente para RRHH (Priority: P1)
+
+Un usuario de RRHH trabaja con cientos de candidatos y necesita listados,
+busquedas recurrentes y acciones operativas rapidas sin errores por clics
+accidentales.
+
+**Why this priority**: Sin productividad operativa en listado, busqueda e import,
+la aplicacion no sustituye de forma realista el flujo diario de RRHH.
+
+**Independent Test**: Se puede operar un dataset representativo navegando,
+filtrando, guardando busquedas y ejecutando acciones clave sin depender de
+herramientas externas.
+
+**Acceptance Scenarios**:
+
+1. **Given** un volumen representativo de candidatos, **When** RRHH usa el
+   listado con filtros y ordenacion, **Then** localiza candidatos objetivo en
+   tiempos operativos aceptables.
+2. **Given** una busqueda recurrente, **When** RRHH guarda y reutiliza filtros,
+   **Then** puede repetir la consulta en un clic.
+3. **Given** una accion destructiva o sensible, **When** RRHH intenta
+   ejecutarla, **Then** el sistema solicita confirmacion explicita y deja
+   trazabilidad del resultado.
+4. **Given** una importacion o exportacion de lote, **When** finaliza, **Then**
+   RRHH/Admin puede consultar historial, errores y resultado sin ambiguedad.
+
 ### Edge Cases
 
 - Un candidato puede no tener CV adjunto todavia; debe poder registrarse y
@@ -199,8 +229,12 @@ representativos.
   tecnico.
 - Los datos importados desde Access pueden venir duplicados, incompletos o con
   relaciones desnormalizadas.
+- Un rol administrativo no debe poder dejar el sistema sin ningun administrador
+  activo por errores de configuracion.
+- Un valor de catalogo en uso por candidatos no debe poder eliminarse o
+  desactivarse sin migracion previa.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -259,8 +293,76 @@ representativos.
   unauthorized actions.
 - **FR-025**: The system MUST be usable in Spanish for RRHH users and structured
   so additional languages can be added later.
+- **FR-026**: The system MUST provide an operational candidate list with quick
+  filters, sorting, and pagination suitable for daily RRHH usage.
+- **FR-027**: The system MUST support saved searches per user, including last
+  used filters for advanced search.
+- **FR-028**: Sensitive actions (logical deactivation, deletes, role-impacting
+  updates) MUST require explicit user confirmation.
+- **FR-029**: The system MUST prevent catalog deactivation or deletion when the
+  value is actively referenced by candidate data, unless a controlled migration
+  path is used.
+- **FR-030**: The system MUST provide import/export batch history with status,
+  actor, and error summary for operational review.
+- **FR-031**: The system MUST prevent self-lockout and last-admin removal
+  scenarios in user/role administration.
 
-### Key Entities *(include if feature involves data)*
+### Non-Functional Requirements
+
+- **NFR-001 (Availability)**: The system SHOULD target monthly availability of
+  99.5% for internal working hours, excluding planned maintenance windows.
+- **NFR-002 (Performance - Interactive)**: Candidate create/edit/search actions
+  SHOULD return visible feedback to users within 2 seconds for normal internal
+  workloads.
+- **NFR-003 (Performance - Bulk)**: Export and import operations MUST provide
+  progress or completion feedback and MUST fail with controlled business errors
+  rather than technical stack traces.
+- **NFR-004 (Security - Session)**: Authentication sessions MUST expire
+  according to corporate policy, and sensitive actions MUST require a valid,
+  active profile and role at execution time.
+- **NFR-005 (Security - Data At Rest/In Transit)**: Candidate personal data and
+  CV documents MUST be stored and transferred using platform encryption
+  capabilities and HTTPS-only access.
+- **NFR-006 (Privacy - Data Minimization)**: UI, search, and export surfaces
+  MUST expose only the minimum data required for the user role and business
+  purpose.
+- **NFR-007 (Auditability)**: Sensitive operations (auth-relevant profile
+  changes, candidate updates, CV access, export, import) MUST be traceable with
+  actor, timestamp, and outcome.
+- **NFR-008 (Observability)**: Production deployments MUST expose structured
+  logs and operational error codes for frontend, Edge Functions, and critical
+  SQL operations.
+- **NFR-009 (Recoverability)**: Database backup and restore procedures MUST be
+  documented and tested before production go-live.
+- **NFR-010 (Accessibility)**: MVP screens MUST support keyboard navigation,
+  visible focus, and semantic labeling adequate for internal accessibility
+  requirements.
+
+### Scope Boundaries
+
+In-scope for MVP:
+
+- Secure internal access, role-based permissions, candidate lifecycle,
+  enrichment relations, private CV handling, advanced search, controlled export,
+  and controlled import from Access/CSV.
+
+Out-of-scope for MVP:
+
+- Public candidate portal, automatic candidate deduplication/merge, automatic
+  destructive deletion workflows, AI-based CV ranking, external job-board
+  publishing, and realtime collaborative editing.
+
+### Release Readiness Gates
+
+- All `FR-*` and `NFR-*` items mapped to tests or executable validation checks.
+- No open high-severity security findings in RLS, storage, or role enforcement.
+- Migration dry-run and rollback instructions validated on staging.
+- Import and export acceptance validated with representative RRHH data samples.
+- Operational runbook available for incident response, secret rotation, and
+  backup restore.
+- Product owner and RRHH key user acceptance signed off for MVP stories.
+
+### Key Entities _(include if feature involves data)_
 
 - **User Profile**: Represents an application user, their active status, role,
   and security-related settings.
@@ -293,7 +395,7 @@ representativos.
 - **Audit Event**: A record of important create, update, document, export, or
   import operations.
 
-### Data Protection & Access *(include if feature involves personal, restricted, or document data)*
+### Data Protection & Access _(include if feature involves personal, restricted, or document data)_
 
 - Only authorized users may view, create, edit, export, deactivate, or download
   candidate information according to their role.
@@ -307,7 +409,7 @@ representativos.
 - Security must fail closed for unauthenticated users, inactive users, invalid
   roles, and users without document or export permission.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -331,6 +433,13 @@ representativos.
 - **SC-009**: The MVP can be demonstrated end-to-end from login through
   candidate creation, profile enrichment, CV upload, search, secure CV opening,
   and export.
+- **SC-010**: RRHH can complete the top 5 daily operational actions (find,
+  open, update, document check, export) in under 2 minutes each using only the
+  application UI.
+- **SC-011**: 100% of tested self-lockout and last-admin scenarios are blocked
+  with controlled user-facing messages.
+- **SC-012**: Import/export history is available for all tested batches with
+  actor, timestamp, and outcome.
 
 ## Assumptions
 

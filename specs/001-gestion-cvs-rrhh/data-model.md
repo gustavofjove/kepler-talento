@@ -15,6 +15,10 @@ deactivation for normal operations.
 - Normal user removal is logical through `is_active` or `deleted_at`.
 - Migrations are idempotent and include explicit grants for Supabase roles.
 - Storage paths are internal metadata, never user-facing links.
+- Time fields use UTC and ISO-8601 representation at API boundaries.
+- All externally received identifiers from import sources are stored as
+  non-authoritative references, never as primary keys.
+- Search-critical fields must be indexed according to validated query plans.
 
 ## Entities
 
@@ -55,7 +59,8 @@ Represents a person whose CV is managed by RRHH.
 **Fields**: `id`, `first_name`, `last_name`, `phone`, `email`, `location`,
 `province`, `country`, `availability_id`, `status_id`, `source_id`, `notes`,
 `received_at`, `consent_at`, `review_due_at`, `is_active`, `deleted_at`,
-`created_at`, `updated_at`, `created_by`, `updated_by`.
+`created_at`, `updated_at`, `created_by`, `updated_by`,
+`source_external_id`.
 
 **Relationships**:
 
@@ -68,6 +73,7 @@ Represents a person whose CV is managed by RRHH.
 - `first_name` and `last_name` are required.
 - Candidate duplicates are not merged automatically.
 - Logical deactivation sets inactive/deleted state without destroying history.
+- `review_due_at` cannot be earlier than `received_at` when both are present.
 
 **State transitions**:
 
@@ -167,6 +173,7 @@ Represents private document metadata for a candidate.
 - Only one primary CV is allowed per candidate.
 - MVP accepts `application/pdf` for CV files.
 - Storage location remains private and is not exported as a user-facing value.
+- `size_bytes` must be within configured platform limits.
 
 ### CandidateAuditLog
 
@@ -186,7 +193,7 @@ Represents a controlled import from Access/CSV.
 
 **Fields**: `id`, `source_name`, `source_type`, `status`, `total_rows`,
 `loaded_rows`, `error_rows`, `started_at`, `finished_at`, `created_by`,
-`summary`.
+`summary`, `idempotency_key`.
 
 **Relationships**: Has many import errors.
 
@@ -214,6 +221,31 @@ Represents a controlled result export.
 - Exported fields must match the permitted field set.
 - Internal storage paths and service secrets are never included.
 
+### SearchPreset
+
+Represents a saved search configuration per user.
+
+**Fields**: `id`, `owner_profile_id`, `name`, `filters`, `is_default`,
+`created_at`, `updated_at`.
+
+**Validation**:
+
+- Preset names are unique per owner.
+- Each owner can have at most one default preset.
+
+### OperationBatch
+
+Represents a unified operational record for long-running import/export jobs.
+
+**Fields**: `id`, `batch_type` (`import`|`export`), `status`, `requested_by`,
+`requested_at`, `started_at`, `finished_at`, `row_count`, `error_count`,
+`summary`, `artifact_reference`.
+
+**Validation**:
+
+- State transitions follow `queued -> running -> completed|failed|cancelled`.
+- `artifact_reference` uses private storage or controlled access only.
+
 ## Search Filter Model
 
 `SearchFilterSet` is a transient user-selected object for `search_candidates`.
@@ -221,7 +253,8 @@ Represents a controlled result export.
 **Fields**: `text`, `status_ids`, `availability_ids`, `language_ids`,
 `language_mode`, `program_ids`, `program_mode`, `education_type_ids`,
 `sector_ids`, `skill_ids`, `min_years_experience`, `received_from`,
-`received_to`, `has_cv`, `include_inactive`.
+`received_to`, `has_cv`, `include_inactive`, `page`, `page_size`, `sort_by`,
+`sort_direction`.
 
 **Validation**:
 
@@ -263,6 +296,19 @@ Access rules:
   access.
 - Direct public URLs are forbidden.
 
+## Indexing And Query Expectations
+
+Expected initial indexes (subject to query-plan verification):
+
+- Candidate: `status_id`, `availability_id`, `is_active`, `received_at`,
+  `updated_at`, and optional text-search support for names.
+- Relations: composite indexes by `candidate_id` and related catalog key.
+- Documents: `candidate_id`, `is_primary`.
+- Import/Export events: `created_by`, `requested_by`, `requested_at`.
+
+Index changes are validated using representative search and list workloads in
+staging.
+
 ## Lifecycle Summary
 
 - Candidate creation records audit metadata.
@@ -273,3 +319,5 @@ Access rules:
 - CV opening validates authorization before returning temporary access.
 - Import batch validates source rows, loads valid data, and records row errors.
 - Export event records who exported, when, selected filters, and field set.
+- Saved searches allow repeatable query workflows for RRHH operators.
+- Operation batches provide user-visible traceability for import/export jobs.

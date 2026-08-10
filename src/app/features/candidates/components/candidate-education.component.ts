@@ -1,9 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import {
-  DEFAULT_EDUCATION_STATUSES,
-  DEFAULT_EDUCATION_TYPES,
-} from '../../catalogs/models/catalog.models';
+import { CatalogService } from '../../catalogs/services/catalog.service';
 import { CandidateEducation } from '../models/candidate.models';
 import { CandidateRelationsService } from '../services/candidate-relations.service';
 
@@ -90,8 +87,6 @@ export class CandidateEducationComponent {
   @Input() education: CandidateEducation[] = [];
   @Input() canEdit = false;
 
-  readonly typeOptions = DEFAULT_EDUCATION_TYPES;
-  readonly statusOptions = DEFAULT_EDUCATION_STATUSES;
   draft: {
     educationType: string;
     degree: string;
@@ -109,7 +104,18 @@ export class CandidateEducationComponent {
   };
   error = '';
 
-  constructor(private readonly relations: CandidateRelationsService) {}
+  constructor(
+    private readonly relations: CandidateRelationsService,
+    private readonly catalogs: CatalogService,
+  ) {}
+
+  get typeOptions(): string[] {
+    return this.catalogs.activeNames('education_type');
+  }
+
+  get statusOptions(): string[] {
+    return this.catalogs.activeNames('education_status');
+  }
 
   add(): void {
     try {

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEFAULT_LANGUAGES, DEFAULT_LANGUAGE_LEVELS } from '../../catalogs/models/catalog.models';
+import { CatalogService } from '../../catalogs/services/catalog.service';
 import { CandidateLanguage } from '../models/candidate.models';
 import { CandidateRelationsService } from '../services/candidate-relations.service';
 
@@ -71,12 +71,21 @@ export class CandidateLanguagesComponent {
   @Input() languages: CandidateLanguage[] = [];
   @Input() canEdit = false;
 
-  readonly languageOptions = DEFAULT_LANGUAGES;
-  readonly levelOptions = DEFAULT_LANGUAGE_LEVELS;
   draft = { language: '', level: '', certification: '' };
   error = '';
 
-  constructor(private readonly relations: CandidateRelationsService) {}
+  constructor(
+    private readonly relations: CandidateRelationsService,
+    private readonly catalogs: CatalogService,
+  ) {}
+
+  get languageOptions(): string[] {
+    return this.catalogs.activeNames('language');
+  }
+
+  get levelOptions(): string[] {
+    return this.catalogs.activeNames('language_level');
+  }
 
   add(): void {
     try {

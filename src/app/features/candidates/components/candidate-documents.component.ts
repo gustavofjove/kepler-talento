@@ -1,8 +1,10 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { DocumentService } from '../../documents/services/document.service';
 import { Candidate } from '../models/candidate.models';
+import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.service';
 
 @Component({
   selector: 'rrhh-candidate-documents',
@@ -31,6 +33,16 @@ import { Candidate } from '../models/candidate.models';
             >
               Abrir seguro
             </button>
+            @if (auth.hasPermission('upload_candidate_documents') && !document.isPrimary) {
+              <button class="button ghost" type="button" (click)="markPrimary(document.id)">
+                Marcar principal
+              </button>
+            }
+            @if (auth.hasPermission('upload_candidate_documents')) {
+              <button class="button danger" type="button" (click)="remove(document.id)">
+                Eliminar
+              </button>
+            }
           </div>
         }
       </div>
@@ -74,6 +86,8 @@ export class CandidateDocumentsComponent {
   constructor(
     readonly auth: AuthService,
     private readonly documentService: DocumentService,
+    private readonly toast: ToastService,
+    private readonly confirmDialog: ConfirmDialogService,
   ) {}
 
   onFileSelected(event: Event): void {
@@ -94,6 +108,7 @@ export class CandidateDocumentsComponent {
       this.selectedFile = undefined;
       this.isPrimary = true;
       this.error = '';
+      this.toast.show('CV subido correctamente.', 'success');
     } catch (err) {
       this.error = (err as Error).message;
     }
@@ -105,5 +120,49 @@ export class CandidateDocumentsComponent {
     }
     const secure = this.documentService.createSecureUrl(this.candidate.id, documentId);
     window.open(secure.url, '_blank', 'noopener,noreferrer');
+  }
+
+  markPrimary(documentId: string): void {
+    if (!this.candidate) {
+      return;
+    }
+
+    try {
+      this.documentService.setPrimary(this.candidate.id, documentId);
+      this.toast.show('CV principal actualizado.', 'success');
+    } catch (error) {
+      this.toast.show(
+        error instanceof Error ? error.message : 'No se pudo actualizar el CV.',
+        'error',
+      );
+    }
+  }
+
+  async remove(documentId: string): Promise<void> {
+    if (!this.candidate) {
+      return;
+    }
+
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Eliminar documento',
+      message: 'Se eliminara el documento seleccionado del candidato.',
+      confirmText: 'Eliminar documento',
+      cancelText: 'Cancelar',
+      danger: true,
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      this.documentService.remove(this.candidate.id, documentId);
+      this.toast.show('Documento eliminado.', 'success');
+    } catch (error) {
+      this.toast.show(
+        error instanceof Error ? error.message : 'No se pudo eliminar el documento.',
+        'error',
+      );
+    }
   }
 }

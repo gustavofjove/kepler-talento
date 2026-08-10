@@ -20,7 +20,17 @@ export interface SearchResult {
   email: string;
   status: CandidateStatus;
   hasPrimaryCv: boolean;
+  primaryCvDocumentId?: string;
   updatedAt: string;
+}
+
+export interface SearchPreset {
+  id: string;
+  name: string;
+  filters: SearchFilters;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt?: string;
 }
 
 export const EMPTY_SEARCH_FILTERS: SearchFilters = {

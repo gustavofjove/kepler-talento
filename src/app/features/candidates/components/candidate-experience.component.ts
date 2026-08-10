@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEFAULT_SECTORS } from '../../catalogs/models/catalog.models';
+import { CatalogService } from '../../catalogs/services/catalog.service';
 import { CandidateExperience } from '../models/candidate.models';
 import { CandidateRelationsService } from '../services/candidate-relations.service';
 
@@ -98,7 +98,6 @@ export class CandidateExperienceComponent {
   @Input() experience: CandidateExperience[] = [];
   @Input() canEdit = false;
 
-  readonly sectorOptions = DEFAULT_SECTORS;
   draft: {
     company: string;
     position: string;
@@ -118,7 +117,14 @@ export class CandidateExperienceComponent {
   };
   error = '';
 
-  constructor(private readonly relations: CandidateRelationsService) {}
+  constructor(
+    private readonly relations: CandidateRelationsService,
+    private readonly catalogs: CatalogService,
+  ) {}
+
+  get sectorOptions(): string[] {
+    return this.catalogs.activeNames('sector');
+  }
 
   add(): void {
     try {

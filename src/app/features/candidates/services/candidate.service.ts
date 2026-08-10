@@ -67,6 +67,32 @@ export class CandidateService {
     );
   }
 
+  deactivateMany(ids: string[]): number {
+    if (!ids.length) {
+      return 0;
+    }
+
+    const idSet = new Set(ids);
+    let updated = 0;
+
+    this.persist(
+      this.candidates().map((candidate) => {
+        if (!idSet.has(candidate.id) || !candidate.isActive) {
+          return candidate;
+        }
+
+        updated += 1;
+        return {
+          ...candidate,
+          isActive: false,
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+    );
+
+    return updated;
+  }
+
   setLanguages(id: string, languages: CandidateLanguage[]): void {
     this.patch(id, { languages });
   }
@@ -96,6 +122,10 @@ export class CandidateService {
       ? candidate.documents.map((item) => ({ ...item, isPrimary: false }))
       : candidate.documents;
     this.patch(id, { documents: [...documents, document] });
+  }
+
+  setDocuments(id: string, documents: CandidateDocument[]): void {
+    this.patch(id, { documents });
   }
 
   private patch(id: string, patch: Partial<Candidate>): void {

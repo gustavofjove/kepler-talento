@@ -75,4 +75,52 @@ describe('DocumentService', () => {
   it('throws when requesting a secure URL for a missing document', () => {
     expect(() => documents.createSecureUrl(candidateId, 'missing-doc')).toThrow(/no encontrado/i);
   });
+
+  it('rejects a file bigger than the allowed size', () => {
+    const bigFile = new File(['x'.repeat(11 * 1024 * 1024)], 'huge.pdf', {
+      type: 'application/pdf',
+    });
+
+    expect(() => documents.upload({ candidateId, file: bigFile, isPrimary: true })).toThrow(
+      /10 MB/i,
+    );
+  });
+
+  it('can mark another document as primary', () => {
+    const one = documents.upload({
+      candidateId,
+      file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
+      isPrimary: true,
+    });
+    const two = documents.upload({
+      candidateId,
+      file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
+      isPrimary: false,
+    });
+
+    documents.setPrimary(candidateId, two.id);
+
+    const candidate = candidateService.find(candidateId)!;
+    expect(candidate.documents.find((doc) => doc.id === one.id)?.isPrimary).toBe(false);
+    expect(candidate.documents.find((doc) => doc.id === two.id)?.isPrimary).toBe(true);
+  });
+
+  it('removes a document and promotes another one if primary is deleted', () => {
+    const one = documents.upload({
+      candidateId,
+      file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
+      isPrimary: true,
+    });
+    const two = documents.upload({
+      candidateId,
+      file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
+      isPrimary: false,
+    });
+
+    documents.remove(candidateId, one.id);
+
+    const candidate = candidateService.find(candidateId)!;
+    expect(candidate.documents.some((doc) => doc.id === one.id)).toBe(false);
+    expect(candidate.documents.find((doc) => doc.id === two.id)?.isPrimary).toBe(true);
+  });
 });

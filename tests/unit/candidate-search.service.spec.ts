@@ -98,6 +98,7 @@ describe('CandidateSearchService', () => {
   it('filters by CV availability', () => {
     const withCv = search.search({ ...search.emptyFilters(), hasCv: 'yes' });
     expect(withCv.map((item) => item.lastName)).toEqual(['Texidor']);
+    expect(withCv[0].primaryCvDocumentId).toBeTruthy();
 
     const withoutCv = search.search({ ...search.emptyFilters(), hasCv: 'no' });
     expect(withoutCv.map((item) => item.lastName)).toEqual(['Soriano']);

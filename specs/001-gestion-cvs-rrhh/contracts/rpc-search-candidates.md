@@ -10,6 +10,8 @@ and RLS-aware execution.
 
 `search_candidates(filters jsonb)`
 
+The RPC returns a paginated result set for operational use.
+
 ## Request Shape
 
 ```json
@@ -28,25 +30,38 @@ and RLS-aware execution.
   "received_from": "2025-01-01",
   "received_to": "2026-12-31",
   "has_cv": true,
-  "include_inactive": false
+  "include_inactive": false,
+  "page": 1,
+  "page_size": 25,
+  "sort_by": "updated_at",
+  "sort_direction": "desc",
+  "preset_id": "uuid-or-null"
 }
 ```
 
 ## Response Shape
 
+Paginated response envelope:
+
 ```json
-[
-  {
-    "candidate_id": "uuid",
-    "first_name": "Juan",
-    "last_name": "Perez",
-    "phone": "+34...",
-    "email": "optional@example.com",
-    "status_name": "Disponible",
-    "primary_cv_document_id": "uuid-or-null",
-    "updated_at": "2026-06-28T10:00:00Z"
-  }
-]
+{
+  "items": [
+    {
+      "candidate_id": "uuid",
+      "first_name": "Juan",
+      "last_name": "Perez",
+      "phone": "+34...",
+      "email": "optional@example.com",
+      "status_name": "Disponible",
+      "primary_cv_document_id": "uuid-or-null",
+      "updated_at": "2026-06-28T10:00:00Z"
+    }
+  ],
+  "page": 1,
+  "page_size": 25,
+  "total": 120,
+  "execution_ms": 140
+}
 ```
 
 ## Rules
@@ -62,11 +77,17 @@ and RLS-aware execution.
 - The RPC must not bypass RLS for normal search.
 - The response may include `email` only if permitted by role and field policy.
 - The response must not include storage paths or permanent document URLs.
+- `page` starts at 1 and values < 1 are rejected.
+- `page_size` accepts 1..100 for MVP.
+- `sort_by` MVP values: `updated_at`, `received_at`, `last_name`.
+- `sort_direction` MVP values: `asc`, `desc`.
+- `preset_id` is optional and only used for user-owned saved-search traceability.
 
 ## Error Conditions
 
 - Invalid mode values return a controlled validation error.
 - Invalid UUID filters return a controlled validation error.
+- Invalid pagination/sort values return a controlled validation error.
 - Unauthorized callers receive no protected data.
 
 ## Traceability

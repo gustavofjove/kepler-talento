@@ -13,6 +13,10 @@ export, and controlled Access/CSV import. The technical approach follows the
 existing corporate Angular + Supabase pattern, with Supabase RLS and private
 Storage as the real authorization boundary.
 
+Current continuation focus: close usability and production-hardening gaps
+identified during implementation iterations (see [backlog.md](./backlog.md)).
+UX baseline and improvement roadmap are documented in [ux-audit.md](./ux-audit.md).
+
 ## Technical Context
 
 **Language/Version**: TypeScript 5.9, SQL/PostgreSQL 17, Deno/TypeScript for
@@ -51,7 +55,7 @@ CV per candidate, controlled export, and initial Access/CSV migration
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+_GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 - Personal data protection: PASS. Plan identifies candidate data, consent,
   retention/review dates, audit needs, export limits, logical deletion, and
@@ -173,5 +177,42 @@ without implementing code in this phase.
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| None | N/A | N/A |
+| --------- | ---------- | ------------------------------------ |
+| None      | N/A        | N/A                                  |
+
+## Continuation Execution Waves (Post-MVP)
+
+### Wave 1 - Operations And Security Closure
+
+- Complete import/export operational flow (`dry-run -> commit`, history, error
+  artifacts).
+- Complete missing integration/security suites (RLS auth/storage and Edge
+  Functions).
+- Enforce non-bypassable governance rules in admin and catalog domains.
+
+### Wave 2 - Productivity UX
+
+- Upgrade candidate list into an operations center (quick filters, sorting,
+  pagination, multi-action safeguards).
+- Add saved searches and last-search restore in advanced search.
+- Standardize explicit confirmation patterns for sensitive actions.
+
+### Wave 3 - Production Readiness
+
+- Structured observability (`request_id`, error catalog, correlated audit logs).
+- Staging smoke automation and runbook validation.
+- Backup/restore proof and go-live checklist sign-off.
+
+### Wave 4 - UX And Accessibility Improvement Program
+
+- Execute UX-1 quick wins from [ux-audit.md](./ux-audit.md) on app shell,
+  candidate operations, catalogs, and import/search feedback loops.
+- Standardize confirmation and status interaction patterns in high-risk actions.
+- Expand keyboard-first and screen-reader compatibility checks for critical
+  workflows.
+
+## Exit Conditions For Continuation
+
+- All open Phase 11+ tasks in [tasks.md](./tasks.md) completed.
+- `FR-026`..`FR-031` and `SC-010`..`SC-012` validated with evidence.
+- Product owner and RRHH operations sign-off recorded.

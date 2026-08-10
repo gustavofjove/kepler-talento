@@ -33,6 +33,23 @@ import { CandidateService } from '../candidates/services/candidate.service';
           <span class="kpi-value">{{ receivedThisMonth }}</span>
         </article>
       </div>
+
+      <div class="grid three">
+        <article class="panel stack">
+          <h2>Centro operativo</h2>
+          <p class="muted">Accesos rapidos para las tareas diarias de RRHH.</p>
+          <a class="button secondary" routerLink="/app/candidates">Gestionar listado</a>
+          <a class="button secondary" routerLink="/app/search">Busqueda avanzada</a>
+        </article>
+        <article class="panel kpi-card">
+          <span class="kpi-label">Inactivos</span>
+          <span class="kpi-value">{{ inactiveCount }}</span>
+        </article>
+        <article class="panel kpi-card">
+          <span class="kpi-label">Con CV principal</span>
+          <span class="kpi-value">{{ withPrimaryCv }}</span>
+        </article>
+      </div>
     </section>
   `,
 })
@@ -46,6 +63,10 @@ export class DashboardPageComponent {
     return this.candidateService.list().length;
   }
 
+  get inactiveCount(): number {
+    return this.candidateService.list(true).filter((candidate) => !candidate.isActive).length;
+  }
+
   get withoutCv(): number {
     return this.candidateService.list().filter((candidate) => candidate.documents.length === 0)
       .length;
@@ -55,6 +76,12 @@ export class DashboardPageComponent {
     return this.candidateService
       .list()
       .filter((candidate) => candidate.reviewDueAt && candidate.reviewDueAt < this.today).length;
+  }
+
+  get withPrimaryCv(): number {
+    return this.candidateService
+      .list()
+      .filter((candidate) => candidate.documents.some((document) => document.isPrimary)).length;
   }
 
   get receivedThisMonth(): number {

@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEFAULT_PROGRAMS, DEFAULT_PROGRAM_LEVELS } from '../../catalogs/models/catalog.models';
+import { CatalogService } from '../../catalogs/services/catalog.service';
 import { CandidateProgram } from '../models/candidate.models';
 import { CandidateRelationsService } from '../services/candidate-relations.service';
 
@@ -78,8 +78,6 @@ export class CandidateProgramsComponent {
   @Input() programs: CandidateProgram[] = [];
   @Input() canEdit = false;
 
-  readonly programOptions = DEFAULT_PROGRAMS;
-  readonly levelOptions = DEFAULT_PROGRAM_LEVELS;
   draft: { program: string; level: string; yearsExperience: number | undefined } = {
     program: '',
     level: '',
@@ -87,7 +85,18 @@ export class CandidateProgramsComponent {
   };
   error = '';
 
-  constructor(private readonly relations: CandidateRelationsService) {}
+  constructor(
+    private readonly relations: CandidateRelationsService,
+    private readonly catalogs: CatalogService,
+  ) {}
+
+  get programOptions(): string[] {
+    return this.catalogs.activeNames('program');
+  }
+
+  get levelOptions(): string[] {
+    return this.catalogs.activeNames('program_level');
+  }
 
   add(): void {
     try {

@@ -16,6 +16,10 @@ not implementation code.
   levels, programs, program levels, education types, sectors, skills, skill
   levels, and document types.
 - Private `candidate-cvs` bucket exists.
+- Staging environment mirrors production auth, RLS, storage policies, and Edge
+  Function configuration.
+- Backup and restore procedure is documented for the active PostgreSQL
+  deployment.
 
 ## Validation Commands
 
@@ -29,6 +33,14 @@ npm run test
 npm run e2e
 npm run security:rls
 npm run security:storage
+```
+
+Additional validation commands for production readiness (adapt to final toolchain):
+
+```powershell
+npm run build
+npm run test:integration
+npm run smoke:staging
 ```
 
 ## Scenario 1: Secure Access
@@ -112,6 +124,49 @@ reported, and Access remains a reference source only.
 
 Expected outcome: all security checks pass and fail closed where expected.
 
+## Scenario 9: Performance And Limits
+
+1. Execute representative advanced searches with expected production-like
+   filter combinations.
+2. Validate response times for candidate create/edit/search interactions.
+3. Validate export behavior below and above configured row thresholds.
+4. Validate import behavior with realistic CSV batch sizes.
+
+Expected outcome: interactive operations meet agreed response targets and large
+operations fail safely or switch to asynchronous processing without data loss.
+
+## Scenario 10: Backup And Recovery
+
+1. Execute a backup in staging.
+2. Restore the backup into a clean database instance.
+3. Run smoke validation for auth, candidate search, and document metadata.
+
+Expected outcome: restore works with consistent data and no RLS/storage policy
+regression.
+
+## Scenario 11: Candidate Operations Center
+
+1. Use candidate list quick filters, sorting, and pagination on representative data.
+2. Execute at least one sensitive action requiring explicit confirmation.
+3. Validate resulting candidate states and user feedback.
+
+Expected outcome: operational tasks are fast, explicit, and safe for daily RRHH work.
+
+## Scenario 12: Saved Searches And Batch Histories
+
+1. Save a recurring advanced search and reload it.
+2. Validate last-search restoration when returning to the search page.
+3. Execute import/export and inspect batch history entries.
+
+Expected outcome: recurring workflows are repeatable and operationally traceable.
+
+## Go-Live Exit Criteria
+
+- All mandatory scenarios (1..12) pass in staging.
+- No open high-severity security defects.
+- RRHH business sign-off completed for representative end-to-end workflows.
+- Runbook validated for incidents, secret rotation, and rollback.
+
 ## Implementation Notes
 
 - User story 3 relation-section translations are now present in both Spanish and English for languages, programs, education, experience, and skills.
@@ -121,12 +176,42 @@ Expected outcome: all security checks pass and fail closed where expected.
 ## Validation Evidence
 
 - `npm run lint` completes without reported issues.
-- `npm run e2e` passes with 14 Playwright tests.
-- `npm run test` passes with 6 test suites and 41 tests.
-- `npm run security:rls` runs the current RLS validation script placeholder without errors.
-- `npm run security:storage` runs the current storage policy validation script placeholder without errors.
+- `npm run e2e` now includes operational candidate-list, preset, import/export, and security flows.
+- `npm run test -- --runInBand` passes with 20 suites and 100 tests in current local validation.
+- `npm run test:integration` validates edge-contract envelopes, idempotency context, and guardrail integration checks.
+- `npm run security:rls` validates required auth/RLS policies and guardrail trigger presence.
+- `npm run security:storage` validates private candidate bucket and required storage policies.
 - `npm run build` generates the Angular production bundle successfully.
+- `npm run release:gate` executes build + tests + security checks and completed successfully (`All gates passed`).
 - `docker compose -f docker-compose.frontend.yml build` completes successfully and produces the frontend image.
 - `docker compose -f docker-compose.frontend.yml up -d` serves RRHH BBDD on `63151`; in the shared local environment `KeplerDesk` is mapped to `63153` to avoid port collisions.
 - `npx prettier --check src/assets/i18n/es.json src/assets/i18n/en.json` passes for the updated translation files.
 - `get_errors` across `src`, `supabase`, `tests`, and `scripts` reported no current TypeScript or script errors in the workspace snapshot.
+
+## UX Before And After Evidence (Phase 16)
+
+1. High-risk action confirmation consistency
+   Before: destructive actions relied on mixed native browser confirms.
+   After: one shared dialog pattern is used across candidates, catalogs, admin users/roles, documents, and presets.
+   Evidence: added shared confirm primitives in src/app/shared/components and migrated consumers in features pages/components.
+
+2. Contextual empty-states
+   Before: low-context empty results and limited guidance by role/intent.
+   After: contextual copy was added for read-only candidate list mode, search export permissions, import onboarding, and admin user empty table state.
+   Evidence: candidate list, advanced search, import page, and admin users page now render intent-aware helper messages.
+
+3. Import step clarity
+   Before: dry-run and commit outcomes were visible but step status was implicit.
+   After: explicit step labels communicate pending, validated-with-errors, ready-for-commit, and committed states with inline guidance.
+   Evidence: import summary now includes current step label and scenario-specific helper text.
+
+4. Accessibility and keyboard UX checks
+   Before: no dedicated UX E2E checks for keyboard/focus and risky action confirmation modal behavior.
+   After: E2E coverage validates skip-link keyboard path to main landmark and keyboard cancellation of custom confirmation dialogs.
+   Evidence: tests/e2e/ux-accessibility.spec.ts.
+
+5. Automated validation executed for this UX wave
+
+- npm run test -- --runInBand: 20 suites, 100 tests passed.
+- npm run build: production build generated successfully.
+- npx playwright test tests/e2e/candidate-list-operations.spec.ts tests/e2e/advanced-search-presets.spec.ts tests/e2e/catalogs-crud.spec.ts tests/e2e/ux-accessibility.spec.ts: 5 passed.

@@ -9,6 +9,7 @@ import { CandidateLanguagesComponent } from '../components/candidate-languages.c
 import { CandidateProgramsComponent } from '../components/candidate-programs.component';
 import { CandidateSkillsComponent } from '../components/candidate-skills.component';
 import { CandidateService } from '../services/candidate.service';
+import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.service';
 
 @Component({
   selector: 'rrhh-candidate-detail-page',
@@ -112,13 +113,24 @@ export class CandidateDetailPageComponent {
   constructor(
     readonly auth: AuthService,
     private readonly candidateService: CandidateService,
+    private readonly confirmDialog: ConfirmDialogService,
   ) {}
 
   get candidate() {
     return this.candidateService.find(this.candidateId);
   }
 
-  deactivate(id: string): void {
+  async deactivate(id: string): Promise<void> {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Aplicar baja logica',
+      message: 'El candidato dejara de aparecer en listados activos.',
+      confirmText: 'Aplicar baja',
+      cancelText: 'Cancelar',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
     this.candidateService.deactivate(id);
   }
 }

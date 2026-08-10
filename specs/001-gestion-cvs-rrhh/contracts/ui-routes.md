@@ -7,22 +7,30 @@ MVP.
 
 ## Routes
 
-| Route | Purpose | Access |
-|-------|---------|--------|
-| `/login` | User sign-in | Public unauthenticated |
-| `/mfa` | MFA/TOTP verification | Authenticated pending assurance |
-| `/app` | Internal dashboard | Authenticated active profile |
-| `/app/candidates` | Candidate list | Candidate view permission |
-| `/app/candidates/new` | Candidate creation | Candidate create permission |
-| `/app/candidates/:id` | Candidate detail | Candidate view permission |
-| `/app/candidates/:id/edit` | Candidate edit | Candidate edit permission |
-| `/app/candidates/:id/documents` | Candidate documents | Candidate document permission |
-| `/app/search` | Advanced search | Candidate view/search permission |
-| `/app/catalogs` | Catalog management | Catalog management permission |
-| `/app/admin/users` | User administration | User management permission |
-| `/app/admin/roles` | Role administration | Role management permission |
+| Route                           | Purpose               | Access                           |
+| ------------------------------- | --------------------- | -------------------------------- |
+| `/login`                        | User sign-in          | Public unauthenticated           |
+| `/mfa`                          | MFA/TOTP verification | Authenticated pending assurance  |
+| `/app`                          | Internal dashboard    | Authenticated active profile     |
+| `/app/candidates`               | Candidate list        | Candidate view permission        |
+| `/app/candidates/new`           | Candidate creation    | Candidate create permission      |
+| `/app/candidates/:id`           | Candidate detail      | Candidate view permission        |
+| `/app/candidates/:id/edit`      | Candidate edit        | Candidate edit permission        |
+| `/app/candidates/:id/documents` | Candidate documents   | Candidate document permission    |
+| `/app/search`                   | Advanced search       | Candidate view/search permission |
+| `/app/catalogs`                 | Catalog management    | Catalog management permission    |
+| `/app/admin/users`              | User administration   | User management permission       |
+| `/app/admin/roles`              | Role administration   | Role management permission       |
 
 ## Screen Contracts
+
+All protected screens must explicitly define and implement these states:
+
+- Initial loading
+- Empty state
+- Validation error state
+- Unauthorized state
+- Recoverable backend error state (with retry action)
 
 ### Dashboard
 
@@ -34,10 +42,18 @@ candidates pending review, and candidates without CV.
 Provides paginated list, quick search, candidate detail access, new candidate
 action, edit action where permitted, and logical deactivation where permitted.
 
+Must include visible indicator when inactive candidates are hidden by default.
+
+Must include quick filters, sorting, and pagination for operational datasets.
+
+Must support explicit confirmation before destructive or bulk actions.
+
 ### Candidate Detail
 
 Shows candidate main data, languages, programs, education, experience, skills,
 documents, and basic audit information.
+
+Must include last update metadata and logical status indicator.
 
 ### Candidate Form
 
@@ -51,6 +67,10 @@ Includes filter panel, multi-select for catalogs, ANY/ALL controls for languages
 and programs, clear filters, search action, results table, export action where
 permitted, and secure CV opening where permitted.
 
+Must include pagination controls and total result count.
+
+Must include saved searches per user and last-search restore behavior.
+
 ### Catalogs
 
 Supports list, create, edit, deactivate, and sort order management for closed
@@ -60,6 +80,21 @@ lists used in the candidate domain.
 
 Supports users, roles, activation/deactivation, and MFA-related administration
 according to permissions.
+
+Must include explicit warnings before irreversible admin actions.
+
+## Permission-to-Route Baseline
+
+- `/app/candidates` requires `view_candidates`
+- `/app/candidates/new` requires `create_candidates`
+- `/app/candidates/:id/edit` requires `edit_candidates`
+- `/app/candidates/:id/documents` requires `upload_candidate_documents` or
+  `download_candidate_documents` depending on action
+- `/app/search` requires `view_candidates`
+- Export action requires `export_candidates`
+- `/app/catalogs` requires `manage_catalogs`
+- `/app/admin/users` requires `manage_users`
+- `/app/admin/roles` requires `manage_roles`
 
 ## UX Rules
 
@@ -73,4 +108,4 @@ according to permissions.
 
 ## Traceability
 
-US1, US2, US3, US4, US5, US6; FR-001 through FR-025.
+US1, US2, US3, US4, US5, US6, US8; FR-001 through FR-031.

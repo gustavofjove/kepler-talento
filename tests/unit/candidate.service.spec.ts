@@ -78,6 +78,32 @@ describe('CandidateService', () => {
     expect(stored).toBeDefined();
   });
 
+  it('logically deactivates multiple active candidates and returns updated count', () => {
+    const one = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Ana',
+      lastName: 'Rios',
+    });
+    const two = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Bea',
+      lastName: 'Mora',
+    });
+    const three = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Carla',
+      lastName: 'Gil',
+    });
+    service.deactivate(three.id);
+
+    const updated = service.deactivateMany([one.id, two.id, three.id]);
+
+    expect(updated).toBe(2);
+    expect(service.find(one.id)?.isActive).toBe(false);
+    expect(service.find(two.id)?.isActive).toBe(false);
+    expect(service.find(three.id)?.isActive).toBe(false);
+  });
+
   it('marks only the newest document as primary when adding a primary CV', () => {
     const candidate = service.create({
       ...EMPTY_CANDIDATE_DRAFT,

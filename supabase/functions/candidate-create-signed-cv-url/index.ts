@@ -1,30 +1,55 @@
-import { corsHeaders, json, readJson } from '../_shared/http.ts';
+import {
+  EdgeHttpError,
+  corsHeaders,
+  json,
+  jsonError,
+  logEdgeEvent,
+  readJson,
+  requestContext,
+  requireBearerAuth,
+} from '../_shared/http.ts';
+import { EDGE_LIMITS } from '../_shared/limits.ts';
 
 interface RequestBody {
   document_id?: string;
 }
 
 Deno.serve(async (request) => {
+  const context = requestContext(request);
+
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   if (request.method !== 'POST') {
-    return json({ error: 'method_not_allowed' }, 405);
+    return jsonError(context, 'VALIDATION_ERROR', 'method_not_allowed', 405);
   }
 
   try {
+    requireBearerAuth(request);
     const body = await readJson<RequestBody>(request);
     if (!body.document_id) {
-      return json({ error: 'document_id_required' }, 400);
+      return jsonError(context, 'VALIDATION_ERROR', 'document_id_required', 400);
     }
 
-    return json({
-      url: `signed-url-placeholder/${body.document_id}`,
-      expires_in_seconds: 300,
+    logEdgeEvent('signed_url.create', context, {
       document_id: body.document_id,
     });
+
+    return json(
+      {
+        url: `signed-url-placeholder/${body.document_id}`,
+        expires_in_seconds: EDGE_LIMITS.signedUrlTtlSeconds,
+        document_id: body.document_id,
+        request_id: context.requestId,
+      },
+      200,
+      context.requestId,
+    );
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : 'unexpected_error' }, 400);
+    if (error instanceof EdgeHttpError) {
+      return jsonError(context, error.code, error.message, error.status, error.details);
+    }
+    return jsonError(context, 'INTERNAL_ERROR', 'unexpected_error', 500);
   }
 });

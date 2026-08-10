@@ -2,15 +2,28 @@ import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../auth/auth.service';
 import { ToastService } from '../services/toast.service';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.component';
 
 @Component({
   selector: 'rrhh-app-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ConfirmDialogComponent],
   styles: [
     `
       .shell {
         min-height: 100vh;
+      }
+      .skip-link {
+        background: var(--fj-orange-bright);
+        color: var(--fj-navy);
+        left: 12px;
+        padding: 8px 10px;
+        position: absolute;
+        top: -100px;
+        z-index: 100;
+      }
+      .skip-link:focus {
+        top: 8px;
       }
       header {
         align-items: center;
@@ -85,18 +98,24 @@ import { ToastService } from '../services/toast.service';
         background: var(--fj-navy);
         border-radius: var(--r-lg);
         color: white;
+        display: grid;
+        gap: 8px;
         padding: 12px;
+      }
+      .toast .dismiss {
+        justify-self: end;
       }
     `,
   ],
   template: `
     <div class="shell">
+      <a class="skip-link" href="#main-content">Saltar al contenido principal</a>
       <header>
         <div class="brand">
           <strong>Kepker Talento</strong>
           <span class="muted">Gestion interna de candidatos del ecosistema Kepker</span>
         </div>
-        <nav>
+        <nav aria-label="Navegacion principal">
           <a
             routerLink="/app"
             routerLinkActive="active"
@@ -104,27 +123,42 @@ import { ToastService } from '../services/toast.service';
           >
             Dashboard
           </a>
-          <a routerLink="/app/candidates" routerLinkActive="active">Candidatos</a>
-          <a routerLink="/app/search" routerLinkActive="active">Busqueda</a>
-          <a routerLink="/app/catalogs" routerLinkActive="active">Catalogos</a>
-          <a routerLink="/app/admin/users" routerLinkActive="active">Usuarios</a>
-          <a routerLink="/app/admin/import" routerLinkActive="active">Importacion</a>
+          @if (auth.hasPermission('view_candidates')) {
+            <a routerLink="/app/candidates" routerLinkActive="active">Candidatos</a>
+            <a routerLink="/app/search" routerLinkActive="active">Busqueda</a>
+          }
+          @if (auth.hasPermission('manage_catalogs')) {
+            <a routerLink="/app/catalogs" routerLinkActive="active">Catalogos</a>
+          }
+          @if (auth.hasPermission('manage_users')) {
+            <a routerLink="/app/admin/users" routerLinkActive="active">Usuarios</a>
+          }
+          @if (auth.hasPermission('manage_roles')) {
+            <a routerLink="/app/admin/roles" routerLinkActive="active">Roles</a>
+          }
+          @if (auth.hasPermission('import_candidates')) {
+            <a routerLink="/app/admin/import" routerLinkActive="active">Importacion</a>
+          }
         </nav>
         <div class="user">
           <span class="badge">{{ auth.profile()?.role }}</span>
           <button class="button secondary" type="button" (click)="auth.signOut()">Salir</button>
         </div>
       </header>
-      <main>
+      <main id="main-content" tabindex="-1">
         <router-outlet />
       </main>
-      <div class="toasts">
+      <div class="toasts" role="region" aria-label="Notificaciones">
         @for (message of toast.messages(); track message.id) {
-          <button class="toast" type="button" (click)="toast.dismiss(message.id)">
-            {{ message.text }}
-          </button>
+          <article class="toast" role="status" aria-live="polite">
+            <div>{{ message.text }}</div>
+            <button class="button ghost dismiss" type="button" (click)="toast.dismiss(message.id)">
+              Cerrar
+            </button>
+          </article>
         }
       </div>
+      <rrhh-confirm-dialog />
     </div>
   `,
 })

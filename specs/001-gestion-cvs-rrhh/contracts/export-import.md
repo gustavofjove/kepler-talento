@@ -13,6 +13,18 @@ protecting candidate personal data and document storage details.
 - XLSX if project dependencies and corporate pattern support it during planning
   or implementation
 
+### Operational Constraints
+
+- Export requests are asynchronous when row count is high and must return
+  progress status.
+- Default synchronous mode is acceptable for small result sets.
+- Maximum rows and maximum file size for generated exports must be explicitly
+  configured per environment.
+- MVP limits for local/staging:
+  - export row limit: `1000`
+  - import row limit per batch: `2000`
+  - max import files per request: `8`
+
 ### Default Field Set
 
 - First name
@@ -39,6 +51,18 @@ protecting candidate personal data and document storage details.
 Each export records requester, timestamp, filters, field set, row count, status,
 and format.
 
+### Export History Requirement
+
+- Each export request MUST appear in user-visible batch history with status,
+  timestamps, and row count.
+
+### Export Error Cases
+
+- User without `export_candidates` permission -> `FORBIDDEN`
+- Invalid field set -> `VALIDATION_ERROR`
+- Requested row count above configured limit -> `VALIDATION_ERROR`
+- Unexpected generation failure -> `INTERNAL_ERROR` with request id
+
 ## Import Contract
 
 ### Purpose
@@ -57,6 +81,16 @@ model.
 - Skill CSV
 - Document metadata CSV
 
+### Minimum CSV Contract
+
+The import process requires a header row and UTF-8 encoding.
+
+- Candidates CSV required columns: `external_id`, `first_name`, `last_name`
+- Candidate relations required columns: candidate reference + catalog/value
+  reference
+- Dates must use ISO format (`YYYY-MM-DD`) where provided
+- Unknown columns are ignored unless strict mode is enabled
+
 ### Processing Order
 
 1. Validate file structure.
@@ -68,12 +102,31 @@ model.
 7. Produce summary and row-level errors.
 8. Validate representative candidates with RRHH.
 
+### Dry-Run To Commit Contract
+
+- Dry-run returns a `batch_id` and validation summary without business writes.
+- Commit requires explicit user action referencing `batch_id`.
+- Commit must fail if payload differs from the validated dry-run batch.
+
 ### Error Handling
 
 - Invalid rows are recorded with row number, source file, field, and reason.
 - Valid rows may be loaded while invalid rows are reported.
 - Dry-run mode validates without writing business records.
 - Imports do not create public document links.
+- Exceeding configured limits MUST return `VALIDATION_ERROR` with a stable code/message pair.
+
+### Idempotency And Retry
+
+- Import requests SHOULD provide an idempotency key.
+- Retries with the same key and same source files MUST return the existing batch
+  result rather than duplicating records.
+- Retries with the same key but different payload MUST fail with `CONFLICT`.
+
+### Import History Requirement
+
+- Import batches MUST be queryable in history with actor, source name, status,
+  error count, and downloadable error artifact reference.
 
 ## Traceability
 

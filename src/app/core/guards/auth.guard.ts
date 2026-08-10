@@ -6,7 +6,16 @@ import { AuthService } from '../auth/auth.service';
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
-  return auth.isAuthenticated ? true : router.createUrlTree(['/login']);
+  const profile = auth.profile();
+  if (!profile) {
+    return router.createUrlTree(['/login']);
+  }
+
+  if (profile.mfaRequired && router.url !== '/mfa') {
+    return router.createUrlTree(['/mfa']);
+  }
+
+  return true;
 };
 
 export function permissionGuard(permission: Permission): CanActivateFn {

@@ -92,6 +92,14 @@ especificacion_tecnica_*.md       Documento tecnico fuente del dominio RRHH/CVs
 La siguiente fase es implementar siguiendo `tasks.md`, empezando por la
 infraestructura base, migraciones Supabase, autenticacion y controles de acceso.
 
+## Gates Operativos
+
+- `npm run test:integration`: contratos de Edge Functions y guardrails.
+- `npm run smoke:staging`: checklist rapido de staging.
+- `npm run release:gate`: gate automatizado para build, unit, integration, y checks de seguridad.
+
+Runbook de backup/restore/rollback: [docs/BACKUP_RESTORE_ROLLBACK_RUNBOOK.md](docs/BACKUP_RESTORE_ROLLBACK_RUNBOOK.md)
+
 ## Ejecucion local con Docker Desktop
 
 El frontend se puede construir y servir en Docker con Nginx:

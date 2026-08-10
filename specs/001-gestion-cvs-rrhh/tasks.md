@@ -8,6 +8,8 @@
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
+**Continuation Input**: Prioritized continuation backlog in [backlog.md](./backlog.md).
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Establish the project structure, tooling, and baseline configuration needed by all stories.
@@ -59,10 +61,10 @@
 
 ### Tests for User Story 1
 
-- [ ] T026 [P] [US1] Add AuthService unit tests for session, profile, permissions, and MFA readiness in `tests/unit/auth.service.spec.ts`
-- [ ] T027 [P] [US1] Add route guard unit tests for authenticated, inactive, readonly, and MFA-required states in `tests/unit/auth-guards.spec.ts`
+- [x] T026 [P] [US1] Add AuthService unit tests for session, profile, permissions, and MFA readiness in `tests/unit/auth.service.spec.ts`
+- [x] T027 [P] [US1] Add route guard unit tests for authenticated, inactive, readonly, and MFA-required states in `tests/unit/auth-guards.spec.ts`
 - [x] T028 [P] [US1] Add Playwright secure-login flow covering login, MFA route, and unauthorized protected route access in `tests/e2e/secure-access.spec.ts`
-- [ ] T029 [P] [US1] Add SQL/RLS tests for authenticated, readonly, inactive, no-profile, and unauthenticated access in `tests/security/rls-auth.sql`
+- [x] T029 [P] [US1] Add SQL/RLS tests for authenticated, readonly, inactive, no-profile, and unauthenticated access in `tests/security/rls-auth.sql`
 
 ### Implementation for User Story 1
 
@@ -168,10 +170,10 @@
 
 ### Tests for User Story 4
 
-- [ ] T071 [P] [US4] Add DocumentService unit tests for upload, metadata, primary CV, and signed URL request in `tests/unit/document.service.spec.ts`
-- [ ] T072 [P] [US4] Add Edge Function tests for `candidate-create-signed-cv-url` authorization and validation in `tests/integration/candidate-create-signed-cv-url.spec.ts`
-- [ ] T073 [P] [US4] Add Playwright CV upload/opening flow in `tests/e2e/candidate-documents.spec.ts`
-- [ ] T074 [P] [US4] Add storage-policy tests for private bucket denial and authorized access in `tests/security/storage-candidate-cvs.sql`
+- [x] T071 [P] [US4] Add DocumentService unit tests for upload, metadata, primary CV, and signed URL request in `tests/unit/document.service.spec.ts`
+- [x] T072 [P] [US4] Add Edge Function tests for `candidate-create-signed-cv-url` authorization and validation in `tests/integration/candidate-create-signed-cv-url.spec.ts`
+- [x] T073 [P] [US4] Add Playwright CV upload/opening flow in `tests/e2e/candidate-documents.spec.ts`
+- [x] T074 [P] [US4] Add storage-policy tests for private bucket denial and authorized access in `tests/security/storage-candidate-cvs.sql`
 
 ### Implementation for User Story 4
 
@@ -194,9 +196,9 @@
 
 ### Tests for User Story 6
 
-- [ ] T081 [P] [US6] Add ExportService unit tests for field-set mapping and forbidden field exclusion in `tests/unit/export.service.spec.ts`
-- [ ] T082 [P] [US6] Add Edge Function tests for `candidate-export-results` authorization and output metadata in `tests/integration/candidate-export-results.spec.ts`
-- [ ] T083 [P] [US6] Add Playwright export flow for permitted and denied users in `tests/e2e/export-results.spec.ts`
+- [x] T081 [P] [US6] Add ExportService unit tests for field-set mapping and forbidden field exclusion in `tests/unit/export.service.spec.ts`
+- [x] T082 [P] [US6] Add Edge Function tests for `candidate-export-results` authorization and output metadata in `tests/integration/candidate-export-results.spec.ts`
+- [x] T083 [P] [US6] Add Playwright export flow for permitted and denied users in `tests/e2e/export-results.spec.ts`
 
 ### Implementation for User Story 6
 
@@ -218,9 +220,9 @@
 
 ### Tests for User Story 7
 
-- [ ] T089 [P] [US7] Add import parser unit tests for candidate, catalog, relation, and document metadata CSVs in `tests/unit/import-parser.spec.ts`
-- [ ] T090 [P] [US7] Add Edge Function tests for dry-run, partial import, row errors, and authorization in `tests/integration/candidate-import-access-csv.spec.ts`
-- [ ] T091 [P] [US7] Add Playwright admin import flow in `tests/e2e/import-access-csv.spec.ts`
+- [x] T089 [P] [US7] Add import parser unit tests for candidate, catalog, relation, and document metadata CSVs in `tests/unit/import.service.spec.ts`
+- [x] T090 [P] [US7] Add Edge Function tests for dry-run, partial import, row errors, and authorization in `tests/integration/candidate-import-access-csv.spec.ts`
+- [x] T091 [P] [US7] Add Playwright admin import flow in `tests/e2e/import-access-csv.spec.ts`
 
 ### Implementation for User Story 7
 
@@ -316,6 +318,25 @@
 | FR-023      | T089-T097                                      |
 | FR-024      | T022, T036, T048, T058, T070, T079, T088, T097 |
 | FR-025      | T005, T036, T048, T058, T070, T079, T088, T097 |
+| FR-026      | T119-T123                                      |
+| FR-027      | T124-T128                                      |
+| FR-028      | T121, T137                                     |
+| FR-029      | T136, T139                                     |
+| FR-030      | T129-T135                                      |
+| FR-031      | T137-T140                                      |
+
+| Non-Functional Requirement | Primary Coverage |
+| -------------------------- | ---------------- |
+| NFR-001                    | T116, T118       |
+| NFR-002                    | T116, T118       |
+| NFR-003                    | T109, T111, T115 |
+| NFR-004                    | T026-T037, T110  |
+| NFR-005                    | T014, T071-T074  |
+| NFR-006                    | T081-T088, T115  |
+| NFR-007                    | T012, T087, T113 |
+| NFR-008                    | T113, T114       |
+| NFR-009                    | T117, T118       |
+| NFR-010                    | T107, T111       |
 
 | Success Criterion | Primary Coverage                  |
 | ----------------- | --------------------------------- |
@@ -328,6 +349,9 @@
 | SC-007            | T089-T097                         |
 | SC-008            | T089-T097, T108                   |
 | SC-009            | T026-T088, T107-T108              |
+| SC-010            | T119-T128                         |
+| SC-011            | T137-T140                         |
+| SC-012            | T129-T135                         |
 
 ---
 
@@ -379,3 +403,91 @@ are consistent and contain no unresolved clarification markers.
 - `[P]` tasks touch different files or can be prepared independently.
 - `[US#]` labels map directly to user stories in `spec.md`.
 - Security checks are part of the definition of done, not optional polish.
+
+---
+
+## Phase 11: Production Readiness And Release Governance
+
+**Purpose**: Ensure the application is implementation-ready for production with
+clear operability, safety controls, and release gates.
+
+- [x] T109 [P] Add integration tests for Edge Function contracts (auth,
+      validation, error envelopes, idempotency) in `tests/integration/`
+- [x] T110 [P] Add missing role/auth guard unit tests for inactive, no-profile,
+      readonly, and MFA-required states in `tests/unit/auth.service.spec.ts` and
+      `tests/unit/auth-guards.spec.ts`
+- [x] T111 [P] Add E2E coverage for candidate documents, export permissions, and
+      admin import flow in `tests/e2e/`
+- [x] T112 Complete SQL security suites for auth and storage negative/positive
+      cases in `tests/security/rls-auth.sql` and
+      `tests/security/storage-candidate-cvs.sql`
+- [x] T113 Define and implement structured error catalog for frontend and Edge
+      Functions in `src/app/shared/models/` and `supabase/functions/_shared/`
+- [x] T114 Add observability baseline (request ids, structured logs, audit
+      correlation) in frontend and Edge Functions
+- [x] T115 Define export/import operational limits and enforce them in contracts,
+      services, and functions
+- [x] T116 Add staging smoke tests and release gate automation scripts in
+      `scripts/`
+- [x] T117 Document backup/restore and rollback runbook in `docs/`
+- [x] T118 Execute staging go-live checklist and attach validation evidence in
+      `specs/001-gestion-cvs-rrhh/quickstart.md`
+
+---
+
+## Phase 12: Candidate Operations Center (Backlog EPIC A, P1)
+
+**Purpose**: Transform candidate list/detail flows into daily-use operational surfaces.
+
+- [x] T119 [P] Add quick filters, text search, sorting, and pagination to candidate list in `src/app/features/candidates/pages/candidate-list-page.component.ts`
+- [x] T120 [P] Add list empty-state guidance and operational counters in candidate list/dashboard in `src/app/features/candidates/pages/candidate-list-page.component.ts` and `src/app/features/dashboard/dashboard-page.component.ts`
+- [x] T121 Add bulk logical deactivation with confirmation and summary in `src/app/features/candidates/pages/candidate-list-page.component.ts`
+- [x] T122 Add candidate list unit tests for filters/sorting/pagination in `tests/unit/candidate-list-page.spec.ts`
+- [x] T123 Add Playwright operational list flow in `tests/e2e/candidate-list-operations.spec.ts`
+
+## Phase 13: Search Productivity Enhancements (Backlog EPIC B, P1)
+
+**Purpose**: Reduce repetitive effort for recurring RRHH search operations.
+
+- [x] T124 [P] Add saved searches model/service in `src/app/features/search/models/search.models.ts` and `src/app/features/search/services/search-presets.service.ts`
+- [x] T125 [P] Integrate save/load/delete search presets in advanced search page in `src/app/features/search/pages/advanced-search-page.component.ts`
+- [x] T126 Add active-filter chips and quick-remove UX in `src/app/features/search/components/search-filters.component.ts`
+- [x] T127 Add unit tests for saved-search persistence and restore in `tests/unit/search-presets.service.spec.ts`
+- [x] T128 Add Playwright scenario for saved searches in `tests/e2e/advanced-search-presets.spec.ts`
+
+## Phase 14: Import/Export Operationalization (Backlog EPIC C, P0)
+
+**Purpose**: Move import/export from basic interaction to traceable batch operations.
+
+- [x] T129 [P] Add import batch history model and persistence in `src/app/features/admin/import/import.models.ts` and `src/app/features/admin/import/import.service.ts`
+- [x] T130 [P] Add export batch history model and persistence in `src/app/features/search/services/export.service.ts`
+- [x] T131 Add import page with `dry-run -> commit` explicit flow in `src/app/features/admin/import/import-page.component.ts`
+- [x] T132 Add import error CSV download action in `src/app/features/admin/import/import-page.component.ts`
+- [x] T133 Add export history panel and status indicator in `src/app/features/search/pages/advanced-search-page.component.ts`
+- [x] T134 Add unit tests for import/export history and commit transitions in `tests/unit/import.service.spec.ts` and `tests/unit/export.service.spec.ts`
+- [x] T135 Add Playwright E2E for import/export batch history in `tests/e2e/import-export-ops.spec.ts`
+
+## Phase 15: Governance Guardrails Completion (Backlog EPIC D/E, P0/P1)
+
+**Purpose**: Ensure administrative operations cannot create lockout or integrity failures.
+
+- [x] T136 Enforce catalog in-use protection on deactivate/remove in `src/app/features/catalogs/services/catalog.service.ts`
+- [x] T137 Enforce self-lockout and last-admin protections in `src/app/features/admin/users/profile.service.ts` and `src/app/features/admin/roles/role.service.ts`
+- [x] T138 Add unit tests for admin guardrails in `tests/unit/profile.service.spec.ts` and `tests/unit/role.service.spec.ts`
+- [x] T139 Mirror admin/catalog guardrails in Supabase policies/functions and migrations in `supabase/migrations/` and `supabase/functions/`
+- [x] T140 Add integration tests for guardrails in `tests/integration/`
+
+## Phase 16: UX And Accessibility Improvement Program (Backlog EPIC F, P1)
+
+**Purpose**: Improve operational usability, consistency, and accessibility for daily RRHH workflows.
+
+- [x] T141 [P] Add shell-level accessibility improvements (skip link, toast live-region semantics, focusable landmarks) in `src/app/core/layout/app-layout.component.ts`
+- [x] T142 [P] Add active-filter chips and one-click filter removal in candidate list in `src/app/features/candidates/pages/candidate-list-page.component.ts`
+- [x] T143 [P] Improve catalog operation context and editing-state feedback in `src/app/features/catalogs/pages/catalog-management-page.component.ts`
+- [x] T144 Replace ad-hoc `window.confirm` usage with unified confirm dialog pattern in `src/app/shared/components/` and consumer pages
+- [x] T145 Add contextual empty-states by permission and screen intent in candidate/search/import/admin pages under `src/app/features/**/pages/`
+- [x] T146 Improve import step-state clarity (`validated`, `ready`, `committed`) and inline guidance in `src/app/features/admin/import/import-page.component.ts`
+- [x] T147 Add E2E UX flow checks for keyboard/focus and high-risk actions in `tests/e2e/`
+- [x] T148 Add unit tests for list filter-chip interaction logic in `tests/unit/candidate-list-page.spec.ts`
+- [x] T149 Add UX implementation evidence and before/after notes in `specs/001-gestion-cvs-rrhh/quickstart.md`
+- [x] T150 Add UX baseline and wave progress governance in `specs/001-gestion-cvs-rrhh/ux-audit.md`

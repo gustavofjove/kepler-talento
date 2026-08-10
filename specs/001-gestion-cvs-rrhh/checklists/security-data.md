@@ -37,6 +37,12 @@
 - [x] CHK017 Are recovery or review scenarios covered for overdue CV review dates and logical deactivation? [Coverage, Spec Edge Cases, Data Protection & Access]
 - [x] CHK018 Are negative security scenarios covered for inactive users and invalid roles? [Coverage, Spec Edge Cases]
 
+## Continuation Security Coverage
+
+- [x] CHK021 Are self-lockout and last-admin prevention requirements explicitly defined? [Coverage, Spec FR-031]
+- [x] CHK022 Is catalog in-use integrity protection explicitly defined? [Coverage, Spec FR-029]
+- [x] CHK023 Are import/export operational histories required for auditability? [Coverage, Spec FR-030, NFR-007]
+
 ## Dependencies & Assumptions
 
 - [x] CHK019 Are language, MVP scope, Access-source, and document-scope assumptions documented? [Assumption, Spec Assumptions]

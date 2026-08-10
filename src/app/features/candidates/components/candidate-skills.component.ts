@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DEFAULT_SKILLS, DEFAULT_SKILL_LEVELS } from '../../catalogs/models/catalog.models';
+import { CatalogService } from '../../catalogs/services/catalog.service';
 import { CandidateSkill } from '../models/candidate.models';
 import { CandidateRelationsService } from '../services/candidate-relations.service';
 
@@ -66,12 +66,21 @@ export class CandidateSkillsComponent {
   @Input() skills: CandidateSkill[] = [];
   @Input() canEdit = false;
 
-  readonly skillOptions = DEFAULT_SKILLS;
-  readonly levelOptions = DEFAULT_SKILL_LEVELS;
   draft = { skill: '', level: '' };
   error = '';
 
-  constructor(private readonly relations: CandidateRelationsService) {}
+  constructor(
+    private readonly relations: CandidateRelationsService,
+    private readonly catalogs: CatalogService,
+  ) {}
+
+  get skillOptions(): string[] {
+    return this.catalogs.activeNames('skill');
+  }
+
+  get levelOptions(): string[] {
+    return this.catalogs.activeNames('skill_level');
+  }
 
   add(): void {
     try {

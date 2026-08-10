@@ -5,29 +5,156 @@
 *.accdb
 *.mdb
 
-# Environment and secrets
-.env
-.env.*
-!.env.example
-
-# Node / Angular outputs
+# Node / package manager / Angular outputs
 node_modules/
-dist/
+.npm/
+.pnp/
+.pnp.js
+.pnpm-store/
+.yarn/
 .angular/
-coverage/
-playwright-report/
-test-results/
 tests/e2e/.auth/
 
+# Build outputs
+dist/
+build/
+.vite/
+.next/
+.nuxt/
+.svelte-kit/
+.turbo/
+.parcel-cache/
+out/
+
+# Cache / temp
+.cache/
+.eslintcache
+.stylelintcache
+.tmp/
+tmp/
+.history/
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+.envrc
+!.env.example
+# Exception: committed production build config (non-secret; baked into the client bundle)
+!frontend/.env.production
+# Exception: committed offline build config (non-secret; selects same-origin /api, no env label)
+!frontend/.env.offline
+
 # Logs
-*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# OS/editor noise
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# IDE/editor settings
 .vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Claude Code local settings (personal, no compartir)
+.claude/settings.local.json
+.claude/settings.json
+.claude/scheduled_tasks.lock
+
+# Database
+dev.db
+*.db
+*.sqlite
+
+# TypeScript / build info
+*.tsbuildinfo
+
+# .NET / Visual Studio
+bin/
+obj/
+.vs/
+.vs-code/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# .NET Publish
+publish/
+
+# .NET Tools
+.dotnet/
+.tools/
+
+# .NET Secrets
+appsettings.local.json
+# Per-environment, non-committed overrides (e.g. per-installation Jwt:Secret for the Offline profile)
+appsettings.*.local.json
+secrets.json
+
+# Azure deployment secrets (live keys/passwords — never commit)
+docs/azure-secrets.local.md
+*.secrets.local.md
+
+# Local file storage for preview images (Storage:Provider=Local).
+# Runtime artifacts; never commit. Production uses Azure Blob; on-prem writes here.
+backend/Web/App_Data/uploads/
+
+# Per-installation JWT secret generated on first offline run (HMS-163d). Machine-local; never commit.
+backend/Web/App_Data/jwt.secret
+
+# Dev email dumps (Email:Log:WriteToDisk=true writes rendered .eml/.html here). Never commit.
+backend/Web/App_Data/emails/
+
+# Offline SPA build output (scripts/build-offline.sh copies frontend/dist here so the
+# backend serves the combined app). Build artifact, rebuilt per release; never commit.
+backend/Web/wwwroot/
+
+backend/.tmp-tools/
+
+# Test Results
+TestResults/
+*.trx
+
+# Secrets / keys
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+*.csr
+*.pub
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# Docker / local infra
+.docker/
+docker-compose.override.yml
+
+# Lockfiles
+package-lock.json
+# yarn.lock
+# pnpm-lock.yaml

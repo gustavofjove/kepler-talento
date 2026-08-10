@@ -44,6 +44,7 @@ export class CandidateSearchService {
         return textMatch && statusMatch && languageMatch && programMatch && cvMatch;
       })
       .map((candidate) => ({
+        primaryCvDocumentId: candidate.documents.find((document) => document.isPrimary)?.id,
         candidateId: candidate.id,
         firstName: candidate.firstName,
         lastName: candidate.lastName,
