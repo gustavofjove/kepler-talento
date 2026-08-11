@@ -17,9 +17,9 @@ export interface AppErrorEnvelope {
 }
 
 export const APP_ERROR_MESSAGES: Record<AppErrorCode, string> = {
-  UNAUTHENTICATED: 'Sesion no valida o expirada.',
-  FORBIDDEN: 'Operacion no autorizada.',
-  VALIDATION_ERROR: 'Hay datos invalidos en la solicitud.',
+  UNAUTHENTICATED: 'Sesión no valida o expirada.',
+  FORBIDDEN: 'Operación no autorizada.',
+  VALIDATION_ERROR: 'Hay datos inválidos en la solicitud.',
   NOT_FOUND: 'El recurso solicitado no existe.',
   CONFLICT: 'La solicitud entra en conflicto con el estado actual.',
   RATE_LIMITED: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',

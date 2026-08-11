@@ -22,7 +22,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               @if (item.isCurrent) {
                 · Actual
               } @else if (item.yearsExperience !== undefined) {
-                · {{ item.yearsExperience }} anos
+                · {{ item.yearsExperience }} años
               }
             </p>
             @if (canEdit) {
@@ -67,7 +67,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               />
             </div>
             <div class="field">
-              <label>Anos de experiencia</label>
+              <label>Años de experiencia</label>
               <input
                 name="yearsExperience"
                 type="number"
@@ -86,7 +86,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="empty-state">{{ error }}</p>
           }
           <div class="form-actions">
-            <button class="button" type="submit">Anadir experiencia</button>
+            <button class="button" type="submit">Añadir experiencia</button>
           </div>
         </form>
       }

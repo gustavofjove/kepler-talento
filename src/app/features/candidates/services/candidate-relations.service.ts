@@ -39,7 +39,7 @@ export class CandidateRelationsService {
       throw new Error('El candidato ya tiene este programa registrado.');
     }
     if (input.yearsExperience !== undefined && input.yearsExperience < 0) {
-      throw new Error('Los anos de experiencia no pueden ser negativos.');
+      throw new Error('Los años de experiencia no pueden ser negativos.');
     }
     const program: CandidateProgram = { ...input, id: crypto.randomUUID() };
     this.candidateService.setPrograms(candidateId, [...candidate.programs, program]);
@@ -56,11 +56,11 @@ export class CandidateRelationsService {
   addEducation(candidateId: string, input: Omit<CandidateEducation, 'id'>): void {
     const candidate = this.require(candidateId);
     if (!input.degree.trim()) {
-      throw new Error('La titulacion es obligatoria.');
+      throw new Error('La titulación es obligatoria.');
     }
     const currentYear = new Date().getFullYear();
     if (input.endYear !== undefined && (input.endYear < 1950 || input.endYear > currentYear + 1)) {
-      throw new Error('El ano de finalizacion no es valido.');
+      throw new Error('El año de finalización no es valido.');
     }
     const education: CandidateEducation = { ...input, id: crypto.randomUUID() };
     this.candidateService.setEducation(candidateId, [...candidate.education, education]);
@@ -77,7 +77,7 @@ export class CandidateRelationsService {
   addExperience(candidateId: string, input: Omit<CandidateExperience, 'id'>): void {
     const candidate = this.require(candidateId);
     if (input.yearsExperience !== undefined && input.yearsExperience < 0) {
-      throw new Error('Los anos de experiencia no pueden ser negativos.');
+      throw new Error('Los años de experiencia no pueden ser negativos.');
     }
     if (input.startDate && input.endDate && input.endDate < input.startDate) {
       throw new Error('La fecha de fin no puede ser anterior a la fecha de inicio.');

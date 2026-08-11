@@ -10,9 +10,9 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
   imports: [FormsModule],
   template: `
     <section class="section-block">
-      <h3 class="section-title">Formacion</h3>
+      <h3 class="section-title">Formación</h3>
       @if (!education.length) {
-        <p class="empty-state">Sin formacion registrada.</p>
+        <p class="empty-state">Sin formación registrada.</p>
       }
       <div class="item-list">
         @for (item of education; track item.id) {
@@ -46,7 +46,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               </select>
             </div>
             <div class="field">
-              <label>Titulacion</label>
+              <label>Titulación</label>
               <input name="degree" [(ngModel)]="draft.degree" required />
             </div>
             <div class="field">
@@ -58,7 +58,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               <input name="institution" [(ngModel)]="draft.institution" />
             </div>
             <div class="field">
-              <label>Ano de fin</label>
+              <label>Año de fin</label>
               <input name="endYear" type="number" [(ngModel)]="draft.endYear" />
             </div>
             <div class="field">
@@ -75,7 +75,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="empty-state">{{ error }}</p>
           }
           <div class="form-actions">
-            <button class="button" type="submit">Anadir formacion</button>
+            <button class="button" type="submit">Añadir formación</button>
           </div>
         </form>
       }

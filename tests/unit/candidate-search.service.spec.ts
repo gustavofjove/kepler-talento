@@ -19,8 +19,8 @@ describe('CandidateSearchService', () => {
       status: 'available',
     });
     candidateService.setLanguages(ana.id, [
-      { id: 'l1', language: 'Ingles', level: 'B2' },
-      { id: 'l2', language: 'Frances', level: 'B1' },
+      { id: 'l1', language: 'Inglés', level: 'B2' },
+      { id: 'l2', language: 'Francés', level: 'B1' },
     ]);
     candidateService.setPrograms(ana.id, [{ id: 'p1', program: 'Excel', level: 'Avanzado' }]);
     candidateService.addDocument(ana.id, {
@@ -39,7 +39,7 @@ describe('CandidateSearchService', () => {
       lastName: 'Soriano',
       status: 'new',
     });
-    candidateService.setLanguages(bea.id, [{ id: 'l3', language: 'Ingles', level: 'A2' }]);
+    candidateService.setLanguages(bea.id, [{ id: 'l3', language: 'Inglés', level: 'A2' }]);
 
     const inactiveCarla = candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
@@ -80,7 +80,7 @@ describe('CandidateSearchService', () => {
   it('matches languages in ANY mode when at least one selected language is present', () => {
     const results = search.search({
       ...search.emptyFilters(),
-      languageValues: ['Frances'],
+      languageCriteria: [{ value: 'Francés', level: '' }],
       languageMode: 'ANY',
     });
     expect(results.map((item) => item.lastName)).toEqual(['Texidor']);
@@ -89,10 +89,60 @@ describe('CandidateSearchService', () => {
   it('matches programs in ALL mode only when every selected program is present', () => {
     const results = search.search({
       ...search.emptyFilters(),
-      programValues: ['Excel', 'SAP'],
+      programCriteria: [
+        { value: 'Excel', level: '' },
+        { value: 'SAP', level: '' },
+      ],
       programMode: 'ALL',
     });
     expect(results).toHaveLength(0);
+  });
+
+  it('narrows a criterion to the exact level when one is selected', () => {
+    const withB2 = search.search({
+      ...search.emptyFilters(),
+      languageCriteria: [{ value: 'Inglés', level: 'B2' }],
+    });
+    expect(withB2.map((item) => item.lastName)).toEqual(['Texidor']);
+
+    const anyLevel = search.search({
+      ...search.emptyFilters(),
+      languageCriteria: [{ value: 'Inglés', level: '' }],
+    });
+    expect(anyLevel.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
+  });
+
+  it('combines several criteria of the same type with ANY and ALL semantics', () => {
+    const anyOf = search.search({
+      ...search.emptyFilters(),
+      languageCriteria: [
+        { value: 'Inglés', level: 'A2' },
+        { value: 'Francés', level: 'B1' },
+      ],
+      languageMode: 'ANY',
+    });
+    expect(anyOf.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
+
+    const allOf = search.search({
+      ...search.emptyFilters(),
+      languageCriteria: [
+        { value: 'Inglés', level: 'B2' },
+        { value: 'Francés', level: 'B1' },
+      ],
+      languageMode: 'ALL',
+    });
+    expect(allOf.map((item) => item.lastName)).toEqual(['Texidor']);
+  });
+
+  it('combines different criteria types with AND regardless of each type mode', () => {
+    const results = search.search({
+      ...search.emptyFilters(),
+      languageCriteria: [{ value: 'Inglés', level: '' }],
+      languageMode: 'ANY',
+      programCriteria: [{ value: 'Excel', level: 'Avanzado' }],
+      programMode: 'ANY',
+    });
+    expect(results.map((item) => item.lastName)).toEqual(['Texidor']);
   });
 
   it('filters by CV availability', () => {

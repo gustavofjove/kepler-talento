@@ -43,8 +43,9 @@ test.describe('Import/Export operations', () => {
     await expect(page.locator('text=Filas cargadas: 1')).toBeVisible();
   });
 
-  test('records export batches in search history panel', async ({ page }) => {
+  test('records export batches in search history modal', async ({ page }) => {
     await page.goto('/app/search');
+    await page.getByTestId('toggle-filters').click();
     await page.fill('input[name="text"]', 'Laura');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('text=Laura Garcia')).toBeVisible();
@@ -53,13 +54,15 @@ test.describe('Import/Export operations', () => {
     await page.click('button:has-text("Exportar CSV")');
     await download;
 
-    const historyPanel = page
-      .locator('h2:has-text("Historial de exportaciones")')
-      .locator('xpath=ancestor::div[contains(@class,"panel")]');
-    const historyRow = historyPanel.locator('tbody tr').first();
+    await page.getByTestId('open-export-history').click();
+    const historyModal = page.getByTestId('export-history-modal');
+    const historyRow = historyModal.locator('tbody tr').first();
 
-    await expect(historyPanel).toBeVisible();
+    await expect(historyModal).toBeVisible();
     await expect(historyRow).toContainText('candidatos.csv');
     await expect(historyRow).toContainText('Completado');
+
+    await page.getByTestId('close-export-history').click();
+    await expect(historyModal).toHaveCount(0);
   });
 });

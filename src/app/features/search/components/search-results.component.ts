@@ -17,7 +17,7 @@ import { SearchResult } from '../models/search.models';
           <thead>
             <tr>
               <th>Candidato</th>
-              <th>Telefono</th>
+              <th>Teléfono</th>
               <th>Estado</th>
               <th>CV</th>
               <th>Actualizado</th>

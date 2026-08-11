@@ -48,7 +48,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
       <div class="panel table-wrap">
         @if (!users.users().length) {
           <p class="empty-state">
-            No hay usuarios cargados. Crea el primero para iniciar la operacion.
+            No hay usuarios cargados. Crea el primero para iniciar la operación.
           </p>
         }
         <table>
@@ -180,7 +180,7 @@ export class AdminUsersPageComponent {
   async remove(userId: string): Promise<void> {
     const confirmed = await this.confirmDialog.confirm({
       title: 'Eliminar usuario',
-      message: 'Esta accion retirara el usuario de la operacion actual.',
+      message: 'Esta acción retirará el usuario de la operación actual.',
       confirmText: 'Eliminar usuario',
       cancelText: 'Cancelar',
       danger: true,

@@ -21,7 +21,7 @@ describe('Candidate profile section components', () => {
   describe('CandidateEducationComponent', () => {
     it('surfaces the validation error from the relations service and keeps the draft', () => {
       relations.addEducation.mockImplementation(() => {
-        throw new Error('La titulacion es obligatoria.');
+        throw new Error('La titulación es obligatoria.');
       });
       TestBed.configureTestingModule({
         imports: [CandidateEducationComponent],
@@ -33,7 +33,7 @@ describe('Candidate profile section components', () => {
 
       fixture.componentInstance.add();
 
-      expect(fixture.componentInstance.error).toBe('La titulacion es obligatoria.');
+      expect(fixture.componentInstance.error).toBe('La titulación es obligatoria.');
       expect(fixture.componentInstance.draft.institution).toBe('UCM');
     });
 

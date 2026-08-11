@@ -37,9 +37,15 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
               <a class="button secondary" [routerLink]="['/app/candidates', item.id, 'edit']"
                 >Editar</a
               >
-              <button class="button danger" type="button" (click)="deactivate(item.id)">
-                Baja logica
-              </button>
+              @if (item.isActive) {
+                <button class="button danger" type="button" (click)="deactivate(item.id)">
+                  Baja lógica
+                </button>
+              } @else {
+                <button class="button secondary" type="button" (click)="reactivate(item.id)">
+                  Alta lógica
+                </button>
+              }
             }
           </div>
         </div>
@@ -49,12 +55,12 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
             <p><strong>Estado:</strong> {{ item.status }}</p>
             <p><strong>Disponibilidad:</strong> {{ item.availability }}</p>
             <p><strong>Localidad:</strong> {{ item.location }} {{ item.province }}</p>
-            <p><strong>Recepcion:</strong> {{ item.receivedAt || 'Pendiente' }}</p>
-            <p><strong>Revision:</strong> {{ item.reviewDueAt || 'Pendiente' }}</p>
+            <p><strong>Recepción:</strong> {{ item.receivedAt || 'Pendiente' }}</p>
+            <p><strong>Revisión:</strong> {{ item.reviewDueAt || 'Pendiente' }}</p>
             <p>{{ item.notes }}</p>
           </article>
           <article class="panel">
-            <h2>Auditoria</h2>
+            <h2>Auditoría</h2>
             <p><strong>Creado:</strong> {{ item.createdAt | slice: 0 : 19 }}</p>
             <p><strong>Actualizado:</strong> {{ item.updatedAt | slice: 0 : 19 }}</p>
             <p><strong>Activo:</strong> {{ item.isActive ? 'Si' : 'No' }}</p>
@@ -122,8 +128,8 @@ export class CandidateDetailPageComponent {
 
   async deactivate(id: string): Promise<void> {
     const confirmed = await this.confirmDialog.confirm({
-      title: 'Aplicar baja logica',
-      message: 'El candidato dejara de aparecer en listados activos.',
+      title: 'Aplicar baja lógica',
+      message: 'El candidato dejará de aparecer en listados activos.',
       confirmText: 'Aplicar baja',
       cancelText: 'Cancelar',
       danger: true,
@@ -132,5 +138,18 @@ export class CandidateDetailPageComponent {
       return;
     }
     this.candidateService.deactivate(id);
+  }
+
+  async reactivate(id: string): Promise<void> {
+    const confirmed = await this.confirmDialog.confirm({
+      title: 'Aplicar alta lógica',
+      message: 'El candidato volverá a aparecer en listados activos.',
+      confirmText: 'Aplicar alta',
+      cancelText: 'Cancelar',
+    });
+    if (!confirmed) {
+      return;
+    }
+    this.candidateService.reactivate(id);
   }
 }

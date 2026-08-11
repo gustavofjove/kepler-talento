@@ -15,31 +15,105 @@ type HasCvFilter = '' | 'yes' | 'no';
   selector: 'rrhh-candidate-list-page',
   standalone: true,
   imports: [RouterLink, SlicePipe, FormsModule],
+  styles: [
+    `
+      /* One row keeps the filter bar short: text, the two short selects, the
+         checkbox column matching their width, and the action pinned right. */
+      .filters-bar {
+        align-items: end;
+        display: grid;
+        gap: 10px 14px;
+        grid-template-columns: minmax(200px, 2fr) 1fr 1fr 1fr auto;
+        padding: 12px 16px;
+      }
+      /* Checkbox and button sit on the same baseline as the inputs beside them. */
+      .filters-bar .inline-check,
+      .filters-bar .filters-actions {
+        min-height: 34px;
+      }
+      .filters-bar .inline-check {
+        font-size: 13px;
+      }
+      .filters-bar .filters-actions {
+        align-items: center;
+        display: flex;
+        justify-self: end;
+      }
+      .inactive-badge {
+        margin-left: 6px;
+        opacity: 0.75;
+      }
+      .results-footer {
+        justify-content: space-between;
+      }
+      .page-size {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+      }
+      .page-size label {
+        color: var(--fg-2);
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      /* Outside a .field wrapper, so it needs the shared control look spelled out. */
+      .page-size select {
+        background: var(--bg-1);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        min-height: 34px;
+        padding: 6px 10px;
+        width: auto;
+      }
+      .pager {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+      }
+      @media (max-width: 900px) {
+        .filters-bar {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 560px) {
+        .filters-bar {
+          grid-template-columns: 1fr;
+        }
+      }
+    `,
+  ],
   template: `
     <section class="page">
       <div class="toolbar">
         <div class="page-header">
           <h1>Candidatos</h1>
-          <p class="muted">Alta, consulta, edicion y baja logica.</p>
+          <p class="muted">Alta, consulta, edición y baja lógica.</p>
         </div>
         @if (auth.hasPermission('create_candidates')) {
           <a class="button" routerLink="/app/candidates/new">Nuevo candidato</a>
         }
       </div>
 
-      <div class="panel grid three">
+      <div class="panel filters-bar">
         <div class="field">
-          <label>Texto</label>
+          <label for="filter-text">Texto</label>
           <input
+            id="filter-text"
             name="text"
             [(ngModel)]="textFilter"
-            placeholder="Nombre, email, telefono"
+            placeholder="Nombre, email, teléfono"
             (ngModelChange)="goToPage(1)"
           />
         </div>
         <div class="field">
-          <label>Estado</label>
-          <select name="status" [(ngModel)]="statusFilter" (ngModelChange)="goToPage(1)">
+          <label for="filter-status">Estado</label>
+          <select
+            id="filter-status"
+            name="status"
+            [(ngModel)]="statusFilter"
+            (ngModelChange)="goToPage(1)"
+          >
             <option value="">Todos</option>
             @for (status of statusOptions; track status) {
               <option [value]="status">{{ status }}</option>
@@ -47,33 +121,28 @@ type HasCvFilter = '' | 'yes' | 'no';
           </select>
         </div>
         <div class="field">
-          <label>CV</label>
-          <select name="hasCv" [(ngModel)]="hasCvFilter" (ngModelChange)="goToPage(1)">
+          <label for="filter-hasCv">CV</label>
+          <select
+            id="filter-hasCv"
+            name="hasCv"
+            [(ngModel)]="hasCvFilter"
+            (ngModelChange)="goToPage(1)"
+          >
             <option value="">Todos</option>
             <option value="yes">Con CV</option>
             <option value="no">Sin CV</option>
           </select>
         </div>
-        <div class="field">
-          <label class="inline-check">
-            <input
-              name="includeInactive"
-              type="checkbox"
-              [(ngModel)]="includeInactive"
-              (ngModelChange)="goToPage(1)"
-            />
-            Incluir inactivos
-          </label>
-        </div>
-        <div class="field">
-          <label>Registros por pagina</label>
-          <select name="pageSize" [(ngModel)]="pageSize" (ngModelChange)="goToPage(1)">
-            <option [ngValue]="10">10</option>
-            <option [ngValue]="20">20</option>
-            <option [ngValue]="50">50</option>
-          </select>
-        </div>
-        <div class="form-actions">
+        <label class="inline-check">
+          <input
+            name="includeInactive"
+            type="checkbox"
+            [(ngModel)]="includeInactive"
+            (ngModelChange)="goToPage(1)"
+          />
+          Incluir inactivos
+        </label>
+        <div class="filters-actions">
           <button class="button secondary" type="button" (click)="clearFilters()">Limpiar</button>
         </div>
       </div>
@@ -106,14 +175,24 @@ type HasCvFilter = '' | 'yes' | 'no';
           </p>
         }
         @if (auth.hasPermission('edit_candidates')) {
-          <button
-            class="button danger"
-            type="button"
-            [disabled]="selectedIds.size === 0"
-            (click)="bulkDeactivate()"
-          >
-            Baja logica masiva ({{ selectedIds.size }})
-          </button>
+          <div class="form-actions">
+            <button
+              class="button danger"
+              type="button"
+              [disabled]="selectedIds.size === 0"
+              (click)="bulkDeactivate()"
+            >
+              Baja lógica masiva ({{ selectedIds.size }})
+            </button>
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="selectedIds.size === 0"
+              (click)="bulkReactivate()"
+            >
+              Alta lógica masiva ({{ selectedIds.size }})
+            </button>
+          </div>
         }
       </div>
 
@@ -141,7 +220,7 @@ type HasCvFilter = '' | 'yes' | 'no';
                   Nombre {{ sortIndicator('lastName') }}
                 </button>
               </th>
-              <th>Telefono</th>
+              <th>Teléfono</th>
               <th>
                 <button class="button ghost" type="button" (click)="toggleSort('status')">
                   Estado {{ sortIndicator('status') }}
@@ -175,6 +254,9 @@ type HasCvFilter = '' | 'yes' | 'no';
                 <td>{{ candidate.phone }}</td>
                 <td>
                   <span class="badge">{{ candidate.status }}</span>
+                  @if (!candidate.isActive) {
+                    <span class="badge inactive-badge">Inactivo</span>
+                  }
                 </td>
                 <td>{{ candidate.documents.length ? 'Disponible' : 'Pendiente' }}</td>
                 <td>{{ candidate.updatedAt | slice: 0 : 10 }}</td>
@@ -195,27 +277,42 @@ type HasCvFilter = '' | 'yes' | 'no';
         </table>
       </div>
 
-      @if (totalPages > 1) {
-        <div class="toolbar">
-          <button
-            class="button secondary"
-            type="button"
-            [disabled]="page <= 1"
-            (click)="goToPage(page - 1)"
+      <div class="toolbar results-footer">
+        <div class="page-size">
+          <label for="page-size">Registros por página</label>
+          <select
+            id="page-size"
+            name="pageSize"
+            [(ngModel)]="pageSize"
+            (ngModelChange)="goToPage(1)"
           >
-            Anterior
-          </button>
-          <span class="muted">Pagina {{ page }} de {{ totalPages }}</span>
-          <button
-            class="button secondary"
-            type="button"
-            [disabled]="page >= totalPages"
-            (click)="goToPage(page + 1)"
-          >
-            Siguiente
-          </button>
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+          </select>
         </div>
-      }
+        @if (totalPages > 1) {
+          <div class="pager">
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="page <= 1"
+              (click)="goToPage(page - 1)"
+            >
+              Anterior
+            </button>
+            <span class="muted">Página {{ page }} de {{ totalPages }}</span>
+            <button
+              class="button secondary"
+              type="button"
+              [disabled]="page >= totalPages"
+              (click)="goToPage(page + 1)"
+            >
+              Siguiente
+            </button>
+          </div>
+        }
+      </div>
     </section>
   `,
 })
@@ -364,7 +461,7 @@ export class CandidateListPageComponent {
 
   async bulkDeactivate(): Promise<void> {
     if (!this.selectedIds.size) {
-      this.toast.show('Selecciona al menos un candidato para aplicar baja logica.', 'warning');
+      this.toast.show('Selecciona al menos un candidato para aplicar baja lógica.', 'warning');
       return;
     }
 
@@ -374,13 +471,13 @@ export class CandidateListPageComponent {
 
     if (!selected.length) {
       this.selectedIds.clear();
-      this.toast.show('No hay candidatos validos seleccionados.', 'warning');
+      this.toast.show('No hay candidatos válidos seleccionados.', 'warning');
       return;
     }
 
     const confirmation = await this.confirmDialog.confirm({
-      title: 'Confirmar baja logica masiva',
-      message: `Se aplicara baja logica a ${selected.length} candidato(s).`,
+      title: 'Confirmar baja lógica masiva',
+      message: `Se aplicará baja lógica a ${selected.length} candidato(s).`,
       confirmText: 'Aplicar baja',
       cancelText: 'Cancelar',
       danger: true,
@@ -391,7 +488,39 @@ export class CandidateListPageComponent {
 
     const updated = this.candidateService.deactivateMany(selected.map((candidate) => candidate.id));
     this.selectedIds.clear();
-    this.toast.show(`Baja logica aplicada a ${updated} candidato(s).`, 'success');
+    this.toast.show(`Baja lógica aplicada a ${updated} candidato(s).`, 'success');
+    this.goToPage(1);
+  }
+
+  async bulkReactivate(): Promise<void> {
+    if (!this.selectedIds.size) {
+      this.toast.show('Selecciona al menos un candidato para aplicar alta lógica.', 'warning');
+      return;
+    }
+
+    const selected = this.candidateService
+      .list(true)
+      .filter((candidate) => this.selectedIds.has(candidate.id));
+
+    if (!selected.length) {
+      this.selectedIds.clear();
+      this.toast.show('No hay candidatos válidos seleccionados.', 'warning');
+      return;
+    }
+
+    const confirmation = await this.confirmDialog.confirm({
+      title: 'Confirmar alta lógica masiva',
+      message: `Se aplicará alta lógica a ${selected.length} candidato(s).`,
+      confirmText: 'Aplicar alta',
+      cancelText: 'Cancelar',
+    });
+    if (!confirmation) {
+      return;
+    }
+
+    const updated = this.candidateService.reactivateMany(selected.map((candidate) => candidate.id));
+    this.selectedIds.clear();
+    this.toast.show(`Alta lógica aplicada a ${updated} candidato(s).`, 'success');
     this.goToPage(1);
   }
 

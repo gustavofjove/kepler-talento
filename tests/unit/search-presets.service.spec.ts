@@ -52,18 +52,40 @@ describe('SearchPresetsService', () => {
     const lastFilters = {
       ...service.emptyFilters(),
       text: 'restored',
-      languageValues: ['Ingles'],
+      languageCriteria: [{ value: 'Inglés', level: 'B2' }],
       programMode: 'ALL' as const,
     };
 
     service.rememberLastFilters(lastFilters);
     const restored = service.loadLastFilters();
     expect(restored.text).toBe('restored');
-    expect(restored.languageValues).toEqual(['Ingles']);
+    expect(restored.languageCriteria).toEqual([{ value: 'Inglés', level: 'B2' }]);
     expect(restored.programMode).toBe('ALL');
 
     localStorage.setItem('rrhh.search.last-filters.v1', '{broken json');
     const fallback = service.loadLastFilters();
     expect(fallback).toEqual(service.emptyFilters());
+  });
+
+  it('migrates legacy value arrays into levelless criteria', () => {
+    localStorage.setItem(
+      'rrhh.search.last-filters.v1',
+      JSON.stringify({
+        text: 'legacy',
+        languageValues: ['Inglés', 'Francés'],
+        languageMode: 'ALL',
+        programValues: ['Excel'],
+      }),
+    );
+
+    const restored = service.loadLastFilters();
+    expect(restored.languageCriteria).toEqual([
+      { value: 'Inglés', level: '' },
+      { value: 'Francés', level: '' },
+    ]);
+    expect(restored.languageMode).toBe('ALL');
+    expect(restored.programCriteria).toEqual([{ value: 'Excel', level: '' }]);
+    expect(restored.skillCriteria).toEqual([]);
+    expect(restored.statusValues).toEqual(['new', 'available', 'in_process', 'hired', 'rejected']);
   });
 });

@@ -67,9 +67,9 @@ describe('CatalogService', () => {
       firstName: 'Ana',
       lastName: 'Perez',
     });
-    candidateService.setLanguages(candidate.id, [{ id: 'l1', language: 'Ingles', level: 'B2' }]);
+    candidateService.setLanguages(candidate.id, [{ id: 'l1', language: 'Inglés', level: 'B2' }]);
 
-    const inUseLanguage = service.list('language', true).find((item) => item.nameEs === 'Ingles');
+    const inUseLanguage = service.list('language', true).find((item) => item.nameEs === 'Inglés');
     expect(inUseLanguage).toBeTruthy();
 
     expect(() => service.remove('language', inUseLanguage!.id)).toThrow(/en uso por candidatos/i);
@@ -81,9 +81,9 @@ describe('CatalogService', () => {
       firstName: 'Bea',
       lastName: 'Santos',
     });
-    candidateService.setSkills(candidate.id, [{ id: 's1', skill: 'Analisis', level: 'Alto' }]);
+    candidateService.setSkills(candidate.id, [{ id: 's1', skill: 'Análisis', level: 'Alto' }]);
 
-    const inUseSkill = service.list('skill', true).find((item) => item.nameEs === 'Analisis');
+    const inUseSkill = service.list('skill', true).find((item) => item.nameEs === 'Análisis');
     expect(inUseSkill).toBeTruthy();
 
     expect(() => service.toggleActive('skill', inUseSkill!.id)).toThrow(/en uso por candidatos/i);

@@ -14,7 +14,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
     <section class="page">
       <div class="page-header">
         <h1>Roles</h1>
-        <p class="muted">Gestiona roles y permisos funcionales para operar la aplicacion.</p>
+        <p class="muted">Gestiona roles y permisos funcionales para operar la aplicación.</p>
       </div>
 
       <form class="panel grid two" (ngSubmit)="createRole()">
@@ -148,7 +148,7 @@ export class AdminRolesPageComponent {
   async remove(role: RoleDefinition): Promise<void> {
     const confirmed = await this.confirmDialog.confirm({
       title: 'Eliminar rol',
-      message: `Se eliminara el rol "${role.label}".`,
+      message: `Se eliminará el rol "${role.label}".`,
       confirmText: 'Eliminar rol',
       cancelText: 'Cancelar',
       danger: true,

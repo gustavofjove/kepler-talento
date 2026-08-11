@@ -7,6 +7,7 @@ test.describe('Export results flow', () => {
     const page = await context.newPage();
 
     await page.goto('/app/search');
+    await page.getByTestId('toggle-filters').click();
     await page.fill('input[name="text"]', 'Laura');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('text=Laura Garcia')).toBeVisible();

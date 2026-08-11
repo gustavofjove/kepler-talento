@@ -51,7 +51,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               </select>
             </div>
             <div class="field">
-              <label>Certificacion</label>
+              <label>Certificación</label>
               <input name="certification" [(ngModel)]="draft.certification" />
             </div>
           </div>
@@ -59,7 +59,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="empty-state">{{ error }}</p>
           }
           <div class="form-actions">
-            <button class="button" type="submit">Anadir idioma</button>
+            <button class="button" type="submit">Añadir idioma</button>
           </div>
         </form>
       }

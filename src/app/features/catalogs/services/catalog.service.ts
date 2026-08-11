@@ -62,7 +62,7 @@ export class CatalogService {
     const items = this.catalogs()[family];
     const current = items.find((item) => item.id === id);
     if (!current) {
-      throw new Error('No se encontro el elemento del catalogo.');
+      throw new Error('No se encontró el elemento del catálogo.');
     }
 
     if (
@@ -93,7 +93,7 @@ export class CatalogService {
     this.setFamily(family, updated);
     const refreshed = this.catalogs()[family].find((item) => item.id === id);
     if (!refreshed) {
-      throw new Error('No se encontro el elemento del catalogo.');
+      throw new Error('No se encontró el elemento del catálogo.');
     }
     return refreshed;
   }
@@ -102,7 +102,7 @@ export class CatalogService {
     const items = this.catalogs()[family];
     const current = items.find((item) => item.id === id);
     if (!current) {
-      throw new Error('No se encontro el elemento del catalogo.');
+      throw new Error('No se encontró el elemento del catálogo.');
     }
 
     if (current.isActive && this.isCatalogValueInUse(family, current.nameEs)) {
@@ -121,7 +121,7 @@ export class CatalogService {
 
     const refreshed = this.catalogs()[family].find((item) => item.id === id);
     if (!refreshed) {
-      throw new Error('No se encontro el elemento del catalogo.');
+      throw new Error('No se encontró el elemento del catálogo.');
     }
     return refreshed;
   }
@@ -211,7 +211,7 @@ export class CatalogService {
   private resolveCode(items: CatalogItem[], nameEs: string, explicitCode?: string): string {
     const preferred = (explicitCode?.trim() || this.slugify(nameEs)).toUpperCase();
     if (!preferred) {
-      throw new Error('El codigo es obligatorio.');
+      throw new Error('El código es obligatorio.');
     }
 
     const exists = (value: string): boolean =>

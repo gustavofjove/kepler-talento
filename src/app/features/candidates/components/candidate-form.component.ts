@@ -23,7 +23,7 @@ import {
           <input name="lastName" [(ngModel)]="draft.lastName" required />
         </div>
         <div class="field">
-          <label>Telefono</label>
+          <label>Teléfono</label>
           <input name="phone" [(ngModel)]="draft.phone" />
         </div>
         <div class="field">
@@ -53,11 +53,11 @@ import {
           </select>
         </div>
         <div class="field">
-          <label>Fecha recepcion</label>
+          <label>Fecha recepción</label>
           <input name="receivedAt" type="date" [(ngModel)]="draft.receivedAt" />
         </div>
         <div class="field">
-          <label>Fecha revision</label>
+          <label>Fecha revisión</label>
           <input name="reviewDueAt" type="date" [(ngModel)]="draft.reviewDueAt" />
         </div>
       </div>

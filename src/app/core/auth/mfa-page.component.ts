@@ -9,7 +9,7 @@ import { RouterLink } from '@angular/router';
     <section class="page">
       <div class="panel section-block">
         <div class="page-header">
-          <h1>Verificacion MFA</h1>
+          <h1>Verificación MFA</h1>
         </div>
         <p class="muted">
           El flujo TOTP queda preparado para Supabase Auth. En modo local se considera verificado.

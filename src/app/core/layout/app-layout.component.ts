@@ -113,9 +113,9 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.c
       <header>
         <div class="brand">
           <strong>Kepker Talento</strong>
-          <span class="muted">Gestion interna de candidatos del ecosistema Kepker</span>
+          <span class="muted">Gestión interna de candidatos del ecosistema Kepker</span>
         </div>
-        <nav aria-label="Navegacion principal">
+        <nav aria-label="Navegación principal">
           <a
             routerLink="/app"
             routerLinkActive="active"
@@ -125,10 +125,10 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.c
           </a>
           @if (auth.hasPermission('view_candidates')) {
             <a routerLink="/app/candidates" routerLinkActive="active">Candidatos</a>
-            <a routerLink="/app/search" routerLinkActive="active">Busqueda</a>
+            <a routerLink="/app/search" routerLinkActive="active">Búsqueda</a>
           }
           @if (auth.hasPermission('manage_catalogs')) {
-            <a routerLink="/app/catalogs" routerLinkActive="active">Catalogos</a>
+            <a routerLink="/app/catalogs" routerLinkActive="active">Catálogos</a>
           }
           @if (auth.hasPermission('manage_users')) {
             <a routerLink="/app/admin/users" routerLinkActive="active">Usuarios</a>
@@ -137,7 +137,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog.c
             <a routerLink="/app/admin/roles" routerLinkActive="active">Roles</a>
           }
           @if (auth.hasPermission('import_candidates')) {
-            <a routerLink="/app/admin/import" routerLinkActive="active">Importacion</a>
+            <a routerLink="/app/admin/import" routerLinkActive="active">Importación</a>
           }
         </nav>
         <div class="user">

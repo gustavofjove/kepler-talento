@@ -73,10 +73,20 @@ describe('CandidateListPageComponent', () => {
     expect(candidateService.find(ids[0])?.isActive).toBe(false);
     expect(candidateService.find(ids[1])?.isActive).toBe(false);
     expect(toast.show).toHaveBeenCalledWith(
-      expect.stringMatching(/Baja logica aplicada/),
+      expect.stringMatching(/Baja lógica aplicada/),
       'success',
     );
     expect(confirmDialog.confirm).toHaveBeenCalled();
+  });
+
+  it('reactivates selected candidates in bulk with confirmation', async () => {
+    const inactive = candidateService.list(true).find((item) => !item.isActive)!;
+    component.toggleSelected(inactive.id, true);
+
+    await component.bulkReactivate();
+
+    expect(candidateService.find(inactive.id)?.isActive).toBe(true);
+    expect(toast.show).toHaveBeenCalledWith('Alta lógica aplicada a 1 candidato(s).', 'success');
   });
 
   it('builds active filter chips and removes them correctly', () => {

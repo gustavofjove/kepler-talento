@@ -13,7 +13,7 @@ import { toAppError } from '../../../shared/models/error.models';
   template: `
     <section class="page">
       <div class="page-header">
-        <h1>Importacion Access/CSV</h1>
+        <h1>Importación Access/CSV</h1>
         <p class="muted">Flujo de carga controlada. Access no se usa como backend operativo.</p>
       </div>
       <div class="panel grid">
@@ -32,7 +32,7 @@ import { toAppError } from '../../../shared/models/error.models';
 
       @if (!summary && !processing) {
         <p class="empty-state">
-          Selecciona un CSV y ejecuta validacion dry run para habilitar commit seguro.
+          Selecciona un CSV y ejecuta validación dry run para habilitar commit seguro.
         </p>
       }
 
@@ -43,7 +43,7 @@ import { toAppError } from '../../../shared/models/error.models';
           <p><strong>Origen:</strong> {{ summary.sourceName }}</p>
           <p><strong>Modo:</strong> {{ summary.dryRun ? 'Dry run' : 'Carga' }}</p>
           <p><strong>Lote:</strong> {{ summary.batchId || 'n/a' }}</p>
-          <p><strong>Filas leidas:</strong> {{ summary.totalRows }}</p>
+          <p><strong>Filas leídas:</strong> {{ summary.totalRows }}</p>
           <p><strong>Filas cargadas:</strong> {{ summary.loadedRows }}</p>
           <p><strong>Filas con error:</strong> {{ summary.errorRows }}</p>
           <p class="muted">Columnas obligatorias: {{ summary.requiredColumns.join(', ') }}</p>
@@ -67,7 +67,7 @@ import { toAppError } from '../../../shared/models/error.models';
           }
           @if (!summary.dryRun) {
             <p class="muted">
-              Lote confirmado: puedes revisar historial o iniciar una nueva validacion.
+              Lote confirmado: puedes revisar historial o iniciar una nueva validación.
             </p>
           }
 
@@ -96,7 +96,7 @@ import { toAppError } from '../../../shared/models/error.models';
               </table>
             </div>
           } @else {
-            <p class="empty-state">Sin errores de validacion.</p>
+            <p class="empty-state">Sin errores de validación.</p>
           }
         </div>
       }
@@ -152,7 +152,7 @@ export class ImportPageComponent {
     });
     try {
       this.summary = await this.importService.validateLocalCsv(this.file, true);
-      this.toast.show('Validacion completada. Revisa errores antes de confirmar commit.', 'info');
+      this.toast.show('Validación completada. Revisa errores antes de confirmar commit.', 'info');
       this.observability.log('import.validate.completed', {
         request_id: requestId,
         batch_id: this.summary.batchId,

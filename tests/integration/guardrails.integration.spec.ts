@@ -23,8 +23,8 @@ describe('Guardrails integration', () => {
   });
 
   it('detects catalog values in use using case-insensitive comparison', () => {
-    expect(isCatalogValueInUse('Ingles', ['frances', 'INGLES'])).toBe(true);
-    expect(isCatalogValueInUse('Aleman', ['frances', 'ingles'])).toBe(false);
+    expect(isCatalogValueInUse('Inglés', ['francés', 'INGLÉS'])).toBe(true);
+    expect(isCatalogValueInUse('Alemán', ['francés', 'inglés'])).toBe(false);
   });
 
   it('contains SQL guardrail triggers in latest migration', () => {

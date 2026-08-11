@@ -47,7 +47,7 @@ test.describe('Secure access', () => {
     const page = await context.newPage();
 
     await page.goto('/mfa');
-    await expect(page.locator('h1')).toHaveText('Verificacion MFA');
+    await expect(page.locator('h1')).toHaveText('Verificación MFA');
     await page.click('a:has-text("Continuar")');
     await expect(page).toHaveURL(/\/app$/);
 

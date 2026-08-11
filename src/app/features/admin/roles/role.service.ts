@@ -22,7 +22,7 @@ export class RoleService {
     }
 
     if (!/^[a-z0-9_]+$/.test(normalizedName)) {
-      throw new Error('El nombre interno solo admite minusculas, numeros y guion bajo.');
+      throw new Error('El nombre interno solo admite minúsculas, números y guion bajo.');
     }
 
     if (this.roles().some((role) => role.name === normalizedName)) {
