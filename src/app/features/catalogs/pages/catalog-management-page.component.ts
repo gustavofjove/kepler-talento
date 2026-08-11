@@ -13,7 +13,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
     <section class="page">
       <div class="toolbar">
         <div class="page-header">
-          <h1>Catalogos</h1>
+          <h1>Catálogos</h1>
           <p class="muted">
             Gestiona idiomas, programas, habilidades y listas maestras usadas por toda la app.
           </p>
@@ -24,14 +24,14 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
           [disabled]="!editingId"
           (click)="cancelEdit()"
         >
-          Cancelar edicion
+          Cancelar edición
         </button>
       </div>
 
       <div class="panel stack">
         <div class="toolbar">
           <div class="field" style="min-width: 320px;">
-            <label>Familia de catalogo</label>
+            <label>Familia de catálogo</label>
             <select name="family" [(ngModel)]="activeFamily" (ngModelChange)="cancelEdit()">
               @for (family of familyOptions; track family.key) {
                 <option [value]="family.key">{{ family.label }}</option>
@@ -43,7 +43,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
 
         @if (editingId) {
           <p class="empty-state">
-            Modo edicion activo. Guarda cambios o cancela antes de cambiar de familia.
+            Modo edición activo. Guarda cambios o cancela antes de cambiar de familia.
           </p>
         }
 
@@ -53,7 +53,7 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
             <input name="newNameEs" [(ngModel)]="newNameEs" required />
           </div>
           <div class="field">
-            <label>Codigo (opcional)</label>
+            <label>Código (opcional)</label>
             <input
               name="newCode"
               [(ngModel)]="newCode"
@@ -61,19 +61,19 @@ import { ConfirmDialogService } from '../../../shared/components/confirm-dialog.
             />
           </div>
           <div class="form-actions" style="grid-column: 1 / -1;">
-            <button class="button" type="submit" [disabled]="!!editingId">Anadir</button>
+            <button class="button" type="submit" [disabled]="!!editingId">Añadir</button>
           </div>
         </form>
 
         @if (!items.length) {
-          <p class="empty-state">No hay elementos en este catalogo.</p>
+          <p class="empty-state">No hay elementos en este catálogo.</p>
         } @else {
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Orden</th>
-                  <th>Codigo</th>
+                  <th>Código</th>
                   <th>Nombre</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -223,8 +223,8 @@ export class CatalogManagementPageComponent {
 
   async remove(item: CatalogItem): Promise<void> {
     const confirmDelete = await this.confirmDialog.confirm({
-      title: 'Eliminar valor de catalogo',
-      message: `Se eliminara "${item.nameEs}" y no podras recuperarlo automaticamente.`,
+      title: 'Eliminar valor de catálogo',
+      message: `Se eliminará "${item.nameEs}" y no podrás recuperarlo automáticamente.`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       danger: true,

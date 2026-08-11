@@ -54,7 +54,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="empty-state">{{ error }}</p>
           }
           <div class="form-actions">
-            <button class="button" type="submit">Anadir habilidad</button>
+            <button class="button" type="submit">Añadir habilidad</button>
           </div>
         </form>
       }

@@ -41,7 +41,7 @@ import { AuthService } from './auth.service';
             <input id="email" name="email" type="email" [(ngModel)]="email" required />
           </div>
           <div class="field">
-            <label for="password">Contrasena</label>
+            <label for="password">Contraseña</label>
             <input id="password" name="password" type="password" [(ngModel)]="password" required />
           </div>
           <div class="field">
@@ -78,7 +78,7 @@ export class LoginPageComponent {
       await this.auth.signIn(this.email, this.password, this.role);
       await this.router.navigateByUrl('/app');
     } catch (error) {
-      this.error = error instanceof Error ? error.message : 'No se pudo iniciar sesion';
+      this.error = error instanceof Error ? error.message : 'No se pudo iniciar sesión';
     }
   }
 }

@@ -17,6 +17,7 @@ test.describe('UX accessibility flows', () => {
     page,
   }) => {
     await page.goto('/app/search');
+    await page.getByTestId('toggle-filters').click();
 
     const presetName = `Preset UX ${Date.now()}`;
     await page.fill('input[name="text"]', 'Laura');

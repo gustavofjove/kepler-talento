@@ -19,15 +19,15 @@ export type CatalogFamily =
   | 'sector';
 
 export const DEFAULT_CATALOGS: Record<CatalogFamily, string[]> = {
-  language: ['Ingles', 'Frances', 'Aleman', 'Italiano', 'Portugues'],
+  language: ['Inglés', 'Francés', 'Alemán', 'Italiano', 'Portugués'],
   program: ['Excel', 'SAP', 'AutoCAD', 'Navision', 'Power BI'],
-  skill: ['Gestion documental', 'Atencion al cliente', 'Analisis', 'Compras'],
+  skill: ['Gestión documental', 'Atención al cliente', 'Análisis', 'Compras'],
   language_level: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
-  program_level: ['Basico', 'Medio', 'Avanzado'],
-  skill_level: ['Basico', 'Medio', 'Alto'],
+  program_level: ['Básico', 'Medio', 'Avanzado'],
+  skill_level: ['Básico', 'Medio', 'Alto'],
   education_type: ['Grado', 'Master', 'FP', 'Curso', 'Doctorado'],
   education_status: ['Finalizada', 'En curso', 'Pendiente'],
-  sector: ['Servicios', 'Industria', 'Tecnologia', 'Comercio', 'Sanidad', 'Educacion'],
+  sector: ['Servicios', 'Industria', 'Tecnología', 'Comercio', 'Sanidad', 'Educación'],
 };
 
 export const CATALOG_FAMILY_LABELS: Record<CatalogFamily, string> = {
@@ -37,8 +37,8 @@ export const CATALOG_FAMILY_LABELS: Record<CatalogFamily, string> = {
   language_level: 'Niveles de idioma',
   program_level: 'Niveles de programa',
   skill_level: 'Niveles de habilidad',
-  education_type: 'Tipos de formacion',
-  education_status: 'Estados de formacion',
+  education_type: 'Tipos de formación',
+  education_status: 'Estados de formación',
   sector: 'Sectores',
 };
 

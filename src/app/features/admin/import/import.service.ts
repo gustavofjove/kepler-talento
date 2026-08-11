@@ -31,7 +31,7 @@ export class ImportService {
     if (dataRows.length > MAX_IMPORT_ROWS) {
       throw new AppError(
         'VALIDATION_ERROR',
-        `El limite maximo por importacion es ${MAX_IMPORT_ROWS} filas.`,
+        `El límite máximo por importación es ${MAX_IMPORT_ROWS} filas.`,
       );
     }
 
@@ -63,7 +63,7 @@ export class ImportService {
       }
 
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errors.push({ rowNumber, field: 'email', message: 'Email invalido.' });
+        errors.push({ rowNumber, field: 'email', message: 'Email inválido.' });
       }
     });
 
@@ -99,7 +99,7 @@ export class ImportService {
     const batches = this.readBatches();
     const batch = batches.find((item) => item.id === batchId);
     if (!batch) {
-      throw new Error('Lote de importacion no encontrado.');
+      throw new Error('Lote de importación no encontrado.');
     }
 
     const updated: ImportBatchRecord = {

@@ -20,7 +20,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="item-main">
               <span class="badge">{{ item.program }}</span> {{ item.level }}
               @if (item.yearsExperience !== undefined) {
-                ({{ item.yearsExperience }} anos)
+                ({{ item.yearsExperience }} años)
               }
             </p>
             @if (canEdit) {
@@ -53,7 +53,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
               </select>
             </div>
             <div class="field">
-              <label>Anos de experiencia</label>
+              <label>Años de experiencia</label>
               <input
                 name="yearsExperience"
                 type="number"
@@ -66,7 +66,7 @@ import { CandidateRelationsService } from '../services/candidate-relations.servi
             <p class="empty-state">{{ error }}</p>
           }
           <div class="form-actions">
-            <button class="button" type="submit">Anadir programa</button>
+            <button class="button" type="submit">Añadir programa</button>
           </div>
         </form>
       }

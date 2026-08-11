@@ -12,7 +12,7 @@ import { CandidateService } from '../services/candidate.service';
     <section class="page">
       <div class="page-header">
         <h1>{{ candidateId ? 'Editar candidato' : 'Alta de candidato' }}</h1>
-        <p class="muted">Los cambios quedan preparados para auditoria y RLS.</p>
+        <p class="muted">Los cambios quedan preparados para auditoría y RLS.</p>
       </div>
       <div class="panel">
         <rrhh-candidate-form [candidate]="candidate" (save)="save($event)" />

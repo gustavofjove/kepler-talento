@@ -33,11 +33,11 @@ test.describe('Candidate list operations', () => {
     await rowOne.check();
     await rowTwo.check();
 
-    await page.click('button:has-text("Baja logica masiva")');
+    await page.click('button:has-text("Baja lógica masiva")');
     await expect(page.getByTestId('confirm-dialog')).toBeVisible();
     await page.getByTestId('confirm-accept').click();
 
-    await expect(page.locator('text=Baja logica aplicada a 2 candidato(s).')).toBeVisible();
+    await expect(page.locator('text=Baja lógica aplicada a 2 candidato(s).')).toBeVisible();
 
     await page.click('button:has-text("Limpiar")');
     await expect(page.locator('input[name="text"]')).toHaveValue('');

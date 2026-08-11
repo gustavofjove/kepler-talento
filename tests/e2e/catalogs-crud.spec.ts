@@ -14,7 +14,7 @@ test.describe('Catalog management CRUD', () => {
     await page.selectOption('select[name="family"]', 'language');
     await page.fill('input[name="newNameEs"]', initialName);
     await page.fill('input[name="newCode"]', `qa_${suffix}`);
-    await page.click('button:has-text("Anadir")');
+    await page.click('button:has-text("Añadir")');
 
     const row = page.locator(`tbody tr:has-text("${initialName}")`);
     await expect(row).toBeVisible();

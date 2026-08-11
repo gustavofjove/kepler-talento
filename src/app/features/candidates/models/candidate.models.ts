@@ -104,7 +104,7 @@ export const EMPTY_CANDIDATE_DRAFT: CandidateDraft = {
   email: '',
   location: '',
   province: '',
-  country: 'Espana',
+  country: 'España',
   availability: 'Inmediata',
   status: 'new',
   source: 'Email',

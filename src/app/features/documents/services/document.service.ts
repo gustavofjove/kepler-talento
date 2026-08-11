@@ -14,7 +14,7 @@ export class DocumentService {
       throw new Error('Solo se permiten documentos PDF para el CV.');
     }
     if (request.file.size > MAX_CV_SIZE_BYTES) {
-      throw new Error('El archivo supera el maximo permitido de 10 MB.');
+      throw new Error('El archivo supera el máximo permitido de 10 MB.');
     }
     const document: CandidateDocument = {
       id: crypto.randomUUID(),

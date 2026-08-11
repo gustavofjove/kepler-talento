@@ -25,7 +25,7 @@ import { CandidateService } from '../candidates/services/candidate.service';
           <span class="kpi-value">{{ withoutCv }}</span>
         </article>
         <article class="panel kpi-card">
-          <span class="kpi-label">Pendientes de revision</span>
+          <span class="kpi-label">Pendientes de revisión</span>
           <span class="kpi-value">{{ pendingReview }}</span>
         </article>
         <article class="panel kpi-card">
@@ -37,9 +37,9 @@ import { CandidateService } from '../candidates/services/candidate.service';
       <div class="grid three">
         <article class="panel stack">
           <h2>Centro operativo</h2>
-          <p class="muted">Accesos rapidos para las tareas diarias de RRHH.</p>
+          <p class="muted">Accesos rápidos para las tareas diarias de RRHH.</p>
           <a class="button secondary" routerLink="/app/candidates">Gestionar listado</a>
-          <a class="button secondary" routerLink="/app/search">Busqueda avanzada</a>
+          <a class="button secondary" routerLink="/app/search">Búsqueda avanzada</a>
         </article>
         <article class="panel kpi-card">
           <span class="kpi-label">Inactivos</span>

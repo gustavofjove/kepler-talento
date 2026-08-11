@@ -104,6 +104,40 @@ describe('CandidateService', () => {
     expect(service.find(three.id)?.isActive).toBe(false);
   });
 
+  it('reverts a logical deletion so the candidate is listed again', () => {
+    const candidate = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Eva',
+      lastName: 'Soler',
+    });
+    service.deactivate(candidate.id);
+
+    service.reactivate(candidate.id);
+
+    expect(service.find(candidate.id)?.isActive).toBe(true);
+    expect(service.list().map((item) => item.id)).toContain(candidate.id);
+  });
+
+  it('reactivates only the inactive candidates and returns updated count', () => {
+    const active = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Ana',
+      lastName: 'Rios',
+    });
+    const inactive = service.create({
+      ...EMPTY_CANDIDATE_DRAFT,
+      firstName: 'Bea',
+      lastName: 'Mora',
+    });
+    service.deactivate(inactive.id);
+
+    const updated = service.reactivateMany([active.id, inactive.id]);
+
+    expect(updated).toBe(1);
+    expect(service.find(active.id)?.isActive).toBe(true);
+    expect(service.find(inactive.id)?.isActive).toBe(true);
+  });
+
   it('marks only the newest document as primary when adding a primary CV', () => {
     const candidate = service.create({
       ...EMPTY_CANDIDATE_DRAFT,

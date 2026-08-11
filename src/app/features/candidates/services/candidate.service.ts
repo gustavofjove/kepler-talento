@@ -67,7 +67,26 @@ export class CandidateService {
     );
   }
 
+  reactivate(id: string): void {
+    this.persist(
+      this.candidates().map((candidate) =>
+        candidate.id === id
+          ? { ...candidate, isActive: true, updatedAt: new Date().toISOString() }
+          : candidate,
+      ),
+    );
+  }
+
   deactivateMany(ids: string[]): number {
+    return this.setActiveMany(ids, false);
+  }
+
+  reactivateMany(ids: string[]): number {
+    return this.setActiveMany(ids, true);
+  }
+
+  /** Flips the logical-delete flag, counting only the rows that actually changed. */
+  private setActiveMany(ids: string[], isActive: boolean): number {
     if (!ids.length) {
       return 0;
     }
@@ -77,14 +96,14 @@ export class CandidateService {
 
     this.persist(
       this.candidates().map((candidate) => {
-        if (!idSet.has(candidate.id) || !candidate.isActive) {
+        if (!idSet.has(candidate.id) || candidate.isActive === isActive) {
           return candidate;
         }
 
         updated += 1;
         return {
           ...candidate,
-          isActive: false,
+          isActive,
           updatedAt: new Date().toISOString(),
         };
       }),
@@ -161,7 +180,7 @@ export class CandidateService {
         email: 'laura.garcia@example.com',
         location: 'Madrid',
         province: 'Madrid',
-        country: 'Espana',
+        country: 'España',
         availability: 'Inmediata',
         status: 'available',
         source: 'LinkedIn',
@@ -173,8 +192,8 @@ export class CandidateService {
         createdAt: '2026-05-10T09:00:00Z',
         updatedAt: '2026-06-15T12:00:00Z',
         languages: [
-          { id: 'l1', language: 'Ingles', level: 'B2', certification: 'Cambridge' },
-          { id: 'l2', language: 'Frances', level: 'B1' },
+          { id: 'l1', language: 'Inglés', level: 'B2', certification: 'Cambridge' },
+          { id: 'l2', language: 'Francés', level: 'B1' },
         ],
         programs: [
           { id: 'p1', program: 'Excel', level: 'Avanzado', yearsExperience: 5 },
@@ -199,7 +218,7 @@ export class CandidateService {
             isCurrent: false,
           },
         ],
-        skills: [{ id: 's1', skill: 'Gestion documental', level: 'Alto' }],
+        skills: [{ id: 's1', skill: 'Gestión documental', level: 'Alto' }],
         documents: [
           {
             id: 'd1',

@@ -20,19 +20,19 @@ describe('CandidateRelationsService', () => {
 
   describe('languages', () => {
     it('adds a language to the candidate', () => {
-      relations.addLanguage(candidateId, { language: 'Ingles', level: 'B2' });
+      relations.addLanguage(candidateId, { language: 'Inglés', level: 'B2' });
       expect(candidateService.find(candidateId)?.languages).toHaveLength(1);
     });
 
     it('rejects a duplicate language regardless of case', () => {
-      relations.addLanguage(candidateId, { language: 'Ingles', level: 'B2' });
-      expect(() => relations.addLanguage(candidateId, { language: 'ingles', level: 'C1' })).toThrow(
+      relations.addLanguage(candidateId, { language: 'Inglés', level: 'B2' });
+      expect(() => relations.addLanguage(candidateId, { language: 'inglés', level: 'C1' })).toThrow(
         /ya tiene este idioma/i,
       );
     });
 
     it('removes a language by id', () => {
-      relations.addLanguage(candidateId, { language: 'Frances', level: 'B1' });
+      relations.addLanguage(candidateId, { language: 'Francés', level: 'B1' });
       const [language] = candidateService.find(candidateId)!.languages;
       relations.removeLanguage(candidateId, language.id);
       expect(candidateService.find(candidateId)?.languages).toHaveLength(0);
@@ -67,7 +67,7 @@ describe('CandidateRelationsService', () => {
           institution: 'UCM',
           status: 'Finalizada',
         }),
-      ).toThrow(/titulacion es obligatoria/i);
+      ).toThrow(/titulación es obligatoria/i);
     });
 
     it('rejects an implausible end year', () => {
@@ -79,7 +79,7 @@ describe('CandidateRelationsService', () => {
           status: 'Finalizada',
           endYear: 1900,
         }),
-      ).toThrow(/ano de finalizacion no es valido/i);
+      ).toThrow(/año de finalización no es valido/i);
     });
 
     it('accepts a valid education record', () => {
@@ -135,9 +135,9 @@ describe('CandidateRelationsService', () => {
 
   describe('skills', () => {
     it('rejects a duplicate skill', () => {
-      relations.addSkill(candidateId, { skill: 'Gestion documental', level: 'Alto' });
+      relations.addSkill(candidateId, { skill: 'Gestión documental', level: 'Alto' });
       expect(() =>
-        relations.addSkill(candidateId, { skill: 'gestion documental', level: 'Medio' }),
+        relations.addSkill(candidateId, { skill: 'gestión documental', level: 'Medio' }),
       ).toThrow(/ya tiene esta habilidad/i);
     });
 
@@ -150,7 +150,7 @@ describe('CandidateRelationsService', () => {
   });
 
   it('throws when the candidate does not exist', () => {
-    expect(() => relations.addLanguage('missing-id', { language: 'Ingles', level: 'B1' })).toThrow(
+    expect(() => relations.addLanguage('missing-id', { language: 'Inglés', level: 'B1' })).toThrow(
       /no encontrado/i,
     );
   });

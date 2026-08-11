@@ -145,7 +145,7 @@ export class CandidateDocumentsComponent {
 
     const confirmed = await this.confirmDialog.confirm({
       title: 'Eliminar documento',
-      message: 'Se eliminara el documento seleccionado del candidato.',
+      message: 'Se eliminará el documento seleccionado del candidato.',
       confirmText: 'Eliminar documento',
       cancelText: 'Cancelar',
       danger: true,

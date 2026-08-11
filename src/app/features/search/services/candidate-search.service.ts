@@ -1,6 +1,17 @@
 import { Injectable } from '@angular/core';
 import { CandidateService } from '../../candidates/services/candidate.service';
-import { EMPTY_SEARCH_FILTERS, SearchFilters, SearchResult } from '../models/search.models';
+import {
+  CriteriaFilter,
+  EMPTY_SEARCH_FILTERS,
+  MultiValueMode,
+  SearchFilters,
+  SearchResult,
+} from '../models/search.models';
+
+interface LeveledValue {
+  value: string;
+  level: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class CandidateSearchService {
@@ -29,19 +40,24 @@ export class CandidateSearchService {
             .includes(text);
         const statusMatch =
           filters.statusValues.length === 0 || filters.statusValues.includes(candidate.status);
-        const languageMatch = this.matchesValues(
-          candidate.languages.map((item) => item.language),
-          filters.languageValues,
+        const skillMatch = this.matchesCriteria(
+          candidate.skills.map((item) => ({ value: item.skill, level: item.level })),
+          filters.skillCriteria,
+          filters.skillMode,
+        );
+        const languageMatch = this.matchesCriteria(
+          candidate.languages.map((item) => ({ value: item.language, level: item.level })),
+          filters.languageCriteria,
           filters.languageMode,
         );
-        const programMatch = this.matchesValues(
-          candidate.programs.map((item) => item.program),
-          filters.programValues,
+        const programMatch = this.matchesCriteria(
+          candidate.programs.map((item) => ({ value: item.program, level: item.level })),
+          filters.programCriteria,
           filters.programMode,
         );
         const hasPrimaryCv = candidate.documents.some((document) => document.isPrimary);
         const cvMatch = !filters.hasCv || (filters.hasCv === 'yes' ? hasPrimaryCv : !hasPrimaryCv);
-        return textMatch && statusMatch && languageMatch && programMatch && cvMatch;
+        return textMatch && statusMatch && skillMatch && languageMatch && programMatch && cvMatch;
       })
       .map((candidate) => ({
         primaryCvDocumentId: candidate.documents.find((document) => document.isPrimary)?.id,
@@ -56,13 +72,30 @@ export class CandidateSearchService {
       }));
   }
 
-  private matchesValues(source: string[], selected: string[], mode: 'ANY' | 'ALL'): boolean {
-    if (selected.length === 0) {
+  /**
+   * Each criterion matches when the candidate holds the same value and, when a level is set,
+   * that exact level. ALL requires every criterion of the type; ANY only one. Types are
+   * always combined with AND between them.
+   */
+  private matchesCriteria(
+    source: LeveledValue[],
+    criteria: CriteriaFilter[],
+    mode: MultiValueMode,
+  ): boolean {
+    if (criteria.length === 0) {
       return true;
     }
-    const sourceSet = new Set(source);
-    return mode === 'ALL'
-      ? selected.every((value) => sourceSet.has(value))
-      : selected.some((value) => sourceSet.has(value));
+    const matchesOne = (criterion: CriteriaFilter): boolean =>
+      source.some(
+        (item) =>
+          this.equals(item.value, criterion.value) &&
+          (!criterion.level.trim() || this.equals(item.level, criterion.level)),
+      );
+
+    return mode === 'ALL' ? criteria.every(matchesOne) : criteria.some(matchesOne);
+  }
+
+  private equals(left: string, right: string): boolean {
+    return (left || '').trim().toLocaleLowerCase() === (right || '').trim().toLocaleLowerCase();
   }
 }
