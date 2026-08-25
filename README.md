@@ -1,152 +1,138 @@
-# RRHH BBDD
+# Kepler Talento
 
-Aplicacion interna de RRHH para gestionar CVs de candidatos, definida con un
-flujo de Spec-Driven Development mediante GitHub Spec Kit.
+Aplicación interna de RR. HH. para gestionar candidatos y CVs. La interfaz actual es una
+SPA React; KTL-5 añade la plataforma objetivo ASP.NET Core, PostgreSQL, almacenamiento
+privado de documentos, ClamAV y Nginx. Las funcionalidades existentes que todavía usan
+`localStorage` o Supabase se mantienen hasta que cada vertical se migre explícitamente.
 
-## Estado
+## Plataforma KTL-5
 
-El MVP esta implementado: la SPA cubre candidatos, busqueda avanzada,
-catalogos, administracion e importacion, con suites de pruebas unitarias,
-integracion y e2e. La persistencia operativa vive todavia en `localStorage`
-del navegador; el esquema Supabase, las politicas RLS y las Edge Functions
-estan escritos pero no cableados desde el frontend.
+- React 19, TypeScript 5.9 y Vite 7.
+- .NET SDK 10.0.102 y ASP.NET Core 10.
+- FastEndpoints, MediatR, FluentValidation, EF Core/Npgsql y Serilog.
+- PostgreSQL 17.6.
+- almacenamiento de ficheros privado con cuarentena y límite de 20 MB.
+- ClamAV 1.4.3 en una red Docker privada.
+- Nginx sin privilegios como único punto publicado, en `http://localhost:4200`.
 
-## Objetivo
+La autenticación de producción está aplazada. El actor sintético solo existe en
+Development/Testing y el proceso se niega a arrancar si se intenta habilitar en
+Production.
 
-Sustituir el uso operativo de Access por una aplicacion web interna que permita
-a RRHH:
+## Requisitos
 
-- registrar y mantener candidatos;
-- asociar idiomas, programas, formacion, experiencia, habilidades y documentos;
-- almacenar CVs en un repositorio privado;
-- buscar candidatos con filtros avanzados combinados;
-- exportar resultados de forma controlada;
-- importar datos depurados desde Access o CSV;
-- aplicar roles, RLS, auditoria y controles de proteccion de datos.
+- Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se
+  recomiendan 4 GiB disponibles para Docker.
+- .NET SDK 10.0.102 para trabajar fuera de contenedores.
+- Node.js 22 y npm 10 para trabajar fuera de contenedores.
 
-## Stack
+Los paquetes NuGet se fijan centralmente en `backend/Directory.Packages.props`. La
+herramienta `dotnet-ef` queda fijada mediante `.config/dotnet-tools.json`.
 
-- React 19
-- TypeScript 5.9
-- Vite 7
-- React Router 7
-- CSS propio con tokens de identidad Kepler
-- Supabase Auth
-- PostgreSQL 17
-- Supabase Storage privado
-- Supabase Edge Functions con TypeScript/Deno
-- Vitest 3
-- React Testing Library
-- Playwright
-- Docker y Nginx unprivileged
-
-## Documentacion principal
-
-- [Especificacion funcional](specs/001-gestion-cvs-rrhh/spec.md)
-- [Plan tecnico](specs/001-gestion-cvs-rrhh/plan.md)
-- [Investigacion y decisiones](specs/001-gestion-cvs-rrhh/research.md)
-- [Modelo de datos](specs/001-gestion-cvs-rrhh/data-model.md)
-- [Contratos](specs/001-gestion-cvs-rrhh/contracts)
-- [Guia de validacion](specs/001-gestion-cvs-rrhh/quickstart.md)
-- [Tareas de implementacion](specs/001-gestion-cvs-rrhh/tasks.md)
-- [Principios y reglas del proyecto](openspec/config.yaml)
-
-## Flujo de trabajo
-
-El repositorio sigue OpenSpec. Cada cambio avanza por sus artefactos:
-
-```text
-Proposal -> Specs -> Design -> Tasks -> Implementation -> Archive
-```
-
-Los briefs de ticket se escriben en `openspec/KTL-*.md` y se enriquecen con
-`/enrich-us`. A partir de ahi, `/opsx:new` crea el cambio en
-`openspec/changes/<nombre>/` y `/opsx:continue` genera un artefacto por
-invocacion; `/opsx:apply` implementa las tareas y `/opsx:archive` cierra el
-cambio y sincroniza las specs.
-
-La documentacion de `specs/001-gestion-cvs-rrhh/` describe el sistema tal como
-esta construido hoy y se mantiene como referencia; el trabajo nuevo no se anade
-ahi. La trazabilidad con los requisitos `FR-*` y criterios `SC-*` se mantiene
-desde los artefactos del cambio activo.
-
-## Seguridad y datos
-
-Los CVs y datos de candidatos son informacion personal. La base Access local se
-mantiene fuera del repositorio y solo debe usarse como referencia funcional o
-fuente de importacion depurada.
-
-Reglas clave:
-
-- no subir bases `.accdb` o `.mdb`;
-- no exponer claves `service_role` en frontend;
-- no usar buckets publicos para CVs;
-- no exponer rutas internas de Storage;
-- aplicar RLS en tablas con datos personales;
-- registrar auditoria para operaciones sensibles.
-
-## Estructura actual
-
-```text
-openspec/                         Configuracion, cambios y specs de OpenSpec
-specs/001-gestion-cvs-rrhh/       Documentacion de diseno del sistema actual
-AGENTS.md                         Contexto gestionado para agentes
-SUPABASE_INTEGRATION_GUIDE.md     Patron de integracion Supabase
-especificacion_tecnica_*.md       Documento tecnico fuente del dominio RRHH/CVs
-```
-
-## Siguiente paso
-
-La siguiente fase es implementar siguiendo `tasks.md`, empezando por la
-infraestructura base, migraciones Supabase, autenticacion y controles de acceso.
-
-## Gates Operativos
-
-- `npm run test:integration`: contratos de Edge Functions y guardrails.
-- `npm run smoke:staging`: checklist rapido de staging.
-- `npm run release:gate`: gate automatizado para build, unit, integration, y checks de seguridad.
-
-Runbook de backup/restore/rollback: [docs/BACKUP_RESTORE_ROLLBACK_RUNBOOK.md](docs/BACKUP_RESTORE_ROLLBACK_RUNBOOK.md)
-
-## Ejecucion local con Docker Desktop
-
-El frontend se puede construir y servir en Docker con Nginx:
+## Arranque del stack completo
 
 ```powershell
-docker compose -f docker-compose.frontend.yml up -d --build
+Copy-Item .env.example .env
+docker compose up --build
 ```
 
-Por defecto usa el puerto `63151`. Si ese puerto ya esta ocupado:
+El migrador termina antes de que arranque la API. Nginx sirve la SPA y reenvía `/api` al
+backend con el mismo origen. PostgreSQL, ClamAV y los directorios de documentos no
+publican puertos ni rutas al host.
+
+Rutas de diagnóstico:
+
+- `http://localhost:4200/api/health/live`: proceso vivo.
+- `http://localhost:4200/api/health/ready`: PostgreSQL, migraciones y almacenamiento.
+- `http://localhost:4200/api/health/scanner`: estado separado de ClamAV; puede estar
+  degradado sin impedir la descarga de documentos que ya estaban limpios.
+- `http://localhost:4200/platform/reference`: arnés sintético, solo en Development/Test.
+
+Para detener los contenedores sin borrar datos:
 
 ```powershell
-$env:FRONTEND_PORT="63152"
-docker compose -f docker-compose.frontend.yml up -d --build
+docker compose down
 ```
 
-## Convivencia de frontends locales
+Los volúmenes `postgres-data`, `documents` y `clamav-signatures` son persistentes. No use
+`docker compose down --volumes` salvo que quiera eliminar deliberadamente los datos de
+desarrollo.
 
-En el entorno actual conviven dos frontends del ecosistema Kepler:
-
-- `RRHH BBDD` en `http://localhost:63151`
-- `KeplerDesk` en `http://localhost:63153`
-
-Si necesitas volver a mover `KeplerDesk`, recreate el contenedor con otro
-puerto host libre manteniendo `63151` reservado para RRHH BBDD.
-
-URL local:
-
-```text
-http://localhost:63151
-```
-
-o el puerto alternativo que hayas indicado.
-
-Para parar el contenedor:
+## Trabajo local sin Compose
 
 ```powershell
-docker compose -f docker-compose.frontend.yml down
+npm ci
+dotnet tool restore
+dotnet restore backend/KeplerTalento.slnx
+npm run build:all
+npm test
+npm run test:backend
 ```
 
-La aplicacion arranca en modo local/demo si `SUPABASE_URL` y
-`SUPABASE_ANON_KEY` estan vacios. Cuando exista un entorno Supabase, copia
-`.env.example` a `.env` y rellena esas variables.
+La API nunca migra automáticamente durante el arranque normal. La migración explícita es:
+
+```powershell
+dotnet run --project backend/Web/KeplerTalento.Web.csproj -- --migrate
+```
+
+Requiere `ConnectionStrings__ApplicationDatabase` y una identidad de migración con permiso
+DDL. La API usa una identidad distinta (`ktl_runtime`) con DML limitado a las tablas
+aprobadas.
+
+## Imágenes, configuración y almacenamiento
+
+Las imágenes son reproducibles y multi-stage: `backend/Dockerfile` y
+`Dockerfile.frontend`. Los valores de desarrollo están documentados en `.env.example`;
+los secretos reales no deben versionarse. Dentro del volumen de documentos existen raíces
+separadas `quarantine` y `available`; PostgreSQL almacena únicamente claves opacas, nunca
+rutas de host, UNC ni nombres físicos derivados de candidatos.
+
+Si la API no está lista, revise en este orden: migrador, PostgreSQL, permisos de escritura
+del volumen y configuración. Si solo falla `/api/health/scanner`, revise la memoria de
+Docker, la actualización de firmas y los límites de ClamAV. Los documentos nuevos se
+mantienen en cuarentena durante la incidencia.
+
+## Backup, restore y operación
+
+El procedimiento operativo está en
+[`docs/ktl-5/operator-runbook.md`](docs/ktl-5/operator-runbook.md). Los comandos principales
+son:
+
+```powershell
+./scripts/operations/backup.ps1
+./scripts/operations/restore.ps1 -RecoveryId <yyyyMMddTHHmmssZ> -ConfirmNonProduction
+./scripts/operations/reconcile.ps1
+```
+
+Cada recovery set contiene dump PostgreSQL, archivos y manifiesto con hashes, sin
+credenciales. La base inicial es backup diario, RPO de 24 horas, RTO de 4 horas y 30 días
+de retención.
+
+## Calidad y seguridad
+
+```powershell
+npm run lint
+npm run format:check
+npm run security:rls
+npm run security:storage
+npm run test:security
+npm run release:gate
+```
+
+`security:rls` conserva el nombre histórico del gate, pero para KTL-5 valida la frontera
+PostgreSQL privada y sus grants de mínimo privilegio. Las comprobaciones Supabase siguen
+aplicándose solo a rutas heredadas no migradas.
+
+## Alcance aplazado
+
+KTL-5 no decide ni implementa autenticación, migración de datos Access, topología final de
+producción, SMB ni el comportamiento de producto CSV. Tampoco cambia en bloque los
+servicios funcionales actuales: aporta las interfaces y operaciones reutilizables para
+cambios posteriores.
+
+Documentación principal:
+
+- [Brief KTL-5](openspec/KTL-5.md)
+- [Cambio OpenSpec](openspec/changes/ktl-5-dotnet-infrastructure)
+- [Plan técnico existente](specs/001-gestion-cvs-rrhh/plan.md)
+- [Principios vigentes](openspec/config.yaml)

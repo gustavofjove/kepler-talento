@@ -738,13 +738,13 @@ candidate-cvs/8d3.../3a1.../cv_juan_perez.pdf
 
 Roles recomendados:
 
-| Rol | Permisos |
-|---|---|
-| `rrhh_admin` | Gestión completa de candidatos, catálogos y usuarios funcionales |
-| `rrhh_user` | Alta, edición, búsqueda y descarga de CVs |
-| `manager_reader` | Consulta limitada de candidatos y descarga si se autoriza |
-| `readonly` | Solo consulta básica, sin descarga salvo política específica |
-| `system_admin` | Administración técnica |
+| Rol              | Permisos                                                         |
+| ---------------- | ---------------------------------------------------------------- |
+| `rrhh_admin`     | Gestión completa de candidatos, catálogos y usuarios funcionales |
+| `rrhh_user`      | Alta, edición, búsqueda y descarga de CVs                        |
+| `manager_reader` | Consulta limitada de candidatos y descarga si se autoriza        |
+| `readonly`       | Solo consulta básica, sin descarga salvo política específica     |
+| `system_admin`   | Administración técnica                                           |
 
 ### 10.3 RLS
 
@@ -1110,7 +1110,7 @@ Respetar el puerto:
 
 ```yaml
 ports:
-  - "63151:8080"
+  - '63151:8080'
 ```
 
 ### 19.4 Variables de entorno

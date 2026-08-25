@@ -38,6 +38,15 @@ export default defineConfig({
           globals: true,
         },
       },
+      {
+        extends: true,
+        test: {
+          name: 'security',
+          include: ['tests/security/**/*.spec.ts'],
+          environment: 'node',
+          globals: true,
+        },
+      },
     ],
   },
 });

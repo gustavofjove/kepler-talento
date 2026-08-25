@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useServices } from '../di/services-context';
 
 /**
@@ -9,7 +10,13 @@ import { useServices } from '../di/services-context';
  */
 export function useErrorToast(): (error: unknown, fallback: string) => void {
   const { toastService } = useServices();
-  return (error: unknown, fallback: string): void => {
-    toastService.show(error instanceof Error && error.message ? error.message : fallback, 'error');
-  };
+  return useCallback(
+    (error: unknown, fallback: string): void => {
+      toastService.show(
+        error instanceof Error && error.message ? error.message : fallback,
+        'error',
+      );
+    },
+    [toastService],
+  );
 }

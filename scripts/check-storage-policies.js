@@ -2,21 +2,51 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const filePath = path.join(process.cwd(), 'tests/security/storage-candidate-cvs.sql');
-const sql = fs.readFileSync(filePath, 'utf-8');
+const read = (relative) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
+const storage = read('backend/Infrastructure/Documents/FileSystemDocumentStorage.cs');
+const download = read('backend/Infrastructure/Documents/DocumentDownloadService.cs');
+const nginx = read('nginx.conf');
+const compose = read('docker-compose.yml');
 
-const requiredPatterns = [
-	'candidate-cvs',
-	'candidate_cvs_read',
-	'candidate_cvs_insert',
-	'can_access_candidate_cv_path',
+const serviceBlock = (name) => {
+  const match = compose.match(
+    new RegExp(`^  ${name}:\\r?\\n([\\s\\S]*?)(?=^  [a-zA-Z0-9_-]+:\\r?\\n|^networks:)`, 'm'),
+  );
+  return match?.[0] ?? '';
+};
+
+const checks = [
+  [
+    'Opaque key construction',
+    read('backend/Infrastructure/Documents/DocumentStorageKey.cs').includes(
+      'candidates/{candidateId:N}/{documentId:N}/content',
+    ),
+  ],
+  ['Traversal containment enforced', storage.includes('ResolveContained')],
+  ['Create-new collision semantics', storage.includes('FileMode.CreateNew')],
+  [
+    'Quarantine precedes available promotion',
+    storage.includes('_quarantineRoot') && storage.includes('File.Move'),
+  ],
+  [
+    'Only clean metadata downloads',
+    download.includes('metadata.ScanState != DocumentScanState.Clean'),
+  ],
+  ['No direct Nginx document route', !/location\s+[^\n]*documents/i.test(nginx)],
+  [
+    'Document volume mounts only backend tools',
+    !serviceBlock('nginx').includes('documents:/var/lib/kepler-talento'),
+  ],
+  [
+    '20 MB proxy and storage limits align',
+    nginx.includes('client_max_body_size 20m') && storage.includes('AbsoluteMaximumBytes'),
+  ],
 ];
-const missing = requiredPatterns.filter((pattern) => !sql.includes(pattern));
 
-if (missing.length) {
-	console.error(`[security:storage] Missing required checks: ${missing.join(', ')}`);
-	process.exit(1);
-}
-
-console.log('[security:storage] Storage checks are defined in tests/security/storage-candidate-cvs.sql');
-process.exit(0);
+const failed = checks.filter(([, passed]) => !passed);
+for (const [name, passed] of checks)
+  console.log(`[security:storage] ${passed ? 'PASS' : 'FAIL'} ${name}`);
+if (failed.length) process.exit(1);
+console.log(
+  '[security:storage] Private quarantine/download boundary checks passed; legacy Supabase storage SQL remains for unchanged paths.',
+);

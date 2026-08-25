@@ -1,26 +1,22 @@
 ---
 name: Bug report
 about: Report unexpected behavior
-title: "[bug] "
+title: '[bug] '
 labels: bug
-assignees: ""
+assignees: ''
 ---
 
 ## Summary
 
-
 ## Expected Behavior
-
 
 ## Actual Behavior
 
-
 ## Reproduction
 
-1. 
+1.
 
 ## Impact
-
 
 ## Related Spec/Task
 
