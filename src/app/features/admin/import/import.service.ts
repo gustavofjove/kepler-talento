@@ -1,4 +1,3 @@
-import { Injectable } from '@angular/core';
 import { ImportBatchRecord, ImportRowError, ImportSummary } from './import.models';
 import { AppError } from '../../../shared/models/error.models';
 
@@ -6,7 +5,6 @@ const REQUIRED_COLUMNS = ['first_name', 'last_name'];
 const IMPORT_BATCHES_STORAGE_KEY = 'rrhh.import.batches.v1';
 export const MAX_IMPORT_ROWS = 2000;
 
-@Injectable({ providedIn: 'root' })
 export class ImportService {
   async validateLocalCsv(file: File, dryRun: boolean): Promise<ImportSummary> {
     const content = await file.text();

@@ -1,5 +1,11 @@
 # Implementation Plan: Gestion de CVs para RRHH
 
+> **Actualizacion de stack (KTL-3, 2026-08-20).** El frontend migro de Angular 21
+> a React 19 + Vite + React Router 7. La frontera de backend no cambia: Supabase
+> sigue siendo el unico backend y las claves de `localStorage` son identicas. El
+> registro de desviacion del principio 2 esta en
+> `openspec/changes/migrate-frontend-to-react/design.md`.
+
 **Branch**: `001-gestion-cvs-rrhh` | **Date**: 2026-06-28 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-gestion-cvs-rrhh/spec.md`
@@ -10,7 +16,7 @@ Build an internal RRHH web application for secure candidate CV management. The
 MVP delivers authenticated role-based access, candidate maintenance, professional
 profile enrichment, private CV storage/opening, advanced search, controlled
 export, and controlled Access/CSV import. The technical approach follows the
-existing corporate Angular + Supabase pattern, with Supabase RLS and private
+existing corporate React + Supabase pattern, with Supabase RLS and private
 Storage as the real authorization boundary.
 
 Current continuation focus: close usability and production-hardening gaps
@@ -22,7 +28,7 @@ UX baseline and improvement roadmap are documented in [ux-audit.md](./ux-audit.m
 **Language/Version**: TypeScript 5.9, SQL/PostgreSQL 17, Deno/TypeScript for
 Supabase Edge Functions
 
-**Primary Dependencies**: Angular 21 standalone components, RxJS, Angular CDK,
+**Primary Dependencies**: React 19 function components, React Router 7, Vite,
 Tailwind CSS 3, `@ngx-translate`, `@supabase/supabase-js`, Supabase Auth,
 Supabase Storage, Supabase Edge Functions
 
@@ -60,7 +66,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 - Personal data protection: PASS. Plan identifies candidate data, consent,
   retention/review dates, audit needs, export limits, logical deletion, and
   private CV document controls.
-- Stack boundary: PASS. Plan stays within Angular 21 + Supabase + Docker/Nginx
+- Stack boundary: PASS with recorded departure. Plan stays within React 19 + Vite + Supabase + Docker/Nginx
   stack from the source documents. Access is migration/reference only.
 - Authorization: PASS. RLS, roles, private Storage, signed URL generation, and
   service-role isolation are explicit design obligations.
@@ -137,7 +143,7 @@ scripts/
 `-- check-storage-policies.js
 ```
 
-**Structure Decision**: Use a domain-oriented Angular SPA under `src/app`, with
+**Structure Decision**: Use a domain-oriented React SPA under `src/app`, with
 Supabase migrations and Edge Functions under `supabase/`. Tests are grouped by
 risk surface: unit, integration, E2E, and security.
 
@@ -165,7 +171,7 @@ without implementing code in this phase.
 
 - Personal data protection: PASS. Data model records consent/review metadata,
   logical deletion, audit events, document metadata, and controlled export.
-- Stack boundary: PASS. Contracts keep Supabase as backend boundary and Angular
+- Stack boundary: PASS. Contracts keep Supabase as backend boundary and React
   as frontend boundary.
 - Authorization: PASS. Contracts include RLS, storage denial, signed URL, role,
   and Edge Function authorization expectations.

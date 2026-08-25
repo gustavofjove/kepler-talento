@@ -1,17 +1,16 @@
-import { Injectable, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { signal } from '../../core/state/signal';
 import { DEFAULT_ROLES, Permission, UserProfile } from '../../shared/models/auth.models';
+import type { AppNavigator } from '../routing/navigator';
 import { SupabaseClientService } from '../supabase/supabase-client.service';
 
 const STORAGE_KEY = 'rrhh-demo-profile';
 
-@Injectable({ providedIn: 'root' })
 export class AuthService {
   readonly profile = signal<UserProfile | null>(this.restoreProfile());
 
   constructor(
     private readonly supabaseClient: SupabaseClientService,
-    private readonly router: Router,
+    private readonly router: AppNavigator,
   ) {}
 
   get isAuthenticated(): boolean {

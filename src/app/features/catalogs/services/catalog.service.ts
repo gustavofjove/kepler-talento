@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { signal } from '../../../core/state/signal';
 import { Candidate } from '../../candidates/models/candidate.models';
 import { CandidateService } from '../../candidates/services/candidate.service';
 import { CatalogFamily, CatalogItem, DEFAULT_CATALOGS } from '../models/catalog.models';
@@ -7,15 +7,15 @@ const STORAGE_KEY = 'rrhh-catalogs';
 
 type CatalogState = Record<CatalogFamily, CatalogItem[]>;
 
-@Injectable({ providedIn: 'root' })
 export class CatalogService {
   readonly catalogs = signal<CatalogState>(this.restore());
 
   constructor(private readonly candidateService: CandidateService) {}
 
   list(family: CatalogFamily, includeInactive = false): CatalogItem[] {
-    const items = this.catalogs()
-      [family].slice()
+    const familyItems = this.catalogs()[family];
+    const items = familyItems
+      .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder || a.nameEs.localeCompare(b.nameEs));
     return includeInactive ? items : items.filter((item) => item.isActive);
   }

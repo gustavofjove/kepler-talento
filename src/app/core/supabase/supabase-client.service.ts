@@ -1,8 +1,6 @@
-import { Injectable } from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { readAppConfig } from '../services/app-config.model';
 
-@Injectable({ providedIn: 'root' })
 export class SupabaseClientService {
   private readonly config = readAppConfig();
   private readonly client = this.createSafeClient();

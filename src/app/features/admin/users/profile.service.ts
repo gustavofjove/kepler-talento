@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { signal } from '../../../core/state/signal';
 import { RoleService } from '../roles/role.service';
 
 const STORAGE_KEY = 'rrhh-admin-users';
@@ -12,7 +12,6 @@ export interface AdminUser {
   mfaRequired: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
 export class ProfileService {
   readonly users = signal<AdminUser[]>(this.restore());
 

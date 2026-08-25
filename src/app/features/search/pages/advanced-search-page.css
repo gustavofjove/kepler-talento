@@ -1,0 +1,6 @@
+/* .overlay/.modal live in shared/components/modal.css - they were byte-identical
+   to the confirm dialog's copies once Angular's encapsulation was removed. */
+.preset-actions {
+  align-items: center;
+  align-self: end;
+}

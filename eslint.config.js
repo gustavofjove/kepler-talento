@@ -1,6 +1,8 @@
 const js = require('@eslint/js');
 const globals = require('globals');
 const tseslint = require('typescript-eslint');
+const reactHooks = require('eslint-plugin-react-hooks');
+const reactRefresh = require('eslint-plugin-react-refresh');
 
 module.exports = [
   {
@@ -8,7 +10,7 @@ module.exports = [
       'dist/**',
       'coverage/**',
       'node_modules/**',
-      '.angular/**',
+      '.vite/**',
       'playwright-report/**',
       'test-results/**',
     ],
@@ -16,7 +18,7 @@ module.exports = [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     languageOptions: {
       globals: globals.browser,
     },
@@ -29,7 +31,22 @@ module.exports = [
     },
   },
   {
-    files: ['*.js', 'scripts/**/*.js', 'postcss.config.js', 'tailwind.config.js', 'jest.config.js'],
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      // Escalated from the plugin default: a useMemo with an incomplete
+      // dependency list yields a stale view with no runtime error, which is the
+      // main correctness risk when porting Angular's tick-based getters.
+      'react-hooks/exhaustive-deps': 'error',
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+  {
+    files: ['*.js', 'scripts/**/*.js'],
     languageOptions: {
       globals: { ...globals.node },
     },

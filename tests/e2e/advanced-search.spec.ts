@@ -35,4 +35,28 @@ test.describe('Advanced search', () => {
 
     await expect(page.locator('input[name="text"]')).toHaveValue('');
   });
+
+  // Regression guard for the search-filters port: the filter panel used to
+  // mutate its parent's object in place, and results only refreshed on submit.
+  // Deriving results from the filters state instead would make the table update
+  // on every keystroke - a user-visible behaviour change.
+  test('typing in a filter does not change the results until Buscar is pressed', async ({
+    page,
+  }) => {
+    await page.goto('/app/search');
+    await page.getByTestId('toggle-filters').click();
+    await page.fill('input[name="text"]', 'Laura');
+    await page.click('button[type="submit"]:has-text("Buscar")');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+
+    await page.getByTestId('toggle-filters').click();
+    await page.fill('input[name="text"]', 'nadie-existe-xyz');
+
+    // Still the previous result set: no submit has happened.
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('text=Laura Garcia')).toBeVisible();
+
+    await page.click('button[type="submit"]:has-text("Buscar")');
+    await expect(page.locator('text=Sin resultados.')).toBeVisible();
+  });
 });

@@ -1,6 +1,3 @@
-import { Injectable } from '@angular/core';
-
-@Injectable({ providedIn: 'root' })
 export class ObservabilityService {
   log(event: string, payload: Record<string, unknown> = {}): string {
     const requestId = this.createRequestId();
@@ -10,6 +7,7 @@ export class ObservabilityService {
       event,
       ...payload,
     };
+    // eslint-disable-next-line no-console -- structured logging is this service's purpose
     console.info('[rrhh-observability]', JSON.stringify(entry));
     return requestId;
   }

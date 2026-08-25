@@ -12,7 +12,6 @@ node_modules/
 .pnp.js
 .pnpm-store/
 .yarn/
-.angular/
 tests/e2e/.auth/
 
 # Build outputs

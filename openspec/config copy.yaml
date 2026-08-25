@@ -1,0 +1,32 @@
+schema: spec-driven
+
+# Project context loaded into every artifact generation.
+# Must be a single string (openspec inlines it; there is no entry/include resolution).
+# Keep it compact — openspec enforces a max context size.
+context: |
+  Project: HMS (HAWKE Transit System). Backend: .NET 10 / C# 14, ASP.NET Core,
+  FastEndpoints, MediatR (Vertical Slice Architecture + CQRS), EF Core
+  (PostgreSQL + SQLite offline + InMemory tests). Frontend: React.
+
+  Read these files for full standards and architecture before generating artifacts:
+  - ai-specs/AI_RULES.md (entry point / index)
+  - ai-specs/base/*.md (universal .NET 10 / C# 14 standards)
+  - ai-specs/project/*.md (project architecture and domain model)
+  - ai-specs/project/api-spec.yml (API specification)
+
+  DB table prefixes (uppercase): CAT_ catalog, ADM_ admin, PRJ_ projects,
+  CMS_ content, REF_ lookup. Artifacts are written in English.
+
+# Per-artifact rules. Each artifact key maps to a flat array of strings.
+rules:
+  proposal:
+    - Reference standards from ai-specs/base/ when applicable
+    - Include impact on domain model if data changes are needed
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Each task should reference specific standards files when relevant
+    - 'MANDATORY for backend changes: Step 0 create feature branch feat/[name]'
+    - 'MANDATORY for backend changes: review and update existing unit tests'
+    - 'MANDATORY for backend changes: run unit tests and verify database state'
+    - 'MANDATORY for backend changes: automated endpoint testing with curl/http'
+    - 'MANDATORY for backend changes: update technical documentation'

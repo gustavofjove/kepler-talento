@@ -2,15 +2,14 @@
   "name": "rrhh-bbdd",
   "version": "0.1.0",
   "private": true,
-  "description": "Aplicacion interna Kepker Talento para gestion de CVs con Angular, Supabase y Spec Kit",
+  "description": "Aplicacion interna Kepker Talento para gestion de CVs con React, Supabase y OpenSpec",
   "scripts": {
-    "ng": "ng",
-    "start": "ng serve --host 0.0.0.0 --port 4200",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
-    "test": "jest --passWithNoTests",
-    "test:integration": "jest tests/integration --runInBand",
-    "test:watch": "jest --watch",
+    "start": "vite --host 0.0.0.0 --port 4200 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4200",
+    "test": "vitest run",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
     "e2e": "playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -22,57 +21,38 @@
     "release:gate": "node scripts/release-gate.js"
   },
   "dependencies": {
-    "@angular/animations": "21.2.17",
-    "@angular/cdk": "21.2.14",
-    "@angular/common": "21.2.17",
-    "@angular/compiler": "21.2.17",
-    "@angular/core": "21.2.17",
-    "@angular/forms": "21.2.17",
-    "@angular/platform-browser": "21.2.17",
-    "@angular/router": "21.2.17",
-    "@ngx-translate/core": "^18.0.0",
-    "@ngx-translate/http-loader": "^18.0.0",
+    "@fontsource/montserrat": "^5.2.5",
+    "@fontsource/nunito-sans": "^5.2.5",
     "@supabase/supabase-js": "^2.110.0",
-    "rxjs": "^7.8.2",
-    "tslib": "^2.8.1",
-    "zone.js": "^0.16.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router": "^7.9.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "21.2.17",
-    "@angular/cli": "21.2.17",
-    "@angular/compiler-cli": "21.2.17",
     "@playwright/test": "^1.58.0",
-    "@tailwindcss/postcss": "^4.3.2",
-    "@types/jest": "^30.0.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.0.3",
-    "autoprefixer": "^10.4.23",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^6.1.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^17.7.0",
     "husky": "^9.1.7",
-    "jest": "^30.2.0",
-    "jest-environment-jsdom": "^30.2.0",
-    "jest-preset-angular": "^17.0.0",
+    "jsdom": "^28.0.0",
     "lint-staged": "^16.2.7",
-    "postcss": "^8.5.6",
     "prettier": "^3.9.4",
-    "tailwindcss": "^3.4.19",
     "typescript": "5.9.3",
-    "typescript-eslint": "^8.62.1"
+    "typescript-eslint": "^8.62.1",
+    "vite": "^7.2.2",
+    "vitest": "^3.2.4"
   },
   "lint-staged": {
-    "*.{ts,html,css,md,json,yml,yaml}": [
+    "*.{ts,tsx,html,css,md,json,yml,yaml}": [
       "prettier --write"
     ]
-  },
-  "overrides": {
-    "@angular-devkit/build-angular": {
-      "http-proxy-middleware": "3.0.7"
-    },
-    "@angular/build": {
-      "undici": "7.28.0"
-    },
-    "sockjs": {
-      "uuid": "11.1.1"
-    }
   }
 }

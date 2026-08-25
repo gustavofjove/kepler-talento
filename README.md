@@ -5,10 +5,11 @@ flujo de Spec-Driven Development mediante GitHub Spec Kit.
 
 ## Estado
 
-La fase actual es de definicion funcional y tecnica. Todavia no hay
-implementacion de la aplicacion: el repositorio contiene la especificacion,
-constitucion, plan, modelo de datos, contratos, checklists y tareas necesarias
-para iniciar la implementacion de forma controlada.
+El MVP esta implementado: la SPA cubre candidatos, busqueda avanzada,
+catalogos, administracion e importacion, con suites de pruebas unitarias,
+integracion y e2e. La persistencia operativa vive todavia en `localStorage`
+del navegador; el esquema Supabase, las politicas RLS y las Edge Functions
+estan escritos pero no cableados desde el frontend.
 
 ## Objetivo
 
@@ -23,44 +24,51 @@ a RRHH:
 - importar datos depurados desde Access o CSV;
 - aplicar roles, RLS, auditoria y controles de proteccion de datos.
 
-## Stack previsto
+## Stack
 
-- Angular 21
+- React 19
 - TypeScript 5.9
-- RxJS
-- Angular CDK
-- Tailwind CSS 3
-- `@ngx-translate`
+- Vite 7
+- React Router 7
+- CSS propio con tokens de identidad Kepler
 - Supabase Auth
 - PostgreSQL 17
 - Supabase Storage privado
 - Supabase Edge Functions con TypeScript/Deno
-- Jest 30
+- Vitest 3
+- React Testing Library
 - Playwright
 - Docker y Nginx unprivileged
 
 ## Documentacion principal
 
-- [Especificacion funcional Spec Kit](specs/001-gestion-cvs-rrhh/spec.md)
+- [Especificacion funcional](specs/001-gestion-cvs-rrhh/spec.md)
 - [Plan tecnico](specs/001-gestion-cvs-rrhh/plan.md)
 - [Investigacion y decisiones](specs/001-gestion-cvs-rrhh/research.md)
 - [Modelo de datos](specs/001-gestion-cvs-rrhh/data-model.md)
 - [Contratos](specs/001-gestion-cvs-rrhh/contracts)
 - [Guia de validacion](specs/001-gestion-cvs-rrhh/quickstart.md)
 - [Tareas de implementacion](specs/001-gestion-cvs-rrhh/tasks.md)
-- [Constitucion del proyecto](.specify/memory/constitution.md)
+- [Principios y reglas del proyecto](openspec/config.yaml)
 
 ## Flujo de trabajo
 
-El repositorio sigue el flujo:
+El repositorio sigue OpenSpec. Cada cambio avanza por sus artefactos:
 
 ```text
-Constitution -> Spec -> Plan -> Research -> Data Model -> Contracts -> Tasks -> Implementation
+Proposal -> Specs -> Design -> Tasks -> Implementation -> Archive
 ```
 
-La implementacion debe avanzar tarea a tarea desde
-`specs/001-gestion-cvs-rrhh/tasks.md`, manteniendo trazabilidad con los
-requisitos `FR-*` y criterios `SC-*` definidos en la especificacion.
+Los briefs de ticket se escriben en `openspec/KTL-*.md` y se enriquecen con
+`/enrich-us`. A partir de ahi, `/opsx:new` crea el cambio en
+`openspec/changes/<nombre>/` y `/opsx:continue` genera un artefacto por
+invocacion; `/opsx:apply` implementa las tareas y `/opsx:archive` cierra el
+cambio y sincroniza las specs.
+
+La documentacion de `specs/001-gestion-cvs-rrhh/` describe el sistema tal como
+esta construido hoy y se mantiene como referencia; el trabajo nuevo no se anade
+ahi. La trazabilidad con los requisitos `FR-*` y criterios `SC-*` se mantiene
+desde los artefactos del cambio activo.
 
 ## Seguridad y datos
 
@@ -80,8 +88,8 @@ Reglas clave:
 ## Estructura actual
 
 ```text
-.specify/                         Configuracion de Spec Kit
-specs/001-gestion-cvs-rrhh/       Definicion completa de la primera feature
+openspec/                         Configuracion, cambios y specs de OpenSpec
+specs/001-gestion-cvs-rrhh/       Documentacion de diseno del sistema actual
 AGENTS.md                         Contexto gestionado para agentes
 SUPABASE_INTEGRATION_GUIDE.md     Patron de integracion Supabase
 especificacion_tecnica_*.md       Documento tecnico fuente del dominio RRHH/CVs

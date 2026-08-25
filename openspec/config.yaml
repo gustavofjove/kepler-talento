@@ -1,0 +1,83 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+context: |
+  Kepler Talento is an internal HR application for registering, maintaining,
+  searching, exporting, and governing candidate CV information.
+
+  Tech stack: React + TypeScript (Vite, React Router), Supabase (Postgres +
+  RLS + Storage + Edge Functions), Vitest for unit/integration tests,
+  Playwright for e2e.
+  Ticket codes use the KTL- prefix (e.g. KTL-5); briefs live in openspec/KTL-*.md.
+  User-facing copy is Spanish — keep accents and Spanish wording correct.
+
+  Design documentation for the shipped system lives in
+  specs/001-gestion-cvs-rrhh/ (data model, contracts, research, UX audit). Treat
+  it as the record of how the app works today; new work goes through
+  openspec/changes/.
+
+  Standing project principles (ratified 2026-06-28, carried over from the former
+  Spec Kit constitution):
+
+  1. Personal data is protected by design. Candidate CVs, contact details,
+     consent and retention metadata, review dates, audit data, and documents are
+     personal data. Minimize exposed data, preserve consent and retention
+     metadata, support logical deletion, and never expose internal storage paths.
+     Exports carry only the fields the business task needs.
+  2. Supabase and the existing corporate stack are the boundary. Supabase is the
+     backend boundary for authentication, database access, storage, functions,
+     and authorization-sensitive operations. The legacy Access database is a
+     reference and migration source only — never an operational backend. New
+     infrastructure choices need an explicit, documented reason.
+  3. RLS, roles, and storage security are non-negotiable. Every business table
+     holding personal or operational data has Row Level Security enabled before
+     the application uses it. Authorization is enforced in the database and
+     storage layer, not only in the frontend. CV files live in private storage
+     and open only through permission-checked, time-limited access. Service-role
+     operations stay behind server-side functions and never reach the frontend.
+  4. Testable delivery with security evidence. Every delivered slice shows that
+     the user journey works and that security boundaries hold. Security and RLS
+     checks must fail closed for unauthenticated or unauthorized users before a
+     feature counts as complete.
+  5. Incremental delivery with traceable specifications. Work moves from proposal
+     to specs to design to tasks to implementation. User stories are
+     independently testable, and every task maps back to a requirement or user
+     story in the active change.
+
+  Domain rules: candidates are removed logically (inactive/deleted status), never
+  destructively, in normal operations. Search ignores empty filters, combines
+  different filter families with AND, supports ANY and ALL semantics within a
+  multi-value filter family, and never returns duplicate candidates.
+
+# Per-artifact rules (optional)
+# These are applied whenever the corresponding artifact is created or updated.
+rules:
+  proposal:
+    - State user value, actors, functional requirements, key entities, assumptions, edge cases, and measurable success criteria before implementation begins.
+    - 'Call out explicitly whether the change touches personal data, RLS policies, storage access, or role definitions — and if it does, say how principle 1 and 3 are upheld.'
+  design:
+    - Record the technical stack impact, data model changes, authorization model, storage model, and test strategy.
+    - 'Database migrations MUST be idempotent and ship their grants, RLS policies, and helper functions in the same slice.'
+    - Frontend services centralize access to backend capabilities rather than duplicating authorization logic that belongs in RLS or server-side functions.
+    - 'Any departure from the standing principles MUST be documented here with the reason, the simpler alternative considered, and the mitigation.'
+  tasks:
+    - "Step 0 MUST be 'Create Feature Branch'. If the change was described by a file, name the branch feat/<filename-without-extension>; otherwise feat/<change-name>."
+    - 'MANDATORY step: review and update existing unit tests affected by the change.'
+    - 'MANDATORY step: run the unit and integration suites (`npm test`, and `npm run test:integration` when Supabase-backed data paths change) and verify the resulting database state.'
+    - "MANDATORY step: exercise the change end to end (`npm run e2e`, or a targeted Playwright spec). Write these as sub-tasks that make it explicit the agent must actually execute them, not just describe them — e.g. 'Run the candidate-search spec', 'Restore seed data afterwards'."
+    - 'MANDATORY step: when the slice touches personal data, permissions, RLS, or storage, include SQL/RLS and storage-policy checks (`npm run security:rls`, `npm run security:storage`, and the specs under tests/security/). These must fail closed for unauthenticated and unauthorized users.'
+    - 'MANDATORY step: run `npm run lint` and `npm run format:check` before considering the change done.'
+    - 'MANDATORY step: update technical documentation (docs/, README.md, or the relevant spec) for anything user-visible or contract-changing.'
+    - Break tasks into chunks of at most 2 hours.
+    - Every task maps back to a requirement or user story in the proposal.
+
+# Per-operation guidance (optional)
+operations:
+  apply:
+    guidance:
+      - Do not mark a mandatory task complete unless its command was actually run and its output inspected.
+      - Do not consider a slice touching personal data or permissions complete without security evidence.
+  archive:
+    guidance:
+      - 'Report the archive outcome: change name, schema used, archive location, spec sync status, and any warnings about incomplete artifacts or tasks.'
