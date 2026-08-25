@@ -15,6 +15,9 @@ import { ObservabilityService } from '../services/observability.service';
 import { ToastService } from '../services/toast.service';
 import { SupabaseClientService } from '../supabase/supabase-client.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog.service';
+import { ReferenceCandidateService } from '../../features/reference/reference-candidate.service';
+import { ApiTransport } from '../http/api-transport';
+import { readAppConfig } from '../services/app-config.model';
 
 /**
  * Composition root - replaces Angular's `providedIn: 'root'` injector.
@@ -29,6 +32,7 @@ export const appNavigator = new DataRouterNavigator();
 const supabaseClientService = new SupabaseClientService();
 const candidateService = new CandidateService();
 const roleService = new RoleService();
+const apiTransport = new ApiTransport(readAppConfig().API_BASE_URL);
 
 export const services = {
   appNavigator,
@@ -48,6 +52,8 @@ export const services = {
   importService: new ImportService(),
   roleService,
   profileService: new ProfileService(roleService),
+  apiTransport,
+  referenceCandidateService: new ReferenceCandidateService(apiTransport),
 };
 
 export type Services = typeof services;

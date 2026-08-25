@@ -1,0 +1,11 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ktl_runtime') THEN
+    CREATE ROLE ktl_runtime LOGIN PASSWORD 'development-runtime-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+  END IF;
+END
+$$;
+
+REVOKE ALL ON DATABASE kepler_talento FROM PUBLIC;
+GRANT CONNECT ON DATABASE kepler_talento TO ktl_runtime;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;

@@ -3,6 +3,7 @@ export interface AppConfig {
   SUPABASE_ANON_KEY: string;
   APP_ENV: string;
   APP_VERSION: string;
+  API_BASE_URL: string;
 }
 
 declare global {
@@ -18,5 +19,6 @@ export function readAppConfig(): AppConfig {
     SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY ?? '',
     APP_ENV: config.APP_ENV ?? 'local',
     APP_VERSION: config.APP_VERSION ?? '0.1.0',
+    API_BASE_URL: config.API_BASE_URL ?? '/api',
   };
 }

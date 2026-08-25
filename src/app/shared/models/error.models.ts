@@ -5,6 +5,8 @@ export type AppErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
+  | 'TIMEOUT'
+  | 'CANCELLED'
   | 'INTERNAL_ERROR';
 
 export interface AppErrorEnvelope {
@@ -17,12 +19,14 @@ export interface AppErrorEnvelope {
 }
 
 export const APP_ERROR_MESSAGES: Record<AppErrorCode, string> = {
-  UNAUTHENTICATED: 'Sesión no valida o expirada.',
+  UNAUTHENTICATED: 'Sesión no válida o expirada.',
   FORBIDDEN: 'Operación no autorizada.',
   VALIDATION_ERROR: 'Hay datos inválidos en la solicitud.',
   NOT_FOUND: 'El recurso solicitado no existe.',
   CONFLICT: 'La solicitud entra en conflicto con el estado actual.',
   RATE_LIMITED: 'Demasiadas solicitudes. Intenta de nuevo en unos segundos.',
+  TIMEOUT: 'La solicitud ha tardado demasiado. Inténtalo de nuevo.',
+  CANCELLED: 'La solicitud se ha cancelado.',
   INTERNAL_ERROR: 'Se produjo un error interno inesperado.',
 };
 
@@ -31,6 +35,8 @@ export class AppError extends Error {
     readonly code: AppErrorCode,
     message?: string,
     readonly details?: Record<string, unknown>,
+    readonly correlationId?: string,
+    readonly backendCode?: string,
   ) {
     super(message ?? APP_ERROR_MESSAGES[code]);
   }

@@ -1,0 +1,19 @@
+using KeplerTalento.Application.Abstractions.Identity;
+using Microsoft.Extensions.Options;
+
+namespace KeplerTalento.Web.Identity;
+
+public sealed class DevelopmentActorOptions
+{
+    public const string SectionName = "DevelopmentActor";
+    public bool Enabled { get; init; }
+    public string ExternalKey { get; init; } = "synthetic-developer";
+}
+
+public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) : ICurrentActor
+{
+    private readonly DevelopmentActorOptions _options = options.Value;
+    public string? ExternalKey => _options.Enabled ? _options.ExternalKey : null;
+    public bool IsAuthenticated => _options.Enabled;
+    public bool HasPermission(string permission) => _options.Enabled && permission == Permissions.CandidatesRead;
+}

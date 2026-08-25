@@ -79,7 +79,7 @@ describe('CandidateRelationsService', () => {
           status: 'Finalizada',
           endYear: 1900,
         }),
-      ).toThrow(/año de finalización no es valido/i);
+      ).toThrow(/año de finalización no es válido/i);
     });
 
     it('accepts a valid education record', () => {

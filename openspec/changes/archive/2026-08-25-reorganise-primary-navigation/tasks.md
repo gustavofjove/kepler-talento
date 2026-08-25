@@ -36,8 +36,8 @@ Requirement keys used in the trace column of every task, from
 
 ## 2. Primary navigation component
 
-- [x] 2.1 Create `src/app/core/layout/primary-nav.tsx` and move the `<nav
-    aria-label="Navegación principal">` block out of `app-layout.tsx` into it, rendering
+- [x] 2.1 Create `src/app/core/layout/primary-nav.tsx` and move the
+      `<nav aria-label="Navegación principal">` block out of `app-layout.tsx` into it, rendering
       from the table of task 1. Keep `app-layout.tsx` otherwise untouched — brand block,
       `span.badge`, `Salir`, `a.skip-link`, `#main-content`, toast region and
       `ConfirmDialog` all stay exactly as they are. _(R1)_

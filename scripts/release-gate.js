@@ -3,8 +3,11 @@ const { execSync } = require('node:child_process');
 
 const commands = [
   'npm run build',
+  'npm run build:backend',
   'npm test',
   'npm run test:integration',
+  'npm run test:security',
+  'npm run test:backend',
   'npm run security:rls',
   'npm run security:storage',
 ];

@@ -1,0 +1,130 @@
+name: kepler-talento
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: kepler_talento
+      POSTGRES_USER: ktl_migrator
+      POSTGRES_PASSWORD: ${KTL_MIGRATOR_PASSWORD:-development-migrator-only}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/001-roles.sql:/docker-entrypoint-initdb.d/001-roles.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ktl_migrator -d kepler_talento']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    environment:
+      CLAMD_CONF_MaxFileSize: 20M
+      CLAMD_CONF_MaxScanSize: 100M
+      CLAMD_CONF_MaxRecursion: 16
+      CLAMD_CONF_MaxFiles: 500
+      CLAMD_CONF_StreamMaxLength: 20M
+    volumes:
+      - clamav-signatures:/var/lib/clamav
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping 1']
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 90s
+    networks: [backend]
+    restart: unless-stopped
+
+  migrator:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ['--migrate']
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ApplicationDatabase: Host=postgres;Port=5432;Database=kepler_talento;Username=ktl_migrator;Password=${KTL_MIGRATOR_PASSWORD:-development-migrator-only}
+      DocumentStorage__Root: /var/lib/kepler-talento/documents
+      ClamAv__Host: clamav
+    volumes:
+      - documents:/var/lib/kepler-talento/documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ApplicationDatabase: Host=postgres;Port=5432;Database=kepler_talento;Username=ktl_runtime;Password=development-runtime-only
+      DevelopmentActor__Enabled: 'true'
+      DocumentStorage__Root: /var/lib/kepler-talento/documents
+      DocumentStorage__MaximumBytes: 20971520
+      ClamAv__Host: clamav
+      ClamAv__Port: 3310
+      OperationWorker__Enabled: 'true'
+    volumes:
+      - documents:/var/lib/kepler-talento/documents
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/api/health/ready >/dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend, edge]
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    environment:
+      API_BASE_URL: /api
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      APP_ENV: development
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+    ports:
+      - '${FRONTEND_PORT:-4200}:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [edge]
+    restart: unless-stopped
+
+  db-tools:
+    image: postgres:17.6-alpine
+    profiles: [operations]
+    environment:
+      PGPASSWORD: ${KTL_MIGRATOR_PASSWORD:-development-migrator-only}
+    volumes:
+      - ${KTL_BACKUP_ROOT:-./backups}:/backups
+    networks: [backend]
+
+  file-tools:
+    image: alpine:3.22.1
+    profiles: [operations]
+    volumes:
+      - documents:/documents
+      - ${KTL_BACKUP_ROOT:-./backups}:/backups
+    networks:
+      - backend
+
+networks:
+  edge:
+  backend:
+    internal: true
+
+volumes:
+  postgres-data:
+  documents:
+  clamav-signatures:

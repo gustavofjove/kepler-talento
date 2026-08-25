@@ -1,9 +1,9 @@
 ---
 name: Implementation task
 about: Track work from specs/001-gestion-cvs-rrhh/tasks.md
-title: "[task] T"
+title: '[task] T'
 labels: tasks
-assignees: ""
+assignees: ''
 ---
 
 ## Task
