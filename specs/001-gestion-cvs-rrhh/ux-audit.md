@@ -91,3 +91,32 @@ Audit performed on implemented MVP surfaces: app shell, candidate list, advanced
 - Mis-clicked destructive action retries reduced by 50%.
 - Keyboard-only completion for top 5 workflows without blockers.
 - Reduction in support clarifications around permissions and flow state.
+
+## Shipped: Responsive Shell Navigation (KTL-4)
+
+Replaces the flat header that exposed up to seven permission-gated links as
+siblings and relied on `flex-wrap` on narrow screens, where the links wrapped
+into a second row and collided with the brand block and the sign-out button.
+
+- **Grouping.** `Catálogos`, `Usuarios`, `Roles` and `Importación` are children
+  of an `Admin` parent. Day-to-day entries (`Dashboard`, `Candidatos`,
+  `Búsqueda`) stay top level, so an `rrhh_admin` sees four top-level controls
+  instead of seven.
+- **Pattern.** The parent is a disclosure button (`aria-expanded` /
+  `aria-controls`) revealing links — deliberately not an ARIA `menu` widget,
+  which would impose arrow-key semantics users do not expect from site
+  navigation. The same markup serves both viewport shapes.
+- **Breakpoint: 768px**, expressed only in CSS. At or above it the group opens
+  as a dropdown below its trigger; below it the entries collapse behind a
+  hamburger and the group becomes an accordion with indented children. The panel
+  sits in normal flow and displaces the page content, so there is no overlay,
+  no scroll-lock and no focus trap.
+- **Dismissal.** `Escape` (focus returns to the trigger), outside click, and any
+  navigation. Landing directly on an administration route renders with the group
+  already open and the parent marked active.
+- **Visibility is not authorization.** The group renders only when at least one
+  child is permitted, but access is still enforced by `RequirePermission` and by
+  RLS; a covering e2e test asserts a `readonly` user is refused the route by URL.
+- **Accessibility.** Keyboard-operable at both widths, 44px touch targets,
+  reduced-motion honoured, and contrast at 5.78:1 (active) and 11.9:1 (resting)
+  against the navy header.

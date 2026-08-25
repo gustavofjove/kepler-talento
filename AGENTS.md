@@ -35,6 +35,18 @@ Frontend conventions (since KTL-3, the Angular to React migration):
   style={{ gridColumn: '1 / -1' }}; inline styles bypass the Kepler tokens.
 - Keep pure helpers and constants in a sibling .ts file rather than exporting
   them from a .tsx component module, so fast refresh keeps working.
+- Shell navigation is data, not markup. Add a section by adding an entry to
+  src/app/core/layout/nav-items.ts - never by adding another NavLink to
+  app-layout.tsx. Administration sections (Catálogos, Usuarios, Roles,
+  Importación) live under the Admin group, whose parent is a disclosure button
+  with no route. If the new entry needs a permission the nav does not already
+  consult, add it to NAV_PERMISSIONS and call usePermission() for it at the top
+  of PrimaryNav - the hook cannot be called while iterating the table.
+- The shell has a single breakpoint at 768px, and it lives entirely in
+  primary-nav.css. Do not branch on window.innerWidth or matchMedia: one DOM
+  tree serves both widths. jsdom has no media queries, so unit specs assert on
+  presence and aria-expanded, and layout is covered by
+  tests/e2e/navigation-responsive.spec.ts instead.
 - Route guards are layout-route elements (RequireAuth, RequirePermission), not
   loaders, so they can subscribe to the auth signal and stay test-swappable.
 - Forms are controlled components using useState. Validation stays in the

@@ -1,0 +1,144 @@
+/*
+ * Same reason as app-layout.css: there is no component encapsulation since the
+ * React migration, so every rule is prefixed with `.shell`. Plain CSS, not CSS
+ * Modules - Playwright binds class names.
+ *
+ * The 768px breakpoint below is the ONLY place the desktop/mobile split is
+ * decided. primary-nav.tsx renders one DOM tree and never measures the window.
+ */
+
+.shell .primary-nav {
+  display: flex;
+  gap: 6px;
+}
+
+/* Shared by the links and by the `Admin` disclosure button, so the active
+ * treatment cannot drift between a link and the group's parent. */
+.shell .nav-link {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: var(--r-md);
+  color: #d8dee8;
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 8px 10px;
+  text-align: left;
+  text-decoration: none;
+}
+.shell .nav-link:hover {
+  background: var(--fj-navy-90);
+}
+.shell .nav-link.active {
+  background: var(--fj-navy-90);
+  border-left-color: var(--fj-orange-bright);
+  color: var(--fj-orange-bright);
+  font-weight: 700;
+}
+.shell .nav-link:focus-visible {
+  outline: 2px solid var(--fj-orange-bright);
+  outline-offset: 2px;
+}
+
+.shell .nav-trigger .chevron {
+  transition: transform 120ms ease;
+}
+.shell .nav-trigger[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+
+.shell .nav-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shell .nav-hamburger {
+  background: none;
+  border: 0;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px;
+}
+.shell .nav-hamburger .bar {
+  background: #d8dee8;
+  border-radius: 2px;
+  height: 2px;
+  width: 20px;
+}
+.shell .nav-hamburger:hover {
+  background: var(--fj-navy-90);
+}
+.shell .nav-hamburger:focus-visible {
+  outline: 2px solid var(--fj-orange-bright);
+  outline-offset: 2px;
+}
+
+/* Wide viewport: horizontal bar, group opens as an absolute dropdown. */
+@media (min-width: 768px) {
+  .shell .nav-group {
+    position: relative;
+  }
+  .shell .nav-group .nav-panel {
+    background: var(--fj-navy-90);
+    border: 1px solid var(--fj-navy);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    left: 0;
+    min-width: 180px;
+    padding: 6px;
+    position: absolute;
+    top: calc(100% + 6px);
+    /* Above `main`, below the toast region's z-index: 20. */
+    z-index: 15;
+  }
+}
+
+/* Narrow viewport: hamburger in the header, full-width panel in normal flow. */
+@media (max-width: 767px) {
+  .shell .nav-hamburger {
+    display: flex;
+    /* The header is flex; order puts the button after the brand and the user
+     * block without moving it in the DOM. */
+    order: 3;
+  }
+  .shell .primary-nav {
+    display: none;
+    /* Breaks the header's flex row so the panel sits below it, in flow. */
+    flex-basis: 100%;
+    flex-direction: column;
+    order: 4;
+    padding-bottom: 10px;
+  }
+  .shell .primary-nav.open {
+    display: flex;
+  }
+  .shell .nav-link {
+    min-height: 44px;
+  }
+  .shell .nav-trigger {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .shell .nav-group .nav-panel {
+    /* One step deeper than its siblings, to show the hierarchy. */
+    padding-left: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell .nav-trigger .chevron {
+    transition: none;
+  }
+}
