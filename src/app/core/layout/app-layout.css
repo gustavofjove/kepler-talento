@@ -20,15 +20,34 @@
   top: 8px;
 }
 
+/*
+ * Do NOT add `overflow: hidden` here. The `Admin` dropdown in primary-nav.css
+ * is absolutely positioned and would be clipped by it; the symptom looks like a
+ * positioning bug rather than an overflow one.
+ *
+ * `flex-wrap` is needed only so the narrow-viewport nav panel (flex-basis: 100%)
+ * can drop onto its own line below the header row. The row itself must never
+ * wrap: the nav collapses into the hamburger at 767px instead.
+ */
 .shell header {
   align-items: center;
   background: var(--fj-navy);
   border-bottom: 1px solid var(--fj-navy-90);
   display: flex;
+  flex-wrap: wrap;
   gap: 18px;
   justify-content: space-between;
   min-height: 64px;
   padding: 0 22px;
+}
+.shell .brand {
+  order: 1;
+}
+.shell .primary-nav {
+  order: 2;
+}
+.shell .user {
+  order: 2;
 }
 
 .shell .brand {
@@ -44,30 +63,7 @@
   color: var(--fg-3);
 }
 
-.shell nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.shell nav a {
-  border-left: 3px solid transparent;
-  border-radius: var(--r-md);
-  color: #d8dee8;
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 10px;
-  text-decoration: none;
-}
-.shell nav a:hover {
-  background: var(--fj-navy-90);
-}
-.shell nav a.active {
-  background: var(--fj-navy-90);
-  border-left-color: var(--fj-orange-bright);
-  color: var(--fj-orange-bright);
-  font-weight: 700;
-}
+/* Navigation lives in primary-nav.css, keyed off the same `.shell` prefix. */
 
 .shell main {
   margin: 0 auto;
@@ -83,6 +79,21 @@
 .shell .user .badge {
   background: rgba(224, 132, 63, 0.15);
   color: var(--fj-orange-bright);
+}
+
+/* Keep the header a single row on phones: the subtitle is the first thing to
+ * go, so brand, user block and hamburger still fit at 390px. */
+@media (max-width: 767px) {
+  .shell header {
+    gap: 10px;
+    padding: 0 12px;
+  }
+  .shell .brand {
+    min-width: 0;
+  }
+  .shell .brand .muted {
+    display: none;
+  }
 }
 
 .shell .toasts {
