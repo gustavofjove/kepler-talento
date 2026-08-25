@@ -20,7 +20,7 @@ test.describe('Candidate profile enrichment', () => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Perfil${suffix}`, 'Test');
 
-    const languagesPanel = page.locator('rrhh-candidate-languages');
+    const languagesPanel = page.getByTestId('candidate-languages');
     await languagesPanel.locator('select[name="language"]').selectOption('Inglés');
     await languagesPanel.locator('select[name="level"]').selectOption('B2');
     await languagesPanel.locator('button:has-text("Añadir idioma")').click();
@@ -31,7 +31,7 @@ test.describe('Candidate profile enrichment', () => {
     await languagesPanel.locator('button:has-text("Añadir idioma")').click();
     await expect(languagesPanel.locator('text=ya tiene este idioma')).toBeVisible();
 
-    const skillsPanel = page.locator('rrhh-candidate-skills');
+    const skillsPanel = page.getByTestId('candidate-skills');
     await skillsPanel.locator('select[name="skill"]').selectOption('Compras');
     await skillsPanel.locator('select[name="level"]').selectOption('Medio');
     await skillsPanel.locator('button:has-text("Añadir habilidad")').click();
@@ -42,7 +42,7 @@ test.describe('Candidate profile enrichment', () => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Exp${suffix}`, 'Test');
 
-    const experiencePanel = page.locator('rrhh-candidate-experience');
+    const experiencePanel = page.getByTestId('candidate-experience');
     await experiencePanel.locator('input[name="company"]').fill('Acme');
     await experiencePanel.locator('input[name="position"]').fill('Analista');
     await experiencePanel.locator('select[name="sector"]').selectOption('Servicios');
@@ -57,7 +57,7 @@ test.describe('Candidate profile enrichment', () => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Edu${suffix}`, 'Test');
 
-    const educationPanel = page.locator('rrhh-candidate-education');
+    const educationPanel = page.getByTestId('candidate-education');
     await educationPanel.locator('select[name="educationType"]').selectOption('Grado');
     await educationPanel.locator('select[name="status"]').selectOption('Finalizada');
     await educationPanel.locator('button:has-text("Añadir formación")').click();

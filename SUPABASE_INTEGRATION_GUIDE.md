@@ -4,6 +4,11 @@
 > en **otra aplicación** (no Angular-específico salvo en la sección 9), describiendo el patrón
 > exacto que usa KeplerDesk para que se replique adaptado al dominio de la nueva app.
 
+> **Nota (KTL-3, 2026-08-20).** El frontend de Kepler Talento migró de Angular a React 19 + Vite.
+> Los fragmentos en Angular de este documento se conservan como referencia histórica del patrón
+> de cliente/servicio; la frontera de backend (cliente Supabase centralizado en
+> `src/app/core/supabase/`, servicios en `core/` y `features/*/services/`) no cambia.
+
 ---
 
 ## 0. Resumen de lo que hay que montar
@@ -35,7 +40,7 @@ notificaciones en vivo se hacen por **sondeo periódico**, no WebSocket).
   debe ser idempotente** (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS` antes de
   `CREATE POLICY`, etc.).
 - **Gotcha importante**: en self-host, `auth.uid()/role()/email()` vienen de fábrica pero
-  **`auth.jwt()` no** — hay que crearla manualmente y su *owner* debe ser `supabase_auth_admin`.
+  **`auth.jwt()` no** — hay que crearla manualmente y su _owner_ debe ser `supabase_auth_admin`.
 - **Gotcha importante**: hay que `GRANT SELECT/INSERT/UPDATE/DELETE` explícito a
   `authenticated`/`anon`/`service_role` en cada tabla nueva — si la única migración existente con
   `ALTER DEFAULT PRIVILEGES` no cubre tablas creadas después, PostgREST devuelve vacío/403 sin ni
@@ -169,6 +174,7 @@ $$;
 
 **Patrón de política RLS estándar** para CUALQUIER tabla de negocio con `company_id` + permiso
 granular:
+
 ```sql
 ALTER TABLE public.<tabla> ENABLE ROW LEVEL SECURITY;
 
@@ -192,10 +198,12 @@ CREATE POLICY <tabla>_delete ON public.<tabla> FOR DELETE TO authenticated
 Si un recurso necesita **visibilidad restringida a una lista concreta de roles/usuarios** (más
 allá del permiso general), añadir columnas `restricted BOOLEAN`, `allowed_role_ids UUID[]`,
 `allowed_user_ids UUID[]` y un tercer `AND` en la política:
+
 ```sql
 AND (NOT restricted OR public.is_admin() OR public.current_profile_id() = ANY(allowed_user_ids)
      OR EXISTS (SELECT 1 FROM public.roles r WHERE r.name = public.current_app_role() AND r.id = ANY(allowed_role_ids)))
 ```
+
 (Igual que para empresas: si un recurso puede ser "global" o de "varias empresas concretas además
 de la propietaria", añade `all_companies BOOLEAN` + tabla puente
 `<recurso>_companies(recurso_id, company_id)`.)
@@ -222,6 +230,7 @@ END; $$;
 CREATE TRIGGER trg_protect_system_roles BEFORE UPDATE OR DELETE ON public.roles
   FOR EACH ROW EXECUTE FUNCTION public.protect_system_roles();
 ```
+
 Marcar el rol admin inicial con `is_system = true` tras crearlo.
 
 ---
@@ -233,28 +242,38 @@ el cliente `anon` + cargar perfil/rol con el cliente `service_role` + autorizar 
 `is_admin`-equivalente o permiso + tenant-check (`targetProfile.company_id === callerProfile.company_id`
 salvo `all_companies`) + operar con `service_role`.
 
-| Función | Qué hace | Notas críticas |
-|---|---|---|
-| `admin-create-user` | Crea perfil + invita cuenta (`auth.admin.inviteUserByEmail` o `createUser`) | Requiere SMTP configurado en GoTrue para el email de invitación |
-| `admin-delete-user` | Borra perfil + cuenta de auth | — |
-| `admin-import-users` | Alta masiva (CSV) | Reusar la misma lógica de autorización/tenant que `admin-create-user` |
-| `admin-reset-mfa` | Borra los factores MFA de un usuario (`auth.admin.mfa.deleteFactor`) vía botón admin | — |
-| `get-impersonation-token` | Genera un JWT HS256 firmado a mano (no via GoTrue) con `sub=<id del usuario objetivo>`, corta duración (1h) | **Tenant check obligatorio**: si el caller no es admin global, verificar `targetProfile.company_id === callerProfile.company_id` antes de emitir el token. Prohibir impersonar a otro admin global. |
-| `user-change-password` | Cambia contraseña con `service_role`, evitando los 401/422 que da GoTrue en sesiones de recovery/invite ya "usadas" | Nivel 1: `getUser()` normal. Nivel 2 (fallback): si GoTrue rechaza, verificar la FIRMA del JWT a mano con `JWT_SECRET` y **comprobar `exp` manualmente** (fallo de seguridad fácil de cometer: aceptar la firma sin comprobar caducidad) |
-| `process-outbox` | Ver sección 6 | — |
-| Un `*-check`/cron de dominio (SLA, recordatorios, etc.) | Lógica de negocio periódica | Mismo patrón de secreto compartido que `process-outbox` |
+| Función                                                 | Qué hace                                                                                                            | Notas críticas                                                                                                                                                                                                                           |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `admin-create-user`                                     | Crea perfil + invita cuenta (`auth.admin.inviteUserByEmail` o `createUser`)                                         | Requiere SMTP configurado en GoTrue para el email de invitación                                                                                                                                                                          |
+| `admin-delete-user`                                     | Borra perfil + cuenta de auth                                                                                       | —                                                                                                                                                                                                                                        |
+| `admin-import-users`                                    | Alta masiva (CSV)                                                                                                   | Reusar la misma lógica de autorización/tenant que `admin-create-user`                                                                                                                                                                    |
+| `admin-reset-mfa`                                       | Borra los factores MFA de un usuario (`auth.admin.mfa.deleteFactor`) vía botón admin                                | —                                                                                                                                                                                                                                        |
+| `get-impersonation-token`                               | Genera un JWT HS256 firmado a mano (no via GoTrue) con `sub=<id del usuario objetivo>`, corta duración (1h)         | **Tenant check obligatorio**: si el caller no es admin global, verificar `targetProfile.company_id === callerProfile.company_id` antes de emitir el token. Prohibir impersonar a otro admin global.                                      |
+| `user-change-password`                                  | Cambia contraseña con `service_role`, evitando los 401/422 que da GoTrue en sesiones de recovery/invite ya "usadas" | Nivel 1: `getUser()` normal. Nivel 2 (fallback): si GoTrue rechaza, verificar la FIRMA del JWT a mano con `JWT_SECRET` y **comprobar `exp` manualmente** (fallo de seguridad fácil de cometer: aceptar la firma sin comprobar caducidad) |
+| `process-outbox`                                        | Ver sección 6                                                                                                       | —                                                                                                                                                                                                                                        |
+| Un `*-check`/cron de dominio (SLA, recordatorios, etc.) | Lógica de negocio periódica                                                                                         | Mismo patrón de secreto compartido que `process-outbox`                                                                                                                                                                                  |
 
 Firma JWT manual (usada por `get-impersonation-token` y verificada por `user-change-password`):
+
 ```ts
-function base64url(input: Uint8Array | string): string { /* btoa + reemplazos URL-safe */ }
+function base64url(input: Uint8Array | string): string {
+  /* btoa + reemplazos URL-safe */
+}
 async function signJWT(payload: Record<string, unknown>, secret: string): Promise<string> {
   const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = base64url(JSON.stringify(payload));
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${header}.${body}`));
   return `${header}.${body}.${base64url(sig)}`;
 }
 ```
+
 `JWT_SECRET` (o `SUPABASE_JWT_SECRET`) está disponible automáticamente en las Edge Functions del
 proyecto.
 
@@ -263,8 +282,10 @@ proyecto.
 ## 6. SMTP / Email — DOS sistemas independientes que comparten credenciales
 
 ### 6.1 Emails de Auth (invitación, recuperación de contraseña, confirmación)
+
 Los gestiona **GoTrue directamente**, no tu código. Configurar en el contenedor `auth` (self-host)
 o en el Dashboard (cloud):
+
 ```env
 SMTP_ADMIN_EMAIL=no-reply@tu-dominio.com
 SMTP_HOST=smtp.tu-proveedor.com
@@ -277,11 +298,13 @@ MAILER_URLPATHS_INVITE=/auth/v1/verify
 MAILER_URLPATHS_RECOVERY=/auth/v1/verify
 MAILER_URLPATHS_EMAIL_CHANGE=/auth/v1/verify
 ```
+
 El frontend dispara estos flujos con `supabase.auth.inviteUserByEmail()` (vía Edge Function
 admin), `supabase.auth.resetPasswordForEmail(email, { redirectTo: '<origin>/change-password' })`,
 etc. — GoTrue envía el correo, no tu backend.
 
 ### 6.2 Emails/notificaciones de la APLICACIÓN (ticket creado, comentario nuevo...) — patrón Outbox + Cron
+
 **No envíes el email directamente desde el cliente ni en el momento del evento** (acoplaría la UX
 a la disponibilidad del SMTP). En su lugar:
 
@@ -307,6 +330,7 @@ CREATE TABLE public.notifications ( -- notificación IN-APP (campana), independi
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+
 1. Cuando ocurre el evento de negocio, el código de la app (vía `NotificationService`) hace DOS
    cosas: `INSERT` en `notifications` (para la campana) **e** `INSERT` en `email_outbox` (cuerpo
    ya renderizado en HTML, con el texto final — nunca un "key" de plantilla para traducir después,
@@ -330,6 +354,7 @@ CREATE TABLE public.notifications ( -- notificación IN-APP (campana), independi
    pública con el mismo header.)
 
 ### 6.3 Notificaciones del navegador (sin WebSocket/Realtime)
+
 Como el self-host normalmente NO lleva el contenedor `realtime`, las notificaciones en vivo se
 hacen por **sondeo del cliente** (`setInterval` ~45s) contra la tabla `notifications`, comparando
 los ids ya vistos (un `Set` en memoria) para no re-notificar. Si hay una fila nueva no vista y
@@ -345,7 +370,7 @@ los ids ya vistos (un `Set` en memoria) para no re-notificar. Si hay una fila nu
   (`enroll/challenge/verify/listFactors/unenroll`), expón wrappers desde tu `SupabaseService`.
 - Flujo: el USUARIO decide activarlo desde su perfil (`/security`): `enroll('totp')` → muestra QR
   (`data.totp.qr_code`) → el usuario introduce el código de 6 dígitos → `challenge` + `verify`.
-- *Step-up* en login: un guard de ruta llama a `getAuthenticatorAssuranceLevel()`; si
+- _Step-up_ en login: un guard de ruta llama a `getAuthenticatorAssuranceLevel()`; si
   `nextLevel==='aal2' && currentLevel!=='aal2'`, redirige a una pantalla de verificación de 6
   dígitos antes de dejar pasar.
 - `profiles.mfa_required`: el admin puede marcarlo desde la gestión de usuarios; un guard

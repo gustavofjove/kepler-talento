@@ -1,4 +1,3 @@
-import { Injectable } from '@angular/core';
 import {
   ALL_CANDIDATE_STATUSES,
   CriteriaFilter,
@@ -16,7 +15,6 @@ interface LegacyFilters {
   programValues?: unknown;
 }
 
-@Injectable({ providedIn: 'root' })
 export class SearchPresetsService {
   rememberLastFilters(filters: SearchFilters): void {
     localStorage.setItem(STORAGE_LAST_FILTERS_KEY, JSON.stringify(this.normalizeFilters(filters)));

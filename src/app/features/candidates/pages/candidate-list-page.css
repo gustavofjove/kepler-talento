@@ -1,0 +1,64 @@
+/* One row keeps the filter bar short: text, the two short selects, the
+   checkbox column matching their width, and the action pinned right. */
+.filters-bar {
+  align-items: end;
+  display: grid;
+  gap: 10px 14px;
+  grid-template-columns: minmax(200px, 2fr) 1fr 1fr 1fr auto;
+  padding: 12px 16px;
+}
+/* Checkbox and button sit on the same baseline as the inputs beside them. */
+.filters-bar .inline-check,
+.filters-bar .filters-actions {
+  min-height: 34px;
+}
+.filters-bar .inline-check {
+  font-size: 13px;
+}
+.filters-bar .filters-actions {
+  align-items: center;
+  display: flex;
+  justify-self: end;
+}
+.inactive-badge {
+  margin-left: 6px;
+  opacity: 0.75;
+}
+.results-footer {
+  justify-content: space-between;
+}
+.page-size {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.page-size label {
+  color: var(--fg-2);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* Outside a .field wrapper, so it needs the shared control look spelled out. */
+.page-size select {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  min-height: 34px;
+  padding: 6px 10px;
+  width: auto;
+}
+.pager {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .filters-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .filters-bar {
+    grid-template-columns: 1fr;
+  }
+}

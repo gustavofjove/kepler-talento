@@ -1,7 +1,5 @@
-import { Injectable } from '@angular/core';
 import { SupabaseClientService } from '../supabase/supabase-client.service';
 
-@Injectable({ providedIn: 'root' })
 export class MfaService {
   constructor(private readonly supabaseClient: SupabaseClientService) {}
 
@@ -11,6 +9,8 @@ export class MfaService {
       return 'aal2';
     }
     const { data } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
-    return data.currentLevel === 'aal2' ? 'aal2' : 'aal1';
+    // `data` is nullable in the Supabase types; a null result is not aal2,
+    // which is the same outcome the previous expression produced.
+    return data?.currentLevel === 'aal2' ? 'aal2' : 'aal1';
   }
 }

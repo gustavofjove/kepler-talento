@@ -1,0 +1,63 @@
+/*
+ * Shared overlay/dialog rules. Angular scoped these per component, so
+ * confirm-dialog and advanced-search-page each carried their own near-identical
+ * copy. With encapsulation gone they are consolidated here.
+ */
+.overlay {
+  align-items: center;
+  background: rgba(22, 33, 54, 0.45);
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 40;
+}
+
+.dialog {
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  display: grid;
+  gap: 12px;
+  max-width: 520px;
+  padding: 18px;
+  width: 100%;
+}
+
+.dialog h2,
+.dialog p {
+  margin: 0;
+}
+
+.dialog .actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Larger scrollable variant, used by the export-history modal. */
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-lg);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  display: grid;
+  gap: 12px;
+  max-height: 80vh;
+  max-width: 720px;
+  overflow: auto;
+  padding: 18px;
+  width: 100%;
+}
+
+.modal h2 {
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

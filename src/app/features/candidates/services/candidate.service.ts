@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { signal } from '../../../core/state/signal';
 import {
   Candidate,
   CandidateDraft,
@@ -12,7 +12,6 @@ import {
 
 const STORAGE_KEY = 'rrhh-candidates';
 
-@Injectable({ providedIn: 'root' })
 export class CandidateService {
   readonly candidates = signal<Candidate[]>(this.restore());
 

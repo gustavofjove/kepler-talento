@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { signal } from '../../../core/state/signal';
 import {
   ALL_PERMISSIONS,
   DEFAULT_ROLES,
@@ -8,7 +8,6 @@ import {
 
 const STORAGE_KEY = 'rrhh-admin-roles';
 
-@Injectable({ providedIn: 'root' })
 export class RoleService {
   readonly roles = signal<RoleDefinition[]>(this.restore());
   readonly allPermissions = ALL_PERMISSIONS;

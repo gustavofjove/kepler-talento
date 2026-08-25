@@ -1,4 +1,3 @@
-import { Injectable } from '@angular/core';
 import { CandidateService } from '../../candidates/services/candidate.service';
 import {
   CriteriaFilter,
@@ -13,7 +12,6 @@ interface LeveledValue {
   level: string;
 }
 
-@Injectable({ providedIn: 'root' })
 export class CandidateSearchService {
   constructor(private readonly candidateService: CandidateService) {}
 

@@ -5,10 +5,11 @@ flujo de Spec-Driven Development mediante GitHub Spec Kit.
 
 ## Estado
 
-La fase actual es de definicion funcional y tecnica. Todavia no hay
-implementacion de la aplicacion: el repositorio contiene la especificacion,
-constitucion, plan, modelo de datos, contratos, checklists y tareas necesarias
-para iniciar la implementacion de forma controlada.
+El MVP esta implementado: la SPA cubre candidatos, busqueda avanzada,
+catalogos, administracion e importacion, con suites de pruebas unitarias,
+integracion y e2e. La persistencia operativa vive todavia en `localStorage`
+del navegador; el esquema Supabase, las politicas RLS y las Edge Functions
+estan escritos pero no cableados desde el frontend.
 
 ## Objetivo
 
@@ -23,19 +24,19 @@ a RRHH:
 - importar datos depurados desde Access o CSV;
 - aplicar roles, RLS, auditoria y controles de proteccion de datos.
 
-## Stack previsto
+## Stack
 
-- Angular 21
+- React 19
 - TypeScript 5.9
-- RxJS
-- Angular CDK
-- Tailwind CSS 3
-- `@ngx-translate`
+- Vite 7
+- React Router 7
+- CSS propio con tokens de identidad Kepler
 - Supabase Auth
 - PostgreSQL 17
 - Supabase Storage privado
 - Supabase Edge Functions con TypeScript/Deno
-- Jest 30
+- Vitest 3
+- React Testing Library
 - Playwright
 - Docker y Nginx unprivileged
 

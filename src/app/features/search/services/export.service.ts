@@ -1,4 +1,3 @@
-import { Injectable } from '@angular/core';
 import { SearchResult } from '../models/search.models';
 import { AppError } from '../../../shared/models/error.models';
 
@@ -12,7 +11,6 @@ export interface ExportBatchRecord {
 const EXPORT_BATCHES_STORAGE_KEY = 'rrhh.export.batches.v1';
 export const MAX_EXPORT_ROWS = 1000;
 
-@Injectable({ providedIn: 'root' })
 export class ExportService {
   exportCandidatesToCsv(results: SearchResult[], fileName = 'candidatos.csv'): number {
     if (results.length > MAX_EXPORT_ROWS) {

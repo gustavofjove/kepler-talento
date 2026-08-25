@@ -1,0 +1,18 @@
+.login {
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(22, 33, 54, 0.06) 0%, rgba(22, 33, 54, 0) 30%), var(--bg-3);
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+}
+.login .box {
+  margin: 0 auto;
+  max-width: 440px;
+  width: 100%;
+}
+.login h1 {
+  color: var(--fj-navy);
+  font-family: var(--font-display);
+  margin-top: 0;
+}

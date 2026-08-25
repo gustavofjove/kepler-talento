@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { signal } from '../../core/state/signal';
 
 export interface ConfirmDialogOptions {
   title: string;
@@ -12,7 +12,6 @@ interface ConfirmDialogState extends Required<ConfirmDialogOptions> {
   open: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
 export class ConfirmDialogService {
   readonly state = signal<ConfirmDialogState | null>(null);
 

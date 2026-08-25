@@ -23,10 +23,10 @@ describe('ExportService', () => {
       },
     ];
 
-    const createSpy = jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
-    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    const click = jest.fn();
-    const createElementSpy = jest
+    const createSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const click = vi.fn();
+    const createElementSpy = vi
       .spyOn(document, 'createElement')
       .mockReturnValue({ href: '', download: '', click } as unknown as HTMLAnchorElement);
 

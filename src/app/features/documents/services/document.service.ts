@@ -1,11 +1,9 @@
-import { Injectable } from '@angular/core';
 import { CandidateDocument } from '../../candidates/models/candidate.models';
 import { CandidateService } from '../../candidates/services/candidate.service';
 import { SecureDocumentUrl, UploadDocumentRequest } from '../models/document.models';
 
 const MAX_CV_SIZE_BYTES = 10 * 1024 * 1024;
 
-@Injectable({ providedIn: 'root' })
 export class DocumentService {
   constructor(private readonly candidateService: CandidateService) {}
 

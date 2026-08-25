@@ -1,4 +1,3 @@
-import { Injectable } from '@angular/core';
 import {
   Candidate,
   CandidateEducation,
@@ -12,7 +11,6 @@ import { CandidateService } from './candidate.service';
 const sameText = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
-@Injectable({ providedIn: 'root' })
 export class CandidateRelationsService {
   constructor(private readonly candidateService: CandidateService) {}
 
@@ -60,7 +58,7 @@ export class CandidateRelationsService {
     }
     const currentYear = new Date().getFullYear();
     if (input.endYear !== undefined && (input.endYear < 1950 || input.endYear > currentYear + 1)) {
-      throw new Error('El año de finalización no es valido.');
+      throw new Error('El año de finalización no es válido.');
     }
     const education: CandidateEducation = { ...input, id: crypto.randomUUID() };
     this.candidateService.setEducation(candidateId, [...candidate.education, education]);

@@ -6,8 +6,9 @@ context: |
   Kepler Talento is an internal HR application for registering, maintaining,
   searching, exporting, and governing candidate CV information.
 
-  Tech stack: Angular + TypeScript, Supabase (Postgres + RLS + Storage + Edge
-  Functions), Jest for unit/integration tests, Playwright for e2e.
+  Tech stack: React + TypeScript (Vite, React Router), Supabase (Postgres +
+  RLS + Storage + Edge Functions), Vitest for unit/integration tests,
+  Playwright for e2e.
   Ticket codes use the KTL- prefix (e.g. KTL-5); briefs live in openspec/KTL-*.md.
   User-facing copy is Spanish — keep accents and Spanish wording correct.
 

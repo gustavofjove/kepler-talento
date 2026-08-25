@@ -1,7 +1,6 @@
 node_modules/
 dist/
 coverage/
-.angular/
 .husky/
 package-lock.json
 playwright-report/

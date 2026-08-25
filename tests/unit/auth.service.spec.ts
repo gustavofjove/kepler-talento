@@ -3,12 +3,15 @@ import { AuthService } from '../../src/app/core/auth/auth.service';
 describe('AuthService', () => {
   const createService = () => {
     const router = {
-      navigateByUrl: jest.fn().mockResolvedValue(true),
+      navigateByUrl: vi.fn().mockResolvedValue(true),
     };
     const supabaseClient = {
       supabase: null,
     };
-    const service = new AuthService(supabaseClient as any, router as any);
+    const service = new AuthService(
+      supabaseClient as unknown as ConstructorParameters<typeof AuthService>[0],
+      router,
+    );
     return { service, router };
   };
 

@@ -3,7 +3,7 @@ const { execSync } = require('node:child_process');
 
 const commands = [
   'npm run build',
-  'npm test -- --runInBand',
+  'npm test',
   'npm run test:integration',
   'npm run security:rls',
   'npm run security:storage',
@@ -19,7 +19,7 @@ try {
     execSync(command, { stdio: 'inherit' });
   }
   console.log('[release:gate] All gates passed');
-} catch (error) {
+} catch {
   console.error('[release:gate] Failed');
   process.exit(1);
 }

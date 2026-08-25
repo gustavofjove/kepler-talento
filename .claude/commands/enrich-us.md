@@ -23,9 +23,9 @@ Analiza y enriquece el ticket indicado en `openspec/KTL-{code}.md`.
    - Descripción funcional completa, desde la perspectiva de la persona usuaria.
    - Cambios de UI concretos: componentes afectados bajo [src/app/features/](src/app/features/) (`admin`, `candidates`, `catalogs`, `dashboard`, `documents`, `search`) y piezas reutilizables en [src/app/shared/](src/app/shared/).
    - Contrato de datos: tablas, vistas, funciones RPC y políticas RLS de Supabase afectadas, con las migraciones necesarias en [supabase/migrations/](supabase/migrations/) y las Edge Functions en [supabase/functions/](supabase/functions/). Este proyecto no expone una API REST propia — el acceso a datos va por el cliente de Supabase en [src/app/core/supabase/](src/app/core/supabase/) y los servicios de [src/app/core/services/](src/app/core/services/). No inventes endpoints.
-   - Ficheros a modificar según la arquitectura existente (standalone components, signals, servicios en `core`, modelos en `shared/models`).
+   - Ficheros a modificar según la arquitectura existente (componentes de función React en `.tsx`, servicios singleton con el shim de señales de `core/state/`, inyección vía `core/di/services.ts`, modelos en `shared/models`).
    - Criterios de aceptación verificables, redactados como escenarios comprobables.
-   - Cobertura de pruebas: unitarias/integración con Jest en [tests/unit/](tests/unit/) y [tests/integration/](tests/integration/), e2e con Playwright en [tests/e2e/](tests/e2e/), y comprobaciones de seguridad en [tests/security/](tests/security/) cuando se toquen permisos o RLS.
+   - Cobertura de pruebas: unitarias/integración con Vitest (y React Testing Library para componentes) en [tests/unit/](tests/unit/) y [tests/integration/](tests/integration/), e2e con Playwright en [tests/e2e/](tests/e2e/), y comprobaciones de seguridad en [tests/security/](tests/security/) cuando se toquen permisos o RLS.
    - Documentación a actualizar: [README.md](README.md), [docs/](docs/), [SUPABASE_INTEGRATION_GUIDE.md](SUPABASE_INTEGRATION_GUIDE.md) o la spec correspondiente en [specs/](specs/).
    - Requisitos no funcionales: seguridad (RLS, exposición de datos personales de candidatos), rendimiento de las consultas de búsqueda, accesibilidad, y comportamiento responsive.
    - Textos de interfaz en español, con tildes y ortografía correctas.

@@ -1,0 +1,128 @@
+.filters-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.filters-header h2 {
+  margin: 0;
+}
+/* Grouped into columns so a long filter set stays short instead of stacking up. */
+.filters-summary {
+  display: grid;
+  gap: 12px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 12px 0;
+}
+.summary-group {
+  display: grid;
+  gap: 6px;
+}
+.summary-group h3 {
+  color: var(--fg-2);
+  font-size: 11px;
+  font-weight: 600;
+  margin: 0;
+}
+.summary-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filters-summary .empty-state {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.filters-body {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+.basic-filters {
+  align-content: start;
+  display: grid;
+  gap: 10px;
+}
+.inline-field {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+.inline-field label {
+  color: var(--fg-2);
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 48px;
+}
+/* The global .field rules do not reach here, so match their look explicitly. */
+.inline-field input,
+.inline-field select {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  flex: 1 1 auto;
+  min-height: 34px;
+  padding: 8px 10px;
+  width: 100%;
+}
+.inline-field input:focus,
+.inline-field select:focus {
+  border-color: var(--fj-navy);
+  outline: 2px solid rgba(22, 33, 54, 0.15);
+  outline-offset: 0;
+}
+.status-group,
+.criteria-group {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+.status-group legend {
+  color: var(--fg-2);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 4px;
+}
+.status-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.criteria-add {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr auto;
+}
+.criteria-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.criteria-list li {
+  align-items: center;
+  background: var(--bg-2, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 10px;
+}
+.criteria-mode {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+.criteria-mode select {
+  max-width: 180px;
+}
+@media (max-width: 720px) {
+  .criteria-add {
+    grid-template-columns: 1fr;
+  }
+}
