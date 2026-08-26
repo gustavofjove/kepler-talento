@@ -10,4 +10,6 @@ public interface ICurrentActor
 public static class Permissions
 {
     public const string CandidatesRead = "candidates.read";
+    public const string CatalogsRead = "catalogs.read";
+    public const string CatalogsManage = "catalogs.manage";
 }

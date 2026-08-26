@@ -1,5 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateStatus } from '../../candidates/models/candidate.models';
 import {
   ALL_CANDIDATE_STATUSES,
@@ -54,6 +56,7 @@ export function SearchFilters({
   onClear,
 }: SearchFiltersProps) {
   const catalogs = useCatalogs();
+  const catalogStatus = useCatalogStatus();
   const [drafts, setDrafts] = useState<Record<CriteriaKind, CriteriaFilter>>(EMPTY_DRAFTS);
 
   const toggleStatus = (status: CandidateStatus, event: ChangeEvent<HTMLInputElement>): void => {
@@ -156,6 +159,8 @@ export function SearchFilters({
                 </div>
               </fieldset>
             </div>
+
+            <CatalogStatusNotice status={catalogStatus} />
 
             {CRITERIA_GROUPS.map((group) => (
               <CriteriaGroup

@@ -7,6 +7,7 @@ using KeplerTalento.Infrastructure;
 using KeplerTalento.Web.Correlation;
 using KeplerTalento.Web.Errors;
 using KeplerTalento.Web.Features.Candidates;
+using KeplerTalento.Web.Features.Catalogs;
 using KeplerTalento.Web.Health;
 using KeplerTalento.Web.Identity;
 using KeplerTalento.Infrastructure.Persistence;
@@ -106,6 +107,7 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
     await using var scope = app.Services.CreateAsyncScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await DatabaseInitializer.MigrateAsync(dbContext, app.Lifetime.ApplicationStopping);
+    await DatabaseInitializer.SeedCatalogsAsync(dbContext, app.Lifetime.ApplicationStopping);
     if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
     {
         await DatabaseInitializer.SeedSyntheticReferenceAsync(dbContext, app.Lifetime.ApplicationStopping);
@@ -157,6 +159,7 @@ app.MapGet("/api/health/scanner", async (
     .WithTags("Health")
     .Produces(StatusCodes.Status200OK)
     .Produces(StatusCodes.Status503ServiceUnavailable);
+app.MapCatalogEndpoints();
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.MapReferenceCandidateEndpoints();

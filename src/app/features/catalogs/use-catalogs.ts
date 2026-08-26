@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useServices } from '../../core/di/services-context';
 import { useSignal } from '../../core/state/use-signal';
 import type { CatalogService } from './services/catalog.service';
 
 /**
- * Returns the catalog service with its signal already subscribed.
+ * Returns the catalog service with its signal already subscribed, and triggers the
+ * one-time load of the API-backed vocabulary.
  *
  * Components must never reach for `useServices().catalogService` directly during
  * render: the read (`activeNames`, `list`) and the subscription are separate
@@ -13,5 +15,8 @@ import type { CatalogService } from './services/catalog.service';
 export function useCatalogs(): CatalogService {
   const { catalogService } = useServices();
   useSignal(catalogService.catalogs);
+  useEffect(() => {
+    void catalogService.ensureLoaded();
+  }, [catalogService]);
   return catalogService;
 }

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useServices } from '../../../core/di/services-context';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateExperience as CandidateExperienceModel } from '../models/candidate.models';
 
 interface Draft {
@@ -35,6 +37,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState('');
 
+  const catalogStatus = useCatalogStatus();
   const sectorOptions = catalogs.activeNames('sector');
 
   const add = (event: FormEvent<HTMLFormElement>): void => {
@@ -77,6 +80,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
       </div>
       {canEdit ? (
         <form className="section-block" onSubmit={add} noValidate>
+          <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
               <label htmlFor="company">Empresa</label>
@@ -168,7 +172,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!!catalogStatus.message}>
               Añadir experiencia
             </button>
           </div>

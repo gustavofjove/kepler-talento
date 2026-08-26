@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useServices } from '../../../core/di/services-context';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateProgram } from '../models/candidate.models';
 
 interface Draft {
@@ -23,6 +25,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState('');
 
+  const catalogStatus = useCatalogStatus();
   const programOptions = catalogs.activeNames('program');
   const levelOptions = catalogs.activeNames('program_level');
 
@@ -62,6 +65,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
       </div>
       {canEdit ? (
         <form className="section-block" onSubmit={add} noValidate>
+          <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
               <label htmlFor="program">Programa</label>
@@ -121,7 +125,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!!catalogStatus.message}>
               Añadir programa
             </button>
           </div>

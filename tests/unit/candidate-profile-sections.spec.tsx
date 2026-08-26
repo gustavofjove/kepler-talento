@@ -7,21 +7,33 @@ import { CandidateEducation } from '../../src/app/features/candidates/components
 import { CandidateExperience } from '../../src/app/features/candidates/components/candidate-experience';
 import { CandidateSkills } from '../../src/app/features/candidates/components/candidate-skills';
 import { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
+import type { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
+import { loadedCatalogService } from './support/catalog-doubles';
 
 describe('Candidate profile section components', () => {
   let relations: MockedObject<CandidateRelationsService>;
+  let catalogService: CatalogService;
 
   const renderSection = (ui: React.ReactElement) =>
     render(
       <ServicesProvider
-        value={{ ...services, candidateRelationsService: relations } as unknown as Services}
+        value={
+          {
+            ...services,
+            candidateRelationsService: relations,
+            catalogService,
+          } as unknown as Services
+        }
       >
         {ui}
       </ServicesProvider>,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
+    // Catalogs are API-backed: components get a loaded test double through the
+    // ServicesProvider seam rather than reaching the network.
+    catalogService = await loadedCatalogService();
     relations = {
       addEducation: vi.fn(),
       removeEducation: vi.fn(),

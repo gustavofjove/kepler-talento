@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useServices } from '../../../core/di/services-context';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateEducation as CandidateEducationModel } from '../models/candidate.models';
 
 interface Draft {
@@ -33,6 +35,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [error, setError] = useState('');
 
+  const catalogStatus = useCatalogStatus();
   const typeOptions = catalogs.activeNames('education_type');
   const statusOptions = catalogs.activeNames('education_status');
 
@@ -72,6 +75,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
       </div>
       {canEdit ? (
         <form className="section-block" onSubmit={add} noValidate>
+          <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
               <label htmlFor="educationType">Tipo</label>
@@ -157,7 +161,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!!catalogStatus.message}>
               Añadir formación
             </button>
           </div>
