@@ -12,6 +12,12 @@ context: |
   xUnit covers backend tests, and Playwright covers browser journeys. Existing
   Supabase/localStorage paths are legacy paths until their feature migrations.
   Ticket codes use the KTL- prefix (e.g. KTL-5); briefs live in openspec/KTL-*.md.
+  Every change folder under openspec/changes/ MUST include a lowercase
+  `ktl-<n>-<slug>` segment identifying its ticket, e.g.
+  `ktl-6-catalog-write-slice-api-cutover` while active. When archiving, keep
+  the archive tool's `YYYY-MM-DD-` date prefix in front of it, e.g.
+  `2026-08-25-ktl-6-catalog-write-slice-api-cutover` — never drop the ticket
+  prefix in favor of the date-only default.
   User-facing copy is Spanish — keep accents and Spanish wording correct.
 
   Design documentation for the shipped system lives in
@@ -77,6 +83,9 @@ rules:
 
 # Per-operation guidance (optional)
 operations:
+  new:
+    guidance:
+      - 'Name the change folder `ktl-<n>-<slug>` (e.g. `ktl-6-catalog-write-slice-api-cutover`), using the ticket number from openspec/KTL-*.md this change implements.'
   apply:
     guidance:
       - Do not mark a mandatory task complete unless its command was actually run and its output inspected.
@@ -84,3 +93,4 @@ operations:
   archive:
     guidance:
       - 'Report the archive outcome: change name, schema used, archive location, spec sync status, and any warnings about incomplete artifacts or tasks.'
+      - "Archived name = the tool's `YYYY-MM-DD-` date prefix + the existing `ktl-<n>-<slug>` name, e.g. `2026-08-25-ktl-6-catalog-write-slice-api-cutover`. Never drop the ticket prefix in favor of a date-only name."
