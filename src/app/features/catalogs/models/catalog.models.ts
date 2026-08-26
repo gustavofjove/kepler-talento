@@ -5,7 +5,11 @@ export interface CatalogItem {
   nameEn?: string;
   sortOrder: number;
   isActive: boolean;
+  /** Row version carried back on writes so a stale change is rejected as a conflict. */
+  version: number;
 }
+
+export type CatalogLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 export type CatalogFamily =
   | 'language'

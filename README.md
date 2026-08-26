@@ -19,6 +19,21 @@ La autenticación de producción está aplazada. El actor sintético solo existe
 Development/Testing y el proceso se niega a arrancar si se intenta habilitar en
 Production.
 
+## Catálogos KTL-6
+
+Los catálogos de negocio ya no viven en `localStorage`: son propiedad de la API y se sirven
+desde PostgreSQL (`CAT_CatalogItems`). Las capacidades `catalogs.read` y `catalogs.manage`
+se aplican en el servidor y se corresponden con el permiso `manage_catalogs` del frontend;
+ocultar la interfaz no es el control.
+
+No existe ningún endpoint de borrado físico: un valor se retira desactivándolo, de modo que
+los candidatos que lo referencian conservan su significado. Las nueve familias se cargan con
+una semilla explícita de despliegue durante `--migrate`. La clave `rrhh-catalogs` del
+navegador queda abandonada; no se migra.
+
+El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y auditoría está en
+[`docs/ktl-6/catalogs.md`](docs/ktl-6/catalogs.md).
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se
@@ -53,6 +68,18 @@ Para detener los contenedores sin borrar datos:
 ```powershell
 docker compose down
 ```
+
+Para conectar una herramienta local a PostgreSQL, aplique el override de desarrollo. El
+puerto se publica exclusivamente en la interfaz loopback y no queda accesible desde la
+intranet:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres
+```
+
+Use `localhost`, el puerto `POSTGRES_PORT` (5432 por defecto), la base
+`kepler_talento` y el usuario `ktl_migrator`. No use este override en el despliegue de
+intranet.
 
 Los volúmenes `postgres-data`, `documents` y `clamav-signatures` son persistentes. No use
 `docker compose down --volumes` salvo que quiera eliminar deliberadamente los datos de
@@ -133,6 +160,7 @@ cambios posteriores.
 Documentación principal:
 
 - [Brief KTL-5](openspec/KTL-5.md)
+- [Brief KTL-6](openspec/KTL-6.md) y [catálogos KTL-6](docs/ktl-6/catalogs.md)
 - [Cambio OpenSpec](openspec/changes/ktl-5-dotnet-infrastructure)
 - [Plan técnico existente](specs/001-gestion-cvs-rrhh/plan.md)
 - [Principios vigentes](openspec/config.yaml)

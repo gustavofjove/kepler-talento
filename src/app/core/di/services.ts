@@ -3,6 +3,7 @@ import { RoleService } from '../../features/admin/roles/role.service';
 import { ProfileService } from '../../features/admin/users/profile.service';
 import { CandidateRelationsService } from '../../features/candidates/services/candidate-relations.service';
 import { CandidateService } from '../../features/candidates/services/candidate.service';
+import { CatalogApi } from '../../features/catalogs/services/catalog.api';
 import { CatalogService } from '../../features/catalogs/services/catalog.service';
 import { DocumentService } from '../../features/documents/services/document.service';
 import { CandidateSearchService } from '../../features/search/services/candidate-search.service';
@@ -43,7 +44,7 @@ export const services = {
   observabilityService: new ObservabilityService(),
   confirmDialogService: new ConfirmDialogService(),
   candidateService,
-  catalogService: new CatalogService(candidateService),
+  catalogService: new CatalogService(new CatalogApi(apiTransport), candidateService),
   candidateRelationsService: new CandidateRelationsService(candidateService),
   documentService: new DocumentService(candidateService),
   candidateSearchService: new CandidateSearchService(candidateService),

@@ -15,5 +15,13 @@ public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) 
     private readonly DevelopmentActorOptions _options = options.Value;
     public string? ExternalKey => _options.Enabled ? _options.ExternalKey : null;
     public bool IsAuthenticated => _options.Enabled;
-    public bool HasPermission(string permission) => _options.Enabled && permission == Permissions.CandidatesRead;
+    private static readonly string[] GrantedPermissions =
+    [
+        Permissions.CandidatesRead,
+        Permissions.CatalogsRead,
+        Permissions.CatalogsManage,
+    ];
+
+    public bool HasPermission(string permission) =>
+        _options.Enabled && GrantedPermissions.Contains(permission, StringComparer.Ordinal);
 }

@@ -1,19 +1,71 @@
 import { signal } from '../../../core/state/signal';
+import { AppError, toAppError } from '../../../shared/models/error.models';
 import { Candidate } from '../../candidates/models/candidate.models';
 import { CandidateService } from '../../candidates/services/candidate.service';
-import { CatalogFamily, CatalogItem, DEFAULT_CATALOGS } from '../models/catalog.models';
+import {
+  CatalogFamily,
+  CatalogItem,
+  CatalogLoadStatus,
+  CATALOG_FAMILY_LABELS,
+} from '../models/catalog.models';
+import type { CatalogGateway } from './catalog.api';
 
-const STORAGE_KEY = 'rrhh-catalogs';
+const FAMILIES = Object.keys(CATALOG_FAMILY_LABELS) as CatalogFamily[];
 
-type CatalogState = Record<CatalogFamily, CatalogItem[]>;
+export interface CatalogState {
+  status: CatalogLoadStatus;
+  /** Every family the API has returned, inactive values included. */
+  items: Partial<Record<CatalogFamily, CatalogItem[]>>;
+  error?: AppError;
+}
 
+/**
+ * Catalog vocabulary, owned by the API.
+ *
+ * The reads stay synchronous so the seven consuming components keep their existing
+ * shape, but they are now reads of a load state rather than of browser storage:
+ * `status` tells a component whether an empty list means "still loading", "failed",
+ * or "genuinely empty", and components are required to branch on it rather than
+ * present a loading collection as a complete result.
+ */
 export class CatalogService {
-  readonly catalogs = signal<CatalogState>(this.restore());
+  readonly catalogs = signal<CatalogState>({ status: 'idle', items: {} });
 
-  constructor(private readonly candidateService: CandidateService) {}
+  private inFlight: Promise<void> | null = null;
+
+  constructor(
+    private readonly api: CatalogGateway,
+    private readonly candidateService: CandidateService,
+  ) {}
+
+  get status(): CatalogLoadStatus {
+    return this.catalogs().status;
+  }
+
+  get error(): AppError | undefined {
+    return this.catalogs().error;
+  }
+
+  /** Loads every family once. Repeated calls while a load is in flight share it. */
+  ensureLoaded(): Promise<void> {
+    const { status } = this.catalogs();
+    if (status === 'loaded') {
+      return Promise.resolve();
+    }
+    this.inFlight ??= this.loadAll().finally(() => {
+      this.inFlight = null;
+    });
+    return this.inFlight;
+  }
+
+  async reload(): Promise<void> {
+    this.inFlight = null;
+    this.catalogs.set({ ...this.catalogs(), status: 'idle' });
+    await this.ensureLoaded();
+  }
 
   list(family: CatalogFamily, includeInactive = false): CatalogItem[] {
-    const familyItems = this.catalogs()[family];
+    const familyItems = this.catalogs().items[family] ?? [];
     const items = familyItems
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder || a.nameEs.localeCompare(b.nameEs));
@@ -24,120 +76,113 @@ export class CatalogService {
     return this.list(family).map((item) => item.nameEs);
   }
 
-  create(family: CatalogFamily, nameEs: string, code?: string, nameEn?: string): CatalogItem {
+  async create(
+    family: CatalogFamily,
+    nameEs: string,
+    code?: string,
+    nameEn?: string,
+  ): Promise<CatalogItem> {
     const trimmedName = nameEs.trim();
     if (!trimmedName) {
-      throw new Error('El nombre es obligatorio.');
+      throw new AppError('VALIDATION_ERROR', 'El nombre es obligatorio.');
     }
-
-    const items = this.catalogs()[family];
-    if (items.some((item) => item.nameEs.toLowerCase() === trimmedName.toLowerCase())) {
-      throw new Error('Ya existe un valor con ese nombre.');
-    }
-
-    const nextSortOrder = items.length ? Math.max(...items.map((item) => item.sortOrder)) + 1 : 1;
-    const item: CatalogItem = {
-      id: crypto.randomUUID(),
-      code: this.resolveCode(items, trimmedName, code),
+    const created = await this.api.create(family, {
       nameEs: trimmedName,
+      code: code?.trim() || undefined,
       nameEn: nameEn?.trim() || undefined,
-      sortOrder: nextSortOrder,
-      isActive: true,
-    };
-
-    this.setFamily(family, [...items, item]);
-    return item;
+    });
+    await this.refresh(family);
+    return created;
   }
 
-  update(
+  async update(
     family: CatalogFamily,
     id: string,
     patch: { nameEs: string; code?: string; nameEn?: string },
-  ): CatalogItem {
+  ): Promise<CatalogItem> {
     const trimmedName = patch.nameEs.trim();
     if (!trimmedName) {
-      throw new Error('El nombre es obligatorio.');
+      throw new AppError('VALIDATION_ERROR', 'El nombre es obligatorio.');
     }
-
-    const items = this.catalogs()[family];
-    const current = items.find((item) => item.id === id);
-    if (!current) {
-      throw new Error('No se encontró el elemento del catálogo.');
-    }
-
-    if (
-      items.some(
-        (item) => item.id !== id && item.nameEs.toLowerCase() === trimmedName.toLowerCase(),
-      )
-    ) {
-      throw new Error('Ya existe un valor con ese nombre.');
-    }
-
-    const code = this.resolveCode(
-      items.filter((item) => item.id !== id),
-      trimmedName,
-      patch.code || current.code,
-    );
-
-    const updated = items.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            nameEs: trimmedName,
-            code,
-            nameEn: patch.nameEn?.trim() || undefined,
-          }
-        : item,
-    );
-
-    this.setFamily(family, updated);
-    const refreshed = this.catalogs()[family].find((item) => item.id === id);
-    if (!refreshed) {
-      throw new Error('No se encontró el elemento del catálogo.');
-    }
-    return refreshed;
+    const current = this.find(family, id);
+    const updated = await this.api.update(family, id, {
+      nameEs: trimmedName,
+      code: patch.code?.trim() || undefined,
+      nameEn: patch.nameEn?.trim() || undefined,
+      version: current.version,
+    });
+    await this.refresh(family);
+    return updated;
   }
 
-  toggleActive(family: CatalogFamily, id: string): CatalogItem {
-    const items = this.catalogs()[family];
-    const current = items.find((item) => item.id === id);
-    if (!current) {
-      throw new Error('No se encontró el elemento del catálogo.');
-    }
-
+  async toggleActive(family: CatalogFamily, id: string): Promise<CatalogItem> {
+    const current = this.find(family, id);
+    // Transitional pre-check: candidate relations are still browser-side, so the API
+    // cannot yet see which values are in use. Remove with KTL-8, which moves the rule
+    // server-side.
     if (current.isActive && this.isCatalogValueInUse(family, current.nameEs)) {
-      throw new Error('No se puede desactivar: el valor esta en uso por candidatos.');
+      throw new AppError(
+        'CONFLICT',
+        'No se puede desactivar: el valor esta en uso por candidatos.',
+      );
     }
-
-    const next = items.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            isActive: !item.isActive,
-          }
-        : item,
-    );
-    this.setFamily(family, next);
-
-    const refreshed = this.catalogs()[family].find((item) => item.id === id);
-    if (!refreshed) {
-      throw new Error('No se encontró el elemento del catálogo.');
-    }
-    return refreshed;
+    const updated = await this.api.setActive(family, id, !current.isActive, current.version);
+    await this.refresh(family);
+    return updated;
   }
 
-  remove(family: CatalogFamily, id: string): void {
-    const current = this.catalogs()[family].find((item) => item.id === id);
-    if (!current) {
+  /** Moves a value within its family by submitting the family's complete new order. */
+  async move(family: CatalogFamily, id: string, direction: -1 | 1): Promise<void> {
+    const ordered = this.list(family, true);
+    const index = ordered.findIndex((item) => item.id === id);
+    if (index < 0) {
       return;
     }
-
-    if (this.isCatalogValueInUse(family, current.nameEs)) {
-      throw new Error('No se puede eliminar: el valor esta en uso por candidatos.');
+    const target = index + direction;
+    if (target < 0 || target >= ordered.length) {
+      return;
     }
+    const [moved] = ordered.splice(index, 1);
+    ordered.splice(target, 0, moved);
+    await this.api.reorder(
+      family,
+      ordered.map((item) => item.id),
+    );
+    await this.refresh(family);
+  }
 
-    const filtered = this.catalogs()[family].filter((item) => item.id !== id);
-    this.setFamily(family, this.normalizeSortOrder(filtered));
+  private find(family: CatalogFamily, id: string): CatalogItem {
+    const current = (this.catalogs().items[family] ?? []).find((item) => item.id === id);
+    if (!current) {
+      throw new AppError('NOT_FOUND', 'No se encontró el elemento del catálogo.');
+    }
+    return current;
+  }
+
+  private async loadAll(): Promise<void> {
+    this.catalogs.set({ ...this.catalogs(), status: 'loading', error: undefined });
+    try {
+      const loaded = await Promise.all(
+        FAMILIES.map(async (family) => [family, await this.api.list(family, true)] as const),
+      );
+      this.catalogs.set({
+        status: 'loaded',
+        items: Object.fromEntries(loaded) as Partial<Record<CatalogFamily, CatalogItem[]>>,
+      });
+    } catch (error) {
+      // No local fallback: a silently divergent vocabulary is worse than a visible failure.
+      this.catalogs.set({ status: 'error', items: {}, error: toAppError(error) });
+    }
+  }
+
+  private async refresh(family: CatalogFamily): Promise<void> {
+    const items = await this.api.list(family, true);
+    const current = this.catalogs();
+    this.catalogs.set({
+      ...current,
+      status: 'loaded',
+      items: { ...current.items, [family]: items },
+    });
   }
 
   private isCatalogValueInUse(family: CatalogFamily, value: string): boolean {
@@ -177,125 +222,5 @@ export class CatalogService {
       default:
         return false;
     }
-  }
-
-  move(family: CatalogFamily, id: string, direction: -1 | 1): void {
-    const ordered = this.list(family, true);
-    const index = ordered.findIndex((item) => item.id === id);
-    if (index < 0) {
-      return;
-    }
-
-    const target = index + direction;
-    if (target < 0 || target >= ordered.length) {
-      return;
-    }
-
-    const [moved] = ordered.splice(index, 1);
-    ordered.splice(target, 0, moved);
-    this.setFamily(family, this.normalizeSortOrder(ordered));
-  }
-
-  private setFamily(family: CatalogFamily, items: CatalogItem[]): void {
-    const nextState: CatalogState = {
-      ...this.catalogs(),
-      [family]: this.normalizeSortOrder(items),
-    };
-    this.persist(nextState);
-  }
-
-  private normalizeSortOrder(items: CatalogItem[]): CatalogItem[] {
-    return items.map((item, index) => ({ ...item, sortOrder: index + 1 }));
-  }
-
-  private resolveCode(items: CatalogItem[], nameEs: string, explicitCode?: string): string {
-    const preferred = (explicitCode?.trim() || this.slugify(nameEs)).toUpperCase();
-    if (!preferred) {
-      throw new Error('El código es obligatorio.');
-    }
-
-    const exists = (value: string): boolean =>
-      items.some((item) => item.code.toUpperCase() === value.toUpperCase());
-
-    if (!exists(preferred)) {
-      return preferred;
-    }
-
-    let suffix = 2;
-    let candidate = `${preferred}_${suffix}`;
-    while (exists(candidate)) {
-      suffix += 1;
-      candidate = `${preferred}_${suffix}`;
-    }
-    return candidate;
-  }
-
-  private persist(state: CatalogState): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    this.catalogs.set(state);
-  }
-
-  private restore(): CatalogState {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as CatalogState;
-        return this.ensureFamilies(parsed);
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
-    return this.seedDefaults();
-  }
-
-  private ensureFamilies(parsed: Partial<CatalogState>): CatalogState {
-    const seeded = this.seedDefaults();
-    const families = Object.keys(DEFAULT_CATALOGS) as CatalogFamily[];
-
-    return families.reduce((acc, family) => {
-      const source = parsed[family];
-      acc[family] =
-        Array.isArray(source) && source.length
-          ? this.normalizeSortOrder(
-              source
-                .map((item) => ({
-                  ...item,
-                  id: item.id || crypto.randomUUID(),
-                  code: item.code || this.slugify(item.nameEs),
-                  nameEs: item.nameEs || '',
-                  sortOrder: Number.isFinite(item.sortOrder) ? item.sortOrder : 9999,
-                  isActive: item.isActive !== false,
-                }))
-                .sort((a, b) => a.sortOrder - b.sortOrder || a.nameEs.localeCompare(b.nameEs)),
-            )
-          : seeded[family];
-      return acc;
-    }, {} as CatalogState);
-  }
-
-  private seedDefaults(): CatalogState {
-    const families = Object.keys(DEFAULT_CATALOGS) as CatalogFamily[];
-    return families.reduce((acc, family) => {
-      acc[family] = DEFAULT_CATALOGS[family].map((nameEs, index) => ({
-        id: crypto.randomUUID(),
-        code: this.slugify(nameEs),
-        nameEs,
-        sortOrder: index + 1,
-        isActive: true,
-      }));
-      return acc;
-    }, {} as CatalogState);
-  }
-
-  private slugify(value: string): string {
-    const normalized = value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .toUpperCase();
-
-    return normalized || 'ITEM';
   }
 }

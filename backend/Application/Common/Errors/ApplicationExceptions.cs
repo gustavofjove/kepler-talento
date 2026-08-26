@@ -10,6 +10,8 @@ public sealed class NotFoundException(string code, string message) : Application
 public sealed class ForbiddenException(string code = "authorization.denied")
     : ApplicationExceptionBase(code, "No tiene permisos para realizar esta operación.");
 
+public sealed class ConflictException(string code, string message) : ApplicationExceptionBase(code, message);
+
 public sealed record ValidationIssue(string Property, string Code, string Message);
 
 public sealed class RequestValidationException(IReadOnlyCollection<ValidationIssue> issues)

@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useServices } from '../../../core/di/services-context';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateSkill } from '../models/candidate.models';
 
 const EMPTY = { skill: '', level: '' };
@@ -17,6 +19,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
   const [draft, setDraft] = useState(EMPTY);
   const [error, setError] = useState('');
 
+  const catalogStatus = useCatalogStatus();
   const skillOptions = catalogs.activeNames('skill');
   const levelOptions = catalogs.activeNames('skill_level');
 
@@ -55,6 +58,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
       </div>
       {canEdit ? (
         <form className="section-block" onSubmit={add} noValidate>
+          <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
               <label htmlFor="skill">Habilidad</label>
@@ -97,7 +101,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!!catalogStatus.message}>
               Añadir habilidad
             </button>
           </div>

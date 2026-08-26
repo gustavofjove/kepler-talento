@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useServices } from '../../../core/di/services-context';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
+import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateLanguage } from '../models/candidate.models';
 
 const EMPTY = { language: '', level: '', certification: '' };
@@ -17,6 +19,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
   const [draft, setDraft] = useState(EMPTY);
   const [error, setError] = useState('');
 
+  const catalogStatus = useCatalogStatus();
   const languageOptions = catalogs.activeNames('language');
   const levelOptions = catalogs.activeNames('language_level');
 
@@ -55,6 +58,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
       </div>
       {canEdit ? (
         <form className="section-block" onSubmit={add} noValidate>
+          <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
               <label htmlFor="language">Idioma</label>
@@ -63,6 +67,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
                 name="language"
                 value={draft.language}
                 onChange={(e) => setDraft({ ...draft, language: e.target.value })}
+                disabled={!!catalogStatus.message}
                 required
               >
                 <option value="" disabled>
@@ -82,6 +87,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
                 name="level"
                 value={draft.level}
                 onChange={(e) => setDraft({ ...draft, level: e.target.value })}
+                disabled={!!catalogStatus.message}
                 required
               >
                 <option value="" disabled>
@@ -106,7 +112,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
-            <button className="button" type="submit">
+            <button className="button" type="submit" disabled={!!catalogStatus.message}>
               Añadir idioma
             </button>
           </div>

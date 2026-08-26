@@ -27,6 +27,8 @@ export function CatalogManagementPage() {
 
   const items = catalogService.list(activeFamily, true);
   const activeCount = items.filter((item) => item.isActive).length;
+  const isLoading = catalogService.status === 'idle' || catalogService.status === 'loading';
+  const hasFailed = catalogService.status === 'error';
 
   const cancelEdit = (): void => {
     setEditingId('');
@@ -34,10 +36,10 @@ export function CatalogManagementPage() {
     setEditCode('');
   };
 
-  const createItem = (event: FormEvent<HTMLFormElement>): void => {
+  const createItem = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      catalogService.create(activeFamily, newNameEs, newCode);
+      await catalogService.create(activeFamily, newNameEs, newCode);
       setNewNameEs('');
       setNewCode('');
       toastService.show('Elemento creado.', 'success');
@@ -52,9 +54,9 @@ export function CatalogManagementPage() {
     setEditCode(item.code);
   };
 
-  const saveEdit = (item: CatalogItem): void => {
+  const saveEdit = async (item: CatalogItem): Promise<void> => {
     try {
-      catalogService.update(activeFamily, item.id, { nameEs: editNameEs, code: editCode });
+      await catalogService.update(activeFamily, item.id, { nameEs: editNameEs, code: editCode });
       cancelEdit();
       toastService.show('Elemento actualizado.', 'success');
     } catch (error) {
@@ -62,9 +64,28 @@ export function CatalogManagementPage() {
     }
   };
 
-  const toggle = (item: CatalogItem): void => {
+  /**
+   * Deactivation is the only way to retire a value: catalog values are never deleted,
+   * so existing candidate records keep their meaning.
+   */
+  const toggle = async (item: CatalogItem): Promise<void> => {
+    if (item.isActive) {
+      const confirmDeactivate = await confirmDialogService.confirm({
+        title: 'Desactivar valor de catálogo',
+        message: `"${item.nameEs}" dejará de ofrecerse en los formularios. Podrás volver a activarlo cuando quieras.`,
+        confirmText: 'Desactivar',
+        cancelText: 'Cancelar',
+        danger: true,
+      });
+      if (!confirmDeactivate) {
+        return;
+      }
+    }
     try {
-      const updated = catalogService.toggleActive(activeFamily, item.id);
+      const updated = await catalogService.toggleActive(activeFamily, item.id);
+      if (editingId === item.id) {
+        cancelEdit();
+      }
       toastService.show(
         updated.isActive ? 'Elemento activado.' : 'Elemento desactivado.',
         'success',
@@ -74,22 +95,12 @@ export function CatalogManagementPage() {
     }
   };
 
-  const remove = async (item: CatalogItem): Promise<void> => {
-    const confirmDelete = await confirmDialogService.confirm({
-      title: 'Eliminar valor de catálogo',
-      message: `Se eliminará "${item.nameEs}" y no podrás recuperarlo automáticamente.`,
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
-      danger: true,
-    });
-    if (!confirmDelete) {
-      return;
+  const move = async (item: CatalogItem, direction: -1 | 1): Promise<void> => {
+    try {
+      await catalogService.move(activeFamily, item.id, direction);
+    } catch (error) {
+      notifyError(error, 'No se pudo cambiar el orden.');
     }
-    catalogService.remove(activeFamily, item.id);
-    if (editingId === item.id) {
-      cancelEdit();
-    }
-    toastService.show('Elemento eliminado.', 'success');
   };
 
   return (
@@ -132,7 +143,11 @@ export function CatalogManagementPage() {
             </select>
           </div>
           <p className="muted">
-            Activos: {activeCount} · Total: {items.length}
+            {isLoading
+              ? 'Cargando catálogos…'
+              : hasFailed
+                ? 'No se han podido cargar los catálogos.'
+                : `Activos: ${activeCount} · Total: ${items.length}`}
           </p>
         </div>
 
@@ -142,7 +157,7 @@ export function CatalogManagementPage() {
           </p>
         ) : null}
 
-        <form className="grid two" onSubmit={createItem} noValidate>
+        <form className="grid two" onSubmit={(event) => void createItem(event)} noValidate>
           <div className="field">
             <label htmlFor="newNameEs">Nombre (es)</label>
             <input
@@ -164,13 +179,23 @@ export function CatalogManagementPage() {
             />
           </div>
           <div className="form-actions span-all">
-            <button className="button" type="submit" disabled={!!editingId}>
+            <button
+              className="button"
+              type="submit"
+              disabled={!!editingId || isLoading || hasFailed}
+            >
               Añadir
             </button>
           </div>
         </form>
 
-        {!items.length ? (
+        {isLoading ? (
+          <p className="empty-state">Cargando catálogos…</p>
+        ) : hasFailed ? (
+          <p className="empty-state">
+            {catalogService.error?.message ?? 'No se han podido cargar los catálogos.'}
+          </p>
+        ) : !items.length ? (
           <p className="empty-state">No hay elementos en este catálogo.</p>
         ) : (
           <div className="table-wrap">
@@ -217,19 +242,23 @@ export function CatalogManagementPage() {
                         <button
                           className="button ghost"
                           type="button"
-                          onClick={() => catalogService.move(activeFamily, item.id, -1)}
+                          onClick={() => void move(item, -1)}
                         >
                           Subir
                         </button>
                         <button
                           className="button ghost"
                           type="button"
-                          onClick={() => catalogService.move(activeFamily, item.id, 1)}
+                          onClick={() => void move(item, 1)}
                         >
                           Bajar
                         </button>
                         {editingId === item.id ? (
-                          <button className="button" type="button" onClick={() => saveEdit(item)}>
+                          <button
+                            className="button"
+                            type="button"
+                            onClick={() => void saveEdit(item)}
+                          >
                             Guardar
                           </button>
                         ) : (
@@ -242,18 +271,11 @@ export function CatalogManagementPage() {
                           </button>
                         )}
                         <button
-                          className="button secondary"
+                          className={item.isActive ? 'button danger' : 'button secondary'}
                           type="button"
-                          onClick={() => toggle(item)}
+                          onClick={() => void toggle(item)}
                         >
                           {item.isActive ? 'Desactivar' : 'Activar'}
-                        </button>
-                        <button
-                          className="button danger"
-                          type="button"
-                          onClick={() => remove(item)}
-                        >
-                          Eliminar
                         </button>
                       </div>
                     </td>

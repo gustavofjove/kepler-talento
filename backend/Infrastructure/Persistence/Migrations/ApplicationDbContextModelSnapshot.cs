@@ -101,6 +101,76 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Catalogs.CatalogItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Family")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("NameEs")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("NameNormalized")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Family", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CAT_CatalogItems_Family_Code");
+
+                    b.HasIndex("Family", "NameNormalized")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CAT_CatalogItems_Family_NameNormalized");
+
+                    b.HasIndex("Family", "SortOrder");
+
+                    b.ToTable("CAT_CatalogItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CAT_CatalogItems_Family", "\"Family\" IN ('language', 'program', 'skill', 'language_level', 'program_level', 'skill_level', 'education_type', 'education_status', 'sector')");
+
+                            t.HasCheckConstraint("CK_CAT_CatalogItems_Name", "char_length(\"NameEs\") > 0 AND char_length(\"NameNormalized\") > 0 AND char_length(\"Code\") > 0");
+
+                            t.HasCheckConstraint("CK_CAT_CatalogItems_SortOrder", "\"SortOrder\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Documents.CandidateDocument", b =>
                 {
                     b.Property<Guid>("Id")

@@ -19,6 +19,7 @@ public sealed class GlobalExceptionHandler(
             RequestValidationException validation => (StatusCodes.Status400BadRequest, "Solicitud no válida", validation.Code),
             ForbiddenException forbidden => (StatusCodes.Status403Forbidden, "Acceso denegado", forbidden.Code),
             NotFoundException notFound => (StatusCodes.Status404NotFound, "Recurso no encontrado", notFound.Code),
+            ConflictException conflict => (StatusCodes.Status409Conflict, "Conflicto de concurrencia", conflict.Code),
             _ => (StatusCodes.Status500InternalServerError, "Error inesperado", "server.unexpected"),
         };
         if (status >= 500)

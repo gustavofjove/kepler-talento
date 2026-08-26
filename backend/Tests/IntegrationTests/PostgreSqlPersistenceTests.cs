@@ -30,7 +30,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
         await using var connection = new NpgsqlConnection(database.ConnectionString);
         await connection.OpenAsync();
         await using var namesCommand = new NpgsqlCommand(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE ANY(ARRAY['CND\\_%','OPS\\_%','AUD\\_%']) ORDER BY table_name",
+            "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name LIKE ANY(ARRAY['CND\\_%','OPS\\_%','AUD\\_%','CAT\\_%']) ORDER BY table_name",
             connection);
         await using var reader = await namesCommand.ExecuteReaderAsync();
         var names = new List<string>();
@@ -38,7 +38,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
         {
             names.Add(reader.GetString(0));
         }
-        Assert.Equal(["AUD_Events", "CND_Candidates", "CND_Documents", "OPS_Operations"], names);
+        Assert.Equal(["AUD_Events", "CAT_CatalogItems", "CND_Candidates", "CND_Documents", "OPS_Operations"], names);
         await reader.CloseAsync();
 
         await using var grantsCommand = new NpgsqlCommand(
