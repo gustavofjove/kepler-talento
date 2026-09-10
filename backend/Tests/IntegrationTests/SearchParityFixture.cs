@@ -77,10 +77,11 @@ public static class SearchParityFixture
         var catalog = await SeedCatalogAsync(dbContext, cancellationToken);
         var built = new List<ParityCandidate>();
 
-        // 1. Two levels of the same skill. A join-and-DISTINCT query returns this candidate
-        //    twice for a value-only criterion; a correlated EXISTS cannot.
+        // 1. Two distinct skills. A join-and-DISTINCT query returns this candidate twice for
+        //    an ANY criterion containing both values; a correlated EXISTS cannot. Repeating
+        //    one skill at two levels is invalid now that relation uniqueness is persisted.
         built.Add(Add(dbContext, catalog, "Ana", "Duplicada", CandidateStatuses.Available, index: 1,
-            skills: [new(SkillJava, SkillLevelBasic), new(SkillJava, SkillLevelAdvanced)],
+            skills: [new(SkillJava, SkillLevelBasic), new(SkillSql, SkillLevelAdvanced)],
             languages: [new(LanguageEnglish, LanguageLevelB2)],
             programs: [],
             primary: DocumentScanState.Clean));

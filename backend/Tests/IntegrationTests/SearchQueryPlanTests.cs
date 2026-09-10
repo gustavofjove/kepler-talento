@@ -253,12 +253,12 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                 updatedAtUtc: origin.AddMinutes(index));
             dbContext.Candidates.Add(candidate);
 
-            for (var slot = 0; slot < 3; slot++)
+            foreach (var skillName in catalog.Skills.OrderBy(_ => random.Next()).Take(3))
             {
                 dbContext.CandidateSkills.Add(new CandidateSkill(
                     Guid.CreateVersion7(),
                     id,
-                    Id(CatalogFamilies.Skill, catalog.Skills[random.Next(catalog.Skills.Count)]),
+                    Id(CatalogFamilies.Skill, skillName),
                     Id(CatalogFamilies.SkillLevel, catalog.SkillLevels[random.Next(catalog.SkillLevels.Count)])));
             }
             dbContext.CandidateLanguages.Add(new CandidateLanguage(

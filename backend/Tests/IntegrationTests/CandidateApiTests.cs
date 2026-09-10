@@ -164,6 +164,35 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
+    public async Task Concurrent_duplicate_skill_writes_store_one_relation_and_return_the_specific_spanish_error()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var created = await CreateAsync(firstClient, "Ada", "Byron");
+        var payload = new
+        {
+            skills = new[] { new { skill = "Compras", level = "Alto" } },
+            version = created.Version,
+        };
+
+        var responses = await Task.WhenAll(
+            firstClient.PutAsJsonAsync($"/api/candidates/{created.Id}/skills", payload),
+            secondClient.PutAsJsonAsync($"/api/candidates/{created.Id}/skills", payload));
+
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
+        var refusal = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.BadRequest);
+        var refusalBody = await refusal.Content.ReadAsStringAsync();
+        Assert.Contains(CandidateErrors.SkillDuplicate, refusalBody, StringComparison.Ordinal);
+        Assert.Contains("El candidato ya tiene esta habilidad registrada.", refusalBody, StringComparison.Ordinal);
+        await using var db = NewDbContext();
+        Assert.Single(await db.CandidateSkills.AsNoTracking()
+            .Where(skill => skill.CandidateId == created.Id)
+            .ToListAsync());
+    }
+
+    [Fact]
     public async Task Removal_advances_the_token_so_a_stale_editor_conflicts_rather_than_resurrecting()
     {
         await ResetAsync();
@@ -270,6 +299,54 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await using var auditDb = NewDbContext();
         Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.primary.changed"));
         Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.removed"));
+    }
+
+    [Fact]
+    public async Task Concurrent_primary_designations_leave_exactly_one_primary_and_refuse_the_loser()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var firstClient = factory.CreateClient();
+        var created = await CreateAsync(firstClient, "Hedy", "Lamarr");
+        var firstUpload = await UploadAsync(firstClient, created.Id, "uno.pdf", "%PDF-1.7\none", false);
+        var first = (await firstUpload.Content.ReadFromJsonAsync<DocumentResponse>())!;
+        var secondUpload = await UploadAsync(firstClient, created.Id, "dos.pdf", "%PDF-1.7\ntwo", false);
+        var second = (await secondUpload.Content.ReadFromJsonAsync<DocumentResponse>())!;
+
+        var bothLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loadedCount = 0;
+        async Task<(bool Saved, string? Constraint)> DesignateAsync(Guid documentId)
+        {
+            await using var context = NewDbContext();
+            await using var transaction = await context.Database.BeginTransactionAsync();
+            var document = await context.Documents.SingleAsync(value => value.Id == documentId);
+            document.SetPrimary(true, DateTimeOffset.UtcNow);
+            if (Interlocked.Increment(ref loadedCount) == 2) bothLoaded.SetResult();
+            await bothLoaded.Task;
+            try
+            {
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException exception)
+                when (exception.InnerException is PostgresException postgres
+                      && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                await transaction.RollbackAsync();
+                return (false, ((PostgresException)exception.InnerException).ConstraintName);
+            }
+        }
+
+        var outcomes = await Task.WhenAll(DesignateAsync(first.Id), DesignateAsync(second.Id));
+
+        Assert.Single(outcomes, outcome => outcome.Saved);
+        var refusal = Assert.Single(outcomes, outcome => !outcome.Saved);
+        Assert.Equal("UX_CND_Documents_CandidateId_Primary", refusal.Constraint);
+        await using var db = NewDbContext();
+        Assert.Single(await db.Documents.AsNoTracking()
+            .Where(document => document.CandidateId == created.Id && document.IsPrimary)
+            .ToListAsync());
     }
 
     [Fact]

@@ -24,6 +24,9 @@ public sealed class CandidateProgramConfiguration : IEntityTypeConfiguration<Can
                 "\"YearsExperience\" IS NULL OR \"YearsExperience\" >= 0");
         });
         builder.ConfigureRelation(Table, candidate => candidate.Programs);
+        builder.HasIndex(program => new { program.CandidateId, program.ProgramId })
+            .IsUnique()
+            .HasDatabaseName("UX_CND_CandidatePrograms_CandidateId_ProgramId");
         builder.HasCatalogReference(
             program => new { program.ProgramId, program.ProgramFamily },
             program => program.ProgramFamily);

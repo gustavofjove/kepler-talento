@@ -293,6 +293,12 @@ internal static class CandidateGuards
     public static Exception ToException(CandidateSaveOutcome outcome) => outcome switch
     {
         CandidateSaveOutcome.ConcurrencyConflict => Conflict(),
+        CandidateSaveOutcome.LanguageDuplicate => Duplicate(
+            "Language", CandidateErrors.LanguageDuplicate, "El candidato ya tiene este idioma registrado."),
+        CandidateSaveOutcome.ProgramDuplicate => Duplicate(
+            "Program", CandidateErrors.ProgramDuplicate, "El candidato ya tiene este programa registrado."),
+        CandidateSaveOutcome.SkillDuplicate => Duplicate(
+            "Skill", CandidateErrors.SkillDuplicate, "El candidato ya tiene esta habilidad registrada."),
         _ => ConstraintViolation(),
     };
 }

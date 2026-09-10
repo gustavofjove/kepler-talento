@@ -45,7 +45,9 @@ rejection point becomes non-deterministic.
 
 - Re-implementing storage, inspection, scanning, the worker or the reconciler. This change wires
   KTL-5's components; a change to their internals is a defect fix, not scope.
-- Re-owning any KTL-7 schema. If a column or index is missing, it is raised against KTL-7.
+- Re-owning KTL-7 tables or document schema. The missing relation uniqueness indexes discovered
+  during verification are repaired here because they are required for this change's concurrent
+  writer invariant.
 - Re-designing the relation collection write shape. KTL-8's whole-set replacement stands; the
   brief's "add and remove per collection" is served by it (see Decision 6).
 - Retention/purge automation, bulk document operations, preview or Office conversion.
@@ -149,9 +151,11 @@ Spanish messages are the existing ones, verbatim:
 Education and experience have no duplicate rule today and gain none — two degrees from the same
 institution, or two stints at the same company, are legitimate.
 
-**Note:** if the normalising unique index does not already exist in the KTL-7 schema, it is
-raised against KTL-7 rather than added here, per the non-goal above. The in-transaction check
-still ships here either way.
+Verification found that KTL-7 did not create the required indexes. This change therefore adds
+unique `(CandidateId, referenced catalog Id)` indexes for language, program and skill. Catalog
+resolution already trims names and compares them case-insensitively, so equivalent names resolve
+to the same catalog identifier. A losing database write is translated by constraint name to the
+existing stable code and Spanish message; database detail is never exposed.
 
 ### 7. Re-homing the reference endpoints
 

@@ -15,6 +15,9 @@ public enum CandidateSaveOutcome
     /// translates it into a stable validation code; the detail never reaches the caller.
     /// </summary>
     ConstraintViolation,
+    LanguageDuplicate,
+    ProgramDuplicate,
+    SkillDuplicate,
 }
 
 /// <summary>

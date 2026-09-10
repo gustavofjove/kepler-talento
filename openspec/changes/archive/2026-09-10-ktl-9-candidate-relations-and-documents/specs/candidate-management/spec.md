@@ -15,6 +15,12 @@ convention. Document metadata SHALL NOT expose an internal storage path or key.
 - **THEN** the metadata is stored against that candidate and appears in the candidate's document
   collection with its availability state
 
+#### Scenario: Document metadata is attached
+
+- **WHEN** an authorized actor attaches a document by completing an accepted content upload
+- **THEN** the metadata is stored against that candidate and appears in the candidate's document
+  collection with its availability state
+
 #### Scenario: Metadata-only attachment is refused
 
 - **WHEN** a caller attempts to add a document to a candidate without supplying content

@@ -107,9 +107,10 @@ nosniff` and `Cache-Control: private, no-store`, following the header discipline
 - **Frontend**: `src/app/features/documents/` (service, models, upload and list components),
   `src/app/features/candidates/` (document section of the detail screen, relations service),
   `src/app/core/di/services.ts`.
-- **Database**: no new tables. This change consumes the `CND_` document and relation schema,
-  the partial unique primary index and the runtime grants delivered by KTL-7, and adds no schema
-  of its own.
+- **Database**: no new tables. This change consumes the `CND_` document and relation schema and
+  the partial unique primary index delivered by KTL-7. It closes a discovered KTL-7 gap by adding
+  unique `(CandidateId, referenced catalog Id)` indexes for languages, programs and skills, with
+  the existing runtime grants unchanged.
 - **Runtime**: Nginx request body limit and the API multipart limit are aligned to the same
   effective 20 MB, and the ClamAV service becomes load-bearing for the product rather than for
   tests only.

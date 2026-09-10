@@ -21,6 +21,9 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
                 CandidateRelationMapping.FamilyCheck("LevelFamily", CatalogFamilies.LanguageLevel));
         });
         builder.ConfigureRelation(Table, candidate => candidate.Languages);
+        builder.HasIndex(language => new { language.CandidateId, language.LanguageId })
+            .IsUnique()
+            .HasDatabaseName("UX_CND_CandidateLanguages_CandidateId_LanguageId");
         builder.Property(language => language.Certification).HasMaxLength(160);
         builder.HasCatalogReference(
             language => new { language.LanguageId, language.LanguageFamily },

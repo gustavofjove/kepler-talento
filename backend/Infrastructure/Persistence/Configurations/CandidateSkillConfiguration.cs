@@ -21,6 +21,9 @@ public sealed class CandidateSkillConfiguration : IEntityTypeConfiguration<Candi
                 CandidateRelationMapping.FamilyCheck("LevelFamily", CatalogFamilies.SkillLevel));
         });
         builder.ConfigureRelation(Table, candidate => candidate.Skills);
+        builder.HasIndex(skill => new { skill.CandidateId, skill.SkillId })
+            .IsUnique()
+            .HasDatabaseName("UX_CND_CandidateSkills_CandidateId_SkillId");
         builder.HasCatalogReference(
             skill => new { skill.SkillId, skill.SkillFamily },
             skill => skill.SkillFamily);

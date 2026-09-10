@@ -189,7 +189,7 @@ public sealed class CandidateRepository(
                 or PostgresErrorCodes.ForeignKeyViolation)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return CandidateSaveOutcome.ConstraintViolation;
+            return ConstraintOutcome(postgres);
         }
     }
 
@@ -243,7 +243,16 @@ public sealed class CandidateRepository(
                 or PostgresErrorCodes.CheckViolation
                 or PostgresErrorCodes.ForeignKeyViolation)
         {
-            return CandidateSaveOutcome.ConstraintViolation;
+            return ConstraintOutcome(postgres);
         }
     }
+
+    private static CandidateSaveOutcome ConstraintOutcome(PostgresException exception) =>
+        exception.ConstraintName switch
+        {
+            "UX_CND_CandidateLanguages_CandidateId_LanguageId" => CandidateSaveOutcome.LanguageDuplicate,
+            "UX_CND_CandidatePrograms_CandidateId_ProgramId" => CandidateSaveOutcome.ProgramDuplicate,
+            "UX_CND_CandidateSkills_CandidateId_SkillId" => CandidateSaveOutcome.SkillDuplicate,
+            _ => CandidateSaveOutcome.ConstraintViolation,
+        };
 }
