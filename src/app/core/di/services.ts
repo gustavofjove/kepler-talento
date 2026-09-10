@@ -46,7 +46,7 @@ export const services = {
   candidateService,
   catalogService: new CatalogService(new CatalogApi(apiTransport)),
   candidateRelationsService: new CandidateRelationsService(candidateService),
-  documentService: new DocumentService(candidateService),
+  documentService: new DocumentService(candidateService, apiTransport),
   candidateSearchService: new CandidateSearchService(candidateService),
   searchPresetsService: new SearchPresetsService(),
   exportService: new ExportService(),

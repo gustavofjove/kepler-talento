@@ -2,7 +2,6 @@ import { signal } from '../../../core/state/signal';
 import { AppError, toAppError } from '../../../shared/models/error.models';
 import {
   Candidate,
-  CandidateDocument,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -183,18 +182,8 @@ export class CandidateService {
     return this.absorb(await this.api.setSkills(id, skills, this.versionOf(id)));
   }
 
-  async setDocuments(id: string, documents: CandidateDocument[]): Promise<Candidate> {
-    return this.absorb(await this.api.setDocuments(id, documents, this.versionOf(id)));
-  }
-
-  async addDocument(id: string, document: CandidateDocument): Promise<Candidate> {
-    const candidate = this.require(id);
-    // At most one primary document: adding a primary one demotes the current holder in
-    // the same submitted set, so the server never sees two.
-    const existing = document.isPrimary
-      ? candidate.documents.map((item) => ({ ...item, isPrimary: false }))
-      : candidate.documents;
-    return this.setDocuments(id, [...existing, document]);
+  async refreshAggregate(id: string): Promise<Candidate> {
+    return this.absorb(await this.api.get(id));
   }
 
   /**

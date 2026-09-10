@@ -18,6 +18,7 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDatabase is required.");
         services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<ICandidateRepository, CandidateRepository>();
+        services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
         var storageOptions = configuration.GetSection(DocumentStorageOptions.SectionName).Get<DocumentStorageOptions>()
             ?? throw new InvalidOperationException("DocumentStorage configuration is required.");
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.AddSingleton<IDocumentStorageInventory>(provider =>
             (FileSystemDocumentStorage)provider.GetRequiredService<IDocumentStorage>());
         services.AddSingleton<IDocumentContentInspector, DocumentContentInspector>();
+        services.AddSingleton<IDocumentStorageKeyFactory, DocumentStorageKeyFactory>();
         services.AddSingleton<IMalwareScanner, ClamAvScanner>();
         services.AddScoped<IDocumentDownloadService, DocumentDownloadService>();
         services.AddScoped<ScanOperationHandler>();

@@ -30,18 +30,15 @@ export async function ensureSearchCandidate(request: APIRequestContext): Promise
     return;
   }
 
-  await request.put(`/api/candidates/${candidate.id}/documents`, {
-    data: {
-      documents: [
-        {
-          documentType: 'CV',
-          originalFilename: 'cv_laura_garcia.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 124_000,
-          isPrimary: true,
-        },
-      ],
-      version: candidate.version,
+  await request.post(`/api/candidates/${candidate.id}/documents`, {
+    multipart: {
+      file: {
+        name: 'cv_laura_garcia.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF'),
+      },
+      documentType: 'CV',
+      isPrimary: 'true',
     },
   });
 }

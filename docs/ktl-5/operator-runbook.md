@@ -19,6 +19,16 @@ ClamAV requires 3 GiB of free host memory, with 4 GiB preferred during signature
 updates. Inputs are limited to 20 MB, expanded content to 100 MB, recursion to 16,
 and contained files to 500.
 
+### Scanner unavailable
+
+Treat a degraded `/api/health/scanner` response as an operational incident. New uploads
+may be accepted into private quarantine, but they fail closed and never become available
+without a clean verdict. Do not bypass scanning, move objects by hand, or change a document
+row to `Clean`. Documents that were already clean remain downloadable because their exact
+stored content was approved before the outage. Restore ClamAV connectivity/signatures,
+verify the scanner health endpoint, and inspect durable `document.scan` outcomes and the
+reconciliation report before resuming normal operation.
+
 ## Backup and retention
 
 Run daily from a host scheduler:

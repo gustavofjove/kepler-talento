@@ -1,108 +1,139 @@
-import { CandidateDocument } from '../../candidates/models/candidate.models';
+import type { ApiDownload, ApiTransport } from '../../../core/http/api-transport';
+import type { CandidateDocument } from '../../candidates/models/candidate.models';
 import { CandidateService } from '../../candidates/services/candidate.service';
-import { SecureDocumentUrl, UploadDocumentRequest } from '../models/document.models';
+import type { UploadDocumentRequest } from '../models/document.models';
 
-const MAX_CV_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_CV_SIZE_BYTES = 20 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = new Set([
+  'pdf',
+  'doc',
+  'docx',
+  'odt',
+  'rtf',
+  'txt',
+  'jpg',
+  'jpeg',
+  'png',
+  'tif',
+  'tiff',
+  'bmp',
+]);
 
 /**
- * Candidate document metadata.
- *
- * Only metadata moves to the API in KTL-8: the file bytes, virus scanning, quarantine and
- * secure download are KTL-9. `createSecureUrl` therefore keeps its placeholder behavior,
- * and the accepted file is validated but not transmitted.
+ * API-backed document content. Client checks are only a courtesy; the API remains the
+ * security and validation boundary.
  */
 export class DocumentService {
-  constructor(private readonly candidateService: CandidateService) {}
+  constructor(
+    private readonly candidateService: CandidateService,
+    private readonly transport: ApiTransport,
+  ) {}
 
   async upload(request: UploadDocumentRequest): Promise<CandidateDocument> {
-    if (request.file.type !== 'application/pdf') {
-      throw new Error('Solo se permiten documentos PDF para el CV.');
+    const extension = request.file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_EXTENSIONS.has(extension)) {
+      throw new Error('El tipo de archivo no está permitido.');
     }
+    if (request.file.size === 0) throw new Error('El archivo está vacío.');
     if (request.file.size > MAX_CV_SIZE_BYTES) {
-      throw new Error('El archivo supera el máximo permitido de 10 MB.');
+      throw new Error('El archivo supera el máximo permitido de 20 MB.');
     }
-    const document: CandidateDocument = {
-      id: crypto.randomUUID(),
-      documentType: 'CV',
-      originalFilename: request.file.name,
-      mimeType: request.file.type,
-      sizeBytes: request.file.size,
-      isPrimary: request.isPrimary,
-      uploadedAt: new Date().toISOString(),
-    };
-    await this.candidateService.ensureAggregate(request.candidateId);
-    await this.candidateService.addDocument(request.candidateId, document);
-    // The stored record is the server's, whose identifier and timestamp are authoritative.
-    return this.find(request.candidateId, document.originalFilename) ?? document;
+    const form = new FormData();
+    form.append('file', request.file);
+    form.append('documentType', request.documentType ?? 'CV');
+    form.append('isPrimary', String(request.isPrimary));
+    const uploaded = await this.transport.request<CandidateDocument>(
+      this.path(request.candidateId),
+      {
+        method: 'POST',
+        body: form,
+        timeoutMs: 60_000,
+      },
+    );
+    await this.candidateService.refreshAggregate(request.candidateId);
+    return uploaded;
+  }
+
+  list(candidateId: string): Promise<CandidateDocument[]> {
+    return this.transport.request<CandidateDocument[]>(this.path(candidateId));
+  }
+
+  get(candidateId: string, documentId: string, signal?: AbortSignal): Promise<CandidateDocument> {
+    return this.transport.request<CandidateDocument>(
+      `${this.path(candidateId)}/${encodeURIComponent(documentId)}`,
+      { signal },
+    );
+  }
+
+  async observeUntilSettled(
+    candidateId: string,
+    documentId: string,
+    onUpdate: (document: CandidateDocument) => void,
+    signal: AbortSignal,
+  ): Promise<CandidateDocument | undefined> {
+    for (const delayMs of [1_000, 2_000, 5_000, 5_000, 5_000]) {
+      await abortableDelay(delayMs, signal);
+      const current = await this.get(candidateId, documentId, signal);
+      onUpdate(current);
+      if (current.availabilityState !== 'Pending') return current;
+    }
+    return undefined;
   }
 
   async setPrimary(candidateId: string, documentId: string): Promise<CandidateDocument> {
-    const candidate = await this.require(candidateId);
-    if (!candidate.documents.some((item) => item.id === documentId)) {
-      throw new Error('Documento no encontrado');
-    }
-    const documents = candidate.documents.map((item) => ({
-      ...item,
-      isPrimary: item.id === documentId,
-    }));
-    const updated = await this.candidateService.setDocuments(candidateId, documents);
-    const primary = updated.documents.find((item) => item.id === documentId);
-    if (!primary) {
-      throw new Error('Documento no encontrado');
-    }
-    return primary;
+    const updated = await this.transport.request<CandidateDocument>(
+      `${this.path(candidateId)}/${encodeURIComponent(documentId)}/primary`,
+      { method: 'PUT' },
+    );
+    await this.candidateService.refreshAggregate(candidateId);
+    return updated;
   }
 
   async remove(candidateId: string, documentId: string): Promise<void> {
-    const candidate = await this.require(candidateId);
-    const existing = candidate.documents.find((item) => item.id === documentId);
-    if (!existing) {
-      throw new Error('Documento no encontrado');
-    }
-
-    const remaining = candidate.documents.filter((item) => item.id !== documentId);
-    // Removing the principal CV promotes the next document rather than leaving the
-    // candidate with none marked, which is today's behavior.
-    if (existing.isPrimary && remaining.length > 0 && !remaining.some((item) => item.isPrimary)) {
-      remaining[0] = { ...remaining[0], isPrimary: true };
-    }
-
-    await this.candidateService.setDocuments(candidateId, remaining);
+    await this.transport.request<void>(
+      `${this.path(candidateId)}/${encodeURIComponent(documentId)}`,
+      { method: 'DELETE' },
+    );
+    await this.candidateService.refreshAggregate(candidateId);
   }
 
-  /**
-   * Placeholder secure access, unchanged. Real storage, scanning and permission-checked
-   * download arrive with KTL-9; until then no file bytes exist to serve.
-   */
-  createSecureUrl(candidateId: string, documentId: string): SecureDocumentUrl {
-    const candidate = this.candidateService.find(candidateId);
-    const document = candidate?.documents.find((item) => item.id === documentId);
-    if (!document) {
-      throw new Error('Documento no encontrado');
-    }
-    return {
-      url: URL.createObjectURL(
-        new Blob([`Demo local de acceso seguro al CV: ${document.originalFilename}`], {
-          type: 'text/plain',
-        }),
-      ),
-      expiresInSeconds: 300,
-      documentId,
-    };
+  async download(
+    candidateId: string,
+    documentId: string,
+    fallbackFileName: string,
+  ): Promise<ApiDownload> {
+    const result = await this.transport.download(
+      `${this.path(candidateId)}/${encodeURIComponent(documentId)}/content`,
+      fallbackFileName,
+    );
+    const url = URL.createObjectURL(result.blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = result.fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return result;
   }
 
-  private find(candidateId: string, filename: string): CandidateDocument | undefined {
-    return this.candidateService
-      .find(candidateId)
-      ?.documents.find((item) => item.originalFilename === filename);
+  private path(candidateId: string): string {
+    return `/candidates/${encodeURIComponent(candidateId)}/documents`;
   }
+}
 
-  private async require(candidateId: string) {
-    await this.candidateService.ensureAggregate(candidateId);
-    const candidate = this.candidateService.find(candidateId);
-    if (!candidate) {
-      throw new Error('Candidato no encontrado');
+function abortableDelay(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
     }
-    return candidate;
-  }
+    const timeout = window.setTimeout(resolve, milliseconds);
+    signal.addEventListener(
+      'abort',
+      () => {
+        window.clearTimeout(timeout);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
 }

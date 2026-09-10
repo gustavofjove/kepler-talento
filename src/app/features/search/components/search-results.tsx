@@ -1,30 +1,25 @@
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
+import { useErrorToast } from '../../../core/services/use-error-toast';
 import type { SearchResult } from '../models/search.models';
 
 export function SearchResults({ results }: { results: SearchResult[] }) {
   const { documentService, toastService } = useServices();
+  const notifyError = useErrorToast();
   const canDownload = usePermission('download_candidate_documents');
 
   const canOpenCv = (result: SearchResult): boolean =>
     canDownload && Boolean(result.hasPrimaryCv && result.primaryCvDocumentId);
 
-  const openCv = (result: SearchResult): void => {
+  const openCv = async (result: SearchResult): Promise<void> => {
     if (!canOpenCv(result)) {
       toastService.show('No hay CV principal disponible o no tienes permiso.', 'warning');
       return;
     }
     try {
-      const secure = documentService.createSecureUrl(
-        result.candidateId,
-        result.primaryCvDocumentId!,
-      );
-      window.open(secure.url, '_blank', 'noopener,noreferrer');
+      await documentService.download(result.candidateId, result.primaryCvDocumentId!, 'cv.pdf');
     } catch (error) {
-      toastService.show(
-        error instanceof Error ? error.message : 'No se pudo abrir el CV.',
-        'error',
-      );
+      notifyError(error, 'No se pudo descargar el CV.');
     }
   };
 
@@ -70,7 +65,7 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
                         className="button ghost"
                         type="button"
                         disabled={!canOpenCv(result)}
-                        onClick={() => openCv(result)}
+                        onClick={() => void openCv(result)}
                       >
                         Abrir CV
                       </button>

@@ -38,8 +38,8 @@ const checks = [
     !serviceBlock('nginx').includes('documents:/var/lib/kepler-talento'),
   ],
   [
-    '20 MB proxy and storage limits align',
-    nginx.includes('client_max_body_size 20m') && storage.includes('AbsoluteMaximumBytes'),
+    '20 MiB content limit plus bounded multipart envelope align',
+    nginx.includes('client_max_body_size 21m') && storage.includes('AbsoluteMaximumBytes'),
   ],
 ];
 

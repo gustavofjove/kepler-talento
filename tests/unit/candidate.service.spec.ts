@@ -147,21 +147,6 @@ describe('CandidateService', () => {
     expect(service.find(inactive.id)?.isActive).toBe(true);
   });
 
-  it('marks only the newest document as primary when adding a primary CV', async () => {
-    const candidate = await service.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Noa',
-      lastName: 'Vidal',
-    });
-    await service.addDocument(candidate.id, document('d1', 'cv1.pdf', true));
-
-    await service.addDocument(candidate.id, document('d2', 'cv2.pdf', true));
-
-    const documents = service.find(candidate.id)?.documents ?? [];
-    expect(documents.filter((item) => item.isPrimary)).toHaveLength(1);
-    expect(documents.find((item) => item.id === 'd2')?.isPrimary).toBe(true);
-  });
-
   describe('the cache', () => {
     it('writes nothing to browser storage', async () => {
       await service.create({
@@ -218,15 +203,3 @@ describe('CandidateService', () => {
     });
   });
 });
-
-function document(id: string, filename: string, isPrimary: boolean) {
-  return {
-    id,
-    documentType: 'CV',
-    originalFilename: filename,
-    mimeType: 'application/pdf',
-    sizeBytes: 100,
-    isPrimary,
-    uploadedAt: new Date().toISOString(),
-  };
-}

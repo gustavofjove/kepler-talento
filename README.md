@@ -101,6 +101,23 @@ menos protegida hacia datos personales no debe sobrevivir.
 El detalle de rutas, códigos de error, concurrencia, auditoría y contrato del frontend está
 en [`docs/ktl-8/candidates.md`](docs/ktl-8/candidates.md).
 
+## Documentos de candidato KTL-9
+
+Los CV ya no son metadatos ni enlaces simulados. El frontend envía el archivo real como
+`multipart/form-data` a la API, que lo guarda con una clave opaca en cuarentena, valida su
+formato y programa el análisis antivirus. La aceptación responde `202 Accepted`: significa
+«aceptado y en análisis», no «disponible inmediatamente». Solo un resultado `Clean` permite
+la descarga; las respuestas nunca exponen claves ni rutas internas.
+
+Las capacidades de backend `documents.upload` y `documents.download` se corresponden con
+`upload_candidate_documents` y `download_candidate_documents` en el frontend. Ambas se
+comprueban por petición y son independientes de `candidates.read`. El límite de contenido es
+20 MiB para PDF, DOC, DOCX, ODT, RTF, TXT, JPEG, PNG, TIFF y BMP; Nginx admite 21 MiB únicamente
+para incluir el margen acotado del framing multipart.
+
+Consulta el [contrato y flujo de documentos KTL-9](docs/ktl-9/documents.md) y la
+[nota de versión](docs/ktl-9/release-notes.md).
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se

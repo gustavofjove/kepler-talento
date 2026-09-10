@@ -18,6 +18,8 @@ public static class Permissions
     /// as consequential as removing one, so it is not a lesser capability.
     /// </summary>
     public const string CandidatesDelete = "candidates.delete";
+    public const string DocumentsUpload = "documents.upload";
+    public const string DocumentsDownload = "documents.download";
     public const string CatalogsRead = "catalogs.read";
     public const string CatalogsManage = "catalogs.manage";
 }

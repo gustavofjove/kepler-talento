@@ -104,6 +104,9 @@ export interface CandidateDocument {
   sizeBytes: number;
   isPrimary: boolean;
   uploadedAt: string;
+  scanState?: 'PendingScan' | 'Clean' | 'Infected' | 'Rejected' | 'ScanFailed';
+  availabilityState?: 'Pending' | 'Available' | 'Refused' | 'Error' | 'LegacyUnavailable';
+  failureCode?: string;
 }
 
 export type CandidateDraft = Omit<

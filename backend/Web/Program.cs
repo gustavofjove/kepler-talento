@@ -8,6 +8,7 @@ using KeplerTalento.Web.Correlation;
 using KeplerTalento.Web.Errors;
 using KeplerTalento.Web.Features.Candidates;
 using KeplerTalento.Web.Features.Catalogs;
+using KeplerTalento.Web.Features.Documents;
 using KeplerTalento.Web.Health;
 using KeplerTalento.Web.Identity;
 using KeplerTalento.Web.Observability;
@@ -31,7 +32,10 @@ builder.Host.UseSerilog((context, configuration) => configuration
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = DocumentStorageOptions.AbsoluteMaximumBytes);
+builder.WebHost.ConfigureKestrel(options =>
+    options.Limits.MaxRequestBodySize = DocumentStorageOptions.AbsoluteMaximumBytes + DocumentStorageOptions.MultipartEnvelopeBytes);
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    options.MultipartBodyLengthLimit = DocumentStorageOptions.AbsoluteMaximumBytes + DocumentStorageOptions.MultipartEnvelopeBytes);
 builder.Services.AddFastEndpoints();
 builder.Services.SwaggerDocument(settings =>
 {
@@ -162,6 +166,7 @@ app.MapGet("/api/health/scanner", async (
     .Produces(StatusCodes.Status503ServiceUnavailable);
 app.MapCatalogEndpoints();
 app.MapCandidateEndpoints();
+app.MapDocumentEndpoints();
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwaggerGen();

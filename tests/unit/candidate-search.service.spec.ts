@@ -1,15 +1,16 @@
 import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
 import { CandidateSearchService } from '../../src/app/features/search/services/candidate-search.service';
 import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
-import { createCandidateTestBed } from './support/candidate-doubles';
+import { createCandidateTestBed, type FakeCandidateApi } from './support/candidate-doubles';
 
 describe('CandidateSearchService', () => {
   let candidateService: CandidateService;
+  let candidateApi: FakeCandidateApi;
   let search: CandidateSearchService;
 
   beforeEach(async () => {
     localStorage.clear();
-    ({ service: candidateService } = createCandidateTestBed());
+    ({ service: candidateService, api: candidateApi } = createCandidateTestBed());
     search = new CandidateSearchService(candidateService);
     await candidateService.ensureLoaded();
 
@@ -24,15 +25,24 @@ describe('CandidateSearchService', () => {
       { id: 'l2', language: 'Francés', level: 'B1' },
     ]);
     await candidateService.setPrograms(ana.id, [{ id: 'p1', program: 'Excel', level: 'Avanzado' }]);
-    await candidateService.addDocument(ana.id, {
-      id: 'd1',
-      documentType: 'CV',
-      originalFilename: 'ana.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 10,
-      isPrimary: true,
-      uploadedAt: new Date().toISOString(),
+    const storedAna = candidateService.find(ana.id)!;
+    candidateApi.seed({
+      ...storedAna,
+      documentCount: 1,
+      primaryDocumentId: 'd1',
+      documents: [
+        {
+          id: 'd1',
+          documentType: 'CV',
+          originalFilename: 'ana.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 10,
+          isPrimary: true,
+          uploadedAt: new Date().toISOString(),
+        },
+      ],
     });
+    await candidateService.refreshAggregate(ana.id);
 
     const bea = await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,

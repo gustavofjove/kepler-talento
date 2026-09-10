@@ -18,9 +18,10 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_EnableDiagnostics=0
 COPY --from=build /app/publish ./
 USER root
-RUN apk add --no-cache krb5-libs \
+RUN apk add --no-cache krb5-libs su-exec \
     && mkdir -p /var/lib/kepler-talento/documents \
     && chown -R app:app /var/lib/kepler-talento /app
-USER app
+COPY backend/docker-entrypoint.sh /usr/local/bin/kepler-entrypoint
+RUN chmod 0755 /usr/local/bin/kepler-entrypoint
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "Web.dll"]
+ENTRYPOINT ["/usr/local/bin/kepler-entrypoint", "dotnet", "Web.dll"]

@@ -1,7 +1,6 @@
 import type { ApiTransport } from '../../../core/http/api-transport';
 import type {
   Candidate,
-  CandidateDocument,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -34,7 +33,6 @@ export interface CandidateGateway {
   setEducation(id: string, education: CandidateEducation[], version: number): Promise<Candidate>;
   setExperience(id: string, experience: CandidateExperience[], version: number): Promise<Candidate>;
   setSkills(id: string, skills: CandidateSkill[], version: number): Promise<Candidate>;
-  setDocuments(id: string, documents: CandidateDocument[], version: number): Promise<Candidate>;
 }
 
 /** The HTTP implementation, over the shared API transport. */
@@ -94,10 +92,6 @@ export class CandidateApi implements CandidateGateway {
 
   setSkills(id: string, skills: CandidateSkill[], version: number): Promise<Candidate> {
     return this.collection(id, 'skills', { skills, version });
-  }
-
-  setDocuments(id: string, documents: CandidateDocument[], version: number): Promise<Candidate> {
-    return this.collection(id, 'documents', { documents, version });
   }
 
   /**

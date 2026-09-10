@@ -257,6 +257,75 @@ public sealed class CandidateHandlerTests
     }
 
     [Fact]
+    public async Task Relation_duplicates_use_the_existing_specific_spanish_messages()
+    {
+        var languageCandidates = new StubCandidateRepository();
+        languageCandidates.Seed(Candidate("Ana", "Lopez"));
+        var language = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new SetCandidateLanguagesHandler(languageCandidates, Catalogs(), Actor.Editor).Handle(
+                new SetCandidateLanguagesCommand(
+                    languageCandidates.Single().Id,
+                    [
+                        new CandidateLanguageInput(null, "English", "B2", null, null),
+                        new CandidateLanguageInput(null, "  english  ", "B1", null, null),
+                    ],
+                    languageCandidates.Single().Version),
+                CancellationToken.None));
+        Assert.Contains(language.Issues, issue =>
+            issue.Code == CandidateErrors.LanguageDuplicate &&
+            issue.Message == "El candidato ya tiene este idioma registrado.");
+
+        var programCandidates = new StubCandidateRepository();
+        programCandidates.Seed(Candidate("Bea", "Mora"));
+        var program = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new SetCandidateProgramsHandler(programCandidates, Catalogs(), Actor.Editor).Handle(
+                new SetCandidateProgramsCommand(
+                    programCandidates.Single().Id,
+                    [
+                        new CandidateProgramInput(null, "Excel", "Avanzado", null, null),
+                        new CandidateProgramInput(null, " excel ", "Avanzado", null, null),
+                    ],
+                    programCandidates.Single().Version),
+                CancellationToken.None));
+        Assert.Contains(program.Issues, issue =>
+            issue.Code == CandidateErrors.ProgramDuplicate &&
+            issue.Message == "El candidato ya tiene este programa registrado.");
+
+        var skillCandidates = new StubCandidateRepository();
+        skillCandidates.Seed(Candidate("Carla", "Gil"));
+        var skill = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new SetCandidateSkillsHandler(skillCandidates, Catalogs(), Actor.Editor).Handle(
+                new SetCandidateSkillsCommand(
+                    skillCandidates.Single().Id,
+                    [
+                        new CandidateSkillInput(null, "Compras", "Alto", null),
+                        new CandidateSkillInput(null, " compras ", "Alto", null),
+                    ],
+                    skillCandidates.Single().Version),
+                CancellationToken.None));
+        Assert.Contains(skill.Issues, issue =>
+            issue.Code == CandidateErrors.SkillDuplicate &&
+            issue.Message == "El candidato ya tiene esta habilidad registrada.");
+    }
+
+    [Fact]
+    public async Task Two_degrees_from_the_same_institution_are_accepted()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Dora", "Sanz"));
+        var response = await new SetCandidateEducationHandler(candidates, Catalogs(), Actor.Editor).Handle(
+            new SetCandidateEducationCommand(
+                candidates.Single().Id,
+                [
+                    new CandidateEducationInput(null, "Universitaria", "Grado A", null, "UCM", "Completa", 2020, null),
+                    new CandidateEducationInput(null, "Universitaria", "Grado B", null, "UCM", "Completa", 2022, null),
+                ],
+                candidates.Single().Version),
+            CancellationToken.None);
+        Assert.Equal(2, response.Education.Count);
+    }
+
+    [Fact]
     public async Task A_relation_write_to_a_removed_candidate_is_refused()
     {
         var candidates = new StubCandidateRepository();
@@ -274,27 +343,6 @@ public sealed class CandidateHandlerTests
 
         Assert.Contains(refusal.Issues, issue => issue.Code == CandidateErrors.RemovedCandidate);
         Assert.Empty(candidate.Skills);
-    }
-
-    [Fact]
-    public async Task More_than_one_primary_document_is_refused()
-    {
-        var candidates = new StubCandidateRepository();
-        candidates.Seed(Candidate("Ana", "Lopez"));
-        var candidate = candidates.Single();
-        var handler = new SetCandidateDocumentsHandler(candidates, Catalogs(), Actor.Editor);
-
-        var refusal = await Assert.ThrowsAsync<RequestValidationException>(() => handler.Handle(
-            new SetCandidateDocumentsCommand(
-                candidate.Id,
-                [
-                    new CandidateDocumentInput(null, "CV", "uno.pdf", "application/pdf", 10, true),
-                    new CandidateDocumentInput(null, "CV", "dos.pdf", "application/pdf", 10, true),
-                ],
-                candidate.Version),
-            CancellationToken.None));
-
-        Assert.Contains(refusal.Issues, issue => issue.Code == CandidateErrors.DocumentPrimaryAmbiguous);
     }
 
     [Fact]
@@ -423,8 +471,13 @@ public sealed class CandidateHandlerTests
         }
         Add(CatalogFamilies.Language, "Inglés", "Francés");
         Add(CatalogFamilies.LanguageLevel, "B1", "B2");
+        Add(CatalogFamilies.Language, "English");
         Add(CatalogFamilies.Skill, "Compras");
         Add(CatalogFamilies.SkillLevel, "Alto");
+        Add(CatalogFamilies.Program, "Excel");
+        Add(CatalogFamilies.ProgramLevel, "Avanzado");
+        Add(CatalogFamilies.EducationType, "Universitaria");
+        Add(CatalogFamilies.EducationStatus, "Completa");
         return new StubCatalogRepository(items);
     }
 

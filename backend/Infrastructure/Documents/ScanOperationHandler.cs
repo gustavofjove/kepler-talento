@@ -12,7 +12,8 @@ public sealed record ScanOperationOutcome(bool Completed, string Code);
 public sealed class ScanOperationHandler(
     ApplicationDbContext dbContext,
     IDocumentStorage storage,
-    IMalwareScanner scanner)
+    IMalwareScanner scanner,
+    IDocumentRepository documents)
 {
     public async Task<ScanOperationOutcome> HandleAsync(Operation operation, CancellationToken cancellationToken)
     {
@@ -23,8 +24,15 @@ public sealed class ScanOperationHandler(
         {
             return new(true, "scanner.clean");
         }
-        await using var content = await storage.OpenQuarantineAsync(document.StorageKey, cancellationToken);
-        var result = await scanner.ScanAsync(content, cancellationToken);
+        if (document.ScanState is DocumentScanState.Infected or DocumentScanState.Rejected or DocumentScanState.ScanFailed)
+        {
+            return new(true, document.ScanFailureCode ?? "scanner.refused");
+        }
+        ScanResult result;
+        await using (var content = await storage.OpenQuarantineAsync(document.StorageKey, cancellationToken))
+        {
+            result = await scanner.ScanAsync(content, cancellationToken);
+        }
         var now = DateTimeOffset.UtcNow;
         switch (result.Verdict)
         {
@@ -39,7 +47,13 @@ public sealed class ScanOperationHandler(
                 document.MarkUnavailable(DocumentScanState.ScanFailed, result.Code, now);
                 break;
         }
-        dbContext.AuditEvents.Add(new AuditEvent(Guid.NewGuid(), "document.scan", document.Id.ToString("N"), operation.CorrelationId, now));
+        documents.AddAudit(
+            "document.scan",
+            document.CandidateId,
+            document.Id,
+            result.Code,
+            operation.CorrelationId,
+            actorExternalKey: null);
         await dbContext.SaveChangesAsync(cancellationToken);
         return result.Verdict == ScanVerdict.Error ? new(false, result.Code) : new(true, result.Code);
     }

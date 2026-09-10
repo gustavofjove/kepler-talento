@@ -1,3 +1,5 @@
+using KeplerTalento.Domain.Documents;
+
 namespace KeplerTalento.Application.Abstractions.Documents;
 
 public sealed record StoredFile(string StorageKey, long Size, string Sha256);
@@ -20,6 +22,12 @@ public interface IDocumentStorage
     Task<Stream> OpenAvailableAsync(string storageKey, CancellationToken cancellationToken);
     Task<bool> AvailableExistsAsync(string storageKey, CancellationToken cancellationToken);
     Task DeleteQuarantineIfExistsAsync(string storageKey, CancellationToken cancellationToken);
+    Task DeleteAvailableIfExistsAsync(string storageKey, CancellationToken cancellationToken);
+}
+
+public interface IDocumentStorageKeyFactory
+{
+    string Create(Guid candidateId, Guid documentId);
 }
 
 public interface IDocumentStorageInventory
@@ -45,4 +53,24 @@ public sealed record DocumentDownload(Stream Content, string ContentType, string
 public interface IDocumentDownloadService
 {
     Task<DocumentDownload?> OpenCleanAsync(Guid documentId, CancellationToken cancellationToken);
+}
+
+public enum DocumentSaveOutcome
+{
+    Saved,
+    NotFound,
+    Conflict,
+}
+
+public interface IDocumentRepository
+{
+    Task<bool> CandidateExistsAsync(Guid candidateId, CancellationToken cancellationToken);
+    Task<CandidateDocument?> FindAsync(Guid candidateId, Guid documentId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<CandidateDocument>> ListAsync(Guid candidateId, CancellationToken cancellationToken);
+    Task ClearPrimaryAsync(Guid candidateId, DateTimeOffset now, CancellationToken cancellationToken);
+    void Add(CandidateDocument document);
+    void AddAudit(string eventType, Guid candidateId, Guid documentId, string outcome, string correlationId, string? actorExternalKey);
+    Task<DocumentSaveOutcome> SetPrimaryAsync(Guid candidateId, Guid documentId, string correlationId, string? actorExternalKey, CancellationToken cancellationToken);
+    Task<CandidateDocument?> RemoveAsync(Guid candidateId, Guid documentId, string correlationId, string? actorExternalKey, CancellationToken cancellationToken);
+    Task SaveAsync(CancellationToken cancellationToken);
 }

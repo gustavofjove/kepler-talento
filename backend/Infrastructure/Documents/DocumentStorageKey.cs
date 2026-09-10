@@ -26,3 +26,8 @@ public static class DocumentStorageKey
         return candidate;
     }
 }
+
+public sealed class DocumentStorageKeyFactory : KeplerTalento.Application.Abstractions.Documents.IDocumentStorageKeyFactory
+{
+    public string Create(Guid candidateId, Guid documentId) => DocumentStorageKey.Create(candidateId, documentId);
+}
