@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>KeplerTalento.Tools.DataMigration</RootNamespace>
+    <AssemblyName>ktl-migrate</AssemblyName>
+    <!-- Operator-run tool. It is deliberately not referenced by Web, so no endpoint can
+         reach the bulk-data path; ProjectDependencyTests enforces that. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Infrastructure/Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

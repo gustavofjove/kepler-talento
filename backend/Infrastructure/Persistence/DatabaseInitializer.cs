@@ -21,11 +21,27 @@ public static class DatabaseInitializer
         {
             return;
         }
-        dbContext.Candidates.Add(new Candidate(
-            ReferenceCandidateId,
-            "Candidata",
-            "Sintética",
-            DateTimeOffset.Parse("2026-01-01T00:00:00Z")));
+        var seededAtUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
+        var candidate = new Candidate(ReferenceCandidateId, "Candidata", "Sintética", seededAtUtc);
+        candidate.SetDetails(
+            phone: "+34 600 000 000",
+            email: "candidata.sintetica@example.invalid",
+            location: "Ciudad Sintética",
+            province: "Provincia Sintética",
+            country: "España",
+            availability: "Inmediata",
+            status: CandidateStatuses.New,
+            source: "Semilla",
+            notes: string.Empty,
+            updatedAtUtc: seededAtUtc);
+        // Consent metadata is explicit even for the synthetic row: nothing in the system
+        // should model a candidate whose consent state was never established.
+        candidate.SetConsent(
+            receivedAt: new DateOnly(2026, 1, 1),
+            consentAt: new DateOnly(2026, 1, 1),
+            reviewDueAt: new DateOnly(2028, 1, 1),
+            updatedAtUtc: seededAtUtc);
+        dbContext.Candidates.Add(candidate);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 

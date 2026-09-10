@@ -6,6 +6,12 @@
   <ItemGroup>
     <ProjectReference Include="../../Infrastructure/Infrastructure.csproj" />
     <ProjectReference Include="../../Web/Web.csproj" />
+    <ProjectReference Include="../../Tools/DataMigration/DataMigration.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Synthetic export set. Development and test runs never touch the production Access
+         dataset; see Tests/Fixtures/ktl-7/README.md. -->
+    <Content Include="../Fixtures/ktl-7/**/*" LinkBase="Fixtures/ktl-7" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />

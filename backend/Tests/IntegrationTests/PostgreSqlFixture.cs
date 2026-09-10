@@ -24,5 +24,17 @@ public sealed class PostgreSqlFixture : IAsyncLifetime
             connection);
         await command.ExecuteNonQueryAsync();
     }
+    /// <summary>
+    /// Runs a command inside the database container. Used by the rollback drill, which has
+    /// to exercise a real <c>pg_dump</c> and restore rather than simulating one.
+    /// </summary>
+    public async Task<(long ExitCode, string Stdout, string Stderr)> ExecAsync(params string[] command)
+    {
+        var result = await _container.ExecAsync(command);
+        return (result.ExitCode ?? -1, result.Stdout, result.Stderr);
+    }
+
+    public const string DatabaseName = "kepler_talento_test";
+
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 }

@@ -1,0 +1,1 @@
+SENTINELCVTEXTO06 curriculum sintetico con hash declarado incorrecto.
