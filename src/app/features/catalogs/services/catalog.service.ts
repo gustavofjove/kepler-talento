@@ -1,7 +1,5 @@
 import { signal } from '../../../core/state/signal';
 import { AppError, toAppError } from '../../../shared/models/error.models';
-import { Candidate } from '../../candidates/models/candidate.models';
-import { CandidateService } from '../../candidates/services/candidate.service';
 import {
   CatalogFamily,
   CatalogItem,
@@ -33,10 +31,7 @@ export class CatalogService {
 
   private inFlight: Promise<void> | null = null;
 
-  constructor(
-    private readonly api: CatalogGateway,
-    private readonly candidateService: CandidateService,
-  ) {}
+  constructor(private readonly api: CatalogGateway) {}
 
   get status(): CatalogLoadStatus {
     return this.catalogs().status;
@@ -115,17 +110,15 @@ export class CatalogService {
     return updated;
   }
 
+  /**
+   * Deactivating a value candidates reference is permitted. The value stops being offered
+   * for new selections while the records that already reference it keep resolving it —
+   * deactivation is not deletion, which is the whole protection. The transitional
+   * screen-level refusal this used to carry is gone with KTL-8, now that the API owns
+   * candidate relations.
+   */
   async toggleActive(family: CatalogFamily, id: string): Promise<CatalogItem> {
     const current = this.find(family, id);
-    // Transitional pre-check: candidate relations are still browser-side, so the API
-    // cannot yet see which values are in use. Remove with KTL-8, which moves the rule
-    // server-side.
-    if (current.isActive && this.isCatalogValueInUse(family, current.nameEs)) {
-      throw new AppError(
-        'CONFLICT',
-        'No se puede desactivar: el valor esta en uso por candidatos.',
-      );
-    }
     const updated = await this.api.setActive(family, id, !current.isActive, current.version);
     await this.refresh(family);
     return updated;
@@ -183,44 +176,5 @@ export class CatalogService {
       status: 'loaded',
       items: { ...current.items, [family]: items },
     });
-  }
-
-  private isCatalogValueInUse(family: CatalogFamily, value: string): boolean {
-    const normalized = value.trim().toLowerCase();
-    const candidates = this.candidateService.list(true);
-
-    return candidates.some((candidate) => this.matchesFamilyValue(candidate, family, normalized));
-  }
-
-  private matchesFamilyValue(
-    candidate: Candidate,
-    family: CatalogFamily,
-    normalizedValue: string,
-  ): boolean {
-    const equals = (value: string | undefined): boolean =>
-      (value || '').trim().toLowerCase() === normalizedValue;
-
-    switch (family) {
-      case 'language':
-        return candidate.languages.some((item) => equals(item.language));
-      case 'program':
-        return candidate.programs.some((item) => equals(item.program));
-      case 'skill':
-        return candidate.skills.some((item) => equals(item.skill));
-      case 'language_level':
-        return candidate.languages.some((item) => equals(item.level));
-      case 'program_level':
-        return candidate.programs.some((item) => equals(item.level));
-      case 'skill_level':
-        return candidate.skills.some((item) => equals(item.level));
-      case 'education_type':
-        return candidate.education.some((item) => equals(item.educationType));
-      case 'education_status':
-        return candidate.education.some((item) => equals(item.status));
-      case 'sector':
-        return candidate.experience.some((item) => equals(item.sector));
-      default:
-        return false;
-    }
   }
 }

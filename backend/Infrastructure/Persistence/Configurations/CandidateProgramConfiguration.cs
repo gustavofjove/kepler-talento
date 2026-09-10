@@ -23,7 +23,7 @@ public sealed class CandidateProgramConfiguration : IEntityTypeConfiguration<Can
                 $"CK_{Table}_YearsExperience",
                 "\"YearsExperience\" IS NULL OR \"YearsExperience\" >= 0");
         });
-        builder.ConfigureRelation(Table);
+        builder.ConfigureRelation(Table, candidate => candidate.Programs);
         builder.HasCatalogReference(
             program => new { program.ProgramId, program.ProgramFamily },
             program => program.ProgramFamily);

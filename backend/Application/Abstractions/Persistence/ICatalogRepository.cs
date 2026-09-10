@@ -30,11 +30,4 @@ public interface ICatalogRepository
     /// so a rejected change can never leave an applied-change event behind.
     /// </summary>
     Task<CatalogSaveOutcome> SaveAsync(string auditEventType, string subjectId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Whether a catalog value is referenced by a candidate relation. Candidate relations
-    /// move server-side in KTL-8; until then this reports false and the rule is carried by
-    /// the transitional frontend pre-check.
-    /// </summary>
-    Task<bool> IsValueInUseAsync(string family, string nameNormalized, CancellationToken cancellationToken);
 }

@@ -71,6 +71,36 @@ secuencia del operador y el rollback, y
 [`docs/ktl-7/access-export-procedure.md`](docs/ktl-7/access-export-procedure.md) para el
 contrato de exportación.
 
+## Candidatos KTL-8
+
+Los candidatos ya no viven en `localStorage`: son propiedad de la API y se sirven desde
+PostgreSQL. La clave `rrhh-candidates` guardaba la tabla completa de candidatos —identidad,
+contacto, localización, consentimiento, retención, estado y observaciones— en claro y en
+cada dispositivo.
+
+> **Nota de versión.** En el primer arranque de esta versión, cada navegador **elimina** su
+> copia local de candidatos. La eliminación se ejecuta antes de cualquier llamada a la API y
+> con independencia de ella, así que ocurre incluso si el backend no está disponible. Los
+> candidatos creados con versiones anteriores existían solo en ese navegador y no se
+> conservan: la base de datos es ahora el sistema de referencia. Tampoco se crea ya el
+> candidato de ejemplo `demo-1`; una base de datos vacía muestra una lista vacía.
+
+Las capacidades `candidates.read`, `candidates.create`, `candidates.update` y
+`candidates.delete` se aplican en el servidor antes de despachar cada petición, y se
+corresponden con los permisos `view_candidates`, `create_candidates`, `edit_candidates` y
+`delete_candidates` del frontend; ocultar la interfaz no es el control.
+
+No existe ningún endpoint de borrado físico: un candidato se retira desactivándolo, lo que
+registra la fecha de baja y mantiene el registro recuperable. La regla también se sostiene
+en la base de datos, porque el rol de runtime no tiene `DELETE` sobre `CND_Candidates`.
+
+También desaparece el slice de referencia de KTL-5 (`/api/reference/candidates/{id}`): el
+slice de lectura real cumple su función con autorización por operación, y una segunda ruta
+menos protegida hacia datos personales no debe sobrevivir.
+
+El detalle de rutas, códigos de error, concurrencia, auditoría y contrato del frontend está
+en [`docs/ktl-8/candidates.md`](docs/ktl-8/candidates.md).
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se
@@ -200,6 +230,7 @@ Documentación principal:
 - [Brief KTL-6](openspec/KTL-6.md) y [catálogos KTL-6](docs/ktl-6/catalogs.md)
 - [Brief KTL-7](openspec/KTL-7.md), [runbook de migración](docs/ktl-7/migration-runbook.md) y
   [procedimiento de exportación](docs/ktl-7/access-export-procedure.md)
+- [Brief KTL-8](openspec/KTL-8.md) y [candidatos KTL-8](docs/ktl-8/candidates.md)
 - [Cambio OpenSpec](openspec/changes/ktl-5-dotnet-infrastructure)
 - [Plan técnico existente](specs/001-gestion-cvs-rrhh/plan.md)
 - [Principios vigentes](openspec/config.yaml)

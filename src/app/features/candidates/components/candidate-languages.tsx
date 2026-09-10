@@ -23,11 +23,22 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
   const languageOptions = catalogs.activeNames('language');
   const levelOptions = catalogs.activeNames('language_level');
 
-  const add = (event: FormEvent<HTMLFormElement>): void => {
+  // The relation services persist through the API now, so these must be awaited: a
+  // synchronous try/catch around a promise catches nothing.
+  const add = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      candidateRelationsService.addLanguage(candidateId, { ...draft });
+      await candidateRelationsService.addLanguage(candidateId, { ...draft });
       setDraft(EMPTY);
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const remove = async (languageId: string): Promise<void> => {
+    try {
+      await candidateRelationsService.removeLanguage(candidateId, languageId);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -48,7 +59,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => candidateRelationsService.removeLanguage(candidateId, item.id)}
+                onClick={() => void remove(item.id)}
               >
                 Quitar
               </button>

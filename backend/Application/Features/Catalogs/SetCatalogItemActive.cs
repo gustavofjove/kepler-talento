@@ -31,11 +31,10 @@ public sealed class SetCatalogItemActiveHandler(ICatalogRepository catalogs, ICu
         CatalogGuards.RequireManage(actor);
         var item = await catalogs.FindAsync(request.Family, request.Id, cancellationToken)
             ?? throw CatalogGuards.NotFound();
-        // A value referenced by a candidate relation may still be deactivated, so that it
-        // stops being offered while existing candidate records keep their meaning. The lookup
-        // is consulted here for the record; it becomes load-bearing when candidate relations
-        // move server-side in KTL-8.
-        _ = await catalogs.IsValueInUseAsync(request.Family, item.NameNormalized, cancellationToken);
+        // A value referenced by candidate relations may still be deactivated: it stops
+        // being offered for new selections while the records that already reference it keep
+        // resolving it. Deactivation is not deletion, which is the whole protection — so
+        // there is nothing to consult and nothing to refuse.
         catalogs.ExpectVersion(item, request.Version);
         item.SetActive(request.IsActive, DateTimeOffset.UtcNow);
         var outcome = await catalogs.SaveAsync(

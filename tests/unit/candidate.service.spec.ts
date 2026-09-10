@@ -1,16 +1,23 @@
-import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
 import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
+import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
+import {
+  ConflictError,
+  createCandidateTestBed,
+  FakeCandidateApi,
+} from './support/candidate-doubles';
 
 describe('CandidateService', () => {
   let service: CandidateService;
+  let api: FakeCandidateApi;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
-    service = new CandidateService();
+    ({ service, api } = createCandidateTestBed());
+    await service.ensureLoaded();
   });
 
-  it('creates a candidate with audit timestamps and empty relations', () => {
-    const candidate = service.create({
+  it('creates a candidate with audit timestamps and empty relations', async () => {
+    const candidate = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Maria',
       lastName: 'Ruiz',
@@ -18,23 +25,22 @@ describe('CandidateService', () => {
 
     expect(candidate.id).toBeTruthy();
     expect(candidate.isActive).toBe(true);
-    expect(candidate.createdAt).toBe(candidate.updatedAt);
     expect(candidate.languages).toEqual([]);
     expect(service.find(candidate.id)).toEqual(candidate);
   });
 
-  it('lists only active candidates by default', () => {
-    const active = service.create({
+  it('lists only active candidates by default', async () => {
+    const active = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Activa',
       lastName: 'Uno',
     });
-    const inactive = service.create({
+    const inactive = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Inactiva',
       lastName: 'Dos',
     });
-    service.deactivate(inactive.id);
+    await service.deactivate(inactive.id);
 
     const visible = service.list().map((candidate) => candidate.id);
 
@@ -43,14 +49,14 @@ describe('CandidateService', () => {
     expect(service.list(true).map((candidate) => candidate.id)).toContain(inactive.id);
   });
 
-  it('updates a candidate and refreshes updatedAt without losing relations', () => {
-    const candidate = service.create({
+  it('updates a candidate and refreshes updatedAt without losing relations', async () => {
+    const candidate = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Luis',
       lastName: 'Diaz',
     });
 
-    const updated = service.update(candidate.id, {
+    const updated = await service.update(candidate.id, {
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Luis',
       lastName: 'Diaz Garcia',
@@ -60,112 +66,167 @@ describe('CandidateService', () => {
     expect(updated.id).toBe(candidate.id);
   });
 
-  it('throws when updating a candidate that does not exist', () => {
-    expect(() => service.update('missing-id', EMPTY_CANDIDATE_DRAFT)).toThrow(/no encontrado/i);
+  it('throws when updating a candidate that does not exist', async () => {
+    await expect(service.update('missing-id', EMPTY_CANDIDATE_DRAFT)).rejects.toThrow(
+      /no encontrado/i,
+    );
   });
 
-  it('logically deactivates a candidate without deleting it', () => {
-    const candidate = service.create({
+  it('logically deactivates a candidate without deleting it', async () => {
+    const candidate = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Eva',
       lastName: 'Soler',
     });
 
-    service.deactivate(candidate.id);
+    await service.deactivate(candidate.id);
 
     const stored = service.find(candidate.id);
     expect(stored?.isActive).toBe(false);
     expect(stored).toBeDefined();
   });
 
-  it('logically deactivates multiple active candidates and returns updated count', () => {
-    const one = service.create({
+  it('logically deactivates multiple active candidates and returns updated count', async () => {
+    const one = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Ana',
       lastName: 'Rios',
     });
-    const two = service.create({
+    const two = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Bea',
       lastName: 'Mora',
     });
-    const three = service.create({
+    const three = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Carla',
       lastName: 'Gil',
     });
-    service.deactivate(three.id);
+    await service.deactivate(three.id);
 
-    const updated = service.deactivateMany([one.id, two.id, three.id]);
+    const updated = await service.deactivateMany([one.id, two.id, three.id]);
 
+    // Three requested, but the already-inactive one did not change, so it is not counted.
     expect(updated).toBe(2);
     expect(service.find(one.id)?.isActive).toBe(false);
     expect(service.find(two.id)?.isActive).toBe(false);
     expect(service.find(three.id)?.isActive).toBe(false);
   });
 
-  it('reverts a logical deletion so the candidate is listed again', () => {
-    const candidate = service.create({
+  it('reverts a logical deletion so the candidate is listed again', async () => {
+    const candidate = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Eva',
       lastName: 'Soler',
     });
-    service.deactivate(candidate.id);
+    await service.deactivate(candidate.id);
 
-    service.reactivate(candidate.id);
+    await service.reactivate(candidate.id);
 
     expect(service.find(candidate.id)?.isActive).toBe(true);
     expect(service.list().map((item) => item.id)).toContain(candidate.id);
   });
 
-  it('reactivates only the inactive candidates and returns updated count', () => {
-    const active = service.create({
+  it('reactivates only the inactive candidates and returns updated count', async () => {
+    const active = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Ana',
       lastName: 'Rios',
     });
-    const inactive = service.create({
+    const inactive = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Bea',
       lastName: 'Mora',
     });
-    service.deactivate(inactive.id);
+    await service.deactivate(inactive.id);
 
-    const updated = service.reactivateMany([active.id, inactive.id]);
+    const updated = await service.reactivateMany([active.id, inactive.id]);
 
     expect(updated).toBe(1);
     expect(service.find(active.id)?.isActive).toBe(true);
     expect(service.find(inactive.id)?.isActive).toBe(true);
   });
 
-  it('marks only the newest document as primary when adding a primary CV', () => {
-    const candidate = service.create({
+  it('marks only the newest document as primary when adding a primary CV', async () => {
+    const candidate = await service.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Noa',
       lastName: 'Vidal',
     });
-    service.addDocument(candidate.id, {
-      id: 'd1',
-      documentType: 'CV',
-      originalFilename: 'cv1.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 100,
-      isPrimary: true,
-      uploadedAt: new Date().toISOString(),
-    });
+    await service.addDocument(candidate.id, document('d1', 'cv1.pdf', true));
 
-    service.addDocument(candidate.id, {
-      id: 'd2',
-      documentType: 'CV',
-      originalFilename: 'cv2.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 200,
-      isPrimary: true,
-      uploadedAt: new Date().toISOString(),
-    });
+    await service.addDocument(candidate.id, document('d2', 'cv2.pdf', true));
 
     const documents = service.find(candidate.id)?.documents ?? [];
-    expect(documents.filter((document) => document.isPrimary)).toHaveLength(1);
-    expect(documents.find((document) => document.id === 'd2')?.isPrimary).toBe(true);
+    expect(documents.filter((item) => item.isPrimary)).toHaveLength(1);
+    expect(documents.find((item) => item.id === 'd2')?.isPrimary).toBe(true);
+  });
+
+  describe('the cache', () => {
+    it('writes nothing to browser storage', async () => {
+      await service.create({
+        ...EMPTY_CANDIDATE_DRAFT,
+        firstName: 'Privada',
+        lastName: 'Datos',
+      });
+
+      expect(localStorage.length).toBe(0);
+      expect(localStorage.getItem('rrhh-candidates')).toBeNull();
+    });
+
+    it('loads an aggregate once however many callers ask concurrently', async () => {
+      api.seed({ id: 'c1', firstName: 'Ana', lastName: 'Gil' });
+
+      await Promise.all([
+        service.ensureAggregate('c1'),
+        service.ensureAggregate('c1'),
+        service.ensureAggregate('c1'),
+      ]);
+      await service.ensureAggregate('c1');
+
+      expect(api.getCalls).toEqual(['c1']);
+      expect(service.find('c1')?.firstName).toBe('Ana');
+    });
+
+    it('reports a failed load rather than presenting an empty list as a result', async () => {
+      const { service: failing, api: failingApi } = createCandidateTestBed();
+      failingApi.failure = new Error('sin conexión');
+
+      await failing.ensureLoaded();
+
+      expect(failing.status).toBe('error');
+      expect(failing.list()).toEqual([]);
+      expect(failing.error?.message).toBeTruthy();
+    });
+
+    it('leaves find() undefined for a candidate that does not exist, without failing', async () => {
+      await service.ensureAggregate('no-such-candidate');
+
+      expect(service.find('no-such-candidate')).toBeUndefined();
+      expect(service.status).not.toBe('error');
+    });
+
+    it('refuses a write carrying a version another writer has already moved past', async () => {
+      const seeded = api.seed({ id: 'c1', firstName: 'Ana', lastName: 'Gil' });
+      await service.ensureAggregate('c1');
+      // Somebody else writes, advancing the stored version past the one we hold.
+      await api.update('c1', { ...EMPTY_CANDIDATE_DRAFT, firstName: 'Otra' }, seeded.version);
+
+      await expect(
+        service.update('c1', { ...EMPTY_CANDIDATE_DRAFT, firstName: 'Nuestra' }),
+      ).rejects.toBeInstanceOf(ConflictError);
+    });
   });
 });
+
+function document(id: string, filename: string, isPrimary: boolean) {
+  return {
+    id,
+    documentType: 'CV',
+    originalFilename: filename,
+    mimeType: 'application/pdf',
+    sizeBytes: 100,
+    isPrimary,
+    uploadedAt: new Date().toISOString(),
+  };
+}

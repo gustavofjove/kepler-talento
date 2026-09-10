@@ -28,9 +28,15 @@ internal static class CandidateRelationMapping
     public static string FamilyCheck(string familyColumnName, string family) =>
         $"\"{familyColumnName}\" = '{family}'";
 
+    /// <param name="navigation">
+    /// The aggregate collection this relation belongs to, so a candidate can be loaded
+    /// whole. It changes no column and no constraint; the foreign key and its restricted
+    /// delete behavior are exactly as before.
+    /// </param>
     public static void ConfigureRelation<TRelation>(
         this EntityTypeBuilder<TRelation> builder,
-        string tableName)
+        string tableName,
+        Expression<Func<Candidate, IEnumerable<TRelation>?>> navigation)
         where TRelation : CandidateRelation
     {
         builder.HasKey(relation => relation.Id);
@@ -42,7 +48,7 @@ internal static class CandidateRelationMapping
             .HasFilter("\"SourceKey\" IS NOT NULL")
             .HasDatabaseName($"UX_{tableName}_SourceKey");
         builder.HasOne<Candidate>()
-            .WithMany()
+            .WithMany(navigation)
             .HasForeignKey(relation => relation.CandidateId)
             .OnDelete(DeleteBehavior.Restrict);
     }

@@ -21,4 +21,11 @@ public sealed class CandidateSkill : CandidateRelation
     public string SkillFamily { get; private set; } = CatalogFamilies.Skill;
     public Guid LevelId { get; private set; }
     public string LevelFamily { get; private set; } = CatalogFamilies.SkillLevel;
+
+    /// <summary>See <see cref="CandidateLanguage.SetValues"/>.</summary>
+    public void SetValues(Guid skillId, Guid levelId)
+    {
+        SkillId = skillId;
+        LevelId = levelId;
+    }
 }

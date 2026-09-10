@@ -22,11 +22,10 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
             .Options;
         await using var dbContext = new ApplicationDbContext(options);
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
-        await DatabaseInitializer.SeedSyntheticReferenceAsync(dbContext, CancellationToken.None);
-        await DatabaseInitializer.SeedSyntheticReferenceAsync(dbContext, CancellationToken.None);
 
-        Assert.Single(await dbContext.Candidates.AsNoTracking().ToListAsync());
-
+        // There is no candidate seed to assert on: an empty database means an empty
+        // candidate list. What this test is about is the physical naming convention and
+        // the runtime role's grants, below.
         await using var connection = new NpgsqlConnection(database.ConnectionString);
         await connection.OpenAsync();
         await using var namesCommand = new NpgsqlCommand(

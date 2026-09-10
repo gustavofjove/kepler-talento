@@ -7,6 +7,7 @@ import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/
 import { CandidateListPage } from '../../src/app/features/candidates/pages/candidate-list-page';
 import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
 import { signal } from '../../src/app/core/state/signal';
+import { createCandidateTestBed } from './support/candidate-doubles';
 
 describe('CandidateListPage bulk actions', () => {
   let candidateService: CandidateService;
@@ -41,35 +42,38 @@ describe('CandidateListPage bulk actions', () => {
   /** The select-all box is the first checkbox inside the results table header. */
   const selectAll = () => within(screen.getByRole('table')).getAllByRole('checkbox')[0];
 
-  beforeEach(() => {
+  /** The list screen holds summaries, not aggregates, so assertions read the summary. */
+  const summary = (id: string) => candidateService.list(true).find((item) => item.id === id);
+
+  beforeEach(async () => {
     localStorage.clear();
     toastService.show.mockClear();
     confirmDialogService.confirm.mockClear();
 
-    candidateService = new CandidateService();
-    candidateService.candidates.set([]);
-    candidateService.create({
+    ({ service: candidateService } = createCandidateTestBed());
+    await candidateService.ensureLoaded();
+    await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Ana',
       lastName: 'Rios',
       status: 'available',
       email: 'ana@example.com',
     });
-    candidateService.create({
+    await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Bea',
       lastName: 'Mora',
       status: 'new',
       email: 'bea@example.com',
     });
-    const inactive = candidateService.create({
+    const inactive = await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Carla',
       lastName: 'Gil',
       status: 'hired',
       email: 'carla@example.com',
     });
-    candidateService.deactivate(inactive.id);
+    await candidateService.deactivate(inactive.id);
   });
 
   it('deactivates selected candidates in bulk with confirmation', async () => {
@@ -81,9 +85,9 @@ describe('CandidateListPage bulk actions', () => {
     await userEvent.click(screen.getByRole('button', { name: /Baja lógica masiva/ }));
 
     await waitFor(() => {
-      expect(candidateService.find(activeIds[0])?.isActive).toBe(false);
+      expect(summary(activeIds[0])?.isActive).toBe(false);
     });
-    expect(candidateService.find(activeIds[1])?.isActive).toBe(false);
+    expect(summary(activeIds[1])?.isActive).toBe(false);
     expect(confirmDialogService.confirm).toHaveBeenCalled();
     expect(toastService.show).toHaveBeenCalledWith(
       'Baja lógica aplicada a 2 candidato(s).',
@@ -101,7 +105,7 @@ describe('CandidateListPage bulk actions', () => {
     await userEvent.click(screen.getByRole('button', { name: /Alta lógica masiva/ }));
 
     await waitFor(() => {
-      expect(candidateService.find(inactive.id)?.isActive).toBe(true);
+      expect(summary(inactive.id)?.isActive).toBe(true);
     });
     expect(toastService.show).toHaveBeenCalledWith(
       'Alta lógica aplicada a 1 candidato(s).',

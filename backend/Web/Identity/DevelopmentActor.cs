@@ -18,6 +18,9 @@ public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) 
     private static readonly string[] GrantedPermissions =
     [
         Permissions.CandidatesRead,
+        Permissions.CandidatesCreate,
+        Permissions.CandidatesUpdate,
+        Permissions.CandidatesDelete,
         Permissions.CatalogsRead,
         Permissions.CatalogsManage,
     ];

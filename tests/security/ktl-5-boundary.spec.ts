@@ -1,8 +1,18 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
 const read = (relative: string) => readFileSync(join(root, relative), 'utf8');
+
+/** Every TypeScript source file under a directory, recursively. */
+const sourceFiles = (directory: string): string[] =>
+  readdirSync(directory).flatMap((entry) => {
+    const path = join(directory, entry);
+    if (statSync(path).isDirectory()) {
+      return sourceFiles(path);
+    }
+    return /\.tsx?$/.test(entry) ? [path] : [];
+  });
 const serviceBlock = (compose: string, name: string) => {
   const match = compose.match(
     new RegExp(`^  ${name}:\\r?\\n([\\s\\S]*?)(?=^  [a-zA-Z0-9_-]+:\\r?\\n|^networks:)`, 'm'),
@@ -11,14 +21,50 @@ const serviceBlock = (compose: string, name: string) => {
 };
 
 describe('KTL-5 fail-closed security boundary', () => {
-  it('keeps production business/reference routes behind the future actor adapter', () => {
+  it('keeps production business routes behind the future actor adapter', () => {
     const program = read('backend/Web/Program.cs');
-    const endpoints = read('backend/Web/Features/Candidates/ReferenceCandidateEndpoints.cs');
+    const endpoints = read('backend/Web/Features/Candidates/CandidateEndpoints.cs');
     expect(program).toContain('DevelopmentActor cannot be enabled in Production');
     expect(program).toContain(
       'app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")',
     );
-    expect(endpoints).toContain('actor.HasPermission(Permissions.CandidatesRead)');
+    // Each of the four capabilities is enforced at the route, before dispatch.
+    for (const permission of [
+      'Permissions.CandidatesRead',
+      'Permissions.CandidatesCreate',
+      'Permissions.CandidatesUpdate',
+      'Permissions.CandidatesDelete',
+    ]) {
+      expect(endpoints).toContain(permission);
+    }
+  });
+
+  // KTL-8 retired the KTL-5 template slice: its purpose, proving the read path, is served
+  // by the real read slice, and a second, less-guarded route to candidate personal data
+  // must not survive.
+  it('leaves no reference candidate slice behind', () => {
+    for (const path of [
+      'backend/Web/Features/Candidates/ReferenceCandidateEndpoints.cs',
+      'backend/Application/Features/Candidates/GetReferenceCandidate.cs',
+      'backend/Application/Abstractions/Persistence/ICandidateReader.cs',
+      'backend/Infrastructure/Persistence/CandidateReader.cs',
+      'src/app/features/reference/reference-candidate.service.ts',
+    ]) {
+      expect(existsSync(join(root, path))).toBe(false);
+    }
+    expect(read('backend/Web/Program.cs')).not.toContain('MapReferenceCandidateEndpoints');
+  });
+
+  // The candidate table used to sit in every browser's localStorage in clear. Nothing may
+  // read or write that key again; the only permitted mention is the eviction that removes
+  // it from browsers that still hold it.
+  it('never touches the superseded candidate storage key outside the eviction', () => {
+    const offenders = sourceFiles(join(root, 'src')).filter(
+      (file) =>
+        readFileSync(file, 'utf8').includes('rrhh-candidates') &&
+        !file.endsWith('evict-legacy-storage.ts'),
+    );
+    expect(offenders).toEqual([]);
   });
 
   it('ships least-privilege runtime grants with the migration', () => {

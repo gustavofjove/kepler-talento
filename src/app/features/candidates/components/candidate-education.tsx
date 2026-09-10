@@ -39,11 +39,21 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
   const typeOptions = catalogs.activeNames('education_type');
   const statusOptions = catalogs.activeNames('education_status');
 
-  const add = (event: FormEvent<HTMLFormElement>): void => {
+  // See candidate-languages: these persist through the API and must be awaited.
+  const add = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      candidateRelationsService.addEducation(candidateId, { ...draft });
+      await candidateRelationsService.addEducation(candidateId, { ...draft });
       setDraft(EMPTY);
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const remove = async (educationId: string): Promise<void> => {
+    try {
+      await candidateRelationsService.removeEducation(candidateId, educationId);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -65,7 +75,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => candidateRelationsService.removeEducation(candidateId, item.id)}
+                onClick={() => void remove(item.id)}
               >
                 Quitar
               </button>

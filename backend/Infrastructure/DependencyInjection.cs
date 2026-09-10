@@ -17,7 +17,7 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("ApplicationDatabase")
             ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDatabase is required.");
         services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
-        services.AddScoped<ICandidateReader, CandidateReader>();
+        services.AddScoped<ICandidateRepository, CandidateRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
         var storageOptions = configuration.GetSection(DocumentStorageOptions.SectionName).Get<DocumentStorageOptions>()
             ?? throw new InvalidOperationException("DocumentStorage configuration is required.");

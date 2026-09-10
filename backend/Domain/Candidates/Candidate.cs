@@ -11,6 +11,12 @@ namespace KeplerTalento.Domain.Candidates;
 /// </remarks>
 public sealed class Candidate
 {
+    private readonly List<CandidateLanguage> _languages = [];
+    private readonly List<CandidateProgram> _programs = [];
+    private readonly List<CandidateEducation> _education = [];
+    private readonly List<CandidateExperience> _experience = [];
+    private readonly List<CandidateSkill> _skills = [];
+
     private Candidate() { }
 
     public Candidate(Guid id, string firstName, string lastName, DateTimeOffset createdAtUtc)
@@ -72,6 +78,112 @@ public sealed class Candidate
 
     public uint Version { get; private set; }
 
+    /// <summary>
+    /// The collections this candidate owns. They are replaced as whole sets — see
+    /// <see cref="ReplaceLanguages"/> and its siblings — because a per-item write has no
+    /// token of its own to check a concurrent editor against; the candidate's
+    /// <see cref="Version"/> is the concurrency token for everything it owns.
+    /// </summary>
+    public IReadOnlyList<CandidateLanguage> Languages => _languages;
+    public IReadOnlyList<CandidateProgram> Programs => _programs;
+    public IReadOnlyList<CandidateEducation> Education => _education;
+    public IReadOnlyList<CandidateExperience> Experience => _experience;
+    public IReadOnlyList<CandidateSkill> Skills => _skills;
+
+    /// <summary>
+    /// Replaces a collection wholesale and advances the update timestamp. The records
+    /// leaving the collection are returned so the caller can delete them explicitly:
+    /// the relation mappings deliberately refuse cascade deletion, because a candidate's
+    /// removal is logical and must never destroy the records it owns.
+    /// </summary>
+    public IReadOnlyList<CandidateLanguage> ReplaceLanguages(
+        IEnumerable<CandidateLanguage> languages,
+        DateTimeOffset updatedAtUtc) => Replace(_languages, languages, updatedAtUtc);
+
+    public IReadOnlyList<CandidateProgram> ReplacePrograms(
+        IEnumerable<CandidateProgram> programs,
+        DateTimeOffset updatedAtUtc) => Replace(_programs, programs, updatedAtUtc);
+
+    public IReadOnlyList<CandidateEducation> ReplaceEducation(
+        IEnumerable<CandidateEducation> education,
+        DateTimeOffset updatedAtUtc) => Replace(_education, education, updatedAtUtc);
+
+    public IReadOnlyList<CandidateExperience> ReplaceExperience(
+        IEnumerable<CandidateExperience> experience,
+        DateTimeOffset updatedAtUtc) => Replace(_experience, experience, updatedAtUtc);
+
+    public IReadOnlyList<CandidateSkill> ReplaceSkills(
+        IEnumerable<CandidateSkill> skills,
+        DateTimeOffset updatedAtUtc) => Replace(_skills, skills, updatedAtUtc);
+
+    private List<TRelation> Replace<TRelation>(
+        List<TRelation> current,
+        IEnumerable<TRelation> replacement,
+        DateTimeOffset updatedAtUtc)
+        where TRelation : CandidateRelation
+    {
+        var incoming = replacement.ToList();
+        if (incoming.Any(relation => relation.CandidateId != Id))
+        {
+            throw new InvalidOperationException("A relation belongs to a different candidate.");
+        }
+        var removed = current.Where(existing => incoming.All(item => item.Id != existing.Id)).ToList();
+        current.Clear();
+        current.AddRange(incoming);
+        UpdatedAtUtc = updatedAtUtc;
+        return removed;
+    }
+
+    /// <summary>
+    /// Applies the editable field set of a candidate, leaving identity, consent and
+    /// retention metadata alone. Status travels through <see cref="ChangeStatus"/>.
+    /// </summary>
+    public void UpdateDetails(
+        string firstName,
+        string lastName,
+        string phone,
+        string email,
+        string location,
+        string province,
+        string country,
+        string availability,
+        string source,
+        string notes,
+        DateTimeOffset updatedAtUtc)
+    {
+        SetIdentity(firstName, lastName, updatedAtUtc);
+        SetDetails(
+            phone,
+            email,
+            location,
+            province,
+            country,
+            availability,
+            Status,
+            source,
+            notes,
+            updatedAtUtc);
+    }
+
+    /// <summary>
+    /// Moves the candidate to one of the permitted statuses. An unknown value is refused
+    /// here as well as by the database check constraint, so a status can never be stored
+    /// outside the set whichever path writes it.
+    /// </summary>
+    public void ChangeStatus(string status, DateTimeOffset updatedAtUtc)
+    {
+        if (!CandidateStatuses.IsKnown(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status));
+        }
+        if (Status == status)
+        {
+            return;
+        }
+        Status = status;
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
     public void SetIdentity(string firstName, string lastName, DateTimeOffset updatedAtUtc)
     {
         FirstName = firstName.Trim();
@@ -125,6 +237,13 @@ public sealed class Candidate
 
     public void SetSourceKey(string? sourceKey) =>
         SourceKey = string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey.Trim();
+
+    /// <summary>
+    /// Advances the update timestamp for a change to something the candidate owns whose
+    /// own fields live elsewhere — its documents. Without this the row would not be
+    /// modified, and the version check that protects the whole aggregate would not run.
+    /// </summary>
+    public void TouchUpdated(DateTimeOffset updatedAtUtc) => UpdatedAtUtc = updatedAtUtc;
 
     /// <summary>
     /// Records that the migration wrote this record from the legacy dataset, at the same

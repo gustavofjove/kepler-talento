@@ -96,6 +96,7 @@ option list as a complete result. `useCatalogStatus()` and `<CatalogStatusNotice
 that branch. When the API is unreachable the screens report the failure and offer no
 options; there is no local default vocabulary.
 
-The transitional in-use pre-check in `CatalogService.toggleActive` stays until KTL-8 moves
-candidate relations server-side, at which point it is removed and the server-side rule
-becomes load-bearing.
+The transitional in-use pre-check in `CatalogService.toggleActive` was removed by KTL-8,
+which moved candidate relations server-side. Deactivating a value candidates reference now
+succeeds: the value stops being offered for new selections while the records that already
+reference it keep resolving it. See `docs/ktl-8/candidates.md`.

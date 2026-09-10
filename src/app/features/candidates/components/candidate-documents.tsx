@@ -16,13 +16,15 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
     setSelectedFile(event.target.files?.[0]);
   };
 
-  const upload = (event: FormEvent<HTMLFormElement>): void => {
+  // Document metadata persists through the API now, so these must be awaited: a
+  // synchronous try/catch around a promise catches nothing.
+  const upload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!candidate || !selectedFile) {
       return;
     }
     try {
-      documentService.upload({ candidateId: candidate.id, file: selectedFile, isPrimary });
+      await documentService.upload({ candidateId: candidate.id, file: selectedFile, isPrimary });
       setSelectedFile(undefined);
       setIsPrimary(true);
       setError('');
@@ -44,12 +46,12 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
     window.open(secure.url, '_blank', 'noopener,noreferrer');
   };
 
-  const markPrimary = (documentId: string): void => {
+  const markPrimary = async (documentId: string): Promise<void> => {
     if (!candidate) {
       return;
     }
     try {
-      documentService.setPrimary(candidate.id, documentId);
+      await documentService.setPrimary(candidate.id, documentId);
       toastService.show('CV principal actualizado.', 'success');
     } catch (err) {
       toastService.show(
@@ -74,7 +76,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       return;
     }
     try {
-      documentService.remove(candidate.id, documentId);
+      await documentService.remove(candidate.id, documentId);
       toastService.show('Documento eliminado.', 'success');
     } catch (err) {
       toastService.show(
@@ -111,7 +113,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
               <button
                 className="button ghost"
                 type="button"
-                onClick={() => markPrimary(document.id)}
+                onClick={() => void markPrimary(document.id)}
               >
                 Marcar principal
               </button>

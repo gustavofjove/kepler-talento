@@ -20,6 +20,7 @@ namespace KeplerTalento.Tests.IntegrationTests;
 /// Exercises the catalog slices through the real HTTP → Application → PostgreSQL path
 /// against a disposable PostgreSQL instance.
 /// </summary>
+[Collection(WebHostCollection.Name)]
 public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<PostgreSqlFixture>
 {
     private const string Family = CatalogFamilies.Language;

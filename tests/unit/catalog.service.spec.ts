@@ -1,17 +1,14 @@
 import { AppError } from '../../src/app/shared/models/error.models';
-import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
-import type { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
 import type { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
 import { createCatalogTestBed, FakeCatalogApi } from './support/catalog-doubles';
 
 describe('CatalogService', () => {
   let service: CatalogService;
   let api: FakeCatalogApi;
-  let candidateService: CandidateService;
 
   beforeEach(async () => {
     localStorage.clear();
-    ({ service, api, candidateService } = createCatalogTestBed());
+    ({ service, api } = createCatalogTestBed());
     await service.ensureLoaded();
   });
 
@@ -157,21 +154,18 @@ describe('CatalogService', () => {
     });
   });
 
-  describe('transitional in-use guard', () => {
-    // Candidate relations are still browser-side; this guard moves server-side in KTL-8.
-    it('prevents deactivating a catalog value that is used by candidates', async () => {
-      const candidate = candidateService.create({
-        ...EMPTY_CANDIDATE_DRAFT,
-        firstName: 'Bea',
-        lastName: 'Santos',
-      });
-      candidateService.setSkills(candidate.id, [{ id: 's1', skill: 'Análisis', level: 'Alto' }]);
-      const inUseSkill = service.list('skill', true).find((item) => item.nameEs === 'Análisis');
-      expect(inUseSkill).toBeTruthy();
+  describe('deactivation', () => {
+    // The transitional screen-level refusal is gone with KTL-8. Deactivating a value
+    // candidates reference is permitted: it stops being offered for new selections while
+    // the records that already reference it keep resolving it. Deactivation is not
+    // deletion, which is what protects the data.
+    it('deactivates a value regardless of whether candidates reference it', async () => {
+      const referenced = service.list('skill', true).find((item) => item.nameEs === 'Análisis');
+      expect(referenced).toBeTruthy();
 
-      await expect(service.toggleActive('skill', inUseSkill!.id)).rejects.toThrow(
-        /en uso por candidatos/i,
-      );
+      await expect(service.toggleActive('skill', referenced!.id)).resolves.toMatchObject({
+        isActive: false,
+      });
     });
 
     it('allows deactivating a value no candidate uses', async () => {

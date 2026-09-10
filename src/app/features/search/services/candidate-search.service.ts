@@ -19,54 +19,81 @@ export class CandidateSearchService {
     return structuredClone(EMPTY_SEARCH_FILTERS);
   }
 
-  search(filters: SearchFilters): SearchResult[] {
+  /**
+   * Text, status and CV filters are answered from the candidate list alone.
+   *
+   * Language, program and skill criteria are not: they read collections the list endpoint
+   * deliberately omits, so those searches load each candidate's aggregate first. That
+   * costs one request per candidate and is a deliberate stopgap — KTL-10 moves search to
+   * the server, where the filtering belongs and the fan-out disappears — so it is paid
+   * only by the searches that actually need it, never by the default one every visit to
+   * the screen runs.
+   */
+  async search(filters: SearchFilters): Promise<SearchResult[]> {
+    const needsCollections =
+      filters.skillCriteria.length > 0 ||
+      filters.languageCriteria.length > 0 ||
+      filters.programCriteria.length > 0;
+    if (needsCollections) {
+      await this.candidateService.ensureAllAggregates();
+    } else {
+      await this.candidateService.ensureLoaded();
+    }
+
     const text = filters.text.trim().toLocaleLowerCase();
     return this.candidateService
       .list(false)
-      .filter((candidate) => {
+      .filter((summary) => {
         const textMatch =
           !text ||
-          [
-            candidate.firstName,
-            candidate.lastName,
-            candidate.email,
-            candidate.phone,
-            candidate.notes,
-          ]
+          [summary.firstName, summary.lastName, summary.email, summary.phone, summary.notes]
             .join(' ')
             .toLocaleLowerCase()
             .includes(text);
         const statusMatch =
-          filters.statusValues.length === 0 || filters.statusValues.includes(candidate.status);
-        const skillMatch = this.matchesCriteria(
-          candidate.skills.map((item) => ({ value: item.skill, level: item.level })),
-          filters.skillCriteria,
-          filters.skillMode,
-        );
-        const languageMatch = this.matchesCriteria(
-          candidate.languages.map((item) => ({ value: item.language, level: item.level })),
-          filters.languageCriteria,
-          filters.languageMode,
-        );
-        const programMatch = this.matchesCriteria(
-          candidate.programs.map((item) => ({ value: item.program, level: item.level })),
-          filters.programCriteria,
-          filters.programMode,
-        );
-        const hasPrimaryCv = candidate.documents.some((document) => document.isPrimary);
+          filters.statusValues.length === 0 || filters.statusValues.includes(summary.status);
+        const hasPrimaryCv = summary.primaryDocumentId !== null;
         const cvMatch = !filters.hasCv || (filters.hasCv === 'yes' ? hasPrimaryCv : !hasPrimaryCv);
-        return textMatch && statusMatch && skillMatch && languageMatch && programMatch && cvMatch;
+        if (!textMatch || !statusMatch || !cvMatch) {
+          return false;
+        }
+        if (!needsCollections) {
+          return true;
+        }
+        // Loaded above, so present. A candidate whose aggregate could not be read is
+        // excluded rather than silently treated as having no languages at all.
+        const candidate = this.candidateService.find(summary.id);
+        if (!candidate) {
+          return false;
+        }
+        return (
+          this.matchesCriteria(
+            candidate.skills.map((item) => ({ value: item.skill, level: item.level })),
+            filters.skillCriteria,
+            filters.skillMode,
+          ) &&
+          this.matchesCriteria(
+            candidate.languages.map((item) => ({ value: item.language, level: item.level })),
+            filters.languageCriteria,
+            filters.languageMode,
+          ) &&
+          this.matchesCriteria(
+            candidate.programs.map((item) => ({ value: item.program, level: item.level })),
+            filters.programCriteria,
+            filters.programMode,
+          )
+        );
       })
-      .map((candidate) => ({
-        primaryCvDocumentId: candidate.documents.find((document) => document.isPrimary)?.id,
-        candidateId: candidate.id,
-        firstName: candidate.firstName,
-        lastName: candidate.lastName,
-        phone: candidate.phone,
-        email: candidate.email,
-        status: candidate.status,
-        hasPrimaryCv: candidate.documents.some((document) => document.isPrimary),
-        updatedAt: candidate.updatedAt,
+      .map((summary) => ({
+        primaryCvDocumentId: summary.primaryDocumentId ?? undefined,
+        candidateId: summary.id,
+        firstName: summary.firstName,
+        lastName: summary.lastName,
+        phone: summary.phone,
+        email: summary.email,
+        status: summary.status,
+        hasPrimaryCv: summary.primaryDocumentId !== null,
+        updatedAt: summary.updatedAt,
       }));
   }
 

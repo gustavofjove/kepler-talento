@@ -17,6 +17,11 @@ export function toDraft(value?: Candidate): CandidateDraft {
     id: _id,
     createdAt: _createdAt,
     updatedAt: _updatedAt,
+    // The concurrency token and the derived document counters are the server's, never
+    // the form's: a write carries the version the service holds, not one a form round-tripped.
+    version: _version,
+    documentCount: _documentCount,
+    primaryDocumentId: _primaryDocumentId,
     languages: _languages,
     programs: _programs,
     education: _education,

@@ -1,4 +1,4 @@
-import type { Candidate, CandidateStatus } from '../models/candidate.models';
+import type { CandidateStatus, CandidateSummary } from '../models/candidate.models';
 
 export type SortField = 'updatedAt' | 'lastName' | 'status';
 export type SortDirection = 'asc' | 'desc';
@@ -32,7 +32,10 @@ export const STATUS_OPTIONS: CandidateStatus[] = [
 ];
 
 /** Filters an already status-scoped list. `candidates` is the service output. */
-export function filterCandidates(candidates: Candidate[], filters: CandidateFilters): Candidate[] {
+export function filterCandidates(
+  candidates: CandidateSummary[],
+  filters: CandidateFilters,
+): CandidateSummary[] {
   const text = filters.textFilter.trim().toLowerCase();
 
   return candidates.filter((candidate) => {
@@ -43,17 +46,17 @@ export function filterCandidates(candidates: Candidate[], filters: CandidateFilt
         .toLowerCase()
         .includes(text);
     const statusMatch = !filters.statusFilter || candidate.status === filters.statusFilter;
-    const hasCv = candidate.documents.length > 0;
+    const hasCv = candidate.documentCount > 0;
     const cvMatch = !filters.hasCvFilter || (filters.hasCvFilter === 'yes' ? hasCv : !hasCv);
     return textMatch && statusMatch && cvMatch;
   });
 }
 
 export function sortCandidates(
-  candidates: Candidate[],
+  candidates: CandidateSummary[],
   field: SortField,
   direction: SortDirection,
-): Candidate[] {
+): CandidateSummary[] {
   return candidates.slice().sort((a, b) => {
     let value = 0;
     if (field === 'updatedAt') {

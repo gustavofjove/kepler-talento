@@ -40,11 +40,21 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
   const catalogStatus = useCatalogStatus();
   const sectorOptions = catalogs.activeNames('sector');
 
-  const add = (event: FormEvent<HTMLFormElement>): void => {
+  // See candidate-languages: these persist through the API and must be awaited.
+  const add = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      candidateRelationsService.addExperience(candidateId, { ...draft });
+      await candidateRelationsService.addExperience(candidateId, { ...draft });
       setDraft(EMPTY);
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const remove = async (experienceId: string): Promise<void> => {
+    try {
+      await candidateRelationsService.removeExperience(candidateId, experienceId);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -70,7 +80,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => candidateRelationsService.removeExperience(candidateId, item.id)}
+                onClick={() => void remove(item.id)}
               >
                 Quitar
               </button>

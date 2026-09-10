@@ -23,6 +23,13 @@ public sealed class CandidateProgram : CandidateRelation
     public string LevelFamily { get; private set; } = CatalogFamilies.ProgramLevel;
     public int? YearsExperience { get; private set; }
 
+    /// <summary>See <see cref="CandidateLanguage.SetValues"/>.</summary>
+    public void SetValues(Guid programId, Guid levelId)
+    {
+        ProgramId = programId;
+        LevelId = levelId;
+    }
+
     public void SetYearsExperience(int? yearsExperience)
     {
         if (yearsExperience is < 0)

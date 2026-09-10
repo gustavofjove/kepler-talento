@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { authFile } from './global-setup';
+import { ensureSearchCandidate } from './support/seed-candidate';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
 test.describe('Advanced search presets', () => {
+  test.beforeEach(async ({ request }) => {
+    await ensureSearchCandidate(request);
+  });
+
   test('saves, loads, and deletes a preset', async ({ page }) => {
+    // The filter panel starts open; it collapses once a search has been run.
     await page.goto('/app/search');
-    await page.getByTestId('toggle-filters').click();
 
     await page.fill('input[name="text"]', 'Laura');
     await page.selectOption('select[name="hasCv"]', 'yes');

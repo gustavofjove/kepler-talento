@@ -27,7 +27,7 @@ public sealed class CandidateExperienceConfiguration : IEntityTypeConfiguration<
                 $"CK_{Table}_YearsExperience",
                 "\"YearsExperience\" IS NULL OR \"YearsExperience\" >= 0");
         });
-        builder.ConfigureRelation(Table);
+        builder.ConfigureRelation(Table, candidate => candidate.Experience);
         builder.Property(experience => experience.Company).HasMaxLength(200).IsRequired();
         builder.Property(experience => experience.Position).HasMaxLength(200).IsRequired();
         builder.HasCatalogReference(

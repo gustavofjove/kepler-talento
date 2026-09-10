@@ -16,6 +16,9 @@ describe('toDraft', () => {
       lastName: 'Marti',
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: '2026-01-02T00:00:00Z',
+      version: 1,
+      documentCount: 0,
+      primaryDocumentId: null,
       languages: [],
       programs: [],
       education: [],
@@ -29,6 +32,9 @@ describe('toDraft', () => {
     expect(draft.firstName).toBe('Ona');
     expect(draft).not.toHaveProperty('id');
     expect(draft).not.toHaveProperty('languages');
+    // The version belongs to the service, which carries it into the write; a form that
+    // round-tripped a stale one would defeat the conflict check.
+    expect(draft).not.toHaveProperty('version');
   });
 
   it('resets the draft to the empty template when there is no candidate', () => {

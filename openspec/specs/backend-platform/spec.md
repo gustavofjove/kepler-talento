@@ -8,24 +8,6 @@ separation.
 
 ## Requirements
 
-### Requirement: Reference vertical slice
-
-The platform SHALL expose one documented, read-only candidate reference operation that
-travels through the production HTTP, application, and persistence boundaries without
-reading browser storage or Supabase.
-
-#### Scenario: Reference candidate is returned
-
-- **WHEN** a permitted caller requests a seeded reference candidate
-- **THEN** the API returns the candidate through the documented JSON contract with a
-  successful HTTP status
-
-#### Scenario: Reference candidate is absent
-
-- **WHEN** a permitted caller requests a candidate identifier that does not exist
-- **THEN** the API returns a not-found problem with a stable error code and correlation
-  identifier
-
 ### Requirement: Consistent validation failures
 
 The platform SHALL validate every registered request before its business operation and

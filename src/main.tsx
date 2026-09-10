@@ -9,6 +9,11 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';
 import { createAppRouter } from './app/app';
 import { appNavigator } from './app/core/di/services';
+import { evictSupersededStorage } from './app/core/storage/evict-legacy-storage';
+
+// First, before the router and before any API call: candidate data that earlier builds
+// left in this browser goes whether or not the backend is reachable.
+evictSupersededStorage();
 
 const router = createAppRouter();
 // Lets AuthService.signOut() redirect from outside React.
