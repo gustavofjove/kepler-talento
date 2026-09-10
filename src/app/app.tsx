@@ -13,8 +13,6 @@ import { AdvancedSearchPage } from './features/search/pages/advanced-search-page
 import { CandidateEditPage } from './features/candidates/pages/candidate-edit-page';
 import { CandidateListPage } from './features/candidates/pages/candidate-list-page';
 import { DashboardPage } from './features/dashboard/dashboard-page';
-import { ReferenceCandidatePage } from './features/reference/reference-candidate-page';
-import { readAppConfig } from './core/services/app-config.model';
 
 /**
  * Route table ported from app.routes.ts.
@@ -25,18 +23,9 @@ import { readAppConfig } from './core/services/app-config.model';
  * to make the intent obvious.
  */
 export function createAppRouter() {
-  const runtimeEnvironment = readAppConfig().APP_ENV.toLowerCase();
-  const developmentRoutes =
-    import.meta.env.DEV ||
-    import.meta.env.MODE === 'test' ||
-    runtimeEnvironment === 'development' ||
-    runtimeEnvironment === 'test'
-      ? [{ path: '/platform/reference', element: <ReferenceCandidatePage /> }]
-      : [];
   return createBrowserRouter([
     { path: '/', element: <Navigate to="/app" replace /> },
     { path: '/login', element: <LoginPage /> },
-    ...developmentRoutes,
     {
       element: <RequireAuth />,
       children: [

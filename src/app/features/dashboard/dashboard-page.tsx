@@ -12,9 +12,9 @@ export function DashboardPage() {
   const active = candidateService.list();
   const activeCount = active.length;
   const inactiveCount = candidateService.list(true).filter((c) => !c.isActive).length;
-  const withoutCv = active.filter((c) => c.documents.length === 0).length;
+  const withoutCv = active.filter((c) => c.documentCount === 0).length;
   const pendingReview = active.filter((c) => c.reviewDueAt && c.reviewDueAt < today).length;
-  const withPrimaryCv = active.filter((c) => c.documents.some((d) => d.isPrimary)).length;
+  const withPrimaryCv = active.filter((c) => c.primaryDocumentId).length;
   const receivedThisMonth = active.filter((c) => c.receivedAt.startsWith(month)).length;
 
   return (

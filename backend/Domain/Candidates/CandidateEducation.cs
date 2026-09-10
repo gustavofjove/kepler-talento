@@ -35,6 +35,15 @@ public sealed class CandidateEducation : CandidateRelation
     public string Institution { get; private set; } = string.Empty;
     public int? EndYear { get; private set; }
 
+    /// <summary>See <see cref="CandidateLanguage.SetValues"/>.</summary>
+    public void SetValues(Guid educationTypeId, Guid statusId, string degree, string institution)
+    {
+        EducationTypeId = educationTypeId;
+        StatusId = statusId;
+        Degree = degree.Trim();
+        Institution = institution.Trim();
+    }
+
     public void SetSpecialty(string? specialty) =>
         Specialty = string.IsNullOrWhiteSpace(specialty) ? null : specialty.Trim();
 

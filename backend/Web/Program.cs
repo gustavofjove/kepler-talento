@@ -10,6 +10,7 @@ using KeplerTalento.Web.Features.Candidates;
 using KeplerTalento.Web.Features.Catalogs;
 using KeplerTalento.Web.Health;
 using KeplerTalento.Web.Identity;
+using KeplerTalento.Web.Observability;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Infrastructure.Documents;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -22,6 +23,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog((context, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext()
+    // Registered last so it sees every property the other enrichers added, and applies to
+    // every sink. Candidate personal data must not reach a log whichever slice, library or
+    // unhandled exception put it in the event.
+    .Enrich.With<PersonalDataRedactionEnricher>()
     .WriteTo.Console());
 
 builder.Services.AddApplication();
@@ -108,10 +113,6 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await DatabaseInitializer.MigrateAsync(dbContext, app.Lifetime.ApplicationStopping);
     await DatabaseInitializer.SeedCatalogsAsync(dbContext, app.Lifetime.ApplicationStopping);
-    if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
-    {
-        await DatabaseInitializer.SeedSyntheticReferenceAsync(dbContext, app.Lifetime.ApplicationStopping);
-    }
     return;
 }
 app.UseForwardedHeaders();
@@ -160,9 +161,9 @@ app.MapGet("/api/health/scanner", async (
     .Produces(StatusCodes.Status200OK)
     .Produces(StatusCodes.Status503ServiceUnavailable);
 app.MapCatalogEndpoints();
+app.MapCandidateEndpoints();
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
-    app.MapReferenceCandidateEndpoints();
     app.UseSwaggerGen();
 }
 app.Run();

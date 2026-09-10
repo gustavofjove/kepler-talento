@@ -7,6 +7,7 @@ import {
 } from '../../src/app/features/candidates/pages/candidate-list.logic';
 import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
 import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
+import { createCandidateTestBed } from './support/candidate-doubles';
 
 /** Mirrors what the page does before filtering: scope by active flag. */
 const scope = (service: CandidateService, filters: CandidateFilters) =>
@@ -15,33 +16,33 @@ const scope = (service: CandidateService, filters: CandidateFilters) =>
 describe('candidate list logic', () => {
   let candidateService: CandidateService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     localStorage.clear();
-    candidateService = new CandidateService();
-    candidateService.candidates.set([]);
+    ({ service: candidateService } = createCandidateTestBed());
+    await candidateService.ensureLoaded();
 
-    candidateService.create({
+    await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Ana',
       lastName: 'Rios',
       status: 'available',
       email: 'ana@example.com',
     });
-    candidateService.create({
+    await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Bea',
       lastName: 'Mora',
       status: 'new',
       email: 'bea@example.com',
     });
-    const inactive = candidateService.create({
+    const inactive = await candidateService.create({
       ...EMPTY_CANDIDATE_DRAFT,
       firstName: 'Carla',
       lastName: 'Gil',
       status: 'hired',
       email: 'carla@example.com',
     });
-    candidateService.deactivate(inactive.id);
+    await candidateService.deactivate(inactive.id);
   });
 
   it('filters by text and status', () => {

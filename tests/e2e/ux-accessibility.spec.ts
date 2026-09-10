@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { authFile } from './global-setup';
+import { ensureSearchCandidate } from './support/seed-candidate';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
 test.describe('UX accessibility flows', () => {
+  test.beforeEach(async ({ request }) => {
+    await ensureSearchCandidate(request);
+  });
+
   test('keyboard users can skip to main content from shell', async ({ page }) => {
     await page.goto('/app/candidates');
     await page.keyboard.press('Tab');
@@ -17,7 +22,6 @@ test.describe('UX accessibility flows', () => {
     page,
   }) => {
     await page.goto('/app/search');
-    await page.getByTestId('toggle-filters').click();
 
     const presetName = `Preset UX ${Date.now()}`;
     await page.fill('input[name="text"]', 'Laura');

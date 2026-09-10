@@ -26,4 +26,15 @@ public sealed class CandidateLanguage : CandidateRelation
 
     public void SetCertification(string? certification) =>
         Certification = string.IsNullOrWhiteSpace(certification) ? null : certification.Trim();
+
+    /// <summary>
+    /// Re-points an existing row at different catalog entries. Editing in place rather
+    /// than replacing the row keeps its identifier and its migration provenance, which a
+    /// delete-and-reinsert would discard on the first edit.
+    /// </summary>
+    public void SetValues(Guid languageId, Guid levelId)
+    {
+        LanguageId = languageId;
+        LevelId = levelId;
+    }
 }

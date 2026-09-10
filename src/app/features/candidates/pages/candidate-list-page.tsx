@@ -6,6 +6,7 @@ import { CandidateFiltersBar } from '../components/candidate-filters-bar';
 import { CandidateTable } from '../components/candidate-table';
 import { useCandidates } from '../use-candidates';
 import { useSignal } from '../../../core/state/use-signal';
+import { useErrorToast } from '../../../core/services/use-error-toast';
 import {
   buildFilterChips,
   type CandidateFilters,
@@ -23,8 +24,12 @@ import './candidate-list-page.css';
 
 export function CandidateListPage() {
   const { toastService, confirmDialogService } = useServices();
+  const notifyError = useErrorToast();
   const candidateService = useCandidates();
-  const allCandidates = useSignal(candidateService.candidates);
+  useSignal(candidateService.state);
+  const allCandidates = candidateService.list(true);
+  const isLoading = candidateService.status === 'idle' || candidateService.status === 'loading';
+  const hasFailed = candidateService.status === 'error';
 
   const [filters, setFilters] = useState<CandidateFilters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<{ field: SortField; direction: SortDirection }>({
@@ -114,15 +119,21 @@ export function CandidateListPage() {
     }
 
     const ids = selected.map((c) => c.id);
-    const updated = isDeactivate
-      ? candidateService.deactivateMany(ids)
-      : candidateService.reactivateMany(ids);
-    setSelectedIds(new Set());
-    toastService.show(
-      `${isDeactivate ? 'Baja' : 'Alta'} lógica aplicada a ${updated} candidato(s).`,
-      'success',
-    );
-    setPage(1);
+    try {
+      const updated = isDeactivate
+        ? await candidateService.deactivateMany(ids)
+        : await candidateService.reactivateMany(ids);
+      setSelectedIds(new Set());
+      toastService.show(
+        `${isDeactivate ? 'Baja' : 'Alta'} lógica aplicada a ${updated} candidato(s).`,
+        'success',
+      );
+      setPage(1);
+    } catch (error) {
+      // A refusal partway through leaves the earlier candidates applied, which is the
+      // existing contract; the selection is kept so the user can see what remains.
+      notifyError(error, 'No se ha podido completar la operación masiva.');
+    }
   };
 
   return (
@@ -185,7 +196,13 @@ export function CandidateListPage() {
         ) : null}
       </div>
 
-      {!filtered.length ? (
+      {isLoading ? (
+        <div className="empty-state">Cargando candidatos…</div>
+      ) : hasFailed ? (
+        <div className="empty-state" data-testid="candidate-list-error">
+          {candidateService.error?.message ?? 'No se han podido cargar los candidatos.'}
+        </div>
+      ) : !filtered.length ? (
         <div className="empty-state">
           No hay candidatos con los filtros actuales. Ajusta filtros o crea un nuevo candidato.
         </div>

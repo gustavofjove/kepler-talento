@@ -1,6 +1,15 @@
 export type CandidateStatus = 'new' | 'available' | 'in_process' | 'hired' | 'rejected';
 
-export interface Candidate {
+export type CandidateLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
+
+/**
+ * A candidate as the list endpoint returns it: core fields, no collections.
+ *
+ * `version` is the concurrency token. Every write carries the one that came with the
+ * record it read, so a stale editor is refused rather than silently overwriting a
+ * concurrent change.
+ */
+export interface CandidateSummary {
   id: string;
   firstName: string;
   lastName: string;
@@ -19,6 +28,19 @@ export interface Candidate {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  version: number;
+  /** How many documents the candidate has, so the list can show and filter "tiene CV". */
+  documentCount: number;
+  /**
+   * The candidate's principal CV, or null. An identifier, not personal data — it is what
+   * lets the list and the search results offer "Abrir CV" without loading the whole
+   * document collection.
+   */
+  primaryDocumentId: string | null;
+}
+
+/** The complete aggregate, as the detail endpoint returns it. */
+export interface Candidate extends CandidateSummary {
   languages: CandidateLanguage[];
   programs: CandidateProgram[];
   education: CandidateEducation[];
@@ -89,6 +111,9 @@ export type CandidateDraft = Omit<
   | 'id'
   | 'createdAt'
   | 'updatedAt'
+  | 'version'
+  | 'documentCount'
+  | 'primaryDocumentId'
   | 'languages'
   | 'programs'
   | 'education'

@@ -43,6 +43,42 @@ public sealed class ProjectDependencyTests
             reference => reference.StartsWith("Tools/", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// KTL-8 retired the KTL-5 reference candidate slice. Its purpose — proving the read
+    /// path — is served by the real read slice, which travels the same boundaries under
+    /// per-operation authorization, and a second, less-guarded route to candidate personal
+    /// data must not survive.
+    /// </summary>
+    [Theory]
+    [InlineData("Web/Features/Candidates/ReferenceCandidateEndpoints.cs")]
+    [InlineData("Application/Features/Candidates/GetReferenceCandidate.cs")]
+    [InlineData("Application/Abstractions/Persistence/ICandidateReader.cs")]
+    [InlineData("Infrastructure/Persistence/CandidateReader.cs")]
+    public void No_reference_candidate_slice_remains(string path)
+    {
+        Assert.False(
+            File.Exists(Path.Combine(BackendRoot, path.Replace('/', Path.DirectorySeparatorChar))),
+            $"{path} is part of the retired reference slice and must not exist.");
+    }
+
+    [Fact]
+    public void No_production_source_mentions_the_reference_candidate_slice()
+    {
+        // Tests are excluded because this file names the retired types in order to assert
+        // their absence, which would otherwise make the check find itself.
+        var offenders = Directory
+            .EnumerateFiles(BackendRoot, "*.cs", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(BackendRoot, path).Replace('\\', '/'))
+            .Where(path => !path.StartsWith("Tests/", StringComparison.Ordinal)
+                && !path.Contains("/bin/", StringComparison.Ordinal)
+                && !path.Contains("/obj/", StringComparison.Ordinal))
+            .Where(path => File.ReadAllText(Path.Combine(BackendRoot, path))
+                .Contains("ReferenceCandidate", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Empty(offenders);
+    }
+
     [Fact]
     public void Deliberately_invalid_fixture_is_rejected()
     {

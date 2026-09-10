@@ -387,7 +387,6 @@ public sealed class CatalogHandlerTests
         public string? LastAuditSubjectId { get; private set; }
         public uint? ExpectedVersion { get; private set; }
         public CatalogSaveOutcome NextOutcome { get; set; } = CatalogSaveOutcome.Saved;
-        public bool ValueIsInUse { get; set; }
 
         public Task<IReadOnlyList<CatalogItem>> ListAsync(
             string family,
@@ -417,9 +416,6 @@ public sealed class CatalogHandlerTests
             }
             return Task.FromResult(NextOutcome);
         }
-
-        public Task<bool> IsValueInUseAsync(string family, string nameNormalized, CancellationToken cancellationToken) =>
-            Task.FromResult(ValueIsInUse);
     }
 
     private sealed class Actor(bool authenticated, params string[] permissions) : ICurrentActor

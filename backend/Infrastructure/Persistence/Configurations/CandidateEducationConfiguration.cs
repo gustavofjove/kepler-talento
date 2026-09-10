@@ -26,7 +26,7 @@ public sealed class CandidateEducationConfiguration : IEntityTypeConfiguration<C
                 $"CK_{Table}_EndYear",
                 "\"EndYear\" IS NULL OR (\"EndYear\" BETWEEN 1900 AND 2200)");
         });
-        builder.ConfigureRelation(Table);
+        builder.ConfigureRelation(Table, candidate => candidate.Education);
         builder.Property(education => education.Degree).HasMaxLength(200).IsRequired();
         builder.Property(education => education.Specialty).HasMaxLength(200);
         builder.Property(education => education.Institution).HasMaxLength(200).IsRequired();

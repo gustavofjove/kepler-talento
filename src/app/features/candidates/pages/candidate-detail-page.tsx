@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
-import { useCandidates } from '../use-candidates';
+import { useErrorToast } from '../../../core/services/use-error-toast';
+import { useCandidate } from '../use-candidates';
 import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
@@ -11,10 +12,14 @@ import { CandidateSkills } from '../components/candidate-skills';
 export function CandidateDetailPage() {
   const { id: candidateId = '' } = useParams<{ id: string }>();
   const { confirmDialogService } = useServices();
-  const candidateService = useCandidates();
+  const notifyError = useErrorToast();
+  const candidateService = useCandidate(candidateId);
 
   const item = candidateService.find(candidateId);
   const canEdit = usePermission('edit_candidates');
+  const aggregate = candidateService.aggregateStatus(candidateId);
+  const isLoading = aggregate === 'loading';
+  const hasFailed = aggregate === 'error';
 
   const setActive = async (active: boolean): Promise<void> => {
     if (!item) {
@@ -32,12 +37,38 @@ export function CandidateDetailPage() {
     if (!confirmed) {
       return;
     }
-    if (active) {
-      candidateService.reactivate(item.id);
-    } else {
-      candidateService.deactivate(item.id);
+    try {
+      if (active) {
+        await candidateService.reactivate(item.id);
+      } else {
+        await candidateService.deactivate(item.id);
+      }
+    } catch (error) {
+      notifyError(error, 'No se ha podido cambiar el estado del candidato.');
     }
   };
+
+  if (isLoading) {
+    return (
+      <section className="panel">
+        <p className="empty-state">Cargando candidato…</p>
+      </section>
+    );
+  }
+
+  if (hasFailed) {
+    return (
+      <section className="panel" data-testid="candidate-detail-error">
+        <h1>No se ha podido cargar el candidato</h1>
+        <p className="empty-state">
+          {candidateService.error?.message ?? 'Inténtelo de nuevo más tarde.'}
+        </p>
+        <Link className="button" to="/app/candidates">
+          Volver
+        </Link>
+      </section>
+    );
+  }
 
   if (!item) {
     return (

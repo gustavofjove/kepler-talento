@@ -29,11 +29,21 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
   const programOptions = catalogs.activeNames('program');
   const levelOptions = catalogs.activeNames('program_level');
 
-  const add = (event: FormEvent<HTMLFormElement>): void => {
+  // See candidate-languages: these persist through the API and must be awaited.
+  const add = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      candidateRelationsService.addProgram(candidateId, { ...draft });
+      await candidateRelationsService.addProgram(candidateId, { ...draft });
       setDraft(EMPTY);
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const remove = async (programId: string): Promise<void> => {
+    try {
+      await candidateRelationsService.removeProgram(candidateId, programId);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -55,7 +65,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => candidateRelationsService.removeProgram(candidateId, item.id)}
+                onClick={() => void remove(item.id)}
               >
                 Quitar
               </button>

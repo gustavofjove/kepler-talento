@@ -1,4 +1,3 @@
-import { CandidateService } from '../../../src/app/features/candidates/services/candidate.service';
 import type {
   CatalogGateway,
   CatalogItemPayload,
@@ -124,12 +123,10 @@ function slug(value: string): string {
 export interface CatalogTestBed {
   service: CatalogService;
   api: FakeCatalogApi;
-  candidateService: CandidateService;
 }
 
 export function createCatalogTestBed(api = new FakeCatalogApi()): CatalogTestBed {
-  const candidateService = new CandidateService();
-  return { service: new CatalogService(api, candidateService), api, candidateService };
+  return { service: new CatalogService(api), api };
 }
 
 /** A catalog service whose vocabulary has already loaded, for component tests. */

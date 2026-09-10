@@ -1,13 +1,17 @@
 import { expect, test } from '@playwright/test';
 import { authFile } from './global-setup';
+import { ensureSearchCandidate } from './support/seed-candidate';
 
 test.describe('Export results flow', () => {
+  test.beforeEach(async ({ request }) => {
+    await ensureSearchCandidate(request);
+  });
+
   test('allows export for admin users with permission', async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL, storageState: authFile('rrhh_admin') });
     const page = await context.newPage();
 
     await page.goto('/app/search');
-    await page.getByTestId('toggle-filters').click();
     await page.fill('input[name="text"]', 'Laura');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('text=Laura Garcia')).toBeVisible();

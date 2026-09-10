@@ -68,15 +68,4 @@ public sealed class CatalogRepository(
                 : CatalogSaveOutcome.DuplicateName;
         }
     }
-
-    public Task<bool> IsValueInUseAsync(string family, string nameNormalized, CancellationToken cancellationToken)
-    {
-        // Candidate relations are still browser-side until KTL-8, so there is nothing
-        // server-side to consult yet. The transitional frontend pre-check carries the rule
-        // meanwhile; the rename-into-collision half is enforced by the unique index today.
-        _ = family;
-        _ = nameNormalized;
-        _ = cancellationToken;
-        return Task.FromResult(false);
-    }
 }

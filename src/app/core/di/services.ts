@@ -2,6 +2,7 @@ import { ImportService } from '../../features/admin/import/import.service';
 import { RoleService } from '../../features/admin/roles/role.service';
 import { ProfileService } from '../../features/admin/users/profile.service';
 import { CandidateRelationsService } from '../../features/candidates/services/candidate-relations.service';
+import { CandidateApi } from '../../features/candidates/services/candidate.api';
 import { CandidateService } from '../../features/candidates/services/candidate.service';
 import { CatalogApi } from '../../features/catalogs/services/catalog.api';
 import { CatalogService } from '../../features/catalogs/services/catalog.service';
@@ -16,7 +17,6 @@ import { ObservabilityService } from '../services/observability.service';
 import { ToastService } from '../services/toast.service';
 import { SupabaseClientService } from '../supabase/supabase-client.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog.service';
-import { ReferenceCandidateService } from '../../features/reference/reference-candidate.service';
 import { ApiTransport } from '../http/api-transport';
 import { readAppConfig } from '../services/app-config.model';
 
@@ -31,9 +31,9 @@ import { readAppConfig } from '../services/app-config.model';
 export const appNavigator = new DataRouterNavigator();
 
 const supabaseClientService = new SupabaseClientService();
-const candidateService = new CandidateService();
 const roleService = new RoleService();
 const apiTransport = new ApiTransport(readAppConfig().API_BASE_URL);
+const candidateService = new CandidateService(new CandidateApi(apiTransport));
 
 export const services = {
   appNavigator,
@@ -44,7 +44,7 @@ export const services = {
   observabilityService: new ObservabilityService(),
   confirmDialogService: new ConfirmDialogService(),
   candidateService,
-  catalogService: new CatalogService(new CatalogApi(apiTransport), candidateService),
+  catalogService: new CatalogService(new CatalogApi(apiTransport)),
   candidateRelationsService: new CandidateRelationsService(candidateService),
   documentService: new DocumentService(candidateService),
   candidateSearchService: new CandidateSearchService(candidateService),
@@ -54,7 +54,6 @@ export const services = {
   roleService,
   profileService: new ProfileService(roleService),
   apiTransport,
-  referenceCandidateService: new ReferenceCandidateService(apiTransport),
 };
 
 export type Services = typeof services;

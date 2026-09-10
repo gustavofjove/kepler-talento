@@ -23,11 +23,21 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
   const skillOptions = catalogs.activeNames('skill');
   const levelOptions = catalogs.activeNames('skill_level');
 
-  const add = (event: FormEvent<HTMLFormElement>): void => {
+  // See candidate-languages: these persist through the API and must be awaited.
+  const add = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      candidateRelationsService.addSkill(candidateId, { ...draft });
+      await candidateRelationsService.addSkill(candidateId, { ...draft });
       setDraft(EMPTY);
+      setError('');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const remove = async (skillId: string): Promise<void> => {
+    try {
+      await candidateRelationsService.removeSkill(candidateId, skillId);
       setError('');
     } catch (err) {
       setError((err as Error).message);
@@ -48,7 +58,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => candidateRelationsService.removeSkill(candidateId, item.id)}
+                onClick={() => void remove(item.id)}
               >
                 Quitar
               </button>

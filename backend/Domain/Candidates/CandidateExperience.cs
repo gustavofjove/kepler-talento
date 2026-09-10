@@ -33,6 +33,14 @@ public sealed class CandidateExperience : CandidateRelation
     public int? YearsExperience { get; private set; }
     public bool IsCurrent { get; private set; }
 
+    /// <summary>See <see cref="CandidateLanguage.SetValues"/>.</summary>
+    public void SetValues(Guid sectorId, string company, string position)
+    {
+        SectorId = sectorId;
+        Company = company.Trim();
+        Position = position.Trim();
+    }
+
     public void SetFunctions(string? functions) =>
         Functions = string.IsNullOrWhiteSpace(functions) ? null : functions.Trim();
 

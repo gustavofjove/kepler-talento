@@ -798,7 +798,7 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateEducation", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
-                        .WithMany()
+                        .WithMany("Education")
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -821,7 +821,7 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateExperience", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
-                        .WithMany()
+                        .WithMany("Experience")
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -837,7 +837,7 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateLanguage", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
-                        .WithMany()
+                        .WithMany("Languages")
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -860,7 +860,7 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateProgram", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
-                        .WithMany()
+                        .WithMany("Programs")
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -883,7 +883,7 @@ namespace Infrastructure.Persistence.Migrations
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateSkill", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
-                        .WithMany()
+                        .WithMany("Skills")
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -910,6 +910,19 @@ namespace Infrastructure.Persistence.Migrations
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>
+                {
+                    b.Navigation("Education");
+
+                    b.Navigation("Experience");
+
+                    b.Navigation("Languages");
+
+                    b.Navigation("Programs");
+
+                    b.Navigation("Skills");
                 });
 #pragma warning restore 612, 618
         }

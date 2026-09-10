@@ -20,7 +20,7 @@ public sealed class CandidateSkillConfiguration : IEntityTypeConfiguration<Candi
                 $"CK_{Table}_LevelFamily",
                 CandidateRelationMapping.FamilyCheck("LevelFamily", CatalogFamilies.SkillLevel));
         });
-        builder.ConfigureRelation(Table);
+        builder.ConfigureRelation(Table, candidate => candidate.Skills);
         builder.HasCatalogReference(
             skill => new { skill.SkillId, skill.SkillFamily },
             skill => skill.SkillFamily);

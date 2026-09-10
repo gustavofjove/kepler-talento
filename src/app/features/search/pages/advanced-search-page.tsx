@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { toAppError } from '../../../shared/models/error.models';
 import type { ExportBatchRecord } from '../services/export.service';
@@ -29,9 +29,9 @@ export function AdvancedSearchPage() {
   const [filters, setFilters] = useState<SearchFilters>(() =>
     searchPresetsService.loadLastFilters(),
   );
-  const [results, setResults] = useState<SearchResult[]>(() =>
-    candidateSearchService.search(searchPresetsService.loadLastFilters()),
-  );
+  // Searching now awaits the API-backed aggregates, so the initial results arrive from an
+  // effect rather than from lazy state.
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [presets, setPresets] = useState<SearchPreset[]>(() => searchPresetsService.listPresets());
   const [exportBatches, setExportBatches] = useState<ExportBatchRecord[]>(() =>
     exportService.listBatches(),
@@ -39,7 +39,27 @@ export function AdvancedSearchPage() {
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [presetName, setPresetName] = useState('');
   const [showExportHistory, setShowExportHistory] = useState(false);
-  const [filtersCollapsed, setFiltersCollapsed] = useState(() => results.length > 0);
+  // The filter panel starts open, and collapses when the user runs a search.
+  //
+  // It used to start collapsed whenever the restored search had results, decided
+  // synchronously at mount because the results came from browser storage. Now that the
+  // restored search awaits the API, that decision would land after the page was
+  // interactive and yank the panel shut under a user already typing in it. Collapsing
+  // only on a deliberate search keeps the "results are what matters now" behaviour
+  // without ever overruling the user.
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void candidateSearchService.search(searchPresetsService.loadLastFilters()).then((found) => {
+      if (!cancelled) {
+        setResults(found);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [candidateSearchService, searchPresetsService]);
 
   const formatError = (error: unknown, fallback: string): string =>
     error instanceof Error && error.message ? error.message : fallback;
@@ -50,19 +70,19 @@ export function AdvancedSearchPage() {
     setSelectedPresetId(next.some((item) => item.id === selectedId) ? selectedId : '');
   };
 
-  const run = (next: SearchFilters): void => {
+  const run = async (next: SearchFilters): Promise<void> => {
     const cloned = cloneSearchFilters(next);
-    const found = candidateSearchService.search(next);
+    const found = await candidateSearchService.search(next);
     setFilters(cloned);
     setResults(found);
     searchPresetsService.rememberLastFilters(cloned);
     setFiltersCollapsed(found.length > 0);
   };
 
-  const clear = (): void => {
+  const clear = async (): Promise<void> => {
     const empty = candidateSearchService.emptyFilters();
     setFilters(empty);
-    setResults(candidateSearchService.search(empty));
+    setResults(await candidateSearchService.search(empty));
     searchPresetsService.rememberLastFilters(empty);
     setFiltersCollapsed(false);
   };
@@ -78,14 +98,14 @@ export function AdvancedSearchPage() {
     }
   };
 
-  const loadPreset = (presetId: string): void => {
+  const loadPreset = async (presetId: string): Promise<void> => {
     setSelectedPresetId(presetId);
     if (!presetId) {
       return;
     }
     try {
       const applied = searchPresetsService.applyPreset(presetId);
-      const found = candidateSearchService.search(applied);
+      const found = await candidateSearchService.search(applied);
       setFilters(applied);
       setResults(found);
       searchPresetsService.rememberLastFilters(applied);

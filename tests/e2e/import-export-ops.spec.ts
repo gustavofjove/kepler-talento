@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { authFile } from './global-setup';
+import { ensureSearchCandidate } from './support/seed-candidate';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
 test.describe('Import/Export operations', () => {
+  test.beforeEach(async ({ request }) => {
+    await ensureSearchCandidate(request);
+  });
+
   test('supports dry-run with error download and explicit commit', async ({ page }) => {
     await page.goto('/app/admin/import');
     const commitButton = page.getByRole('button', { name: 'Confirmar commit', exact: true });
@@ -45,7 +50,6 @@ test.describe('Import/Export operations', () => {
 
   test('records export batches in search history modal', async ({ page }) => {
     await page.goto('/app/search');
-    await page.getByTestId('toggle-filters').click();
     await page.fill('input[name="text"]', 'Laura');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('text=Laura Garcia')).toBeVisible();

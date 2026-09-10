@@ -1,9 +1,9 @@
 import { Link } from 'react-router';
-import type { Candidate } from '../models/candidate.models';
+import type { CandidateSummary } from '../models/candidate.models';
 import { type SortDirection, type SortField, sortIndicator } from '../pages/candidate-list.logic';
 
 interface Props {
-  candidates: Candidate[];
+  candidates: CandidateSummary[];
   canEdit: boolean;
   sort: { field: SortField; direction: SortDirection };
   onSort: (field: SortField) => void;
@@ -77,7 +77,7 @@ export function CandidateTable({
                     <span className="badge inactive-badge">Inactivo</span>
                   ) : null}
                 </td>
-                <td>{candidate.documents.length ? 'Disponible' : 'Pendiente'}</td>
+                <td>{candidate.documentCount ? 'Disponible' : 'Pendiente'}</td>
                 <td>{candidate.updatedAt.slice(0, 10)}</td>
                 <td>
                   <Link className="button secondary" to={`/app/candidates/${candidate.id}`}>

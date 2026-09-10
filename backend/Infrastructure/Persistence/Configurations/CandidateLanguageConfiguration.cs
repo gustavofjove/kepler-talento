@@ -20,7 +20,7 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
                 $"CK_{Table}_LevelFamily",
                 CandidateRelationMapping.FamilyCheck("LevelFamily", CatalogFamilies.LanguageLevel));
         });
-        builder.ConfigureRelation(Table);
+        builder.ConfigureRelation(Table, candidate => candidate.Languages);
         builder.Property(language => language.Certification).HasMaxLength(160);
         builder.HasCatalogReference(
             language => new { language.LanguageId, language.LanguageFamily },

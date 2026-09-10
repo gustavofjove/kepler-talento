@@ -1,4 +1,3 @@
-using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,44 +5,15 @@ namespace KeplerTalento.Infrastructure.Persistence;
 
 public static class DatabaseInitializer
 {
-    public static readonly Guid ReferenceCandidateId = Guid.Parse("11111111-1111-4111-8111-111111111111");
-
     public static async Task MigrateAsync(ApplicationDbContext dbContext, CancellationToken cancellationToken)
     {
         await dbContext.Database.MigrateAsync(cancellationToken);
     }
 
-    public static async Task SeedSyntheticReferenceAsync(
-        ApplicationDbContext dbContext,
-        CancellationToken cancellationToken)
-    {
-        if (await dbContext.Candidates.AnyAsync(candidate => candidate.Id == ReferenceCandidateId, cancellationToken))
-        {
-            return;
-        }
-        var seededAtUtc = DateTimeOffset.Parse("2026-01-01T00:00:00Z");
-        var candidate = new Candidate(ReferenceCandidateId, "Candidata", "Sintética", seededAtUtc);
-        candidate.SetDetails(
-            phone: "+34 600 000 000",
-            email: "candidata.sintetica@example.invalid",
-            location: "Ciudad Sintética",
-            province: "Provincia Sintética",
-            country: "España",
-            availability: "Inmediata",
-            status: CandidateStatuses.New,
-            source: "Semilla",
-            notes: string.Empty,
-            updatedAtUtc: seededAtUtc);
-        // Consent metadata is explicit even for the synthetic row: nothing in the system
-        // should model a candidate whose consent state was never established.
-        candidate.SetConsent(
-            receivedAt: new DateOnly(2026, 1, 1),
-            consentAt: new DateOnly(2026, 1, 1),
-            reviewDueAt: new DateOnly(2028, 1, 1),
-            updatedAtUtc: seededAtUtc);
-        dbContext.Candidates.Add(candidate);
-        await dbContext.SaveChangesAsync(cancellationToken);
-    }
+    // There is deliberately no candidate seed. An empty database means an empty candidate
+    // list, and that is the truth; a fabricated row in a table of personal data is a
+    // liability rather than a convenience. Real candidate data arrives through KTL-7's
+    // migration.
 
     /// <summary>
     /// Populates the default vocabulary of any family that holds no rows at all. Seeding
