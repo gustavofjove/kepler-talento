@@ -11,6 +11,7 @@ const migration = fs
   .join('\n');
 const program = read('backend/Web/Program.cs');
 const frontendConfig = read('public/env.template.js');
+const searchEndpoints = read('backend/Web/Features/Search/SearchEndpoints.cs');
 
 const serviceBlock = (name) => {
   const match = compose.match(
@@ -34,10 +35,20 @@ const checks = [
     'Production development actor is rejected',
     program.includes('DevelopmentActor cannot be enabled in Production'),
   ],
+  // This used to require the reference candidate slice to be registered only outside
+  // production. KTL-8 went further and deleted the slice: its purpose - proving the read
+  // path - is served by the real read slice, which travels the same boundaries under
+  // per-operation authorization, and a second, less-guarded route to candidate personal data
+  // must not survive at all. The check now asserts that stronger property; requiring the
+  // route to exist made this check fail from KTL-8 onward.
   [
-    'Production reference routes are not registered',
-    program.includes('IsEnvironment("Testing")') &&
-      program.includes('MapReferenceCandidateEndpoints'),
+    'No reference candidate route exists in any environment',
+    !program.includes('MapReferenceCandidateEndpoints'),
+  ],
+  [
+    'Search and saved searches authorize before reaching data',
+    searchEndpoints.includes('Permissions.CandidatesRead') &&
+      searchEndpoints.includes('throw new ForbiddenException()'),
   ],
   [
     'Frontend has no PostgreSQL credential',

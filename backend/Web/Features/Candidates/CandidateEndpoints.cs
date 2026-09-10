@@ -62,8 +62,6 @@ public static class CandidateEndpoints
 
     public sealed record SetSkillsRequest(IReadOnlyList<CandidateSkillInput>? Skills, uint Version);
 
-    public sealed record SetDocumentsRequest(IReadOnlyList<CandidateDocumentInput>? Documents, uint Version);
-
     public static IEndpointRouteBuilder MapCandidateEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var group = endpoints.MapGroup("/api/candidates").WithTags("Candidates");
@@ -265,21 +263,6 @@ public static class CandidateEndpoints
                     cancellationToken));
             })
             .WithName("SetCandidateSkills")
-            .WithCollectionResponses();
-
-        group.MapPut("/{id:guid}/documents", async (
-                Guid id,
-                SetDocumentsRequest request,
-                ISender sender,
-                ICurrentActor actor,
-                CancellationToken cancellationToken) =>
-            {
-                Require(actor, Permissions.CandidatesUpdate);
-                return Results.Ok(await sender.Send(
-                    new SetCandidateDocumentsCommand(id, request.Documents ?? [], request.Version),
-                    cancellationToken));
-            })
-            .WithName("SetCandidateDocuments")
             .WithCollectionResponses();
 
         return endpoints;

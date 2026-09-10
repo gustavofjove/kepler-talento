@@ -1,9 +1,12 @@
 using System.Net;
 using System.Net.Http.Json;
 using KeplerTalento.Application.Abstractions.Identity;
+using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Features.Candidates;
+using DocumentResponse = KeplerTalento.Application.Features.Documents.CandidateDocumentResponse;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Infrastructure.Persistence;
+using KeplerTalento.Infrastructure.Documents;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -161,6 +164,35 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
+    public async Task Concurrent_duplicate_skill_writes_store_one_relation_and_return_the_specific_spanish_error()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var firstClient = factory.CreateClient();
+        using var secondClient = factory.CreateClient();
+        var created = await CreateAsync(firstClient, "Ada", "Byron");
+        var payload = new
+        {
+            skills = new[] { new { skill = "Compras", level = "Alto" } },
+            version = created.Version,
+        };
+
+        var responses = await Task.WhenAll(
+            firstClient.PutAsJsonAsync($"/api/candidates/{created.Id}/skills", payload),
+            secondClient.PutAsJsonAsync($"/api/candidates/{created.Id}/skills", payload));
+
+        Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
+        var refusal = Assert.Single(responses, response => response.StatusCode == HttpStatusCode.BadRequest);
+        var refusalBody = await refusal.Content.ReadAsStringAsync();
+        Assert.Contains(CandidateErrors.SkillDuplicate, refusalBody, StringComparison.Ordinal);
+        Assert.Contains("El candidato ya tiene esta habilidad registrada.", refusalBody, StringComparison.Ordinal);
+        await using var db = NewDbContext();
+        Assert.Single(await db.CandidateSkills.AsNoTracking()
+            .Where(skill => skill.CandidateId == created.Id)
+            .ToListAsync());
+    }
+
+    [Fact]
     public async Task Removal_advances_the_token_so_a_stale_editor_conflicts_rather_than_resurrecting()
     {
         await ResetAsync();
@@ -204,23 +236,16 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task Document_metadata_round_trips_without_exposing_a_storage_location()
+    public async Task Document_upload_round_trips_metadata_without_exposing_a_storage_location()
     {
         await ResetAsync();
         await using var factory = CreateFactory(TestActor.Full);
         using var client = factory.CreateClient();
         var created = await CreateAsync(client, "Noa", "Vidal");
 
-        var response = await client.PutAsJsonAsync($"/api/candidates/{created.Id}/documents", new
-        {
-            documents = new[]
-            {
-                new { documentType = "CV", originalFilename = "cv.pdf", mimeType = "application/pdf", sizeBytes = 1024, isPrimary = true },
-            },
-            version = created.Version,
-        });
+        var response = await UploadAsync(client, created.Id, "cv.pdf", "%PDF-1.7\nsynthetic", true);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         var withDocument = (await client.GetFromJsonAsync<CandidateResponse>($"/api/candidates/{created.Id}"))!;
         var document = Assert.Single(withDocument.Documents);
@@ -235,43 +260,93 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task Marking_a_second_document_primary_demotes_the_first()
+    public async Task Marking_a_second_uploaded_document_primary_demotes_the_first()
     {
         await ResetAsync();
         await using var factory = CreateFactory(TestActor.Full);
         using var client = factory.CreateClient();
         var created = await CreateAsync(client, "Eva", "Soler");
 
-        var first = await client.PutAsJsonAsync($"/api/candidates/{created.Id}/documents", new
-        {
-            documents = new[]
-            {
-                new { documentType = "CV", originalFilename = "uno.pdf", mimeType = "application/pdf", sizeBytes = 10, isPrimary = true },
-                new { documentType = "CV", originalFilename = "dos.pdf", mimeType = "application/pdf", sizeBytes = 20, isPrimary = false },
-            },
-            version = created.Version,
-        });
-        var withBoth = (await first.Content.ReadFromJsonAsync<CandidateResponse>())!;
-        var one = withBoth.Documents.Single(document => document.OriginalFilename == "uno.pdf");
-        var two = withBoth.Documents.Single(document => document.OriginalFilename == "dos.pdf");
+        var first = await UploadAsync(client, created.Id, "uno.pdf", "%PDF-1.7\none", true);
+        var one = (await first.Content.ReadFromJsonAsync<DocumentResponse>())!;
+        var second = await UploadAsync(client, created.Id, "dos.pdf", "%PDF-1.7\ntwo", false);
+        var two = (await second.Content.ReadFromJsonAsync<DocumentResponse>())!;
 
         // The primary flag moves from one document to the other in a single write. The
         // index enforcing "at most one primary" is not deferrable, so this is the case
         // that proves the ordered two-phase write.
-        var swap = await client.PutAsJsonAsync($"/api/candidates/{created.Id}/documents", new
-        {
-            documents = new[]
-            {
-                new { id = one.Id, documentType = "CV", originalFilename = "uno.pdf", mimeType = "application/pdf", sizeBytes = 10, isPrimary = false },
-                new { id = two.Id, documentType = "CV", originalFilename = "dos.pdf", mimeType = "application/pdf", sizeBytes = 20, isPrimary = true },
-            },
-            version = withBoth.Version,
-        });
+        var swap = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/documents/{two.Id}/primary",
+            new { });
 
         Assert.Equal(HttpStatusCode.OK, swap.StatusCode);
-        var after = (await swap.Content.ReadFromJsonAsync<CandidateResponse>())!;
-        Assert.Single(after.Documents, document => document.IsPrimary);
-        Assert.True(after.Documents.Single(document => document.Id == two.Id).IsPrimary);
+        var after = (await client.GetFromJsonAsync<DocumentResponse[]>(
+            $"/api/candidates/{created.Id}/documents"))!;
+        Assert.Single(after, document => document.IsPrimary);
+        Assert.False(after.Single(document => document.Id == one.Id).IsPrimary);
+        Assert.True(after.Single(document => document.Id == two.Id).IsPrimary);
+
+        var removedKey = await StoredDocumentKeyByIdAsync(two.Id);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync(
+            $"/api/candidates/{created.Id}/documents/{two.Id}")).StatusCode);
+        var remaining = (await client.GetFromJsonAsync<DocumentResponse[]>(
+            $"/api/candidates/{created.Id}/documents"))!;
+        Assert.Single(remaining);
+        Assert.DoesNotContain(remaining, document => document.IsPrimary);
+        var storage = factory.Services.GetRequiredService<IDocumentStorage>();
+        await Assert.ThrowsAsync<FileNotFoundException>(() =>
+            storage.OpenQuarantineAsync(removedKey, CancellationToken.None));
+        await using var auditDb = NewDbContext();
+        Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.primary.changed"));
+        Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.removed"));
+    }
+
+    [Fact]
+    public async Task Concurrent_primary_designations_leave_exactly_one_primary_and_refuse_the_loser()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var firstClient = factory.CreateClient();
+        var created = await CreateAsync(firstClient, "Hedy", "Lamarr");
+        var firstUpload = await UploadAsync(firstClient, created.Id, "uno.pdf", "%PDF-1.7\none", false);
+        var first = (await firstUpload.Content.ReadFromJsonAsync<DocumentResponse>())!;
+        var secondUpload = await UploadAsync(firstClient, created.Id, "dos.pdf", "%PDF-1.7\ntwo", false);
+        var second = (await secondUpload.Content.ReadFromJsonAsync<DocumentResponse>())!;
+
+        var bothLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var loadedCount = 0;
+        async Task<(bool Saved, string? Constraint)> DesignateAsync(Guid documentId)
+        {
+            await using var context = NewDbContext();
+            await using var transaction = await context.Database.BeginTransactionAsync();
+            var document = await context.Documents.SingleAsync(value => value.Id == documentId);
+            document.SetPrimary(true, DateTimeOffset.UtcNow);
+            if (Interlocked.Increment(ref loadedCount) == 2) bothLoaded.SetResult();
+            await bothLoaded.Task;
+            try
+            {
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return (true, null);
+            }
+            catch (DbUpdateException exception)
+                when (exception.InnerException is PostgresException postgres
+                      && postgres.SqlState == PostgresErrorCodes.UniqueViolation)
+            {
+                await transaction.RollbackAsync();
+                return (false, ((PostgresException)exception.InnerException).ConstraintName);
+            }
+        }
+
+        var outcomes = await Task.WhenAll(DesignateAsync(first.Id), DesignateAsync(second.Id));
+
+        Assert.Single(outcomes, outcome => outcome.Saved);
+        var refusal = Assert.Single(outcomes, outcome => !outcome.Saved);
+        Assert.Equal("UX_CND_Documents_CandidateId_Primary", refusal.Constraint);
+        await using var db = NewDbContext();
+        Assert.Single(await db.Documents.AsNoTracking()
+            .Where(document => document.CandidateId == created.Id && document.IsPrimary)
+            .ToListAsync());
     }
 
     [Fact]
@@ -326,6 +401,157 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
+    public async Task Document_upload_and_download_require_their_specific_capabilities()
+    {
+        await ResetAsync();
+        await using var fullFactory = CreateFactory(TestActor.Full);
+        using var fullClient = fullFactory.CreateClient();
+        var candidate = await CreateAsync(fullClient, "Ada", "Lovelace");
+        var accepted = await UploadAsync(fullClient, candidate.Id, "cv.pdf", "%PDF-1.7\nsecure", false);
+        var document = (await accepted.Content.ReadFromJsonAsync<DocumentResponse>())!;
+
+        foreach (var actor in new[] { TestActor.Unauthenticated, TestActor.Reader })
+        {
+            await using var factory = CreateFactory(actor);
+            using var client = factory.CreateClient();
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await UploadAsync(client, candidate.Id, "other.pdf", "%PDF-1.7\nother", false)).StatusCode);
+            var existing = await client.GetAsync($"/api/candidates/{candidate.Id}/documents/{document.Id}/content");
+            var missing = await client.GetAsync($"/api/candidates/{candidate.Id}/documents/{Guid.NewGuid()}/content");
+            Assert.Equal(HttpStatusCode.NotFound, existing.StatusCode);
+            Assert.Equal(existing.StatusCode, missing.StatusCode);
+        }
+
+        await using var downloadFactory = CreateFactory(TestActor.DownloadOnly);
+        using var downloadClient = downloadFactory.CreateClient();
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await UploadAsync(downloadClient, candidate.Id, "download-only.pdf", "%PDF-1.7\nother", false)).StatusCode);
+
+        await using var uploadFactory = CreateFactory(TestActor.UploadOnly);
+        using var uploadClient = uploadFactory.CreateClient();
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await uploadClient.GetAsync($"/api/candidates/{candidate.Id}/documents/{document.Id}/content")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Refused_upload_leaves_no_row_object_operation_or_applied_audit()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var candidate = await CreateAsync(client, "Grace", "Hopper");
+        var inventory = factory.Services.GetRequiredService<IDocumentStorageInventory>();
+        var beforeQuarantine = (await inventory.ListQuarantineAsync(CancellationToken.None)).Count;
+        var beforeAvailable = (await inventory.ListAvailableAsync(CancellationToken.None)).Count;
+
+        var refusal = await UploadAsync(client, candidate.Id, "cv.pdf", "MZ executable", false);
+
+        Assert.Equal(HttpStatusCode.BadRequest, refusal.StatusCode);
+        await using var db = NewDbContext();
+        Assert.False(await db.Documents.AnyAsync(document => document.CandidateId == candidate.Id));
+        Assert.False(await db.Operations.AnyAsync());
+        Assert.False(await db.AuditEvents.AnyAsync(audit => audit.EventType == "document.upload.accepted"));
+        Assert.Equal(beforeQuarantine, (await inventory.ListQuarantineAsync(CancellationToken.None)).Count);
+        Assert.Equal(beforeAvailable, (await inventory.ListAvailableAsync(CancellationToken.None)).Count);
+    }
+
+    [Fact]
+    public async Task Empty_missing_unsupported_and_oversized_uploads_are_refused_without_rows()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var candidate = await CreateAsync(client, "Margaret", "Hamilton");
+
+        using var missing = new MultipartFormDataContent();
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync(
+            $"/api/candidates/{candidate.Id}/documents", missing)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await UploadBytesAsync(
+            client, candidate.Id, "empty.pdf", [], false)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await UploadBytesAsync(
+            client, candidate.Id, "payload.svg", "<svg/>"u8.ToArray(), false)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await UploadBytesAsync(
+            client,
+            candidate.Id,
+            "large.pdf",
+            new byte[DocumentStorageOptions.AbsoluteMaximumBytes + 1],
+            false)).StatusCode);
+
+        await using var db = NewDbContext();
+        Assert.False(await db.Documents.AnyAsync(document => document.CandidateId == candidate.Id));
+        Assert.False(await db.Operations.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Clean_document_download_streams_exact_bytes_with_private_headers_and_audit()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var candidate = await CreateAsync(client, "Katherine", "Johnson");
+        const string bytes = "%PDF-1.7\nbyte-for-byte";
+        var accepted = await UploadAsync(client, candidate.Id, "../cv.pdf", bytes, true);
+        var document = (await accepted.Content.ReadFromJsonAsync<DocumentResponse>())!;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var operation = await db.Operations.AsNoTracking().SingleAsync();
+            var handler = scope.ServiceProvider.GetRequiredService<ScanOperationHandler>();
+            Assert.True((await handler.HandleAsync(operation, CancellationToken.None)).Completed);
+        }
+
+        var response = await client.GetAsync($"/api/candidates/{candidate.Id}/documents/{document.Id}/content");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(bytes, await response.Content.ReadAsStringAsync());
+        Assert.True(response.Headers.CacheControl?.Private);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Contains("attachment", response.Content.Headers.ContentDisposition?.ToString());
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.DoesNotContain("../", response.Content.Headers.ContentDisposition?.ToString(), StringComparison.Ordinal);
+        await using var auditDb = NewDbContext();
+        Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.downloaded"));
+    }
+
+    [Fact]
+    public async Task Infected_upload_never_becomes_downloadable_and_is_audited_without_content()
+    {
+        await ResetAsync();
+        const string eicar = "EICAR-style synthetic marker for a deterministic fake scanner";
+        await using var factory = CreateFactory(
+            TestActor.Full,
+            new FakeMalwareScanner(new ScanResult(ScanVerdict.Infected, "scanner.infected", "Eicar-Test-Signature")));
+        using var client = factory.CreateClient();
+        var candidate = await CreateAsync(client, "Dorothy", "Vaughan");
+        var accepted = await UploadAsync(client, candidate.Id, "cv.txt", eicar, false);
+        var document = (await accepted.Content.ReadFromJsonAsync<DocumentResponse>())!;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var operation = await db.Operations.AsNoTracking().SingleAsync();
+            var outcome = await scope.ServiceProvider.GetRequiredService<ScanOperationHandler>()
+                .HandleAsync(operation, CancellationToken.None);
+            Assert.True(outcome.Completed);
+        }
+
+        var state = await client.GetFromJsonAsync<DocumentResponse>(
+            $"/api/candidates/{candidate.Id}/documents/{document.Id}");
+        Assert.Equal("Refused", state!.AvailabilityState);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(
+            $"/api/candidates/{candidate.Id}/documents/{document.Id}/content")).StatusCode);
+        await using var auditDb = NewDbContext();
+        var audit = await auditDb.AuditEvents.SingleAsync(value => value.EventType == "document.scan");
+        Assert.Contains("scanner.infected", audit.OutcomeCode, StringComparison.Ordinal);
+        Assert.DoesNotContain(eicar, audit.OutcomeCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("cv.txt", audit.OutcomeCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task An_actor_who_may_update_may_not_remove()
     {
         await ResetAsync();
@@ -366,7 +592,7 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task There_is_no_delete_verb_anywhere_in_the_candidate_group()
+    public async Task There_is_no_delete_verb_for_candidate_aggregate_routes()
     {
         await ResetAsync();
         await using var factory = CreateFactory(TestActor.Full);
@@ -378,7 +604,6 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             "/api/candidates",
             $"/api/candidates/{created.Id}",
             $"/api/candidates/{created.Id}/languages",
-            $"/api/candidates/{created.Id}/documents",
         })
         {
             var response = await client.DeleteAsync(route);
@@ -469,6 +694,32 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         return (await response.Content.ReadFromJsonAsync<CandidateResponse>())!;
     }
 
+    private static Task<HttpResponseMessage> UploadAsync(
+        HttpClient client,
+        Guid candidateId,
+        string fileName,
+        string content,
+        bool isPrimary)
+    {
+        return UploadBytesAsync(client, candidateId, fileName, System.Text.Encoding.UTF8.GetBytes(content), isPrimary);
+    }
+
+    private static Task<HttpResponseMessage> UploadBytesAsync(
+        HttpClient client,
+        Guid candidateId,
+        string fileName,
+        byte[] content,
+        bool isPrimary)
+    {
+        var multipart = new MultipartFormDataContent();
+        var file = new ByteArrayContent(content);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+        multipart.Add(file, "file", fileName);
+        multipart.Add(new StringContent("CV"), "documentType");
+        multipart.Add(new StringContent(isPrimary.ToString()), "isPrimary");
+        return client.PostAsync($"/api/candidates/{candidateId}/documents", multipart);
+    }
+
     /// <summary>
     /// Removes the parts that differ by design rather than by disclosure: the per-request
     /// correlation identifier, and the requested path, which echoes back an identifier the
@@ -489,13 +740,14 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await using var dbContext = NewDbContext();
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
         await dbContext.Documents.ExecuteDeleteAsync();
+        await dbContext.Operations.ExecuteDeleteAsync();
         await dbContext.CandidateLanguages.ExecuteDeleteAsync();
         await dbContext.CandidatePrograms.ExecuteDeleteAsync();
         await dbContext.CandidateEducation.ExecuteDeleteAsync();
         await dbContext.CandidateExperience.ExecuteDeleteAsync();
         await dbContext.CandidateSkills.ExecuteDeleteAsync();
         await dbContext.Candidates.ExecuteDeleteAsync();
-        await dbContext.AuditEvents.Where(audit => audit.EventType.StartsWith("candidate.")).ExecuteDeleteAsync();
+        await dbContext.AuditEvents.ExecuteDeleteAsync();
         await DatabaseInitializer.SeedCatalogsAsync(dbContext, CancellationToken.None);
     }
 
@@ -514,10 +766,19 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             .FirstAsync();
     }
 
+    private async Task<string> StoredDocumentKeyByIdAsync(Guid documentId)
+    {
+        await using var dbContext = NewDbContext();
+        return await dbContext.Documents.AsNoTracking()
+            .Where(document => document.Id == documentId)
+            .Select(document => document.StorageKey)
+            .SingleAsync();
+    }
+
     private ApplicationDbContext NewDbContext() => new(
         new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
 
-    private WebApplicationFactory<Program> CreateFactory(ICurrentActor actor)
+    private WebApplicationFactory<Program> CreateFactory(ICurrentActor actor, IMalwareScanner? scanner = null)
     {
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__ApplicationDatabase",
@@ -535,6 +796,8 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             {
                 services.RemoveAll<ICurrentActor>();
                 services.AddScoped(_ => actor);
+                services.RemoveAll<IMalwareScanner>();
+                services.AddSingleton<IMalwareScanner>(scanner ?? new FakeMalwareScanner());
             });
         });
     }
@@ -546,9 +809,13 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             Permissions.CandidatesRead,
             Permissions.CandidatesCreate,
             Permissions.CandidatesUpdate,
-            Permissions.CandidatesDelete);
+            Permissions.CandidatesDelete,
+            Permissions.DocumentsUpload,
+            Permissions.DocumentsDownload);
 
         public static TestActor Reader => new(true, Permissions.CandidatesRead);
+        public static TestActor DownloadOnly => new(true, Permissions.DocumentsDownload);
+        public static TestActor UploadOnly => new(true, Permissions.DocumentsUpload);
 
         /// <summary>May read and update, but not remove.</summary>
         public static TestActor Editor => new(true, Permissions.CandidatesRead, Permissions.CandidatesUpdate);

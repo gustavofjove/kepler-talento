@@ -215,6 +215,9 @@ public static class CandidateErrors
     public const string ConcurrencyConflict = "candidate.concurrency.conflict";
     public const string CatalogValueUnknown = "candidate.catalog_value.unknown";
     public const string RelationDuplicate = "candidate.relation.duplicate";
+    public const string LanguageDuplicate = "candidate.language.duplicate";
+    public const string ProgramDuplicate = "candidate.program.duplicate";
+    public const string SkillDuplicate = "candidate.skill.duplicate";
     public const string RemovedCandidate = "candidate.removed";
     public const string DocumentPrimaryAmbiguous = "candidate.document.primary_ambiguous";
     public const string ConstraintViolation = "candidate.constraint.violation";
@@ -267,8 +270,8 @@ internal static class CandidateGuards
     public static RequestValidationException UnknownCatalogValue(string property) =>
         new([new ValidationIssue(property, CandidateErrors.CatalogValueUnknown, CandidateErrors.CatalogValueUnknownMessage)]);
 
-    public static RequestValidationException Duplicate(string property) =>
-        new([new ValidationIssue(property, CandidateErrors.RelationDuplicate, CandidateErrors.RelationDuplicateMessage)]);
+    public static RequestValidationException Duplicate(string property, string code, string message) =>
+        new([new ValidationIssue(property, code, message)]);
 
     public static RequestValidationException PrimaryAmbiguous() =>
         new([new ValidationIssue(
@@ -290,6 +293,12 @@ internal static class CandidateGuards
     public static Exception ToException(CandidateSaveOutcome outcome) => outcome switch
     {
         CandidateSaveOutcome.ConcurrencyConflict => Conflict(),
+        CandidateSaveOutcome.LanguageDuplicate => Duplicate(
+            "Language", CandidateErrors.LanguageDuplicate, "El candidato ya tiene este idioma registrado."),
+        CandidateSaveOutcome.ProgramDuplicate => Duplicate(
+            "Program", CandidateErrors.ProgramDuplicate, "El candidato ya tiene este programa registrado."),
+        CandidateSaveOutcome.SkillDuplicate => Duplicate(
+            "Skill", CandidateErrors.SkillDuplicate, "El candidato ya tiene esta habilidad registrada."),
         _ => ConstraintViolation(),
     };
 }

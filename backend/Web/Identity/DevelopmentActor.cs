@@ -21,6 +21,8 @@ public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) 
         Permissions.CandidatesCreate,
         Permissions.CandidatesUpdate,
         Permissions.CandidatesDelete,
+        Permissions.DocumentsUpload,
+        Permissions.DocumentsDownload,
         Permissions.CatalogsRead,
         Permissions.CatalogsManage,
     ];

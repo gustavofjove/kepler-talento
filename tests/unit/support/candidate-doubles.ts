@@ -3,7 +3,6 @@ import type { CandidateGateway } from '../../../src/app/features/candidates/serv
 import { CandidateService } from '../../../src/app/features/candidates/services/candidate.service';
 import type {
   Candidate,
-  CandidateDocument,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -97,13 +96,6 @@ export class FakeCandidateApi implements CandidateGateway {
 
   setSkills(id: string, skills: CandidateSkill[], version: number): Promise<Candidate> {
     return this.write(id, version, (candidate) => ({ ...candidate, skills }));
-  }
-
-  setDocuments(id: string, documents: CandidateDocument[], version: number): Promise<Candidate> {
-    if (documents.filter((document) => document.isPrimary).length > 1) {
-      throw new ConflictError('Solo puede haber un documento principal por candidato.');
-    }
-    return this.write(id, version, (candidate) => ({ ...candidate, documents }));
   }
 
   private async write(

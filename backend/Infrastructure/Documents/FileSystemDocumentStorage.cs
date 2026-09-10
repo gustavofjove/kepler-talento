@@ -69,6 +69,13 @@ public sealed class FileSystemDocumentStorage(DocumentStorageOptions options) : 
         return Task.CompletedTask;
     }
 
+    public Task DeleteAvailableIfExistsAsync(string storageKey, CancellationToken cancellationToken)
+    {
+        var path = DocumentStorageKey.ResolveContained(_availableRoot, storageKey);
+        if (File.Exists(path)) File.Delete(path);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<StoredDocumentObject>> ListAvailableAsync(CancellationToken cancellationToken) =>
         ListAsync(_availableRoot, cancellationToken);
 

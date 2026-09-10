@@ -1,30 +1,39 @@
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
-import type { SearchResult } from '../models/search.models';
+import { useErrorToast } from '../../../core/services/use-error-toast';
+import type { SearchResult, SearchResultPage } from '../models/search.models';
 
-export function SearchResults({ results }: { results: SearchResult[] }) {
+interface SearchResultsProps {
+  results: SearchResultPage;
+  loading: boolean;
+  failed: boolean;
+  lastPage: number;
+  onPageChange: (page: number) => void;
+}
+
+export function SearchResults({
+  results,
+  loading,
+  failed,
+  lastPage,
+  onPageChange,
+}: SearchResultsProps) {
   const { documentService, toastService } = useServices();
+  const notifyError = useErrorToast();
   const canDownload = usePermission('download_candidate_documents');
 
   const canOpenCv = (result: SearchResult): boolean =>
     canDownload && Boolean(result.hasPrimaryCv && result.primaryCvDocumentId);
 
-  const openCv = (result: SearchResult): void => {
+  const openCv = async (result: SearchResult): Promise<void> => {
     if (!canOpenCv(result)) {
       toastService.show('No hay CV principal disponible o no tienes permiso.', 'warning');
       return;
     }
     try {
-      const secure = documentService.createSecureUrl(
-        result.candidateId,
-        result.primaryCvDocumentId!,
-      );
-      window.open(secure.url, '_blank', 'noopener,noreferrer');
+      await documentService.download(result.candidateId, result.primaryCvDocumentId!, 'cv.pdf');
     } catch (error) {
-      toastService.show(
-        error instanceof Error ? error.message : 'No se pudo abrir el CV.',
-        'error',
-      );
+      notifyError(error, 'No se pudo descargar el CV.');
     }
   };
 
@@ -43,8 +52,8 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
             </tr>
           </thead>
           <tbody>
-            {results.length ? (
-              results.map((result) => (
+            {results.items.length ? (
+              results.items.map((result) => (
                 <tr key={result.candidateId}>
                   <td>
                     <strong>
@@ -70,7 +79,7 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
                         className="button ghost"
                         type="button"
                         disabled={!canOpenCv(result)}
-                        onClick={() => openCv(result)}
+                        onClick={() => void openCv(result)}
                       >
                         Abrir CV
                       </button>
@@ -80,13 +89,52 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="muted">
-                  Sin resultados.
+                <td colSpan={6} className="muted" data-testid="search-empty">
+                  {loading
+                    ? 'Buscando…'
+                    : failed
+                      ? 'No se pudo completar la búsqueda.'
+                      : 'Sin resultados.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+      {/*
+        The count comes from the server, never from `results.items.length`: these items are
+        one page, and reporting their number as the total is exactly the mistake paging
+        introduces.
+      */}
+      <div className="toolbar" data-testid="search-pagination">
+        <p className="muted" data-testid="search-total">
+          {results.totalCount === 1
+            ? '1 candidato encontrado'
+            : `${results.totalCount} candidatos encontrados`}
+          {results.totalCount > 0 ? ` · Página ${results.page} de ${lastPage}` : ''}
+        </p>
+        <div className="form-actions">
+          <button
+            className="button ghost small"
+            type="button"
+            name="previousPage"
+            data-testid="search-previous-page"
+            disabled={loading || results.page <= 1}
+            onClick={() => onPageChange(results.page - 1)}
+          >
+            Anterior
+          </button>
+          <button
+            className="button ghost small"
+            type="button"
+            name="nextPage"
+            data-testid="search-next-page"
+            disabled={loading || results.page >= lastPage}
+            onClick={() => onPageChange(results.page + 1)}
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
       {!canDownload ? (
         <p className="empty-state">Tu rol no permite abrir CVs desde resultados.</p>

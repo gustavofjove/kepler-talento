@@ -12,7 +12,7 @@ test.describe('Security operational flows', () => {
     await context.close();
   });
 
-  test('uploads and opens candidate CV with secure action as admin', async ({
+  test('uploads and downloads a candidate CV through the protected API as admin', async ({
     browser,
     baseURL,
   }) => {
@@ -34,13 +34,18 @@ test.describe('Security operational flows', () => {
     });
     await page.click('button:has-text("Subir CV")');
 
-    await expect(page.locator('text=CV subido correctamente.')).toBeVisible();
-    await expect(page.locator('button:has-text("Abrir seguro")')).toBeEnabled();
+    await expect(
+      page.getByText('Archivo aceptado. El análisis de seguridad está en curso.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Descargar' })).toHaveCount(0);
+    await expect(page.getByTestId('document-availability')).toHaveText('Disponible', {
+      timeout: 25_000,
+    });
 
-    const popupPromise = page.waitForEvent('popup');
-    await page.click('button:has-text("Abrir seguro")');
-    const popup = await popupPromise;
-    await expect(popup).toHaveURL(/signed-url-placeholder|blob:|http/);
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Descargar' }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('cv.pdf');
 
     await context.close();
   });

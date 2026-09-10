@@ -24,11 +24,16 @@ public sealed class CandidateProgramConfiguration : IEntityTypeConfiguration<Can
                 "\"YearsExperience\" IS NULL OR \"YearsExperience\" >= 0");
         });
         builder.ConfigureRelation(Table, candidate => candidate.Programs);
+        builder.HasIndex(program => new { program.CandidateId, program.ProgramId })
+            .IsUnique()
+            .HasDatabaseName("UX_CND_CandidatePrograms_CandidateId_ProgramId");
         builder.HasCatalogReference(
             program => new { program.ProgramId, program.ProgramFamily },
             program => program.ProgramFamily);
         builder.HasCatalogReference(
             program => new { program.LevelId, program.LevelFamily },
             program => program.LevelFamily);
+        // See CandidateSkillConfiguration: KTL-10 adds no search index here either. The
+        // catalog foreign key's own index already leads with "ProgramId".
     }
 }

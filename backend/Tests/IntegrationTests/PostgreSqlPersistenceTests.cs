@@ -124,7 +124,11 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
 
             var unavailableScanner = new FakeMalwareScanner(new ScanResult(ScanVerdict.Error, "scanner.timeout"));
             var operation = new Operation(Guid.NewGuid(), "document.scan", "scanner-outage", $"document:{pendingId}:scan", now);
-            var outcome = await new ScanOperationHandler(dbContext, storage, unavailableScanner).HandleAsync(operation, CancellationToken.None);
+            var outcome = await new ScanOperationHandler(
+                dbContext,
+                storage,
+                unavailableScanner,
+                new DocumentRepository(dbContext)).HandleAsync(operation, CancellationToken.None);
 
             Assert.False(outcome.Completed);
             Assert.Equal("scanner.timeout", outcome.Code);
@@ -133,6 +137,62 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
             var cleanDownload = await new DocumentDownloadService(dbContext, storage).OpenCleanAsync(cleanId, CancellationToken.None);
             Assert.NotNull(cleanDownload);
             await cleanDownload!.Content.DisposeAsync();
+        }
+        finally
+        {
+            if (Directory.Exists(storageRoot)) Directory.Delete(storageRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Download_refuses_every_non_available_state_and_a_missing_binary()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var storageRoot = Path.Combine(Path.GetTempPath(), $"ktl-download-states-{Guid.NewGuid():N}");
+        try
+        {
+            var storageOptions = new DocumentStorageOptions { Root = storageRoot };
+            FileSystemDocumentStorage.ValidateAndPrepare(storageOptions);
+            var storage = new FileSystemDocumentStorage(storageOptions);
+            await using var dbContext = new ApplicationDbContext(options);
+            await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
+            var candidateId = Guid.NewGuid();
+            var now = DateTimeOffset.UtcNow;
+            dbContext.Candidates.Add(new Candidate(candidateId, "Estados", "Documento", now));
+
+            CandidateDocument Create(DocumentScanState state)
+            {
+                var id = Guid.NewGuid();
+                var value = new CandidateDocument(
+                    id,
+                    candidateId,
+                    DocumentStorageKey.Create(candidateId, id),
+                    $"{state}.pdf",
+                    "application/pdf",
+                    10,
+                    new string('a', 64),
+                    now);
+                if (state == DocumentScanState.Clean) value.MarkClean(null, now);
+                else if (state != DocumentScanState.PendingScan) value.MarkUnavailable(state, $"document.{state}", now);
+                return value;
+            }
+
+            var refused = new[]
+            {
+                Create(DocumentScanState.PendingScan),
+                Create(DocumentScanState.Infected),
+                Create(DocumentScanState.Rejected),
+                Create(DocumentScanState.ScanFailed),
+                Create(DocumentScanState.Clean),
+            };
+            dbContext.Documents.AddRange(refused);
+            await dbContext.SaveChangesAsync();
+            var downloads = new DocumentDownloadService(dbContext, storage);
+
+            foreach (var document in refused)
+            {
+                Assert.Null(await downloads.OpenCleanAsync(document.Id, CancellationToken.None));
+            }
         }
         finally
         {

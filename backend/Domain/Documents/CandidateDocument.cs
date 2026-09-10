@@ -90,7 +90,7 @@ public sealed class CandidateDocument
         {
             return;
         }
-        if (ScanState != DocumentScanState.PendingScan && ScanState != DocumentScanState.ScanFailed)
+        if (ScanState != DocumentScanState.PendingScan)
         {
             throw new InvalidOperationException("The document cannot transition to clean.");
         }

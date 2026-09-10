@@ -80,6 +80,18 @@ public sealed class ProjectDependencyTests
     }
 
     [Fact]
+    public void Document_slices_follow_the_existing_project_dependency_direction()
+    {
+        var applicationDocuments = Path.Combine(BackendRoot, "Application", "Features", "Documents");
+        var webDocuments = Path.Combine(BackendRoot, "Web", "Features", "Documents");
+        Assert.True(Directory.Exists(applicationDocuments));
+        Assert.True(Directory.Exists(webDocuments));
+        Assert.DoesNotContain(
+            Directory.EnumerateFiles(applicationDocuments, "*.cs", SearchOption.AllDirectories),
+            path => File.ReadAllText(path).Contains("KeplerTalento.Infrastructure", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Deliberately_invalid_fixture_is_rejected()
     {
         var invalid = new[] { "../Infrastructure/Infrastructure.csproj" };

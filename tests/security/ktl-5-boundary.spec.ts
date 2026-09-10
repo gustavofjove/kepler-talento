@@ -88,6 +88,18 @@ describe('KTL-5 fail-closed security boundary', () => {
     expect(errors).not.toMatch(/StackTrace|ConnectionString|StorageKey/);
   });
 
+  it('authorizes document upload and download separately and exposes no storage field', () => {
+    const endpoints = read('backend/Web/Features/Documents/DocumentEndpoints.cs');
+    const contract = read('backend/Application/Features/Documents/DocumentContract.cs');
+    expect(endpoints).toContain('Permissions.DocumentsUpload');
+    expect(endpoints).toContain('Permissions.DocumentsDownload');
+    expect(endpoints).toContain('return Results.NotFound()');
+    expect(contract).not.toMatch(/public sealed record CandidateDocumentResponse[\s\S]*StorageKey/);
+    expect(contract).not.toMatch(
+      /public sealed record CandidateDocumentResponse[\s\S]*ScannerSignature/,
+    );
+  });
+
   it('does not expose PostgreSQL, ClamAV, or document storage through Nginx', () => {
     const compose = read('docker-compose.yml');
     const nginx = read('nginx.conf');

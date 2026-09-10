@@ -1,140 +1,157 @@
-import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
+import type { ApiTransport } from '../../src/app/core/http/api-transport';
+import type { CandidateDocument } from '../../src/app/features/candidates/models/candidate.models';
+import type { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
 import { DocumentService } from '../../src/app/features/documents/services/document.service';
-import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
-import { createCandidateTestBed } from './support/candidate-doubles';
+
+const candidateId = 'candidate-1';
+const pending: CandidateDocument = {
+  id: 'document-1',
+  documentType: 'CV',
+  originalFilename: 'cv.pdf',
+  mimeType: 'application/pdf',
+  sizeBytes: 9,
+  isPrimary: true,
+  uploadedAt: '2026-09-10T00:00:00Z',
+  scanState: 'PendingScan',
+  availabilityState: 'Pending',
+};
 
 describe('DocumentService', () => {
-  let candidateService: CandidateService;
-  let documents: DocumentService;
-  let candidateId: string;
+  let service: DocumentService;
+  let request: ReturnType<typeof vi.fn>;
+  let download: ReturnType<typeof vi.fn>;
+  let refreshAggregate: ReturnType<typeof vi.fn>;
 
-  beforeEach(async () => {
-    localStorage.clear();
-    ({ service: candidateService } = createCandidateTestBed());
-    documents = new DocumentService(candidateService);
-    await candidateService.ensureLoaded();
-    candidateId = (
-      await candidateService.create({
-        ...EMPTY_CANDIDATE_DRAFT,
-        firstName: 'Marc',
-        lastName: 'Pons',
-      })
-    ).id;
-  });
-
-  it('uploads a PDF CV and records its metadata on the candidate', async () => {
-    const file = new File(['contenido'], 'cv.pdf', { type: 'application/pdf' });
-
-    const document = await documents.upload({ candidateId, file, isPrimary: true });
-
-    expect(document.documentType).toBe('CV');
-    expect(document.originalFilename).toBe('cv.pdf');
-    expect(document.isPrimary).toBe(true);
-    expect(candidateService.find(candidateId)?.documents).toHaveLength(1);
-  });
-
-  it('rejects a non-PDF file', async () => {
-    const file = new File(['contenido'], 'cv.docx', {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-
-    await expect(documents.upload({ candidateId, file, isPrimary: true })).rejects.toThrow(
-      /solo se permiten/i,
+  beforeEach(() => {
+    request = vi.fn().mockResolvedValue(pending);
+    download = vi.fn();
+    refreshAggregate = vi.fn().mockResolvedValue(undefined);
+    service = new DocumentService(
+      { refreshAggregate } as unknown as CandidateService,
+      { request, download } as unknown as ApiTransport,
     );
   });
 
-  it('demotes the previous primary CV when a new primary CV is uploaded', async () => {
-    await documents.upload({
-      candidateId,
-      file: new File(['a'], 'cv-old.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
-    await documents.upload({
-      candidateId,
-      file: new File(['b'], 'cv-new.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
+  it('transmits the selected file bytes as FormData without setting Content-Type', async () => {
+    const file = new File(['%PDF-test'], 'cv.pdf', { type: 'application/pdf' });
 
-    const primaryDocs = candidateService
-      .find(candidateId)!
-      .documents.filter((doc) => doc.isPrimary);
-    expect(primaryDocs).toHaveLength(1);
-    expect(primaryDocs[0].originalFilename).toBe('cv-new.pdf');
+    await expect(service.upload({ candidateId, file, isPrimary: true })).resolves.toEqual(pending);
+
+    const [path, options] = request.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/candidates/candidate-1/documents');
+    expect(options.method).toBe('POST');
+    expect(options.headers).toBeUndefined();
+    expect(options.body).toBeInstanceOf(FormData);
+    const form = options.body as FormData;
+    expect(form.get('file')).toBe(file);
+    expect(form.get('documentType')).toBe('CV');
+    expect(form.get('isPrimary')).toBe('true');
+    expect(refreshAggregate).toHaveBeenCalledWith(candidateId);
   });
 
-  it('creates a time-limited secure URL for an existing document', async () => {
-    const uploaded = await documents.upload({
-      candidateId,
-      file: new File(['a'], 'cv.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
+  it.each(['doc', 'docx', 'odt', 'rtf', 'txt', 'jpg', 'png', 'tiff', 'bmp'])(
+    'accepts .%s as a courtesy check and leaves content validation to the API',
+    async (extension) => {
+      await service.upload({
+        candidateId,
+        file: new File(['content'], `cv.${extension}`),
+        isPrimary: false,
+      });
+      expect(request).toHaveBeenCalledOnce();
+    },
+  );
 
-    const secure = documents.createSecureUrl(candidateId, uploaded.id);
-
-    expect(secure.documentId).toBe(uploaded.id);
-    expect(secure.expiresInSeconds).toBeGreaterThan(0);
-    expect(secure.url).toBeTruthy();
+  it('rejects an empty, oversized or disallowed file before transmission', async () => {
+    await expect(
+      service.upload({ candidateId, file: new File([], 'empty.pdf'), isPrimary: false }),
+    ).rejects.toThrow('vacío');
+    await expect(
+      service.upload({
+        candidateId,
+        file: new File([new Uint8Array(20 * 1024 * 1024 + 1)], 'large.pdf'),
+        isPrimary: false,
+      }),
+    ).rejects.toThrow('20 MB');
+    await expect(
+      service.upload({ candidateId, file: new File(['x'], 'cv.svg'), isPrimary: false }),
+    ).rejects.toThrow('no está permitido');
+    expect(request).not.toHaveBeenCalled();
   });
 
-  it('throws when requesting a secure URL for a missing document', () => {
-    expect(() => documents.createSecureUrl(candidateId, 'missing-doc')).toThrow(/no encontrado/i);
+  it('uses the six document routes', async () => {
+    request.mockResolvedValueOnce([pending]);
+    await service.list(candidateId);
+    await service.get(candidateId, pending.id);
+    await service.setPrimary(candidateId, pending.id);
+    request.mockResolvedValueOnce(undefined);
+    await service.remove(candidateId, pending.id);
+
+    expect(request.mock.calls.map(([path, options]) => [path, options?.method])).toEqual([
+      ['/candidates/candidate-1/documents', undefined],
+      ['/candidates/candidate-1/documents/document-1', undefined],
+      ['/candidates/candidate-1/documents/document-1/primary', 'PUT'],
+      ['/candidates/candidate-1/documents/document-1', 'DELETE'],
+    ]);
   });
 
-  it('rejects a file bigger than the allowed size', async () => {
-    const bigFile = new File(['x'.repeat(11 * 1024 * 1024)], 'huge.pdf', {
-      type: 'application/pdf',
+  it('downloads through the transport and saves its sanitised filename', async () => {
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:download');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    download.mockResolvedValue({
+      blob: new Blob(['bytes']),
+      fileName: 'cv_seguro.pdf',
+      contentType: 'application/pdf',
     });
 
-    await expect(documents.upload({ candidateId, file: bigFile, isPrimary: true })).rejects.toThrow(
-      /10 MB/i,
+    await service.download(candidateId, pending.id, 'cv.pdf');
+
+    expect(download).toHaveBeenCalledWith(
+      '/candidates/candidate-1/documents/document-1/content',
+      'cv.pdf',
     );
+    expect(click).toHaveBeenCalledOnce();
   });
 
-  it('can mark another document as primary', async () => {
-    const one = await documents.upload({
+  it('polls with bounded backoff and stops at the settled state', async () => {
+    vi.useFakeTimers();
+    const clean = {
+      ...pending,
+      scanState: 'Clean' as const,
+      availabilityState: 'Available' as const,
+    };
+    request.mockResolvedValueOnce(pending).mockResolvedValueOnce(clean);
+    const updates = vi.fn();
+    const observation = service.observeUntilSettled(
       candidateId,
-      file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
-    const two = await documents.upload({
-      candidateId,
-      file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
-      isPrimary: false,
-    });
+      pending.id,
+      updates,
+      new AbortController().signal,
+    );
 
-    await documents.setPrimary(candidateId, two.id);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await vi.advanceTimersByTimeAsync(2_000);
 
-    const candidate = candidateService.find(candidateId)!;
-    expect(candidate.documents.find((doc) => doc.id === one.id)?.isPrimary).toBe(false);
-    expect(candidate.documents.find((doc) => doc.id === two.id)?.isPrimary).toBe(true);
+    await expect(observation).resolves.toEqual(clean);
+    expect(updates).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
-  it('removes a document and promotes another one if primary is deleted', async () => {
-    const one = await documents.upload({
+  it('issues no polling request after cancellation', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    const observation = service.observeUntilSettled(
       candidateId,
-      file: new File(['a'], 'one.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
-    const two = await documents.upload({
-      candidateId,
-      file: new File(['b'], 'two.pdf', { type: 'application/pdf' }),
-      isPrimary: false,
-    });
-
-    await documents.remove(candidateId, one.id);
-
-    const candidate = candidateService.find(candidateId)!;
-    expect(candidate.documents.some((doc) => doc.id === one.id)).toBe(false);
-    expect(candidate.documents.find((doc) => doc.id === two.id)?.isPrimary).toBe(true);
-  });
-
-  it('stores document metadata on the server rather than in browser storage', async () => {
-    await documents.upload({
-      candidateId,
-      file: new File(['a'], 'cv.pdf', { type: 'application/pdf' }),
-      isPrimary: true,
-    });
-
-    expect(localStorage.length).toBe(0);
+      pending.id,
+      vi.fn(),
+      controller.signal,
+    );
+    controller.abort();
+    await expect(observation).rejects.toBeDefined();
+    await vi.runAllTimersAsync();
+    expect(request).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

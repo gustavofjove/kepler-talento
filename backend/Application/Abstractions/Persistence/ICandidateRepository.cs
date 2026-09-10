@@ -1,3 +1,4 @@
+using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Documents;
 
@@ -14,6 +15,9 @@ public enum CandidateSaveOutcome
     /// translates it into a stable validation code; the detail never reaches the caller.
     /// </summary>
     ConstraintViolation,
+    LanguageDuplicate,
+    ProgramDuplicate,
+    SkillDuplicate,
 }
 
 /// <summary>
@@ -54,11 +58,9 @@ public sealed record CandidateSummary(
     /// </summary>
     Guid? PrimaryDocumentId);
 
-/// <summary>
-/// One document's metadata as a write supplies it. There is no storage key and no scan
-/// state: until KTL-9 moves the bytes, a document record is metadata and nothing else, and
-/// the storage key is the persistence layer's business either way.
-/// </summary>
+// Persistence-only compatibility shape for the KTL-7 migration implementation. No
+// application command or HTTP route accepts it after KTL-9; documents are created only
+// by the content-carrying upload slice.
 public sealed record DocumentMetadata(
     Guid? Id,
     string DocumentType,
@@ -67,6 +69,11 @@ public sealed record DocumentMetadata(
     long SizeBytes,
     bool IsPrimary);
 
+/// <summary>
+/// One document's metadata as a write supplies it. There is no storage key and no scan
+/// state: until KTL-9 moves the bytes, a document record is metadata and nothing else, and
+/// the storage key is the persistence layer's business either way.
+/// </summary>
 /// <summary>
 /// The candidate aggregate's persistence contract, modelled on
 /// <see cref="ICatalogRepository"/>. There is deliberately no delete member: a candidate
@@ -89,6 +96,26 @@ public interface ICandidateRepository
     Task<IReadOnlyList<CandidateSummary>> ListAsync(bool includeInactive, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<CandidateDocument>> ListDocumentsAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts the candidates matching a validated filter value and materializes one page of
+    /// them, in <c>UpdatedAtUtc</c> descending, <c>Id</c> ascending order.
+    /// </summary>
+    /// <remarks>
+    /// Filtering, counting, ordering and paging all happen in the database. No aggregate is
+    /// loaded and no relation is joined into the projection: an aggregate is far more
+    /// personal data than a result row needs, and a relation join would let a candidate
+    /// holding a value twice appear on the page twice.
+    ///
+    /// The count and the page are two statements under read-committed isolation. For
+    /// unchanged data they agree exactly; a concurrent write may leave the count describing
+    /// a marginally different population than the page.
+    /// </remarks>
+    Task<SearchPage<CandidateSearchItem>> SearchAsync(
+        SearchFiltersValue filters,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken);
 
     void Add(Candidate candidate);
 
@@ -122,13 +149,6 @@ public interface ICandidateRepository
     /// clearing the old primary flag must reach the database before the new one is set.
     /// Both phases and the audit event share one transaction.
     /// </remarks>
-    Task<CandidateSaveOutcome> ReplaceDocumentsAsync(
-        Candidate candidate,
-        uint version,
-        IReadOnlyList<DocumentMetadata> desired,
-        string auditEventType,
-        CancellationToken cancellationToken);
-
     /// <summary>
     /// Declares the version the caller read, so a write against a stale version is
     /// rejected rather than silently overwriting a concurrent change.

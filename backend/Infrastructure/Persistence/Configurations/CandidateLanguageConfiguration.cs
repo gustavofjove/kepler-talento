@@ -21,6 +21,9 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
                 CandidateRelationMapping.FamilyCheck("LevelFamily", CatalogFamilies.LanguageLevel));
         });
         builder.ConfigureRelation(Table, candidate => candidate.Languages);
+        builder.HasIndex(language => new { language.CandidateId, language.LanguageId })
+            .IsUnique()
+            .HasDatabaseName("UX_CND_CandidateLanguages_CandidateId_LanguageId");
         builder.Property(language => language.Certification).HasMaxLength(160);
         builder.HasCatalogReference(
             language => new { language.LanguageId, language.LanguageFamily },
@@ -28,5 +31,7 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
         builder.HasCatalogReference(
             language => new { language.LevelId, language.LevelFamily },
             language => language.LevelFamily);
+        // See CandidateSkillConfiguration: KTL-10 adds no search index here either. The
+        // catalog foreign key's own index already leads with "LanguageId".
     }
 }

@@ -132,14 +132,14 @@ internal static class CandidateRelationWrite
         id is null ? null : current.FirstOrDefault(relation => relation.Id == id.Value);
 
     /// <summary>Refuses the same value twice in one submitted collection.</summary>
-    public static void RejectDuplicates(IEnumerable<Guid> values, string property)
+    public static void RejectDuplicates(IEnumerable<Guid> values, string property, string code, string message)
     {
         var seen = new HashSet<Guid>();
         foreach (var value in values)
         {
             if (!seen.Add(value))
             {
-                throw CandidateGuards.Duplicate(property);
+                throw CandidateGuards.Duplicate(property, code, message);
             }
         }
     }
@@ -191,7 +191,10 @@ public sealed class SetCandidateLanguagesHandler(
                     replacement.Add(existing);
                 }
                 CandidateRelationWrite.RejectDuplicates(
-                    replacement.Select(item => item.LanguageId), "Language");
+                    replacement.Select(item => item.LanguageId),
+                    "Language",
+                    CandidateErrors.LanguageDuplicate,
+                    "El candidato ya tiene este idioma registrado.");
                 return candidate.ReplaceLanguages(replacement, DateTimeOffset.UtcNow);
             },
             cancellationToken);
@@ -237,7 +240,10 @@ public sealed class SetCandidateProgramsHandler(
                     replacement.Add(existing);
                 }
                 CandidateRelationWrite.RejectDuplicates(
-                    replacement.Select(item => item.ProgramId), "Program");
+                    replacement.Select(item => item.ProgramId),
+                    "Program",
+                    CandidateErrors.ProgramDuplicate,
+                    "El candidato ya tiene este programa registrado.");
                 return candidate.ReplacePrograms(replacement, DateTimeOffset.UtcNow);
             },
             cancellationToken);
@@ -385,9 +391,11 @@ public sealed class SetCandidateSkillsHandler(
                     replacement.Add(existing);
                 }
                 CandidateRelationWrite.RejectDuplicates(
-                    replacement.Select(item => item.SkillId), "Skill");
+                    replacement.Select(item => item.SkillId),
+                    "Skill",
+                    CandidateErrors.SkillDuplicate,
+                    "El candidato ya tiene esta habilidad registrada.");
                 return candidate.ReplaceSkills(replacement, DateTimeOffset.UtcNow);
             },
             cancellationToken);
 }
-
