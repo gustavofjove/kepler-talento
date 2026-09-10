@@ -34,6 +34,43 @@ navegador queda abandonada; no se migra.
 El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y auditoría está en
 [`docs/ktl-6/catalogs.md`](docs/ktl-6/catalogs.md).
 
+## Migración de Access KTL-7
+
+El esquema de candidatos (`CND_Candidates` y sus tablas de relación de idiomas, programas,
+formación, experiencia y habilidades) se entrega en este slice, junto con la herramienta que
+lo rellena desde la base de datos Access heredada.
+
+`backend/Tools/DataMigration`, compilada como `ktl-migrate`, es una **herramienta de línea de
+comandos que ejecuta el operador**. Deliberadamente no es accesible por HTTP y ningún proyecto
+de la API la referencia: mover todo el conjunto de datos de candidatos no es una superficie de
+petición que el producto deba tener. **No** es la pantalla de administración «Importación»,
+que valida un CSV plano y pequeño en el navegador y no crea ningún candidato.
+
+```powershell
+ktl-migrate validate --connection <string> --export <directory> [--mappings <file>] [--output <directory>]
+ktl-migrate load     --connection <string> --export <directory> --pre-migration-backup <label> [--overwrite-app-edits]
+ktl-migrate report   --connection <string> --run <guid>
+```
+
+- `validate` no escribe ningún dato de negocio: prepara la exportación en un esquema de
+  staging, aplica todas las reglas de fila, resuelve todas las referencias de catálogo y
+  verifica todos los documentos, y después emite el informe.
+- `load` se niega a arrancar sin `--pre-migration-backup`; el informe nombra esa copia de
+  seguridad como la forma de deshacer la ejecución.
+- Las reejecuciones se basan en un identificador de origen por fila, de modo que corrigen en
+  lugar de duplicar. Los registros que la aplicación haya modificado desde su carga se omiten
+  y se informan, no se sobrescriben.
+
+La herramienta se conecta con el rol de base de datos de **migración**, nunca con el rol de
+runtime. Los valores de texto libre de Access se resuelven contra entradas de catálogo
+existentes y nunca se crean automáticamente; todo lo que quede sin resolver se informa para
+que se tome una decisión explícita.
+
+Consulta [`docs/ktl-7/migration-runbook.md`](docs/ktl-7/migration-runbook.md) para la
+secuencia del operador y el rollback, y
+[`docs/ktl-7/access-export-procedure.md`](docs/ktl-7/access-export-procedure.md) para el
+contrato de exportación.
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se
@@ -161,6 +198,8 @@ Documentación principal:
 
 - [Brief KTL-5](openspec/KTL-5.md)
 - [Brief KTL-6](openspec/KTL-6.md) y [catálogos KTL-6](docs/ktl-6/catalogs.md)
+- [Brief KTL-7](openspec/KTL-7.md), [runbook de migración](docs/ktl-7/migration-runbook.md) y
+  [procedimiento de exportación](docs/ktl-7/access-export-procedure.md)
 - [Cambio OpenSpec](openspec/changes/ktl-5-dotnet-infrastructure)
 - [Plan técnico existente](specs/001-gestion-cvs-rrhh/plan.md)
 - [Principios vigentes](openspec/config.yaml)

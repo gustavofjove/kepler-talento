@@ -20,6 +20,11 @@ public sealed class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogI
             table.HasCheckConstraint("CK_CAT_CatalogItems_SortOrder", "\"SortOrder\" > 0");
         });
         builder.HasKey(item => item.Id);
+        // Candidate relations reference a catalog entry by (Id, Family) so a language
+        // reference cannot resolve to a sector. That composite foreign key needs this
+        // alternate key as its principal.
+        builder.HasAlternateKey(item => new { item.Id, item.Family })
+            .HasName(CandidateRelationMapping.CatalogAlternateKey);
         builder.Property(item => item.Family).HasMaxLength(40).IsRequired();
         builder.Property(item => item.Code).HasMaxLength(80).IsRequired();
         builder.Property(item => item.NameEs).HasMaxLength(160).IsRequired();

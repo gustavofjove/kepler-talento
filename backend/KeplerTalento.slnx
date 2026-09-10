@@ -3,6 +3,9 @@
   <Project Path="Application/Application.csproj" />
   <Project Path="Infrastructure/Infrastructure.csproj" />
   <Project Path="Web/Web.csproj" />
+  <Folder Name="/Tools/">
+    <Project Path="Tools/DataMigration/DataMigration.csproj" />
+  </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/UnitTests/UnitTests.csproj" />
     <Project Path="Tests/IntegrationTests/IntegrationTests.csproj" />

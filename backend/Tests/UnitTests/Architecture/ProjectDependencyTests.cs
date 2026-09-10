@@ -18,11 +18,29 @@ public sealed class ProjectDependencyTests
     [InlineData("Application/Application.csproj", "Domain/Domain.csproj")]
     [InlineData("Infrastructure/Infrastructure.csproj", "Application/Application.csproj", "Domain/Domain.csproj")]
     [InlineData("Web/Web.csproj", "Application/Application.csproj", "Infrastructure/Infrastructure.csproj")]
+    [InlineData("Tools/DataMigration/DataMigration.csproj", "Infrastructure/Infrastructure.csproj")]
     public void Production_project_references_match_the_approved_graph(
         string project,
         params string[] expected)
     {
         Assert.Equal(expected.Order(), ReadProductionReferences(project).Order());
+    }
+
+    /// <summary>
+    /// The migration tool moves the whole candidate dataset. It is an operator-run
+    /// executable on purpose: if the API could reference it, the bulk-data path would be one
+    /// endpoint away from being reachable over HTTP.
+    /// </summary>
+    [Theory]
+    [InlineData("Domain/Domain.csproj")]
+    [InlineData("Application/Application.csproj")]
+    [InlineData("Infrastructure/Infrastructure.csproj")]
+    [InlineData("Web/Web.csproj")]
+    public void No_production_project_references_the_migration_tool(string project)
+    {
+        Assert.DoesNotContain(
+            ReadProductionReferences(project),
+            reference => reference.StartsWith("Tools/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -54,6 +72,7 @@ public sealed class ProjectDependencyTests
             "Application/Application.csproj" => ["../Domain/Domain.csproj"],
             "Infrastructure/Infrastructure.csproj" => ["../Application/Application.csproj", "../Domain/Domain.csproj"],
             "Web/Web.csproj" => ["../Application/Application.csproj", "../Infrastructure/Infrastructure.csproj"],
+            "Tools/DataMigration/DataMigration.csproj" => ["../../Infrastructure/Infrastructure.csproj"],
             _ => Array.Empty<string>(),
         };
         return references.Order().SequenceEqual(allowed.Order());

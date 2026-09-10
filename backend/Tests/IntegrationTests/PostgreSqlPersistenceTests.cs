@@ -38,7 +38,21 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
         {
             names.Add(reader.GetString(0));
         }
-        Assert.Equal(["AUD_Events", "CAT_CatalogItems", "CND_Candidates", "CND_Documents", "OPS_Operations"], names);
+        Assert.Equal(
+            [
+                "AUD_Events",
+                "CAT_CatalogItems",
+                "CND_CandidateEducation",
+                "CND_CandidateExperience",
+                "CND_CandidateLanguages",
+                "CND_CandidatePrograms",
+                "CND_CandidateSkills",
+                "CND_Candidates",
+                "CND_Documents",
+                "OPS_MigrationRuns",
+                "OPS_Operations",
+            ],
+            names);
         await reader.CloseAsync();
 
         await using var grantsCommand = new NpgsqlCommand(

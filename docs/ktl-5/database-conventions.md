@@ -9,7 +9,7 @@ for features not migrated yet and is not replayed into this database.
 | Prefix | Owner                                  | Examples                              |
 | ------ | -------------------------------------- | ------------------------------------- |
 | `CND_` | candidate/profile/document metadata    | `"CND_Candidates"`, `"CND_Documents"` |
-| `CAT_` | business-maintained catalogs           | reserved for later slices             |
+| `CAT_` | business-maintained catalogs           | `"CAT_CatalogItems"` (KTL-6)          |
 | `OPS_` | durable background/import/export state | `"OPS_Operations"`                    |
 | `AUD_` | append-only audit records              | `"AUD_Events"`                        |
 | `ADM_` | future administration/authorization    | reserved; authentication is deferred  |
@@ -17,6 +17,9 @@ for features not migrated yet and is not replayed into this database.
 Every prefixed physical identifier is explicitly quoted and therefore case-sensitive.
 C# entity and property names remain idiomatic and do not repeat database prefixes. New
 prefixes require an architecture decision and an update to this registry.
+
+KTL-7 added the candidate relation tables, the migration-run history, and the composite
+catalog foreign key. See [`../ktl-7/database-notes.md`](../ktl-7/database-notes.md).
 
 ## Migration and runtime ownership
 

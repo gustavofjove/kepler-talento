@@ -41,6 +41,25 @@ public sealed class CandidateDocument
     public string ContentType { get; private set; } = string.Empty;
     public long Size { get; private set; }
     public string Sha256 { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The business kind of the document (CV, cover letter, certificate, ...). Free text:
+    /// it is descriptive metadata, not a value the product branches on.
+    /// </summary>
+    public string DocumentType { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Marks the candidate's principal document. At most one document per candidate may
+    /// carry this, enforced by a partial unique index rather than by writer discipline.
+    /// </summary>
+    public bool IsPrimary { get; private set; }
+
+    /// <summary>
+    /// Provenance of a document loaded from the legacy Access dataset; null for documents
+    /// the application created. See <see cref="Candidates.Candidate.SourceKey"/>.
+    /// </summary>
+    public string? SourceKey { get; private set; }
+
     public DocumentScanState ScanState { get; private set; } = DocumentScanState.PendingScan;
     public string? ScanFailureCode { get; private set; }
     public string? ScannerSignature { get; private set; }
@@ -48,6 +67,22 @@ public sealed class CandidateDocument
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public uint Version { get; private set; }
+
+    public void SetDocumentType(string? documentType) =>
+        DocumentType = (documentType ?? string.Empty).Trim();
+
+    public void SetPrimary(bool isPrimary, DateTimeOffset updatedAtUtc)
+    {
+        if (IsPrimary == isPrimary)
+        {
+            return;
+        }
+        IsPrimary = isPrimary;
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
+    public void SetSourceKey(string? sourceKey) =>
+        SourceKey = string.IsNullOrWhiteSpace(sourceKey) ? null : sourceKey.Trim();
 
     public void MarkClean(string? signature, DateTimeOffset scannedAtUtc)
     {
