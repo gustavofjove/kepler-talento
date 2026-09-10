@@ -795,6 +795,63 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Search.SearchPreset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FilterSchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Filters")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset?>("LastUsedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_SearchPresets_Owner_NormalizedName");
+
+                    b.ToTable("ADM_SearchPresets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_FilterSchemaVersion", "\"FilterSchemaVersion\" >= 1");
+
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Filters", "jsonb_typeof(\"Filters\") = 'object'");
+
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Name", "char_length(btrim(\"Name\")) > 0 AND char_length(\"NormalizedName\") > 0");
+
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Owner", "char_length(\"OwnerId\") > 0");
+
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\" AND (\"LastUsedAtUtc\" IS NULL OR \"LastUsedAtUtc\" <= \"UpdatedAtUtc\")");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateEducation", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)

@@ -1,6 +1,7 @@
 using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
+using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Documents;
@@ -76,6 +77,19 @@ public sealed class CandidateRepository(
             .OrderByDescending(document => document.IsPrimary)
             .ThenBy(document => document.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+
+    public async Task<SearchPage<CandidateSearchItem>> SearchAsync(
+        SearchFiltersValue filters,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var search = new CandidateSearchQuery(dbContext);
+        var matching = await search.MatchingAsync(filters, cancellationToken);
+        var totalCount = await matching.CountAsync(cancellationToken);
+        var items = await search.Page(matching, page, pageSize).ToListAsync(cancellationToken);
+        return new SearchPage<CandidateSearchItem>(items, page, pageSize, totalCount);
+    }
 
     public void Add(Candidate candidate) => dbContext.Candidates.Add(candidate);
 

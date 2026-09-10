@@ -9,6 +9,7 @@ using KeplerTalento.Web.Errors;
 using KeplerTalento.Web.Features.Candidates;
 using KeplerTalento.Web.Features.Catalogs;
 using KeplerTalento.Web.Features.Documents;
+using KeplerTalento.Web.Features.Search;
 using KeplerTalento.Web.Health;
 using KeplerTalento.Web.Identity;
 using KeplerTalento.Web.Observability;
@@ -167,6 +168,7 @@ app.MapGet("/api/health/scanner", async (
 app.MapCatalogEndpoints();
 app.MapCandidateEndpoints();
 app.MapDocumentEndpoints();
+app.MapSearchEndpoints();
 if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
 {
     app.UseSwaggerGen();

@@ -1,174 +1,164 @@
-import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
+import { ApiTransport } from '../../src/app/core/http/api-transport';
 import { CandidateSearchService } from '../../src/app/features/search/services/candidate-search.service';
-import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
-import { createCandidateTestBed, type FakeCandidateApi } from './support/candidate-doubles';
+import type { SearchFilters } from '../../src/app/features/search/models/search.models';
 
+/**
+ * The service is now a thin, honest API client: it serializes the filter contract, applies
+ * the paging defaults and propagates the caller's cancellation signal.
+ *
+ * The filter *semantics* are no longer tested here, and deliberately so. They are SQL now,
+ * and they are proven against a real PostgreSQL instance in
+ * `backend/Tests/IntegrationTests/SearchApiTests.cs`, where every family, both modes and the
+ * no-duplicates guarantee are checked against a preserved transcription of the browser
+ * evaluator this service replaces. Re-asserting them here would test a mock.
+ */
 describe('CandidateSearchService', () => {
-  let candidateService: CandidateService;
-  let candidateApi: FakeCandidateApi;
-  let search: CandidateSearchService;
+  const page = {
+    items: [
+      {
+        candidateId: 'c-1',
+        firstName: 'Ana',
+        lastName: 'Duplicada',
+        phone: '+34 600 000 001',
+        email: 'ana@ejemplo.test',
+        status: 'available',
+        hasPrimaryCv: true,
+        primaryCvDocumentId: 'd-1',
+        updatedAt: '2026-03-01T09:01:00Z',
+      },
+    ],
+    page: 1,
+    pageSize: 25,
+    totalCount: 42,
+  };
 
-  beforeEach(async () => {
-    localStorage.clear();
-    ({ service: candidateService, api: candidateApi } = createCandidateTestBed());
-    search = new CandidateSearchService(candidateService);
-    await candidateService.ensureLoaded();
+  const respond = (body: unknown = page) =>
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
 
-    const ana = await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Ana',
-      lastName: 'Texidor',
-      status: 'available',
-    });
-    await candidateService.setLanguages(ana.id, [
-      { id: 'l1', language: 'Inglés', level: 'B2' },
-      { id: 'l2', language: 'Francés', level: 'B1' },
-    ]);
-    await candidateService.setPrograms(ana.id, [{ id: 'p1', program: 'Excel', level: 'Avanzado' }]);
-    const storedAna = candidateService.find(ana.id)!;
-    candidateApi.seed({
-      ...storedAna,
-      documentCount: 1,
-      primaryDocumentId: 'd1',
-      documents: [
-        {
-          id: 'd1',
-          documentType: 'CV',
-          originalFilename: 'ana.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 10,
-          isPrimary: true,
-          uploadedAt: new Date().toISOString(),
-        },
-      ],
-    });
-    await candidateService.refreshAggregate(ana.id);
+  const build = (fetcher: ReturnType<typeof vi.fn>) =>
+    new CandidateSearchService(new ApiTransport('/api', 1_000, fetcher));
 
-    const bea = await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Bea',
-      lastName: 'Soriano',
-      status: 'new',
-    });
-    await candidateService.setLanguages(bea.id, [{ id: 'l3', language: 'Inglés', level: 'A2' }]);
-
-    const inactiveCarla = await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Carla',
-      lastName: 'Mendez',
-    });
-    await candidateService.deactivate(inactiveCarla.id);
+  const filters = (overrides: Partial<SearchFilters> = {}): SearchFilters => ({
+    text: '',
+    statusValues: ['available'],
+    skillCriteria: [],
+    skillMode: 'ANY',
+    languageCriteria: [],
+    languageMode: 'ANY',
+    programCriteria: [],
+    programMode: 'ANY',
+    hasCv: '',
+    ...overrides,
   });
 
-  it('returns all active candidates with empty filters', async () => {
-    const results = await search.search(search.emptyFilters());
-    expect(results.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
-  });
+  const sentBody = (fetcher: ReturnType<typeof vi.fn>) =>
+    JSON.parse(fetcher.mock.calls[0][1].body as string);
 
-  it('filters by free text across name, email, phone, and notes', async () => {
-    const results = await search.search({ ...search.emptyFilters(), text: 'texidor' });
-    expect(results).toHaveLength(1);
-    expect(results[0].lastName).toBe('Texidor');
-  });
-
-  it('combines status and free-text filters with AND semantics', async () => {
-    const results = await search.search({
-      ...search.emptyFilters(),
-      text: 'ana',
-      statusValues: ['new'],
-    });
-    expect(results).toHaveLength(0);
-  });
-
-  it('matches candidates when any selected status is present', async () => {
-    const results = await search.search({
-      ...search.emptyFilters(),
-      statusValues: ['new', 'available'],
-    });
-    expect(results.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
-  });
-
-  it('matches languages in ANY mode when at least one selected language is present', async () => {
-    const results = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [{ value: 'Francés', level: '' }],
-      languageMode: 'ANY',
-    });
-    expect(results.map((item) => item.lastName)).toEqual(['Texidor']);
-  });
-
-  it('matches programs in ALL mode only when every selected program is present', async () => {
-    const results = await search.search({
-      ...search.emptyFilters(),
-      programCriteria: [
-        { value: 'Excel', level: '' },
-        { value: 'SAP', level: '' },
-      ],
+  it('posts the complete filter contract to the search route', async () => {
+    const fetcher = respond();
+    const wanted = filters({
+      text: 'Marta',
+      skillCriteria: [{ value: 'Java', level: 'Avanzado' }],
+      skillMode: 'ALL',
+      languageCriteria: [{ value: 'Inglés', level: '' }],
+      programCriteria: [{ value: 'Excel', level: 'Alto' }],
       programMode: 'ALL',
+      hasCv: 'yes',
     });
-    expect(results).toHaveLength(0);
+
+    await build(fetcher).search(wanted);
+
+    expect(fetcher.mock.calls[0][0]).toBe('/api/candidates/search');
+    expect(fetcher.mock.calls[0][1].method).toBe('POST');
+    // POST rather than GET precisely so the search term does not travel in a URL that
+    // proxies and access logs record.
+    expect(fetcher.mock.calls[0][0]).not.toContain('Marta');
+    expect(sentBody(fetcher).filters).toEqual(wanted);
   });
 
-  it('narrows a criterion to the exact level when one is selected', async () => {
-    const withB2 = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [{ value: 'Inglés', level: 'B2' }],
-    });
-    expect(withB2.map((item) => item.lastName)).toEqual(['Texidor']);
+  it('applies the documented paging defaults and passes an explicit page through', async () => {
+    const withDefaults = respond();
+    await build(withDefaults).search(filters());
+    expect(sentBody(withDefaults)).toMatchObject({ page: 1, pageSize: 25 });
 
-    const anyLevel = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [{ value: 'Inglés', level: '' }],
-    });
-    expect(anyLevel.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
+    const withPage = respond();
+    await build(withPage).search(filters(), { page: 3, pageSize: 100 });
+    expect(sentBody(withPage)).toMatchObject({ page: 3, pageSize: 100 });
   });
 
-  it('combines several criteria of the same type with ANY and ALL semantics', async () => {
-    const anyOf = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [
-        { value: 'Inglés', level: 'A2' },
-        { value: 'Francés', level: 'B1' },
-      ],
-      languageMode: 'ANY',
-    });
-    expect(anyOf.map((item) => item.lastName).sort()).toEqual(['Soriano', 'Texidor']);
+  it('returns the server page envelope rather than a bare list', async () => {
+    const result = await build(respond()).search(filters());
 
-    const allOf = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [
-        { value: 'Inglés', level: 'B2' },
-        { value: 'Francés', level: 'B1' },
-      ],
-      languageMode: 'ALL',
-    });
-    expect(allOf.map((item) => item.lastName)).toEqual(['Texidor']);
+    // The caller must be able to tell "25 shown" from "42 matched"; a bare array cannot.
+    expect(result.totalCount).toBe(42);
+    expect(result.page).toBe(1);
+    expect(result.pageSize).toBe(25);
+    expect(result.items).toHaveLength(1);
   });
 
-  it('combines different criteria types with AND regardless of each type mode', async () => {
-    const results = await search.search({
-      ...search.emptyFilters(),
-      languageCriteria: [{ value: 'Inglés', level: '' }],
-      languageMode: 'ANY',
-      programCriteria: [{ value: 'Excel', level: 'Avanzado' }],
-      programMode: 'ANY',
+  it('returns only the minimal projection the server sends', async () => {
+    const result = await build(respond()).search(filters());
+
+    expect(Object.keys(result.items[0]).sort()).toEqual(
+      [
+        'candidateId',
+        'email',
+        'firstName',
+        'hasPrimaryCv',
+        'lastName',
+        'phone',
+        'primaryCvDocumentId',
+        'status',
+        'updatedAt',
+      ].sort(),
+    );
+  });
+
+  it('propagates the caller cancellation signal to the network request', async () => {
+    const controller = new AbortController();
+    const fetcher = vi.fn(
+      (_input: unknown, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError')),
+          ),
+        ),
+    );
+
+    const request = build(fetcher as ReturnType<typeof vi.fn>).search(filters(), {
+      signal: controller.signal,
     });
-    expect(results.map((item) => item.lastName)).toEqual(['Texidor']);
+    controller.abort();
+
+    // Really aborted at the network, not merely ignored once it answers: that is the whole
+    // point of handing the signal down rather than dropping a stale promise.
+    await expect(request).rejects.toMatchObject({ code: 'CANCELLED' });
   });
 
-  it('filters by CV availability', async () => {
-    const withCv = await search.search({ ...search.emptyFilters(), hasCv: 'yes' });
-    expect(withCv.map((item) => item.lastName)).toEqual(['Texidor']);
-    expect(withCv[0].primaryCvDocumentId).toBeTruthy();
+  it('does not load candidates or their aggregates', async () => {
+    const fetcher = respond();
 
-    const withoutCv = await search.search({ ...search.emptyFilters(), hasCv: 'no' });
-    expect(withoutCv.map((item) => item.lastName)).toEqual(['Soriano']);
+    await build(fetcher).search(
+      filters({ skillCriteria: [{ value: 'Java', level: '' }], skillMode: 'ALL' }),
+    );
+
+    // The old implementation issued one request per candidate to read the collections the
+    // list endpoint omits. Exactly one request, to the search route, is the cutover.
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0][0]).toBe('/api/candidates/search');
   });
 
-  it('never returns duplicate candidates and excludes logically inactive ones', async () => {
-    const results = await search.search(search.emptyFilters());
-    const ids = results.map((item) => item.candidateId);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(results.map((item) => item.lastName)).not.toContain('Mendez');
+  it('offers empty filters with every status selected', () => {
+    const empty = build(respond()).emptyFilters();
+
+    expect(empty.text).toBe('');
+    expect(empty.statusValues).toEqual(['new', 'available', 'in_process', 'hired', 'rejected']);
+    expect(empty.skillCriteria).toEqual([]);
+    expect(empty.hasCv).toBe('');
   });
 });

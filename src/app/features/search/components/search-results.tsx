@@ -1,9 +1,23 @@
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
-import type { SearchResult } from '../models/search.models';
+import type { SearchResult, SearchResultPage } from '../models/search.models';
 
-export function SearchResults({ results }: { results: SearchResult[] }) {
+interface SearchResultsProps {
+  results: SearchResultPage;
+  loading: boolean;
+  failed: boolean;
+  lastPage: number;
+  onPageChange: (page: number) => void;
+}
+
+export function SearchResults({
+  results,
+  loading,
+  failed,
+  lastPage,
+  onPageChange,
+}: SearchResultsProps) {
   const { documentService, toastService } = useServices();
   const notifyError = useErrorToast();
   const canDownload = usePermission('download_candidate_documents');
@@ -38,8 +52,8 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
             </tr>
           </thead>
           <tbody>
-            {results.length ? (
-              results.map((result) => (
+            {results.items.length ? (
+              results.items.map((result) => (
                 <tr key={result.candidateId}>
                   <td>
                     <strong>
@@ -75,13 +89,52 @@ export function SearchResults({ results }: { results: SearchResult[] }) {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="muted">
-                  Sin resultados.
+                <td colSpan={6} className="muted" data-testid="search-empty">
+                  {loading
+                    ? 'Buscando…'
+                    : failed
+                      ? 'No se pudo completar la búsqueda.'
+                      : 'Sin resultados.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+      {/*
+        The count comes from the server, never from `results.items.length`: these items are
+        one page, and reporting their number as the total is exactly the mistake paging
+        introduces.
+      */}
+      <div className="toolbar" data-testid="search-pagination">
+        <p className="muted" data-testid="search-total">
+          {results.totalCount === 1
+            ? '1 candidato encontrado'
+            : `${results.totalCount} candidatos encontrados`}
+          {results.totalCount > 0 ? ` · Página ${results.page} de ${lastPage}` : ''}
+        </p>
+        <div className="form-actions">
+          <button
+            className="button ghost small"
+            type="button"
+            name="previousPage"
+            data-testid="search-previous-page"
+            disabled={loading || results.page <= 1}
+            onClick={() => onPageChange(results.page - 1)}
+          >
+            Anterior
+          </button>
+          <button
+            className="button ghost small"
+            type="button"
+            name="nextPage"
+            data-testid="search-next-page"
+            disabled={loading || results.page >= lastPage}
+            onClick={() => onPageChange(results.page + 1)}
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
       {!canDownload ? (
         <p className="empty-state">Tu rol no permite abrir CVs desde resultados.</p>

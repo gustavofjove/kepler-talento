@@ -41,6 +41,25 @@ export interface SearchResult {
   updatedAt: string;
 }
 
+/** Defaults the server applies; mirrored here so the UI can show them before it asks. */
+export const DEFAULT_SEARCH_PAGE_SIZE = 25;
+export const MAX_SEARCH_PAGE_SIZE = 100;
+
+/**
+ * One page of results plus the totals the server counted.
+ *
+ * `page` and `pageSize` report what the server actually applied, not what was asked for, so
+ * a request that omitted them learns the defaults instead of having to know them. `items` is
+ * one page and never a complete collection - the page navigation reads `totalCount`, never
+ * `items.length`.
+ */
+export interface SearchResultPage {
+  items: SearchResult[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
 export interface SearchPreset {
   id: string;
   name: string;

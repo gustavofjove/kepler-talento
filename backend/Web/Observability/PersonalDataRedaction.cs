@@ -40,6 +40,22 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         "reviewDueAt",
         "originalFilename",
         "originalFileName",
+        // KTL-10. A search term is whatever an employee typed to find a person, so it is at
+        // least as personal as the field it matched: "Marta Ruiz" in a log is the same
+        // disclosure whether it arrived as a candidate's name or as the query for it.
+        "text",
+        // The filter families are masked whole rather than by their inner value/level
+        // members, which masks every criterion inside them without masking the word "value"
+        // everywhere else in the application.
+        "filters",
+        "skillCriteria",
+        "languageCriteria",
+        "programCriteria",
+        // A saved search's name is its owner's free text and routinely describes a person
+        // ("Candidatos de Marta"), so it is treated as personal data rather than as a label.
+        "name",
+        "normalizedName",
+        "presetName",
     };
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)

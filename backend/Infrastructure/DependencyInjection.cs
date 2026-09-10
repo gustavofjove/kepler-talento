@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<ICandidateRepository, CandidateRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
+        services.AddScoped<ISearchPresetRepository, SearchPresetRepository>();
         var storageOptions = configuration.GetSection(DocumentStorageOptions.SectionName).Get<DocumentStorageOptions>()
             ?? throw new InvalidOperationException("DocumentStorage configuration is required.");
         FileSystemDocumentStorage.ValidateAndPrepare(storageOptions);

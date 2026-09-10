@@ -28,5 +28,7 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
         builder.HasCatalogReference(
             language => new { language.LevelId, language.LevelFamily },
             language => language.LevelFamily);
+        // See CandidateSkillConfiguration: KTL-10 adds no search index here either. The
+        // catalog foreign key's own index already leads with "LanguageId".
     }
 }

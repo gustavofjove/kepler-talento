@@ -3,6 +3,7 @@ using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Documents;
 using KeplerTalento.Domain.Operations;
+using KeplerTalento.Domain.Search;
 using Microsoft.EntityFrameworkCore;
 
 namespace KeplerTalento.Infrastructure.Persistence;
@@ -20,6 +21,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Operation> Operations => Set<Operation>();
     public DbSet<MigrationRun> MigrationRuns => Set<MigrationRun>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<SearchPreset> SearchPresets => Set<SearchPreset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

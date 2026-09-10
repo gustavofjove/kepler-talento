@@ -2,6 +2,7 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Candidates;
+using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Documents;
@@ -542,6 +543,28 @@ public sealed class CandidateHandlerTests
             Guid candidateId,
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<CandidateDocument>>([]);
+
+        /// <summary>
+        /// Records what the search handler asked for. The query semantics themselves are
+        /// SQL, so they are proven against PostgreSQL rather than reimplemented here —
+        /// what these tests can prove is that authorization, normalization and the page
+        /// bounds happen before the repository is reached, and with which values.
+        /// </summary>
+        public SearchFiltersValue? LastSearchFilters { get; private set; }
+        public (int Page, int PageSize)? LastSearchPaging { get; private set; }
+        public SearchPage<CandidateSearchItem> NextSearchPage { get; set; } =
+            new([], SearchPaging.DefaultPage, SearchPaging.DefaultPageSize, 0);
+
+        public Task<SearchPage<CandidateSearchItem>> SearchAsync(
+            SearchFiltersValue filters,
+            int page,
+            int pageSize,
+            CancellationToken cancellationToken)
+        {
+            LastSearchFilters = filters;
+            LastSearchPaging = (page, pageSize);
+            return Task.FromResult(NextSearchPage);
+        }
 
         public void Add(Candidate candidate) => _candidates.Add(candidate);
 

@@ -30,5 +30,7 @@ public sealed class CandidateProgramConfiguration : IEntityTypeConfiguration<Can
         builder.HasCatalogReference(
             program => new { program.LevelId, program.LevelFamily },
             program => program.LevelFamily);
+        // See CandidateSkillConfiguration: KTL-10 adds no search index here either. The
+        // catalog foreign key's own index already leads with "ProgramId".
     }
 }

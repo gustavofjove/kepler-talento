@@ -47,8 +47,10 @@ export const services = {
   catalogService: new CatalogService(new CatalogApi(apiTransport)),
   candidateRelationsService: new CandidateRelationsService(candidateService),
   documentService: new DocumentService(candidateService, apiTransport),
-  candidateSearchService: new CandidateSearchService(candidateService),
-  searchPresetsService: new SearchPresetsService(),
+  // Search and saved searches reach the API directly. Neither depends on CandidateService
+  // any more: the browser no longer holds a candidate collection to filter.
+  candidateSearchService: new CandidateSearchService(apiTransport),
+  searchPresetsService: new SearchPresetsService(apiTransport),
   exportService: new ExportService(),
   importService: new ImportService(),
   roleService,
