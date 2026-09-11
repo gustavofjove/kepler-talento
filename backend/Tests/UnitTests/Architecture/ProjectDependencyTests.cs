@@ -19,6 +19,10 @@ public sealed class ProjectDependencyTests
     [InlineData("Infrastructure/Infrastructure.csproj", "Application/Application.csproj", "Domain/Domain.csproj")]
     [InlineData("Web/Web.csproj", "Application/Application.csproj", "Infrastructure/Infrastructure.csproj")]
     [InlineData("Tools/DataMigration/DataMigration.csproj", "Infrastructure/Infrastructure.csproj")]
+    [InlineData(
+        "Tools/TestDataGenerator/TestDataGenerator.csproj",
+        "Infrastructure/Infrastructure.csproj",
+        "Tools/DataMigration/DataMigration.csproj")]
     public void Production_project_references_match_the_approved_graph(
         string project,
         params string[] expected)
@@ -121,6 +125,8 @@ public sealed class ProjectDependencyTests
             "Infrastructure/Infrastructure.csproj" => ["../Application/Application.csproj", "../Domain/Domain.csproj"],
             "Web/Web.csproj" => ["../Application/Application.csproj", "../Infrastructure/Infrastructure.csproj"],
             "Tools/DataMigration/DataMigration.csproj" => ["../../Infrastructure/Infrastructure.csproj"],
+            "Tools/TestDataGenerator/TestDataGenerator.csproj" =>
+                ["../../Infrastructure/Infrastructure.csproj", "../DataMigration/DataMigration.csproj"],
             _ => Array.Empty<string>(),
         };
         return references.Order().SequenceEqual(allowed.Order());

@@ -9,6 +9,7 @@
     <ProjectReference Include="../../Infrastructure/Infrastructure.csproj" />
     <ProjectReference Include="../../Web/Web.csproj" />
     <ProjectReference Include="../../Tools/DataMigration/DataMigration.csproj" />
+    <ProjectReference Include="../../Tools/TestDataGenerator/TestDataGenerator.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
