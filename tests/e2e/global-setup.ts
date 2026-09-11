@@ -1,6 +1,7 @@
-import { chromium, type FullConfig } from '@playwright/test';
+import { chromium, request, type FullConfig } from '@playwright/test';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { ensureSearchCandidate } from './support/seed-candidate';
 
 const usersFixturePath = path.join(__dirname, '../security/fixtures/users.json');
 const usersFixture: { users: Array<{ email: string; role: string }> } = JSON.parse(
@@ -33,5 +34,16 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     }
   } finally {
     await browser.close();
+  }
+
+  // Seed the shared search candidate once, before any worker starts. The specs that need
+  // it still call the same helper in `beforeEach` — that keeps each spec honest about what
+  // it depends on — but by then the candidate exists, so no two workers can race to create
+  // it and leave the suite with two Laura Garcias to disambiguate.
+  const api = await request.newContext({ baseURL, storageState: authFile('rrhh_admin') });
+  try {
+    await ensureSearchCandidate(api);
+  } finally {
+    await api.dispose();
   }
 }
