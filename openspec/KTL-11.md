@@ -30,7 +30,9 @@ sectors and five programs prove very little.
   files, consumable by `ktl-migrate` unchanged.
 - Catalog references drawn from `CatalogSeedData` itself, so a run reconciles with no
   unresolved values and no rejected rows.
-- Deterministic output: one seed reproduces a set byte for byte.
+- Deterministic output: one seed and one anchor date reproduce a set byte for byte. The
+  anchor is an explicit option defaulting to today, so a fresh run looks recent without the
+  wall clock entering the output.
 - `CatalogSeedData` widened from the Access `Lista_*` vocabulary.
 - An explicit code on a seeded value, for names the derive rule cannot tell apart.
 
@@ -65,7 +67,8 @@ must never be presented as, or mixed with, real candidate data. Addresses use th
 1. A generated set passes `RowValidator` with no row-level problems.
 2. Every generated catalog reference resolves against the seeded vocabulary.
 3. Every document hash in the manifest matches the file it names.
-4. The same seed reproduces the same set.
+4. The same seed and anchor date reproduce the same set; a different anchor moves the
+   generated dates, and no generated date falls after the anchor.
 5. `ktl-migrate load` over a generated set reconciles: every source row loaded, none
    rejected, none skipped.
 6. Seeded codes and normalized names are unique within each family.

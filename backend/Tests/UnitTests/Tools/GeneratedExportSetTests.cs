@@ -1,3 +1,4 @@
+using System.Globalization;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Tools.DataMigration.Export;
@@ -35,13 +36,23 @@ public sealed class GeneratedExportSetTests : IDisposable
         (ExportContract.Experience, "Sector", CatalogFamilies.Sector),
     ];
 
-    private async Task<ExportSet> GenerateAsync(int candidates = 60, int seed = 1)
+    /// <summary>
+    /// A fixed anchor, so these tests assert the same thing on every day they run. The
+    /// generator reads no clock; the anchor is the only date input it has.
+    /// </summary>
+    private static readonly DateOnly Anchor = new(2026, 9, 11);
+
+    private async Task<ExportSet> GenerateAsync(
+        int candidates = 60,
+        int seed = 1,
+        DateOnly? asOf = null)
     {
         var options = new GeneratorOptions
         {
             OutputDirectory = _root,
             Candidates = candidates,
             Seed = seed,
+            AsOf = asOf ?? Anchor,
         };
         await new ExportSetGenerator(options).WriteAsync(CancellationToken.None);
 
@@ -80,15 +91,56 @@ public sealed class GeneratedExportSetTests : IDisposable
     }
 
     [Fact]
-    public async Task The_same_seed_reproduces_the_same_set()
+    public async Task The_same_seed_and_anchor_reproduce_the_same_set()
     {
         var first = await File.ReadAllTextAsync(
-            await GenerateCandidatesFileAsync(seed: 7), CancellationToken.None);
+            await GenerateCandidatesFileAsync(seed: 7, asOf: Anchor), CancellationToken.None);
         Directory.Delete(_root, recursive: true);
         var second = await File.ReadAllTextAsync(
-            await GenerateCandidatesFileAsync(seed: 7), CancellationToken.None);
+            await GenerateCandidatesFileAsync(seed: 7, asOf: Anchor), CancellationToken.None);
 
         Assert.Equal(first, second);
+    }
+
+    /// <summary>
+    /// The regression guard for the anchor itself. If the generator ever reads the clock
+    /// again instead of <see cref="GeneratorOptions.AsOf"/>, these two runs produce identical
+    /// files and this fails — where the reproducibility test above would keep passing, since
+    /// both of its runs happen on the same day.
+    /// </summary>
+    [Fact]
+    public async Task A_different_anchor_moves_the_generated_dates()
+    {
+        var earlier = await File.ReadAllTextAsync(
+            await GenerateCandidatesFileAsync(seed: 7, asOf: new DateOnly(2024, 1, 15)),
+            CancellationToken.None);
+        Directory.Delete(_root, recursive: true);
+        var later = await File.ReadAllTextAsync(
+            await GenerateCandidatesFileAsync(seed: 7, asOf: new DateOnly(2026, 9, 11)),
+            CancellationToken.None);
+
+        Assert.NotEqual(earlier, later);
+    }
+
+    [Fact]
+    public async Task No_generated_date_falls_after_the_anchor()
+    {
+        var asOf = new DateOnly(2024, 6, 30);
+        var exportSet = await GenerateAsync(asOf: asOf);
+
+        foreach (var row in exportSet[ExportContract.Candidates].Rows)
+        {
+            foreach (var column in new[] { "ReceivedAt", "ConsentAt", "DeletedAt" })
+            {
+                if (row.IsEmpty(column))
+                {
+                    continue;
+                }
+                Assert.True(
+                    DateOnly.Parse(row[column], CultureInfo.InvariantCulture) <= asOf,
+                    $"{column} on {row[ExportContract.SourceKeyColumn]} falls after the anchor.");
+            }
+        }
     }
 
     [Fact]
@@ -110,9 +162,9 @@ public sealed class GeneratedExportSetTests : IDisposable
         }
     }
 
-    private async Task<string> GenerateCandidatesFileAsync(int seed)
+    private async Task<string> GenerateCandidatesFileAsync(int seed, DateOnly asOf)
     {
-        await GenerateAsync(candidates: 20, seed: seed);
+        await GenerateAsync(candidates: 20, seed: seed, asOf: asOf);
         return Path.Combine(_root, "export", ExportContract.Candidates);
     }
 

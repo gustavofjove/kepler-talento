@@ -10,13 +10,18 @@ namespace KeplerTalento.Tools.TestDataGenerator;
 
 /// <summary>
 /// Builds one synthetic export set. Every decision comes from a single seeded
-/// <see cref="Random"/>, so a seed reproduces a run byte for byte and a failing dataset can
-/// be handed to someone else as a number.
+/// <see cref="Random"/> and <see cref="GeneratorOptions.AsOf"/>, so a seed and anchor
+/// reproduce a run byte for byte and a failing dataset can be handed to someone else as two
+/// values.
 /// </summary>
+/// <remarks>
+/// Nothing here reads the clock. Every date is measured back from the anchor, so the only
+/// inputs are the ones the summary prints.
+/// </remarks>
 public sealed class ExportSetGenerator(GeneratorOptions options)
 {
     private readonly Random _random = new(options.Seed);
-    private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.UtcNow);
+    private readonly DateOnly _asOf = options.AsOf;
 
     /// <summary>
     /// Status mix. Weighted rather than uniform so list ordering, status filters and the
@@ -92,7 +97,7 @@ public sealed class ExportSetGenerator(GeneratorOptions options)
         // The number keeps the address unique without making the name itself unnatural;
         // .invalid is reserved by RFC 2606 and can never reach a real mailbox.
         var localPart = $"{Ascii(firstName)}.{Ascii(lastName).Replace(' ', '.')}{number}";
-        var receivedAt = _today.AddDays(-_random.Next(0, 1095));
+        var receivedAt = _asOf.AddDays(-_random.Next(0, 1095));
         // Consent is recorded when the application is filed, occasionally a day or two later.
         var consentAt = receivedAt.AddDays(_random.Next(0, 3));
 
@@ -101,9 +106,9 @@ public sealed class ExportSetGenerator(GeneratorOptions options)
         DateOnly? deletedAt = _random.Next(100) < 8
             ? consentAt.AddDays(_random.Next(30, 400))
             : null;
-        if (deletedAt > _today)
+        if (deletedAt > _asOf)
         {
-            deletedAt = _today;
+            deletedAt = _asOf;
         }
 
         return new GeneratedCandidate(

@@ -26,7 +26,8 @@ if (options.Force && Directory.Exists(exportDirectory))
 
 var summary = await new ExportSetGenerator(options).WriteAsync(CancellationToken.None);
 
-Console.WriteLine($"Wrote an export set to {Path.GetFullPath(exportDirectory)} (seed {options.Seed}).");
+Console.WriteLine($"Wrote an export set to {Path.GetFullPath(exportDirectory)}.");
+Console.WriteLine($"  seed {options.Seed}, as-of {options.AsOf:yyyy-MM-dd} — repeat the run with both to reproduce it.");
 Console.WriteLine($"  candidates  {summary.Candidates,7} ({summary.Inactive} logically removed)");
 Console.WriteLine($"  languages   {summary.Languages,7}");
 Console.WriteLine($"  programs    {summary.Programs,7}");
