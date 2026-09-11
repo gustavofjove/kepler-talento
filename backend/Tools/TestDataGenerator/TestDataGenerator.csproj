@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>KeplerTalento.Tools.TestDataGenerator</RootNamespace>
+    <AssemblyName>ktl-testdata</AssemblyName>
+    <!-- Developer tool. Like ktl-migrate it is never referenced by Web: it writes an export
+         set, and nothing that fabricates candidate rows should be reachable over HTTP.
+         ProjectDependencyTests enforces that. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- For CatalogSeedData: generated values are drawn from the seeded vocabulary itself,
+         so every reference resolves and a run produces no rejections. -->
+    <ProjectReference Include="../../Infrastructure/Infrastructure.csproj" />
+    <!-- For ExportContract: the generator writes the files ktl-migrate reads, so both take
+         the column lists from the same declaration and cannot drift apart. -->
+    <ProjectReference Include="../DataMigration/DataMigration.csproj" />
+  </ItemGroup>
+
+</Project>

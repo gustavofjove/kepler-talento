@@ -25,6 +25,16 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
 {
     private const string Family = CatalogFamilies.Language;
 
+    /// <summary>
+    /// Taken from the seed rather than written as a literal: these tests are about what the
+    /// endpoints do to a seeded family, not about how many values the vocabulary happens to
+    /// hold, and widening a catalog should not fail them.
+    /// </summary>
+    private static readonly IReadOnlyList<string> SeededNames =
+        [.. CatalogSeedData.Families[Family].Select(value => value.NameEs)];
+
+    private static int SeededCount => SeededNames.Count;
+
     [Fact]
     public async Task Catalog_lifecycle_runs_through_http_application_and_postgresql()
     {
@@ -34,7 +44,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
 
         // list the seeded family
         var seeded = await client.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{Family}");
-        Assert.Equal(["Inglés", "Francés", "Alemán", "Italiano", "Portugués"], seeded!.Select(item => item.NameEs));
+        Assert.Equal(SeededNames, seeded!.Select(item => item.NameEs));
 
         // create
         var createResponse = await client.PostAsJsonAsync(
@@ -43,7 +53,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = (await createResponse.Content.ReadFromJsonAsync<CatalogItemResponse>())!;
         Assert.Equal("NEERLANDES", created.Code);
-        Assert.Equal(6, created.SortOrder);
+        Assert.Equal(SeededCount + 1, created.SortOrder);
         Assert.True(created.IsActive);
 
         // rename
@@ -53,7 +63,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, renameResponse.StatusCode);
         var renamed = (await renameResponse.Content.ReadFromJsonAsync<CatalogItemResponse>())!;
         Assert.Equal("Neerlandés (Países Bajos)", renamed.NameEs);
-        Assert.Equal(6, renamed.SortOrder);
+        Assert.Equal(SeededCount + 1, renamed.SortOrder);
 
         // reorder: move the new value to the front
         var current = (await client.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{Family}?includeInactive=true"))!;
@@ -64,7 +74,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.OK, reorderResponse.StatusCode);
         var afterReorder = (await reorderResponse.Content.ReadFromJsonAsync<CatalogItemResponse[]>())!;
         Assert.Equal(created.Id, afterReorder[0].Id);
-        Assert.Equal([1, 2, 3, 4, 5, 6], afterReorder.Select(item => item.SortOrder));
+        Assert.Equal(Enumerable.Range(1, SeededCount + 1), afterReorder.Select(item => item.SortOrder));
 
         // deactivate
         var stored = await ReadAsync(created.Id);
@@ -115,7 +125,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains(CatalogErrors.NameDuplicate, body, StringComparison.Ordinal);
         Assert.Contains("Ya existe un valor con ese nombre.", body, StringComparison.Ordinal);
-        Assert.Equal(5, await CountAsync(Family));
+        Assert.Equal(SeededCount, await CountAsync(Family));
     }
 
     [Fact]
@@ -183,7 +193,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Equal(HttpStatusCode.Forbidden, list.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
         Assert.DoesNotContain("Inglés", await list.Content.ReadAsStringAsync(), StringComparison.Ordinal);
-        Assert.Equal(5, await CountAsync(Family));
+        Assert.Equal(SeededCount, await CountAsync(Family));
     }
 
     [Fact]
@@ -214,7 +224,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         var stored = await ReadAsync(target.Id);
         Assert.Equal("Inglés", stored.NameEs);
         Assert.True(stored.IsActive);
-        Assert.Equal(5, await CountAsync(Family));
+        Assert.Equal(SeededCount, await CountAsync(Family));
     }
 
     [Fact]
@@ -230,7 +240,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.Contains(
             response.StatusCode,
             new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
-        Assert.Equal(5, await CountAsync(Family));
+        Assert.Equal(SeededCount, await CountAsync(Family));
     }
 
     [Fact]
@@ -281,7 +291,7 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
             .Where(item => item.Family == Family)
             .OrderBy(item => item.SortOrder)
             .ToListAsync();
-        Assert.Equal(5, family.Count);
+        Assert.Equal(SeededCount, family.Count);
         Assert.Equal("Inglés técnico", family[0].NameEs);
         Assert.False(family.Single(item => item.NameNormalized == "italiano").IsActive);
 
@@ -292,7 +302,11 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
             .OrderBy(item => item.SortOrder)
             .Select(item => item.NameEs)
             .ToListAsync();
-        Assert.Equal(["Servicios", "Industria", "Tecnología", "Comercio", "Sanidad", "Educación"], sectors);
+        Assert.Equal(
+            CatalogSeedData.Families[CatalogFamilies.Sector].Select(value => value.NameEs),
+            sectors);
+        // Accents survive the round trip, which is the point of asserting on names at all.
+        Assert.Contains("Tecnología", sectors, StringComparer.Ordinal);
         Assert.Equal(
             CatalogFamilies.All.Count,
             await dbContext.CatalogItems.AsNoTracking().Select(item => item.Family).Distinct().CountAsync());

@@ -38,11 +38,12 @@ public static class DatabaseInitializer
             }
             for (var index = 0; index < names.Count; index++)
             {
+                var value = names[index];
                 dbContext.CatalogItems.Add(new CatalogItem(
                     Guid.CreateVersion7(),
                     family,
-                    CatalogName.DeriveCode(names[index]),
-                    names[index],
+                    value.ResolveCode(),
+                    value.NameEs,
                     nameEn: null,
                     sortOrder: index + 1,
                     createdAtUtc: seededAtUtc));
