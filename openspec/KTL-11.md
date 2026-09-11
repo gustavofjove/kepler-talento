@@ -1,6 +1,6 @@
 # KTL-11 — Synthetic test data generation and catalog vocabulary widening
 
-**Status:** Implemented on the working branch, pending spec
+**Status:** Implemented; spec synced and change archived
 **Architecture source:** [Kepler Talento Stack Blueprint](./kepler-talento-stack-blueprint.md)
 **Depends on:** KTL-6 (catalogs), KTL-7 (export contract and migration tool)
 
@@ -81,9 +81,11 @@ must never be presented as, or mixed with, real candidate data. Addresses use th
 - Whether the generator should be able to target a vocabulary wider than the seed, for
   deliberately exercising the resolver's unresolved-value path.
 
-## Next step
+## Outcome
 
-```
-/enrich-us openspec/KTL-11.md
-/opsx:new
-```
+The seeded-code rule is now part of the `business-catalogs` specification — derived by
+default, explicit where derivation cannot distinguish two names, unique per family, and never
+silently uniquified as an API-created value is.
+
+The change is archived at
+`openspec/changes/archive/2026-09-11-ktl-11-test-data-and-catalog-vocabulary/`.
