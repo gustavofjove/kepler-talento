@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -30,6 +32,7 @@ interface Props {
 }
 
 export function CandidateEducation({ candidateId, education, canEdit }: Props) {
+  const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -47,7 +50,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
       setDraft(EMPTY);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
@@ -56,14 +59,16 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
       await candidateRelationsService.removeEducation(candidateId, educationId);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-education">
-      <h3 className="section-title">Formación</h3>
-      {!education.length ? <p className="empty-state">Sin formación registrada.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.education.title')}</h3>
+      {!education.length ? (
+        <p className="empty-state">{t('candidate.profile.education.empty')}</p>
+      ) : null}
       <div className="item-list">
         {education.map((item) => (
           <div className="item-row" key={item.id}>
@@ -77,7 +82,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
                 type="button"
                 onClick={() => void remove(item.id)}
               >
-                Quitar
+                {t('candidate.profile.action.remove')}
               </button>
             ) : null}
           </div>
@@ -88,7 +93,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
           <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
-              <label htmlFor="educationType">Tipo</label>
+              <label htmlFor="educationType">{t('candidate.profile.education.type')}</label>
               <select
                 id="educationType"
                 name="educationType"
@@ -97,7 +102,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {typeOptions.map((option) => (
                   <option key={option} value={option}>
@@ -107,7 +112,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="degree">Titulación</label>
+              <label htmlFor="degree">{t('candidate.profile.education.degree')}</label>
               <input
                 id="degree"
                 name="degree"
@@ -117,7 +122,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               />
             </div>
             <div className="field">
-              <label htmlFor="specialty">Especialidad</label>
+              <label htmlFor="specialty">{t('candidate.profile.education.specialty')}</label>
               <input
                 id="specialty"
                 name="specialty"
@@ -126,7 +131,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               />
             </div>
             <div className="field">
-              <label htmlFor="institution">Centro</label>
+              <label htmlFor="institution">{t('candidate.profile.education.institution')}</label>
               <input
                 id="institution"
                 name="institution"
@@ -135,7 +140,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               />
             </div>
             <div className="field">
-              <label htmlFor="endYear">Año de fin</label>
+              <label htmlFor="endYear">{t('candidate.profile.education.endYear')}</label>
               <input
                 id="endYear"
                 name="endYear"
@@ -150,7 +155,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
               />
             </div>
             <div className="field">
-              <label htmlFor="education-status">Estado</label>
+              <label htmlFor="education-status">{t('candidate.profile.education.status')}</label>
               <select
                 id="education-status"
                 name="status"
@@ -159,7 +164,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {statusOptions.map((option) => (
                   <option key={option} value={option}>
@@ -172,7 +177,7 @@ export function CandidateEducation({ candidateId, education, canEdit }: Props) {
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
             <button className="button" type="submit" disabled={!!catalogStatus.message}>
-              Añadir formación
+              {t('candidate.profile.education.add')}
             </button>
           </div>
         </form>

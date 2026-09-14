@@ -15,7 +15,8 @@ export function authFile(role: string): string {
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
-  const baseURL = config.projects[0]?.use?.baseURL ?? 'http://127.0.0.1:4200';
+  // Vite dev server, never nginx on 4200 (see playwright.config.ts).
+  const baseURL = config.projects[0]?.use?.baseURL ?? 'http://127.0.0.1:5173';
   mkdirSync(AUTH_DIR, { recursive: true });
 
   const browser = await chromium.launch();

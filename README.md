@@ -234,6 +234,21 @@ npm run release:gate
 PostgreSQL privada y sus grants de mínimo privilegio. Las comprobaciones Supabase siguen
 aplicándose solo a rutas heredadas no migradas.
 
+## Textos de interfaz (i18n)
+
+Los textos visibles se sirven con i18next desde `src/assets/i18n/es.json`. El español es el
+único idioma activo y no hay selector de idioma; `en.json` se mantiene pero no se carga.
+
+- Para añadir un texto, crea una clave con el esquema `funcionalidad.seccion.elemento` en
+  `es.json` (con tildes correctas) y úsala con `const { t } = useTranslation()` y
+  `t('clave')`. Añadir el valor en `en.json` es opcional.
+- Las validaciones nuevas lanzan `TranslatableError(clave, valores)` y el componente las
+  muestra con `errorText(err, t)`.
+- `npm run lint` falla si un `.tsx` contiene texto JSX literal, salvo los archivos de la
+  lista `LEGACY_HARDCODED_COPY` de `eslint.config.js`. Esa lista solo puede reducirse: al
+  cambiar los textos de uno de esos archivos, se migran a claves y se quita de la lista.
+- En tests, una clave inexistente hace fallar la ejecución.
+
 ## Alcance aplazado
 
 KTL-5 no decide ni implementa autenticación, migración de datos Access, topología final de

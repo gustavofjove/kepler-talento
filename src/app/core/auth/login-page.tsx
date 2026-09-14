@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { DEFAULT_ROLES } from '../../shared/models/auth.models';
 import { useServices } from '../di/services-context';
 import './login-page.css';
 
 export function LoginPage() {
+  const { t } = useTranslation();
   const { authService } = useServices();
   const navigate = useNavigate();
 
@@ -19,18 +21,18 @@ export function LoginPage() {
       await authService.signIn(email, password, role);
       await navigate('/app');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión');
+      setError(err instanceof Error ? err.message : t('auth.login.failed'));
     }
   };
 
   return (
     <section className="login">
       <form className="panel box" onSubmit={submit}>
-        <h1>Kepler Talento</h1>
-        <p className="muted">Acceso interno. En local puedes entrar con cualquier email.</p>
+        <h1>{t('app.title')}</h1>
+        <p className="muted">{t('auth.login.intro')}</p>
         <div className="grid">
           <div className="field">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">{t('auth.login.email')}</label>
             <input
               id="email"
               name="email"
@@ -41,7 +43,7 @@ export function LoginPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="password">Contraseña</label>
+            <label htmlFor="password">{t('auth.login.password')}</label>
             <input
               id="password"
               name="password"
@@ -52,7 +54,7 @@ export function LoginPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="role">Rol local</label>
+            <label htmlFor="role">{t('auth.login.role')}</label>
             <select
               id="role"
               name="role"
@@ -68,7 +70,7 @@ export function LoginPage() {
           </div>
           {error ? <p className="muted">{error}</p> : null}
           <button className="button" type="submit">
-            Entrar
+            {t('auth.login.submit')}
           </button>
         </div>
       </form>

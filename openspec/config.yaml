@@ -18,7 +18,10 @@ context: |
   the archive tool's `YYYY-MM-DD-` date prefix in front of it, e.g.
   `2026-08-25-ktl-6-catalog-write-slice-api-cutover` — never drop the ticket
   prefix in favor of the date-only default.
-  User-facing copy is Spanish — keep accents and Spanish wording correct.
+  User-facing copy is Spanish — keep accents and Spanish wording correct. It is
+  sourced from src/assets/i18n/es.json through i18next (`t()`); no hardcoded JSX
+  copy outside the lint legacy list (LEGACY_HARDCODED_COPY in eslint.config.js),
+  and new tests do not select elements by literal Spanish text.
 
   Design documentation for the shipped system lives in
   specs/001-gestion-cvs-rrhh/ (data model, contracts, research, UX audit). Treat

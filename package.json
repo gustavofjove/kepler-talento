@@ -4,11 +4,11 @@
   "private": true,
   "description": "Aplicación interna Kepler Talento para gestión de CVs con React, ASP.NET Core y PostgreSQL",
   "scripts": {
-    "start": "vite --host 0.0.0.0 --port 4200 --strictPort",
+    "start": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "tsc --noEmit && vite build",
     "build:backend": "dotnet build backend/KeplerTalento.slnx",
     "build:all": "npm run build && npm run build:backend",
-    "preview": "vite preview --port 4200",
+    "preview": "vite preview --port 4173",
     "test": "vitest run",
     "test:integration": "vitest run tests/integration",
     "test:security": "vitest run --project security",
@@ -28,8 +28,10 @@
     "@fontsource/montserrat": "^5.2.5",
     "@fontsource/nunito-sans": "^5.2.5",
     "@supabase/supabase-js": "^2.110.0",
+    "i18next": "^26.4.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-i18next": "^17.0.14",
     "react-router": "^7.9.1"
   },
   "devDependencies": {
@@ -42,6 +44,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9.39.2",
+    "eslint-plugin-i18next": "^6.1.5",
     "eslint-plugin-react-hooks": "^6.1.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^17.7.0",
