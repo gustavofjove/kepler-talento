@@ -29,14 +29,14 @@ Requirements: Node 22 / npm 10, .NET SDK 10.0.102 (`global.json`), Docker Deskto
 
 ```sh
 npm ci && dotnet tool restore && dotnet restore backend/KeplerTalento.slnx   # setup
-npm start                     # Vite dev server on :4200 (strict port)
+npm start                     # Vite dev server on :5173 (strict port), proxies /api to the stack on :4200
 docker compose up --build     # full stack behind Nginx on http://localhost:4200 (copy .env.example to .env first)
 
 npm test                      # Vitest: unit + integration + security projects
 npx vitest run tests/unit/candidate.service.spec.ts   # single frontend spec
 npm run test:backend          # xUnit; needs Docker running (Testcontainers PostgreSQL) and a prior restore
 dotnet test backend/KeplerTalento.slnx --no-restore --filter "FullyQualifiedName~CatalogHandlerTests"
-npm run e2e                   # Playwright (starts the dev server itself)
+npm run e2e                   # Playwright against the dev server on :5173 (starts it itself); needs `docker compose up`
 npx playwright test tests/e2e/candidate-crud.spec.ts
 
 npm run build:all             # tsc + vite build + dotnet build (warnings are errors)
@@ -172,9 +172,11 @@ Since KTL-3 (Angular → React migration):
   layout is covered by `tests/e2e/navigation-responsive.spec.ts` instead.
 - Route guards are layout-route elements (`RequireAuth`, `RequirePermission`), not
   loaders, so they can subscribe to the auth signal and stay test-swappable.
-- Forms are controlled components using `useState`. Validation stays in the service layer
-  as thrown `Error`s with Spanish messages; do not move it into the components or
-  introduce a schema library.
+- Forms are controlled components using `useState`. Validation stays in the service layer;
+  do not move it into the components or introduce a schema library. New or changed
+  validation throws `TranslatableError(key, values)` (`src/app/core/i18n/`) and components
+  render it with `errorText(err, t)`. Existing plain `Error`s with Spanish messages stay
+  until their code is touched.
 - Do not reintroduce Angular idioms, RxJS, or a state-management library.
 - Keep the `name=` attribute on every form control and every `data-testid`. They are
   decorative in React but load-bearing for the Playwright suite.
@@ -185,9 +187,22 @@ Since KTL-3 (Angular → React migration):
 
 ## Language
 
-- **UI copy is Spanish**, with correct accents and wording — in components, service
-  validation messages, `src/assets/i18n/es.json` and test assertions on rendered text.
-  Never translate a Spanish literal the app actually renders.
+- **UI copy is Spanish**, with correct accents and wording. It lives in
+  `src/assets/i18n/es.json` under flat `feature.section.element` keys and is rendered with
+  `t()` from `react-i18next`. Spanish is the only active language; there is no switch.
+  - New or changed JSX copy is never hardcoded. `npm run lint` enforces this for every
+    `.tsx` outside `LEGACY_HARDCODED_COPY` in `eslint.config.js`. Attribute copy
+    (`placeholder`, `aria-label`, `title`) is not caught by lint but follows the same rule.
+  - That list only shrinks. When you change copy in a listed file, move the file's copy to
+    keys and remove it from the list in the same change. Never add a file to it.
+  - Use whole sentences with interpolation (`t('key', { count })`), never concatenated
+    fragments. Format dates and numbers with `formatDate`/`formatNumber`, and catalog
+    names with `catalogLabel`, instead of a hardcoded locale or `nameEs`.
+  - Adding the English value to `en.json` is welcome but not required.
+  - New tests locate elements by role and accessible name, label or `data-testid`. Unit
+    tests may assert on Spanish text resolved from `es.json`; new e2e selectors must not
+    hardcode Spanish text.
+  - Never translate a Spanish literal the app actually renders.
 - **Prose is English**: code comments, OpenSpec artifacts, ticket briefs, specs and
   `docs/`.
 - **Exception: `README.md` is maintained in Spanish.** Keep commands, paths, flags and
@@ -209,8 +224,12 @@ Since KTL-3 (Angular → React migration):
   Windows-1252 and silently corrupts Spanish accents and em dashes. Use the agent's file
   editing tool; if a script is unavoidable, use `[IO.File]::ReadAllText/WriteAllText` with
   explicit UTF-8 (no BOM).
-- Port 4200 is strict: a stale dev server makes Playwright fail instead of attaching
-  elsewhere.
+- Ports are split on purpose. **4200** is the Compose nginx serving the bundle built into
+  its image, which can be days old; **5173** is the Vite dev server serving the working tree
+  and proxying `/api` to 4200 (override with `KTL_API_PROXY_TARGET`). Playwright targets
+  5173, so e2e always tests current code. Browsing 4200 shows the image's build, not your
+  edits, until `docker compose build nginx`. Both ports are strict, so a clash fails
+  instead of drifting.
 - `docker compose down --volumes` destroys development data (PostgreSQL, documents, ClamAV
   signatures). Do not run it unless asked.
 - ClamAV needs ~3 GiB of RAM; a degraded `/api/health/scanner` alone does not mean the API
