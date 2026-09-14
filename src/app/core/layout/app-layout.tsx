@@ -17,8 +17,8 @@ export function AppLayout() {
       </a>
       <header>
         <div className="brand">
-          <strong>Kepker Talento</strong>
-          <span className="muted">Gestión interna de candidatos del ecosistema Kepker</span>
+          <strong>Kepler Talento</strong>
+          <span className="muted">Gestión interna de candidatos del ecosistema Kepler</span>
         </div>
         <PrimaryNav />
         <div className="user">

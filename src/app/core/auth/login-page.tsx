@@ -26,7 +26,7 @@ export function LoginPage() {
   return (
     <section className="login">
       <form className="panel box" onSubmit={submit}>
-        <h1>Kepker Talento</h1>
+        <h1>Kepler Talento</h1>
         <p className="muted">Acceso interno. En local puedes entrar con cualquier email.</p>
         <div className="grid">
           <div className="field">
