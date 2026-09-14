@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -32,6 +34,7 @@ interface Props {
 }
 
 export function CandidateExperience({ candidateId, experience, canEdit }: Props) {
+  const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -48,7 +51,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
       setDraft(EMPTY);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
@@ -57,23 +60,25 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
       await candidateRelationsService.removeExperience(candidateId, experienceId);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-experience">
-      <h3 className="section-title">Experiencia</h3>
-      {!experience.length ? <p className="empty-state">Sin experiencia registrada.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.experience.title')}</h3>
+      {!experience.length ? (
+        <p className="empty-state">{t('candidate.profile.experience.empty')}</p>
+      ) : null}
       <div className="item-list">
         {experience.map((item) => (
           <div className="item-row" key={item.id}>
             <p className="item-main">
               <span className="badge">{item.position}</span> {item.company} ({item.sector})
               {item.isCurrent
-                ? ' · Actual'
+                ? ` · ${t('candidate.profile.experience.currentBadge')}`
                 : item.yearsExperience !== undefined
-                  ? ` · ${item.yearsExperience} años`
+                  ? ` · ${t('candidate.profile.yearsCount', { years: item.yearsExperience })}`
                   : ''}
             </p>
             {canEdit ? (
@@ -82,7 +87,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
                 type="button"
                 onClick={() => void remove(item.id)}
               >
-                Quitar
+                {t('candidate.profile.action.remove')}
               </button>
             ) : null}
           </div>
@@ -93,7 +98,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
           <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
-              <label htmlFor="company">Empresa</label>
+              <label htmlFor="company">{t('candidate.profile.experience.company')}</label>
               <input
                 id="company"
                 name="company"
@@ -103,7 +108,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               />
             </div>
             <div className="field">
-              <label htmlFor="position">Puesto</label>
+              <label htmlFor="position">{t('candidate.profile.experience.position')}</label>
               <input
                 id="position"
                 name="position"
@@ -113,7 +118,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               />
             </div>
             <div className="field">
-              <label htmlFor="sector">Sector</label>
+              <label htmlFor="sector">{t('candidate.profile.experience.sector')}</label>
               <select
                 id="sector"
                 name="sector"
@@ -122,7 +127,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {sectorOptions.map((option) => (
                   <option key={option} value={option}>
@@ -132,7 +137,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               </select>
             </div>
             <div className="field">
-              <label htmlFor="startDate">Fecha inicio</label>
+              <label htmlFor="startDate">{t('candidate.profile.experience.startDate')}</label>
               <input
                 id="startDate"
                 name="startDate"
@@ -142,7 +147,7 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               />
             </div>
             <div className="field">
-              <label htmlFor="endDate">Fecha fin</label>
+              <label htmlFor="endDate">{t('candidate.profile.experience.endDate')}</label>
               <input
                 id="endDate"
                 name="endDate"
@@ -153,7 +158,9 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
               />
             </div>
             <div className="field">
-              <label htmlFor="experience-years">Años de experiencia</label>
+              <label htmlFor="experience-years">
+                {t('candidate.profile.experience.yearsExperience')}
+              </label>
               <input
                 id="experience-years"
                 name="yearsExperience"
@@ -176,14 +183,14 @@ export function CandidateExperience({ candidateId, experience, canEdit }: Props)
                   checked={draft.isCurrent}
                   onChange={(e) => setDraft({ ...draft, isCurrent: e.target.checked })}
                 />
-                Puesto actual
+                {t('candidate.profile.experience.current')}
               </label>
             </div>
           </div>
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
             <button className="button" type="submit" disabled={!!catalogStatus.message}>
-              Añadir experiencia
+              {t('candidate.profile.experience.add')}
             </button>
           </div>
         </form>

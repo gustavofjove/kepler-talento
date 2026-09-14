@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
+  const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState(EMPTY);
@@ -32,7 +35,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
       setDraft(EMPTY);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
@@ -41,14 +44,16 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
       await candidateRelationsService.removeLanguage(candidateId, languageId);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-languages">
-      <h3 className="section-title">Idiomas</h3>
-      {!languages.length ? <p className="empty-state">Sin idiomas asociados.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.languages.title')}</h3>
+      {!languages.length ? (
+        <p className="empty-state">{t('candidate.profile.languages.empty')}</p>
+      ) : null}
       <div className="item-list">
         {languages.map((item) => (
           <div className="item-row" key={item.id}>
@@ -61,7 +66,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
                 type="button"
                 onClick={() => void remove(item.id)}
               >
-                Quitar
+                {t('candidate.profile.action.remove')}
               </button>
             ) : null}
           </div>
@@ -72,7 +77,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
           <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
-              <label htmlFor="language">Idioma</label>
+              <label htmlFor="language">{t('candidate.profile.languages.label')}</label>
               <select
                 id="language"
                 name="language"
@@ -82,7 +87,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {languageOptions.map((option) => (
                   <option key={option} value={option}>
@@ -92,7 +97,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="language-level">Nivel</label>
+              <label htmlFor="language-level">{t('candidate.profile.languages.level')}</label>
               <select
                 id="language-level"
                 name="level"
@@ -102,7 +107,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {levelOptions.map((option) => (
                   <option key={option} value={option}>
@@ -112,7 +117,9 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="certification">Certificación</label>
+              <label htmlFor="certification">
+                {t('candidate.profile.languages.certification')}
+              </label>
               <input
                 id="certification"
                 name="certification"
@@ -124,7 +131,7 @@ export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
             <button className="button" type="submit" disabled={!!catalogStatus.message}>
-              Añadir idioma
+              {t('candidate.profile.languages.add')}
             </button>
           </div>
         </form>

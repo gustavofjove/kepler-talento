@@ -1,6 +1,12 @@
 {
   "app.title": "Kepler Talent",
   "auth.login": "Sign in",
+  "auth.login.intro": "Internal access. Locally you can sign in with any email.",
+  "auth.login.email": "Email",
+  "auth.login.password": "Password",
+  "auth.login.role": "Local role",
+  "auth.login.submit": "Sign in",
+  "auth.login.failed": "Could not sign in",
   "candidate.new": "New candidate",
   "candidate.search": "Advanced search",
   "security.unauthorized": "You do not have permission for this action",
@@ -38,6 +44,7 @@
   "candidate.profile.experience.endDate": "End date",
   "candidate.profile.experience.yearsExperience": "Years of experience",
   "candidate.profile.experience.current": "Current role",
+  "candidate.profile.experience.currentBadge": "Current",
   "candidate.profile.experience.add": "Add experience",
   "candidate.profile.experience.invalidRange": "The end date cannot be earlier than the start date.",
   "candidate.profile.skills.title": "Skills",
@@ -48,6 +55,7 @@
   "candidate.profile.skills.duplicate": "The candidate already has this skill registered.",
   "candidate.profile.validation.negativeYears": "Years of experience cannot be negative.",
   "candidate.profile.validation.notFound": "Candidate not found.",
+  "candidate.profile.yearsCount": "{{years}} years",
   "candidate.profile.action.remove": "Remove",
   "candidate.profile.option.select": "Select"
 }

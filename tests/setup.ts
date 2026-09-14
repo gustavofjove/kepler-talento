@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+// Same bundled Spanish resources as the app; a missing key throws under test.
+import '../src/app/core/i18n/i18n';
 
 afterEach(() => {
   cleanup();

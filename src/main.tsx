@@ -4,6 +4,8 @@ import '@fontsource/nunito-sans/400.css';
 import '@fontsource/nunito-sans/500.css';
 import '@fontsource/nunito-sans/600.css';
 import './styles.css';
+// Synchronous init with bundled resources: copy is ready before the first render.
+import './app/core/i18n/i18n';
 
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router/dom';

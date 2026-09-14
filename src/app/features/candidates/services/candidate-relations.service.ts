@@ -1,3 +1,4 @@
+import { TranslatableError } from '../../../core/i18n/translatable-error';
 import {
   Candidate,
   CandidateEducation,
@@ -14,10 +15,10 @@ const sameText = (a: string, b: string): boolean =>
 /**
  * Candidate relation collections.
  *
- * The validation rules and their Spanish messages are unchanged; what changed is where
- * the result is stored. Each method now awaits the API, which replaces the whole
- * collection against the candidate's concurrency token, and the methods are therefore
- * `async`.
+ * The validation rules are unchanged; failures are `TranslatableError`s keyed into
+ * `es.json`, whose `message` is still the Spanish copy. What changed is where the result
+ * is stored. Each method now awaits the API, which replaces the whole collection against
+ * the candidate's concurrency token, and the methods are therefore `async`.
  *
  * Every method loads the aggregate before reading it. These are only ever invoked from
  * the detail screen, which has already awaited it — but "only ever" is an invariant that
@@ -30,7 +31,7 @@ export class CandidateRelationsService {
   async addLanguage(candidateId: string, input: Omit<CandidateLanguage, 'id'>): Promise<void> {
     const candidate = await this.require(candidateId);
     if (candidate.languages.some((item) => sameText(item.language, input.language))) {
-      throw new Error('El candidato ya tiene este idioma registrado.');
+      throw new TranslatableError('candidate.profile.languages.duplicate');
     }
     const language: CandidateLanguage = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setLanguages(candidateId, [...candidate.languages, language]);
@@ -47,10 +48,10 @@ export class CandidateRelationsService {
   async addProgram(candidateId: string, input: Omit<CandidateProgram, 'id'>): Promise<void> {
     const candidate = await this.require(candidateId);
     if (candidate.programs.some((item) => sameText(item.program, input.program))) {
-      throw new Error('El candidato ya tiene este programa registrado.');
+      throw new TranslatableError('candidate.profile.programs.duplicate');
     }
     if (input.yearsExperience !== undefined && input.yearsExperience < 0) {
-      throw new Error('Los años de experiencia no pueden ser negativos.');
+      throw new TranslatableError('candidate.profile.validation.negativeYears');
     }
     const program: CandidateProgram = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setPrograms(candidateId, [...candidate.programs, program]);
@@ -67,11 +68,11 @@ export class CandidateRelationsService {
   async addEducation(candidateId: string, input: Omit<CandidateEducation, 'id'>): Promise<void> {
     const candidate = await this.require(candidateId);
     if (!input.degree.trim()) {
-      throw new Error('La titulación es obligatoria.');
+      throw new TranslatableError('candidate.profile.education.required');
     }
     const currentYear = new Date().getFullYear();
     if (input.endYear !== undefined && (input.endYear < 1950 || input.endYear > currentYear + 1)) {
-      throw new Error('El año de finalización no es válido.');
+      throw new TranslatableError('candidate.profile.education.invalidEndYear');
     }
     const education: CandidateEducation = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setEducation(candidateId, [...candidate.education, education]);
@@ -88,10 +89,10 @@ export class CandidateRelationsService {
   async addExperience(candidateId: string, input: Omit<CandidateExperience, 'id'>): Promise<void> {
     const candidate = await this.require(candidateId);
     if (input.yearsExperience !== undefined && input.yearsExperience < 0) {
-      throw new Error('Los años de experiencia no pueden ser negativos.');
+      throw new TranslatableError('candidate.profile.validation.negativeYears');
     }
     if (input.startDate && input.endDate && input.endDate < input.startDate) {
-      throw new Error('La fecha de fin no puede ser anterior a la fecha de inicio.');
+      throw new TranslatableError('candidate.profile.experience.invalidRange');
     }
     const experience: CandidateExperience = {
       ...input,
@@ -112,7 +113,7 @@ export class CandidateRelationsService {
   async addSkill(candidateId: string, input: Omit<CandidateSkill, 'id'>): Promise<void> {
     const candidate = await this.require(candidateId);
     if (candidate.skills.some((item) => sameText(item.skill, input.skill))) {
-      throw new Error('El candidato ya tiene esta habilidad registrada.');
+      throw new TranslatableError('candidate.profile.skills.duplicate');
     }
     const skill: CandidateSkill = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setSkills(candidateId, [...candidate.skills, skill]);
@@ -130,7 +131,7 @@ export class CandidateRelationsService {
     await this.candidateService.ensureAggregate(candidateId);
     const candidate = this.candidateService.find(candidateId);
     if (!candidate) {
-      throw new Error('Candidato no encontrado.');
+      throw new TranslatableError('candidate.profile.validation.notFound');
     }
     return candidate;
   }

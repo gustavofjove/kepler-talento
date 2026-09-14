@@ -1,6 +1,12 @@
 {
   "app.title": "Kepler Talento",
   "auth.login": "Iniciar sesión",
+  "auth.login.intro": "Acceso interno. En local puedes entrar con cualquier email.",
+  "auth.login.email": "Email",
+  "auth.login.password": "Contraseña",
+  "auth.login.role": "Rol local",
+  "auth.login.submit": "Entrar",
+  "auth.login.failed": "No se pudo iniciar sesión",
   "candidate.new": "Alta de candidato",
   "candidate.search": "Búsqueda avanzada",
   "security.unauthorized": "No tienes permisos para esta acción",
@@ -38,6 +44,7 @@
   "candidate.profile.experience.endDate": "Fecha fin",
   "candidate.profile.experience.yearsExperience": "Años de experiencia",
   "candidate.profile.experience.current": "Puesto actual",
+  "candidate.profile.experience.currentBadge": "Actual",
   "candidate.profile.experience.add": "Añadir experiencia",
   "candidate.profile.experience.invalidRange": "La fecha de fin no puede ser anterior a la fecha de inicio.",
   "candidate.profile.skills.title": "Habilidades",
@@ -48,6 +55,7 @@
   "candidate.profile.skills.duplicate": "El candidato ya tiene esta habilidad registrada.",
   "candidate.profile.validation.negativeYears": "Los años de experiencia no pueden ser negativos.",
   "candidate.profile.validation.notFound": "Candidato no encontrado.",
+  "candidate.profile.yearsCount": "{{years}} años",
   "candidate.profile.action.remove": "Quitar",
   "candidate.profile.option.select": "Selecciona"
 }

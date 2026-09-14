@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
+  const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -37,7 +40,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
       setDraft(EMPTY);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
@@ -46,20 +49,24 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
       await candidateRelationsService.removeProgram(candidateId, programId);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-programs">
-      <h3 className="section-title">Programas</h3>
-      {!programs.length ? <p className="empty-state">Sin programas asociados.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.programs.title')}</h3>
+      {!programs.length ? (
+        <p className="empty-state">{t('candidate.profile.programs.empty')}</p>
+      ) : null}
       <div className="item-list">
         {programs.map((item) => (
           <div className="item-row" key={item.id}>
             <p className="item-main">
               <span className="badge">{item.program}</span> {item.level}
-              {item.yearsExperience !== undefined ? ` (${item.yearsExperience} años)` : ''}
+              {item.yearsExperience !== undefined
+                ? ` (${t('candidate.profile.yearsCount', { years: item.yearsExperience })})`
+                : ''}
             </p>
             {canEdit ? (
               <button
@@ -67,7 +74,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
                 type="button"
                 onClick={() => void remove(item.id)}
               >
-                Quitar
+                {t('candidate.profile.action.remove')}
               </button>
             ) : null}
           </div>
@@ -78,7 +85,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
           <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
-              <label htmlFor="program">Programa</label>
+              <label htmlFor="program">{t('candidate.profile.programs.label')}</label>
               <select
                 id="program"
                 name="program"
@@ -87,7 +94,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {programOptions.map((option) => (
                   <option key={option} value={option}>
@@ -97,7 +104,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="program-level">Nivel</label>
+              <label htmlFor="program-level">{t('candidate.profile.programs.level')}</label>
               <select
                 id="program-level"
                 name="level"
@@ -106,7 +113,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {levelOptions.map((option) => (
                   <option key={option} value={option}>
@@ -116,7 +123,9 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="program-years">Años de experiencia</label>
+              <label htmlFor="program-years">
+                {t('candidate.profile.programs.yearsExperience')}
+              </label>
               <input
                 id="program-years"
                 name="yearsExperience"
@@ -136,7 +145,7 @@ export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
             <button className="button" type="submit" disabled={!!catalogStatus.message}>
-              Añadir programa
+              {t('candidate.profile.programs.add')}
             </button>
           </div>
         </form>

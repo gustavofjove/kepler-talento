@@ -3,6 +3,33 @@ const globals = require('globals');
 const tseslint = require('typescript-eslint');
 const reactHooks = require('eslint-plugin-react-hooks');
 const reactRefresh = require('eslint-plugin-react-refresh');
+const i18next = require('eslint-plugin-i18next');
+
+// Components that still hardcode their copy (KTL-12). Entries may only be REMOVED:
+// when a change touches one of these files' copy, move it to src/assets/i18n/es.json,
+// render it with t(), and delete the path here. Never add a file to silence the rule.
+const LEGACY_HARDCODED_COPY = [
+  'src/app/core/auth/mfa-page.tsx',
+  'src/app/core/layout/app-layout.tsx',
+  'src/app/features/admin/import/import-page.tsx',
+  'src/app/features/admin/roles/admin-roles-page.tsx',
+  'src/app/features/admin/users/admin-users-page.tsx',
+  'src/app/features/candidates/components/candidate-documents.tsx',
+  'src/app/features/candidates/components/candidate-filters-bar.tsx',
+  'src/app/features/candidates/components/candidate-form.tsx',
+  'src/app/features/candidates/components/candidate-table.tsx',
+  'src/app/features/candidates/pages/candidate-detail-page.tsx',
+  'src/app/features/candidates/pages/candidate-edit-page.tsx',
+  'src/app/features/candidates/pages/candidate-list-page.tsx',
+  'src/app/features/catalogs/pages/catalog-management-page.tsx',
+  'src/app/features/dashboard/dashboard-page.tsx',
+  'src/app/features/search/components/criteria-group.tsx',
+  'src/app/features/search/components/filters-summary.tsx',
+  'src/app/features/search/components/search-filters.tsx',
+  'src/app/features/search/components/search-results.tsx',
+  'src/app/features/search/pages/advanced-search-page.tsx',
+  'src/app/shared/components/pagination.tsx',
+];
 
 module.exports = [
   {
@@ -45,6 +72,18 @@ module.exports = [
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // User-facing JSX text goes through t(). Attribute copy (placeholder, aria-label) is
+    // not caught by jsx-text-only; the AGENTS.md rule and review cover it.
+    files: ['src/**/*.tsx'],
+    plugins: { i18next },
+    rules: {
+      'i18next/no-literal-string': ['error', { mode: 'jsx-text-only' }],
+    },
+  },
+  ...(LEGACY_HARDCODED_COPY.length
+    ? [{ files: LEGACY_HARDCODED_COPY, rules: { 'i18next/no-literal-string': 'off' } }]
+    : []),
   {
     files: ['*.js', 'scripts/**/*.js'],
     languageOptions: {

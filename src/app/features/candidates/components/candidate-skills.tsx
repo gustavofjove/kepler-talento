@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
+  const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState(EMPTY);
@@ -31,7 +34,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
       setDraft(EMPTY);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
@@ -40,14 +43,14 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
       await candidateRelationsService.removeSkill(candidateId, skillId);
       setError('');
     } catch (err) {
-      setError((err as Error).message);
+      setError(errorText(err, t));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-skills">
-      <h3 className="section-title">Habilidades</h3>
-      {!skills.length ? <p className="empty-state">Sin habilidades registradas.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.skills.title')}</h3>
+      {!skills.length ? <p className="empty-state">{t('candidate.profile.skills.empty')}</p> : null}
       <div className="item-list">
         {skills.map((item) => (
           <div className="item-row" key={item.id}>
@@ -60,7 +63,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
                 type="button"
                 onClick={() => void remove(item.id)}
               >
-                Quitar
+                {t('candidate.profile.action.remove')}
               </button>
             ) : null}
           </div>
@@ -71,7 +74,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
           <CatalogStatusNotice status={catalogStatus} />
           <div className="grid two">
             <div className="field">
-              <label htmlFor="skill">Habilidad</label>
+              <label htmlFor="skill">{t('candidate.profile.skills.label')}</label>
               <select
                 id="skill"
                 name="skill"
@@ -80,7 +83,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {skillOptions.map((option) => (
                   <option key={option} value={option}>
@@ -90,7 +93,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
               </select>
             </div>
             <div className="field">
-              <label htmlFor="skill-level">Nivel</label>
+              <label htmlFor="skill-level">{t('candidate.profile.skills.level')}</label>
               <select
                 id="skill-level"
                 name="level"
@@ -99,7 +102,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
                 required
               >
                 <option value="" disabled>
-                  Selecciona
+                  {t('candidate.profile.option.select')}
                 </option>
                 {levelOptions.map((option) => (
                   <option key={option} value={option}>
@@ -112,7 +115,7 @@ export function CandidateSkills({ candidateId, skills, canEdit }: Props) {
           {error ? <p className="empty-state">{error}</p> : null}
           <div className="form-actions">
             <button className="button" type="submit" disabled={!!catalogStatus.message}>
-              Añadir habilidad
+              {t('candidate.profile.skills.add')}
             </button>
           </div>
         </form>
