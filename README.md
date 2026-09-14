@@ -183,7 +183,7 @@ npm run test:backend
 La API nunca migra automáticamente durante el arranque normal. La migración explícita es:
 
 ```powershell
-dotnet run --project backend/Web/KeplerTalento.Web.csproj -- --migrate
+dotnet run --project backend/Web/Web.csproj -- --migrate
 ```
 
 Requiere `ConnectionStrings__ApplicationDatabase` y una identidad de migración con permiso
@@ -248,6 +248,6 @@ Documentación principal:
 - [Brief KTL-7](openspec/KTL-7.md), [runbook de migración](docs/ktl-7/migration-runbook.md) y
   [procedimiento de exportación](docs/ktl-7/access-export-procedure.md)
 - [Brief KTL-8](openspec/KTL-8.md) y [candidatos KTL-8](docs/ktl-8/candidates.md)
-- [Cambio OpenSpec](openspec/changes/ktl-5-dotnet-infrastructure)
+- [Cambio OpenSpec KTL-5](openspec/changes/archive/2026-08-25-ktl-5-dotnet-infrastructure)
 - [Plan técnico existente](specs/001-gestion-cvs-rrhh/plan.md)
 - [Principios vigentes](openspec/config.yaml)

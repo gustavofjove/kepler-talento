@@ -1,6 +1,3 @@
-# Local agent/runtime state
-.agents/
-
 # Sensitive local data sources
 *.accdb
 *.mdb
@@ -40,10 +37,6 @@ tmp/
 .env.*.local
 .envrc
 !.env.example
-# Exception: committed production build config (non-secret; baked into the client bundle)
-!frontend/.env.production
-# Exception: committed offline build config (non-secret; selects same-origin /api, no env label)
-!frontend/.env.offline
 
 # Logs
 npm-debug.log*
@@ -107,27 +100,10 @@ publish/
 
 # .NET Secrets
 appsettings.local.json
-# Per-environment, non-committed overrides (e.g. per-installation Jwt:Secret for the Offline profile)
+# Per-environment, non-committed overrides
 appsettings.*.local.json
 secrets.json
-
-# Azure deployment secrets (live keys/passwords — never commit)
-docs/azure-secrets.local.md
 *.secrets.local.md
-
-# Local file storage for preview images (Storage:Provider=Local).
-# Runtime artifacts; never commit. Production uses Azure Blob; on-prem writes here.
-backend/Web/App_Data/uploads/
-
-# Per-installation JWT secret generated on first offline run (HMS-163d). Machine-local; never commit.
-backend/Web/App_Data/jwt.secret
-
-# Dev email dumps (Email:Log:WriteToDisk=true writes rendered .eml/.html here). Never commit.
-backend/Web/App_Data/emails/
-
-# Offline SPA build output (scripts/build-offline.sh copies frontend/dist here so the
-# backend serves the combined app). Build artifact, rebuilt per release; never commit.
-backend/Web/wwwroot/
 
 backend/.tmp-tools/
 
