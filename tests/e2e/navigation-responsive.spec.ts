@@ -9,7 +9,7 @@ import { authFile } from './global-setup';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
-const ADMIN_ITEMS = ['nav-catalogs', 'nav-users', 'nav-roles', 'nav-import'];
+const ADMIN_ITEMS = ['nav-catalogs', 'nav-presets', 'nav-users', 'nav-roles', 'nav-import'];
 
 async function headerIsOneRow(page: Page): Promise<void> {
   const header = page.locator('.shell header');
@@ -120,6 +120,15 @@ test.describe('Primary navigation - wide viewport', () => {
     await expect(page.getByTestId('nav-import')).toBeVisible();
   });
 
+  test('landing on a nested preset route opens the group with Presets active', async ({ page }) => {
+    await page.goto('/app/admin/presets/new');
+
+    const trigger = page.getByTestId('nav-admin-trigger');
+    await expect(trigger).toHaveClass(/active/);
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByTestId('nav-presets')).toBeVisible();
+  });
+
   test('the whole group is reachable by keyboard alone', async ({ page }) => {
     await page.goto('/app');
     const trigger = page.getByTestId('nav-admin-trigger');
@@ -189,6 +198,7 @@ test.describe('Primary navigation - narrow viewport', () => {
     const trigger = page.getByTestId('nav-admin-trigger');
     const child = page.getByTestId('nav-catalogs');
     await expect(child).toBeVisible();
+    await expect(page.getByTestId('nav-presets')).toBeVisible();
 
     const triggerBox = await trigger.boundingBox();
     const childBox = await child.boundingBox();

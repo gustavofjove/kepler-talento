@@ -7,6 +7,14 @@
 .filters-header h2 {
   margin: 0;
 }
+/* The read-only criteria in a compact modal, shared by every section that shows a filter set. */
+.criteria-dialog {
+  max-height: 80vh;
+  overflow: auto;
+}
+.criteria-dialog .filters-summary {
+  margin: 0;
+}
 /* Grouped into columns so a long filter set stays short instead of stacking up. */
 .filters-summary {
   display: grid;

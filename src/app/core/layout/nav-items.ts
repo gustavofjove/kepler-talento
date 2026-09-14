@@ -53,6 +53,12 @@ export const ADMIN_GROUP: NavGroup = {
       testId: 'nav-catalogs',
     },
     {
+      label: 'Presets',
+      to: '/app/admin/presets',
+      permission: 'manage_presets',
+      testId: 'nav-presets',
+    },
+    {
       label: 'Usuarios',
       to: '/app/admin/users',
       permission: 'manage_users',
@@ -76,6 +82,7 @@ export const ADMIN_GROUP: NavGroup = {
 export const NAV_PERMISSIONS: Permission[] = [
   'view_candidates',
   'manage_catalogs',
+  'manage_presets',
   'manage_users',
   'manage_roles',
   'import_candidates',

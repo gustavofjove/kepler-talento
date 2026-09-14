@@ -5,6 +5,8 @@ import { AppLayout } from './core/layout/app-layout';
 import { RequireAuth } from './core/routing/require-auth';
 import { RequirePermission } from './core/routing/require-permission';
 import { ImportPage } from './features/admin/import/import-page';
+import { PresetEditPage } from './features/admin/presets/preset-edit-page';
+import { PresetListPage } from './features/admin/presets/preset-list-page';
 import { AdminRolesPage } from './features/admin/roles/admin-roles-page';
 import { AdminUsersPage } from './features/admin/users/admin-users-page';
 import { CandidateDetailPage } from './features/candidates/pages/candidate-detail-page';
@@ -54,6 +56,16 @@ export function createAppRouter() {
             {
               element: <RequirePermission permission="manage_catalogs" />,
               children: [{ path: 'catalogs', element: <CatalogManagementPage /> }],
+            },
+            {
+              // No read-only preset route: a preset's criteria are viewed in the list's dialog,
+              // and the separate page exists only to create or edit.
+              element: <RequirePermission permission="manage_presets" />,
+              children: [
+                { path: 'admin/presets', element: <PresetListPage /> },
+                { path: 'admin/presets/new', element: <PresetEditPage /> },
+                { path: 'admin/presets/:id/edit', element: <PresetEditPage /> },
+              ],
             },
             {
               element: <RequirePermission permission="manage_users" />,

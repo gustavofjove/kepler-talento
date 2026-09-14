@@ -11,8 +11,8 @@ namespace KeplerTalento.Tests.UnitTests.Features;
 
 /// <summary>
 /// The search and saved-search handlers. What is proven here is everything that happens
-/// before and around the query — authorization, normalization, page bounds, owner scoping
-/// and refusals. The query's own semantics are SQL, and are proven against PostgreSQL.
+/// before and around the query — authorization, normalization, page bounds, versions and
+/// refusals. The query's own semantics are SQL, and are proven against PostgreSQL.
 /// </summary>
 public sealed class SearchHandlerTests
 {
@@ -111,46 +111,82 @@ public sealed class SearchHandlerTests
     }
 
     [Fact]
-    public async Task Presets_are_listed_only_for_the_current_actor()
+    public async Task Every_actor_that_can_read_lists_the_whole_shared_library()
     {
         var presets = new StubPresetRepository();
-        presets.Seed("someone-else", "Ajena");
-        var mine = presets.Seed("test-actor", "Propia");
+        var second = presets.Seed("Zeta");
+        var first = presets.Seed("Alfa");
 
         var listed = await new ListSearchPresetsHandler(presets, Actor.Reader)
             .Handle(new ListSearchPresetsQuery(), CancellationToken.None);
 
-        Assert.Equal(mine.Id, Assert.Single(listed).Id);
+        Assert.Equal([first.Id, second.Id], listed.Select(preset => preset.Id));
     }
 
     [Fact]
-    public async Task An_actor_without_a_stable_key_cannot_own_presets()
+    public async Task A_single_preset_is_retrieved_with_its_version()
     {
-        // Defaulting to the empty string would silently pool every such actor's saved
-        // searches into one shared owner.
         var presets = new StubPresetRepository();
+        var seeded = presets.Seed("Java senior");
 
-        await Assert.ThrowsAsync<ForbiddenException>(() =>
-            new ListSearchPresetsHandler(presets, Actor.KeylessReader)
-                .Handle(new ListSearchPresetsQuery(), CancellationToken.None));
+        var found = await new GetSearchPresetHandler(presets, Actor.Reader)
+            .Handle(new GetSearchPresetQuery(seeded.Id), CancellationToken.None);
+
+        Assert.Equal("Java senior", found.Name);
+        Assert.Equal(1u, found.Version);
     }
 
     [Fact]
-    public async Task Creating_a_preset_derives_its_owner_and_stamps_server_timestamps()
+    public async Task An_unauthenticated_caller_is_refused_by_every_preset_handler()
+    {
+        var presets = new StubPresetRepository();
+        var seeded = presets.Seed("Existente");
+
+        await AssertEveryPresetHandlerRefuses(presets, seeded.Id, Actor.Anonymous, reads: true, writes: true);
+
+        Assert.Equal(0, presets.SaveCount);
+    }
+
+    [Fact]
+    public async Task A_reader_without_manage_presets_cannot_write_the_library()
+    {
+        var presets = new StubPresetRepository();
+        var seeded = presets.Seed("Existente");
+
+        await AssertEveryPresetHandlerRefuses(presets, seeded.Id, Actor.Reader, reads: false, writes: true);
+
+        Assert.Equal(0, presets.SaveCount);
+        Assert.Equal("Existente", presets.Single().Name);
+    }
+
+    [Fact]
+    public async Task A_manager_without_candidate_read_cannot_list_retrieve_or_apply()
+    {
+        // Managing does not imply reading: the two permissions are independent by design.
+        var presets = new StubPresetRepository();
+        var seeded = presets.Seed("Existente");
+
+        await AssertEveryPresetHandlerRefuses(presets, seeded.Id, Actor.ManagerOnly, reads: true, writes: false);
+
+        Assert.Equal(0, presets.SaveCount);
+        Assert.Null(presets.Single().LastUsedAtUtc);
+    }
+
+    [Fact]
+    public async Task Creating_a_preset_stamps_server_timestamps_and_starts_at_version_one()
     {
         var presets = new StubPresetRepository();
         var before = DateTimeOffset.UtcNow;
 
-        var created = await new CreateSearchPresetHandler(presets, Actor.Reader).Handle(
+        var created = await new CreateSearchPresetHandler(presets, Actor.Manager).Handle(
             new CreateSearchPresetCommand("  Java senior  ", null),
             CancellationToken.None);
 
-        var stored = presets.Single();
-        Assert.Equal("test-actor", stored.OwnerId);
         Assert.Equal("Java senior", created.Name);
         Assert.True(created.CreatedAt >= before);
         Assert.Equal(created.CreatedAt, created.UpdatedAt);
         Assert.Null(created.LastUsedAt);
+        Assert.Equal(1u, created.Version);
     }
 
     [Theory]
@@ -159,7 +195,7 @@ public sealed class SearchHandlerTests
     public async Task A_blank_preset_name_is_refused(string name)
     {
         var failure = await Assert.ThrowsAsync<RequestValidationException>(() =>
-            new CreateSearchPresetHandler(new StubPresetRepository(), Actor.Reader)
+            new CreateSearchPresetHandler(new StubPresetRepository(), Actor.Manager)
                 .Handle(new CreateSearchPresetCommand(name, null), CancellationToken.None));
 
         Assert.Contains(failure.Issues, issue => issue.Code == SearchErrors.PresetNameRequired);
@@ -171,7 +207,7 @@ public sealed class SearchHandlerTests
         var presets = new StubPresetRepository();
 
         await Assert.ThrowsAsync<RequestValidationException>(() =>
-            new CreateSearchPresetHandler(presets, Actor.Reader).Handle(
+            new CreateSearchPresetHandler(presets, Actor.Manager).Handle(
                 new CreateSearchPresetCommand(
                     "Mala",
                     new SearchFiltersInput(null, ["archived"], null, null, null, null, null, null, null)),
@@ -180,34 +216,45 @@ public sealed class SearchHandlerTests
         Assert.Empty(presets.All);
     }
 
-    [Fact]
-    public async Task A_name_differing_only_by_case_is_a_conflict()
+    [Theory]
+    [InlineData("Inglés B2", "ingles b2")]
+    [InlineData("Java Senior", "JAVA SENIOR")]
+    [InlineData("Búsqueda", "Busqueda")]
+    public async Task A_name_differing_only_by_case_or_accents_is_a_conflict(string existing, string attempted)
     {
         var presets = new StubPresetRepository();
-        await new CreateSearchPresetHandler(presets, Actor.Reader)
-            .Handle(new CreateSearchPresetCommand("Java Senior", null), CancellationToken.None);
+        await new CreateSearchPresetHandler(presets, Actor.Manager)
+            .Handle(new CreateSearchPresetCommand(existing, null), CancellationToken.None);
 
         var conflict = await Assert.ThrowsAsync<ConflictException>(() =>
-            new CreateSearchPresetHandler(presets, Actor.Reader)
-                .Handle(new CreateSearchPresetCommand("java senior", null), CancellationToken.None));
+            new CreateSearchPresetHandler(presets, Actor.Manager)
+                .Handle(new CreateSearchPresetCommand(attempted, null), CancellationToken.None));
 
         Assert.Equal(SearchErrors.PresetNameConflict, conflict.Code);
-        Assert.Single(presets.All);
+        Assert.Equal(existing, presets.Single().Name);
     }
 
     [Fact]
-    public async Task Updating_preserves_identity_and_creation_time_and_advances_the_update_time()
+    public void Preset_names_normalize_like_catalog_names()
+    {
+        Assert.Equal("ingles b2", SearchPresetName.Normalize("  Inglés B2 "));
+        Assert.Equal(string.Empty, SearchPresetName.Normalize(null));
+    }
+
+    [Fact]
+    public async Task Updating_preserves_identity_and_creation_time_and_advances_the_update_time_and_version()
     {
         var presets = new StubPresetRepository();
-        var created = await new CreateSearchPresetHandler(presets, Actor.Reader)
+        var created = await new CreateSearchPresetHandler(presets, Actor.Manager)
             .Handle(new CreateSearchPresetCommand("Original", null), CancellationToken.None);
         await Task.Delay(5);
 
-        var updated = await new UpdateSearchPresetHandler(presets, Actor.Reader).Handle(
+        var updated = await new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
             new UpdateSearchPresetCommand(
                 created.Id,
                 "Renombrada",
-                new SearchFiltersInput(null, null, null, null, null, null, null, null, "yes")),
+                new SearchFiltersInput(null, null, null, null, null, null, null, null, "yes"),
+                created.Version),
             CancellationToken.None);
 
         Assert.Equal(created.Id, updated.Id);
@@ -215,14 +262,62 @@ public sealed class SearchHandlerTests
         Assert.True(updated.UpdatedAt > created.UpdatedAt);
         Assert.Equal("Renombrada", updated.Name);
         Assert.Equal("yes", updated.Filters.HasCv);
-        Assert.Equal("test-actor", presets.Single().OwnerId);
+        Assert.Equal(created.Version + 1, updated.Version);
     }
 
     [Fact]
-    public async Task Applying_a_preset_returns_its_filters_and_advances_both_timestamps()
+    public async Task A_stale_version_is_refused_on_update()
     {
         var presets = new StubPresetRepository();
-        var created = await new CreateSearchPresetHandler(presets, Actor.Reader).Handle(
+        var created = await new CreateSearchPresetHandler(presets, Actor.Manager)
+            .Handle(new CreateSearchPresetCommand("Original", null), CancellationToken.None);
+        await new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
+            new UpdateSearchPresetCommand(created.Id, "Primera edición", null, created.Version),
+            CancellationToken.None);
+
+        var conflict = await Assert.ThrowsAsync<ConflictException>(() =>
+            new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
+                new UpdateSearchPresetCommand(created.Id, "Segunda edición", null, created.Version),
+                CancellationToken.None));
+
+        Assert.Equal(SearchErrors.PresetConcurrencyConflict, conflict.Code);
+        Assert.NotEqual(SearchErrors.PresetNameConflict, conflict.Code);
+    }
+
+    [Fact]
+    public async Task A_stale_version_is_refused_on_delete_and_the_preset_remains()
+    {
+        var presets = new StubPresetRepository();
+        var created = await new CreateSearchPresetHandler(presets, Actor.Manager)
+            .Handle(new CreateSearchPresetCommand("Original", null), CancellationToken.None);
+        await new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
+            new UpdateSearchPresetCommand(created.Id, "Editada", null, created.Version),
+            CancellationToken.None);
+
+        var conflict = await Assert.ThrowsAsync<ConflictException>(() =>
+            new DeleteSearchPresetHandler(presets, Actor.Manager)
+                .Handle(new DeleteSearchPresetCommand(created.Id, created.Version), CancellationToken.None));
+
+        Assert.Equal(SearchErrors.PresetConcurrencyConflict, conflict.Code);
+        Assert.Equal(created.Id, presets.Single().Id);
+    }
+
+    [Fact]
+    public void A_version_that_was_never_issued_is_refused_by_validation()
+    {
+        var update = new UpdateSearchPresetValidator().Validate(
+            new UpdateSearchPresetCommand(Guid.NewGuid(), "Nombre", null, 0));
+        var delete = new DeleteSearchPresetValidator().Validate(new DeleteSearchPresetCommand(Guid.NewGuid(), 0));
+
+        Assert.Contains(update.Errors, error => error.ErrorCode == SearchErrors.PresetVersionInvalid);
+        Assert.Contains(delete.Errors, error => error.ErrorCode == SearchErrors.PresetVersionInvalid);
+    }
+
+    [Fact]
+    public async Task Applying_a_preset_returns_its_filters_and_advances_only_the_last_used_time()
+    {
+        var presets = new StubPresetRepository();
+        var created = await new CreateSearchPresetHandler(presets, Actor.Manager).Handle(
             new CreateSearchPresetCommand(
                 "Con CV",
                 new SearchFiltersInput(null, null, null, null, null, null, null, null, "yes")),
@@ -234,53 +329,113 @@ public sealed class SearchHandlerTests
 
         Assert.Equal("yes", applied.Filters.HasCv);
         Assert.NotNull(applied.LastUsedAt);
-        Assert.Equal(applied.LastUsedAt, applied.UpdatedAt);
-        Assert.True(applied.UpdatedAt > created.UpdatedAt);
+        Assert.True(applied.LastUsedAt > created.UpdatedAt);
+        Assert.Equal(created.UpdatedAt, applied.UpdatedAt);
+        Assert.Equal(created.Version, applied.Version);
     }
 
     [Fact]
-    public async Task Deleting_removes_only_that_owner_preset()
+    public async Task Applying_a_preset_does_not_make_a_pending_edit_stale()
     {
         var presets = new StubPresetRepository();
-        var other = presets.Seed("someone-else", "Ajena");
-        var mine = await new CreateSearchPresetHandler(presets, Actor.Reader)
-            .Handle(new CreateSearchPresetCommand("Propia", null), CancellationToken.None);
+        var loadedByAdministrator = await new CreateSearchPresetHandler(presets, Actor.Manager)
+            .Handle(new CreateSearchPresetCommand("Compartida", null), CancellationToken.None);
 
-        await new DeleteSearchPresetHandler(presets, Actor.Reader)
-            .Handle(new DeleteSearchPresetCommand(mine.Id), CancellationToken.None);
+        await new UseSearchPresetHandler(presets, Actor.Reader)
+            .Handle(new UseSearchPresetCommand(loadedByAdministrator.Id), CancellationToken.None);
+        var saved = await new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
+            new UpdateSearchPresetCommand(loadedByAdministrator.Id, "Compartida v2", null, loadedByAdministrator.Version),
+            CancellationToken.None);
+
+        Assert.Equal("Compartida v2", saved.Name);
+    }
+
+    [Fact]
+    public async Task Deleting_removes_only_that_preset()
+    {
+        var presets = new StubPresetRepository();
+        var other = presets.Seed("Otra");
+        var target = presets.Seed("Objetivo");
+
+        await new DeleteSearchPresetHandler(presets, Actor.Manager)
+            .Handle(new DeleteSearchPresetCommand(target.Id, 1), CancellationToken.None);
 
         Assert.Equal(other.Id, Assert.Single(presets.All).Id);
     }
 
     [Fact]
-    public async Task A_cross_owner_preset_is_indistinguishable_from_a_missing_one()
+    public async Task A_missing_preset_is_the_same_not_found_for_every_operation()
     {
         var presets = new StubPresetRepository();
-        var theirs = presets.Seed("someone-else", "Ajena");
+        var missing = Guid.NewGuid();
 
-        var missing = await Assert.ThrowsAsync<NotFoundException>(() =>
-            new UseSearchPresetHandler(presets, Actor.Reader)
-                .Handle(new UseSearchPresetCommand(Guid.NewGuid()), CancellationToken.None));
-        var crossOwner = await Assert.ThrowsAsync<NotFoundException>(() =>
-            new UseSearchPresetHandler(presets, Actor.Reader)
-                .Handle(new UseSearchPresetCommand(theirs.Id), CancellationToken.None));
+        var refusals = new[]
+        {
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                new GetSearchPresetHandler(presets, Actor.Reader)
+                    .Handle(new GetSearchPresetQuery(missing), CancellationToken.None)),
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                new UseSearchPresetHandler(presets, Actor.Reader)
+                    .Handle(new UseSearchPresetCommand(missing), CancellationToken.None)),
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                new UpdateSearchPresetHandler(presets, Actor.Manager)
+                    .Handle(new UpdateSearchPresetCommand(missing, "Nombre", null, 1), CancellationToken.None)),
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                new DeleteSearchPresetHandler(presets, Actor.Manager)
+                    .Handle(new DeleteSearchPresetCommand(missing, 1), CancellationToken.None)),
+        };
 
-        Assert.Equal(missing.Code, crossOwner.Code);
-        Assert.Equal(missing.Message, crossOwner.Message);
+        Assert.All(refusals, refusal => Assert.Equal(SearchErrors.PresetNotFound, refusal.Code));
+        Assert.Equal(0, presets.SaveCount);
     }
 
     [Fact]
-    public async Task A_refusal_never_names_another_owner_or_repeats_the_filters()
+    public async Task A_refusal_never_repeats_the_name_or_the_filters_it_was_given()
     {
         var presets = new StubPresetRepository();
-        var theirs = presets.Seed("someone-else", "Búsqueda de Marta");
 
         var refusal = await Assert.ThrowsAsync<NotFoundException>(() =>
-            new UpdateSearchPresetHandler(presets, Actor.Reader)
-                .Handle(new UpdateSearchPresetCommand(theirs.Id, "Mía", null), CancellationToken.None));
+            new UpdateSearchPresetHandler(presets, Actor.Manager).Handle(
+                new UpdateSearchPresetCommand(
+                    Guid.NewGuid(),
+                    "Búsqueda de Marta",
+                    new SearchFiltersInput("Marta Ruiz", null, null, null, null, null, null, null, null),
+                    1),
+                CancellationToken.None));
 
-        Assert.DoesNotContain("someone-else", refusal.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("Marta", refusal.Message, StringComparison.Ordinal);
+    }
+
+    private static async Task AssertEveryPresetHandlerRefuses(
+        StubPresetRepository presets,
+        Guid existing,
+        Actor actor,
+        bool reads,
+        bool writes)
+    {
+        if (reads)
+        {
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new ListSearchPresetsHandler(presets, actor).Handle(new ListSearchPresetsQuery(), CancellationToken.None));
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new GetSearchPresetHandler(presets, actor).Handle(new GetSearchPresetQuery(existing), CancellationToken.None));
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new UseSearchPresetHandler(presets, actor).Handle(new UseSearchPresetCommand(existing), CancellationToken.None));
+        }
+        if (writes)
+        {
+            // Deliberately invalid input: authorization must come before validation, so the
+            // refusal is Forbidden rather than a validation problem.
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new CreateSearchPresetHandler(presets, actor).Handle(
+                    new CreateSearchPresetCommand("", null), CancellationToken.None));
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new UpdateSearchPresetHandler(presets, actor).Handle(
+                    new UpdateSearchPresetCommand(existing, "", null, 1), CancellationToken.None));
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                new DeleteSearchPresetHandler(presets, actor).Handle(
+                    new DeleteSearchPresetCommand(existing, 1), CancellationToken.None));
+        }
     }
 
     private sealed class RecordingCandidateRepository : ICandidateRepository
@@ -331,24 +486,27 @@ public sealed class SearchHandlerTests
     }
 
     /// <summary>
-    /// An in-memory stand-in that keeps the two properties the real store guarantees: every
-    /// lookup is owner-scoped, and the per-owner name is unique without regard to case.
+    /// An in-memory stand-in that keeps the properties the real store guarantees: names are
+    /// unique across the library under folded comparison, and a write against a version other
+    /// than the one the preset held when it was expected is refused.
     /// </summary>
     private sealed class StubPresetRepository : ISearchPresetRepository
     {
         private readonly List<SearchPreset> _stored = [];
         private readonly List<SearchPreset> _pending = [];
         private readonly List<SearchPreset> _removed = [];
+        private bool _staleVersionExpected;
 
         public IReadOnlyList<SearchPreset> All => _stored;
 
+        public int SaveCount { get; private set; }
+
         public SearchPreset Single() => Assert.Single(_stored);
 
-        public SearchPreset Seed(string owner, string name)
+        public SearchPreset Seed(string name)
         {
             var preset = new SearchPreset(
                 Guid.CreateVersion7(),
-                owner,
                 name,
                 SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Filters")),
                 SearchFilterNormalization.FilterSchemaVersion,
@@ -357,30 +515,36 @@ public sealed class SearchHandlerTests
             return preset;
         }
 
-        public Task<IReadOnlyList<SearchPreset>> ListAsync(string ownerId, CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<SearchPreset>> ListAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<SearchPreset>>(
-            [
-                .. _stored
-                    .Where(preset => preset.OwnerId == ownerId)
-                    .OrderBy(preset => preset.NormalizedName, StringComparer.Ordinal),
-            ]);
+                [.. _stored.OrderBy(preset => preset.NormalizedName, StringComparer.Ordinal)]);
 
-        public Task<SearchPreset?> FindAsync(string ownerId, Guid id, CancellationToken cancellationToken) =>
-            Task.FromResult(_stored.SingleOrDefault(preset => preset.Id == id && preset.OwnerId == ownerId));
+        public Task<SearchPreset?> FindAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(_stored.SingleOrDefault(preset => preset.Id == id));
 
         public void Add(SearchPreset preset) => _pending.Add(preset);
 
         public void Remove(SearchPreset preset) => _removed.Add(preset);
 
+        // Checked at the moment of expectation, before the handler mutates the preset, which is
+        // what the database's WHERE "Version" = @original does at save time.
+        public void ExpectVersion(SearchPreset preset, uint version) =>
+            _staleVersionExpected |= preset.Version != (int)version;
+
         public Task<SearchPresetSaveOutcome> SaveAsync(CancellationToken cancellationToken)
         {
-            var candidates = _pending.Concat(_stored).ToList();
-            if (candidates
-                .GroupBy(preset => (preset.OwnerId, preset.NormalizedName))
+            SaveCount++;
+            if (_staleVersionExpected)
+            {
+                Reset();
+                return Task.FromResult(SearchPresetSaveOutcome.ConcurrencyConflict);
+            }
+            if (_pending.Concat(_stored)
+                .Except(_removed)
+                .GroupBy(preset => preset.NormalizedName)
                 .Any(group => group.Count() > 1))
             {
-                _pending.Clear();
-                _removed.Clear();
+                Reset();
                 return Task.FromResult(SearchPresetSaveOutcome.NameConflict);
             }
             _stored.AddRange(_pending);
@@ -388,28 +552,33 @@ public sealed class SearchHandlerTests
             {
                 _stored.Remove(preset);
             }
+            Reset();
+            return Task.FromResult(SearchPresetSaveOutcome.Saved);
+        }
+
+        private void Reset()
+        {
             _pending.Clear();
             _removed.Clear();
-            return Task.FromResult(SearchPresetSaveOutcome.Saved);
+            _staleVersionExpected = false;
         }
     }
 
-    private sealed class Actor(bool authenticated, string? key, params string[] permissions) : ICurrentActor
+    private sealed class Actor(bool authenticated, params string[] permissions) : ICurrentActor
     {
-        public static Actor Anonymous => new(false, null);
-        public static Actor WithoutPermissions => new(true, "test-actor");
-        public static Actor Reader => new(true, "test-actor", Permissions.CandidatesRead);
+        public static Actor Anonymous => new(false);
+        public static Actor WithoutPermissions => new(true);
+        public static Actor Reader => new(true, Permissions.CandidatesRead);
+        public static Actor Manager => new(true, Permissions.CandidatesRead, Permissions.PresetsManage);
+        public static Actor ManagerOnly => new(true, Permissions.PresetsManage);
 
         /// <summary>
         /// The frontend's <c>view_all_candidates</c> has no backend capability of its own and
         /// no scoping effect; this actor exists to prove that.
         /// </summary>
-        public static Actor ReaderWithViewAll =>
-            new(true, "test-actor", Permissions.CandidatesRead, "candidates.read_all");
+        public static Actor ReaderWithViewAll => new(true, Permissions.CandidatesRead, "candidates.read_all");
 
-        public static Actor KeylessReader => new(true, "   ", Permissions.CandidatesRead);
-
-        public string? ExternalKey => key;
+        public string? ExternalKey => authenticated ? "test-actor" : null;
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);

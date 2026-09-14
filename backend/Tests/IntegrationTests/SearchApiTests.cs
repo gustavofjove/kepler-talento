@@ -17,8 +17,8 @@ using Xunit;
 namespace KeplerTalento.Tests.IntegrationTests;
 
 /// <summary>
-/// Candidate search and saved searches through the real HTTP → Application → PostgreSQL
-/// path.
+/// Candidate search and the shared saved-search library through the real HTTP → Application →
+/// PostgreSQL path.
 /// </summary>
 /// <remarks>
 /// Every filter assertion is made twice: once against the API, and once against
@@ -363,95 +363,254 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         }
     }
 
-    [Fact]
-    public async Task Every_preset_route_fails_closed_without_the_permission()
+    public static TheoryData<string, bool, bool> PresetAuthorizationMatrix() => new()
+    {
+        // actor, may read (list, get, use), may write (create, update, delete)
+        { nameof(TestActor.Unauthenticated), false, false },
+        { nameof(TestActor.None), false, false },
+        { nameof(TestActor.Reader), true, false },
+        { nameof(TestActor.ManagerOnly), false, true },
+    };
+
+    [Theory]
+    [MemberData(nameof(PresetAuthorizationMatrix))]
+    public async Task Every_preset_route_fails_closed_for_the_permission_it_requires(
+        string actorName,
+        bool mayRead,
+        bool mayWrite)
     {
         await SeedAsync();
-        using var factory = CreateFactory(TestActor.None);
+        var existing = await CreateAsManagerAsync("Secreta", new { text = "Marta Ruiz" });
+        using var factory = CreateFactory(TestActor.Named(actorName));
         using var client = factory.CreateClient();
-        var id = Guid.NewGuid();
 
-        var responses = new[]
+        // Reads and writes use deliberately invalid payloads for writes, so a refusal that came
+        // from validation rather than authorization would show up as a 400.
+        var reads = new[]
         {
             await client.GetAsync(PresetRoute),
-            await client.PostAsJsonAsync(PresetRoute, new { name = "X", filters = new { } }),
-            await client.PutAsJsonAsync($"{PresetRoute}/{id}", new { name = "X", filters = new { } }),
-            await client.DeleteAsync($"{PresetRoute}/{id}"),
-            await client.PostAsJsonAsync($"{PresetRoute}/{id}/use", new { }),
+            await client.GetAsync($"{PresetRoute}/{existing.Id}"),
+            await client.PostAsJsonAsync($"{PresetRoute}/{existing.Id}/use", new { }),
+        };
+        var writes = new[]
+        {
+            await client.PostAsJsonAsync(PresetRoute, new { name = "", filters = new { hasCv = "quizá" } }),
+            await client.PutAsJsonAsync($"{PresetRoute}/{existing.Id}", new { name = "", filters = new { } }),
+            await client.DeleteAsync($"{PresetRoute}/{existing.Id}?version=abc"),
         };
 
-        Assert.All(responses, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+        var refused = (mayRead ? Array.Empty<HttpResponseMessage>() : reads)
+            .Concat(mayWrite ? Array.Empty<HttpResponseMessage>() : writes);
+        foreach (var response in refused)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.DoesNotContain("Secreta", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("Marta", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("validation", body, StringComparison.OrdinalIgnoreCase);
+        }
+        if (mayRead)
+        {
+            Assert.All(reads, response => Assert.True(response.IsSuccessStatusCode));
+        }
+        if (mayWrite)
+        {
+            // Authorized, so the same invalid payloads now reach validation.
+            Assert.All(writes, response => Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode));
+        }
+
+        // A refused write changed nothing, and a refused apply recorded no use.
+        await using var dbContext = NewDbContext();
+        var stored = await dbContext.SearchPresets.AsNoTracking().SingleAsync();
+        Assert.Equal("Secreta", stored.Name);
+        Assert.Equal(1, stored.Version);
+        if (!mayRead)
+        {
+            Assert.Null(stored.LastUsedAtUtc);
+        }
     }
 
     [Fact]
-    public async Task Preset_lifecycle_persists_in_postgresql_and_stays_owner_scoped()
+    public async Task A_preset_created_by_one_actor_is_the_same_preset_for_every_reader()
     {
         await SeedAsync();
-        using var mineFactory = CreateFactory(TestActor.Reader);
-        using var mine = mineFactory.CreateClient();
+        var created = await CreateAsManagerAsync(
+            "Java senior",
+            new { skillCriteria = new[] { new { value = "Java", level = "" } }, skillMode = "ALL" });
 
-        var created = await CreatePresetAsync(mine, "Java senior", new { skillCriteria = new[] { new { value = "Java", level = "" } }, skillMode = "ALL" });
+        foreach (var reader in new[] { TestActor.Reader, TestActor.OtherReader })
+        {
+            using var factory = CreateFactory(reader);
+            using var client = factory.CreateClient();
+
+            var listed = await client.GetFromJsonAsync<List<SearchPresetResponse>>(PresetRoute);
+            var fetched = await client.GetFromJsonAsync<SearchPresetResponse>($"{PresetRoute}/{created.Id}");
+
+            Assert.Equal(created.Id, Assert.Single(listed!).Id);
+            Assert.Equal("Java senior", fetched!.Name);
+            Assert.Equal("ALL", fetched.Filters.SkillMode);
+            Assert.Equal(created.Version, fetched.Version);
+        }
+    }
+
+    [Fact]
+    public async Task Preset_lifecycle_persists_in_postgresql()
+    {
+        await SeedAsync();
+        using var managerFactory = CreateFactory(TestActor.Manager);
+        using var manager = managerFactory.CreateClient();
+        using var readerFactory = CreateFactory(TestActor.Reader);
+        using var reader = readerFactory.CreateClient();
+
+        var created = await CreatePresetAsync(manager, "Java senior", new { skillMode = "ALL" });
         Assert.Null(created.LastUsedAt);
+        Assert.Equal(1u, created.Version);
 
-        var listed = await mine.GetFromJsonAsync<List<SearchPresetResponse>>(PresetRoute);
-        Assert.Equal(created.Id, Assert.Single(listed!).Id);
-
-        var applied = await ReadPresetAsync(await mine.PostAsJsonAsync($"{PresetRoute}/{created.Id}/use", new { }));
+        var applied = await ReadPresetAsync(await reader.PostAsJsonAsync($"{PresetRoute}/{created.Id}/use", new { }));
         Assert.NotNull(applied.LastUsedAt);
         Assert.Equal("ALL", applied.Filters.SkillMode);
+        // Applying is not an edit: neither the update time nor the version moves.
+        Assert.Equal(created.UpdatedAt, applied.UpdatedAt, TimeSpan.FromMicroseconds(1));
+        Assert.Equal(created.Version, applied.Version);
 
-        var renamed = await ReadPresetAsync(await mine.PutAsJsonAsync(
+        var renamed = await ReadPresetAsync(await manager.PutAsJsonAsync(
             $"{PresetRoute}/{created.Id}",
-            new { name = "Java junior", filters = new { hasCv = "yes" } }));
+            new { name = "Java junior", filters = new { hasCv = "yes" }, version = created.Version }));
         Assert.Equal(created.Id, renamed.Id);
         // Compared at PostgreSQL's microsecond resolution: a timestamptz round-trip drops
         // the sub-microsecond part of a .NET tick, so exact equality would fail on a value
         // that did not change. What matters is that the update did not move it.
         Assert.Equal(created.CreatedAt, renamed.CreatedAt, TimeSpan.FromMicroseconds(1));
         Assert.Equal("Java junior", renamed.Name);
+        Assert.Equal(created.Version + 1, renamed.Version);
 
-        // The row itself, not just the response: the owner is stored, and never returned.
         await using (var dbContext = NewDbContext())
         {
             var stored = await dbContext.SearchPresets.AsNoTracking().SingleAsync();
-            Assert.Equal("integration-actor", stored.OwnerId);
             Assert.Equal("java junior", stored.NormalizedName);
+            Assert.Equal(2, stored.Version);
             Assert.Equal(SearchFilterNormalization.FilterSchemaVersion, stored.FilterSchemaVersion);
         }
 
-        using var theirsFactory = CreateFactory(TestActor.OtherReader);
-        using var theirs = theirsFactory.CreateClient();
-        Assert.Empty((await theirs.GetFromJsonAsync<List<SearchPresetResponse>>(PresetRoute))!);
-        // Another owner's identifier answers exactly as an identifier that never existed.
-        var crossOwner = await theirs.PostAsJsonAsync($"{PresetRoute}/{created.Id}/use", new { });
-        var absent = await theirs.PostAsJsonAsync($"{PresetRoute}/{Guid.NewGuid()}/use", new { });
-        Assert.Equal(HttpStatusCode.NotFound, crossOwner.StatusCode);
-        Assert.Equal(absent.StatusCode, crossOwner.StatusCode);
-        // Compared on what the refusal says, not on the whole envelope: the problem's
-        // `instance` echoes the request path, so it differs by the identifier the caller
-        // themselves supplied. Everything the server contributes must be identical.
-        var (crossCode, crossDetail) = await ReadProblemAsync(crossOwner);
-        var (absentCode, absentDetail) = await ReadProblemAsync(absent);
-        Assert.Equal(absentCode, crossCode);
-        Assert.Equal(absentDetail, crossDetail);
-
         Assert.Equal(
             HttpStatusCode.NoContent,
-            (await mine.DeleteAsync($"{PresetRoute}/{created.Id}")).StatusCode);
-        Assert.Empty((await mine.GetFromJsonAsync<List<SearchPresetResponse>>(PresetRoute))!);
+            (await manager.DeleteAsync($"{PresetRoute}/{created.Id}?version={renamed.Version}")).StatusCode);
+        Assert.Empty((await reader.GetFromJsonAsync<List<SearchPresetResponse>>(PresetRoute))!);
+        var gone = await reader.GetAsync($"{PresetRoute}/{created.Id}");
+        Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
+        Assert.Equal(SearchErrors.PresetNotFound, (await ReadProblemAsync(gone)).Code);
+    }
+
+    [Fact]
+    public async Task A_name_differing_only_by_case_or_accents_is_refused()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        await CreatePresetAsync(client, "Inglés B2", new { });
+        var other = await CreatePresetAsync(client, "Francés", new { });
+
+        var created = await client.PostAsJsonAsync(PresetRoute, new { name = "ingles b2", filters = new { } });
+        var renamed = await client.PutAsJsonAsync(
+            $"{PresetRoute}/{other.Id}",
+            new { name = "INGLES B2", filters = new { }, version = other.Version });
+
+        foreach (var response in new[] { created, renamed })
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal(SearchErrors.PresetNameConflict, (await ReadProblemAsync(response)).Code);
+        }
+        await using var dbContext = NewDbContext();
+        Assert.Equal(
+            ["Francés", "Inglés B2"],
+            await dbContext.SearchPresets.OrderBy(preset => preset.Name).Select(preset => preset.Name).ToListAsync());
+    }
+
+    [Fact]
+    public async Task A_stale_version_is_refused_on_update_and_delete_and_the_newer_change_remains()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Manager);
+        using var first = factory.CreateClient();
+        using var second = factory.CreateClient();
+        var loaded = await CreatePresetAsync(first, "Original", new { });
+
+        var saved = await first.PutAsJsonAsync(
+            $"{PresetRoute}/{loaded.Id}",
+            new { name = "Primera", filters = new { }, version = loaded.Version });
+        var staleUpdate = await second.PutAsJsonAsync(
+            $"{PresetRoute}/{loaded.Id}",
+            new { name = "Segunda", filters = new { }, version = loaded.Version });
+        var staleDelete = await second.DeleteAsync($"{PresetRoute}/{loaded.Id}?version={loaded.Version}");
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        foreach (var response in new[] { staleUpdate, staleDelete })
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal(SearchErrors.PresetConcurrencyConflict, (await ReadProblemAsync(response)).Code);
+        }
+        await using var dbContext = NewDbContext();
+        var stored = await dbContext.SearchPresets.AsNoTracking().SingleAsync();
+        Assert.Equal("Primera", stored.Name);
+        Assert.Equal(2, stored.Version);
+    }
+
+    [Fact]
+    public async Task Applying_a_preset_does_not_make_an_administrators_pending_edit_stale()
+    {
+        await SeedAsync();
+        var loadedByAdministrator = await CreateAsManagerAsync("Compartida", new { });
+        using (var readerFactory = CreateFactory(TestActor.Reader))
+        using (var reader = readerFactory.CreateClient())
+        {
+            (await reader.PostAsJsonAsync($"{PresetRoute}/{loadedByAdministrator.Id}/use", new { }))
+                .EnsureSuccessStatusCode();
+        }
+
+        using var managerFactory = CreateFactory(TestActor.Manager);
+        using var manager = managerFactory.CreateClient();
+        var saved = await manager.PutAsJsonAsync(
+            $"{PresetRoute}/{loadedByAdministrator.Id}",
+            new { name = "Compartida v2", filters = new { }, version = loadedByAdministrator.Version });
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_missing_or_malformed_version_is_a_validation_problem_once_authorized()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        var preset = await CreatePresetAsync(client, "Versionada", new { });
+
+        var responses = new[]
+        {
+            await client.PutAsJsonAsync($"{PresetRoute}/{preset.Id}", new { name = "Sin versión", filters = new { } }),
+            await client.DeleteAsync($"{PresetRoute}/{preset.Id}"),
+            await client.DeleteAsync($"{PresetRoute}/{preset.Id}?version=abc"),
+        };
+
+        foreach (var response in responses)
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(SearchErrors.PresetVersionInvalid, await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+        await using var dbContext = NewDbContext();
+        Assert.Equal("Versionada", (await dbContext.SearchPresets.AsNoTracking().SingleAsync()).Name);
     }
 
     [Fact]
     public async Task The_unique_constraint_decides_concurrent_creations_of_the_same_name()
     {
         await SeedAsync();
-        using var factory = CreateFactory(TestActor.Reader);
+        using var factory = CreateFactory(TestActor.Manager);
         using var first = factory.CreateClient();
         using var second = factory.CreateClient();
 
         var responses = await Task.WhenAll(
             first.PostAsJsonAsync(PresetRoute, new { name = "Simultánea", filters = new { } }),
-            second.PostAsJsonAsync(PresetRoute, new { name = "SIMULTÁNEA", filters = new { } }));
+            second.PostAsJsonAsync(PresetRoute, new { name = "SIMULTANEA", filters = new { } }));
 
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Created);
         Assert.Single(responses, response => response.StatusCode == HttpStatusCode.Conflict);
@@ -463,7 +622,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     public async Task A_preset_write_with_an_invalid_filter_stores_nothing()
     {
         await SeedAsync();
-        using var factory = CreateFactory(TestActor.Reader);
+        using var factory = CreateFactory(TestActor.Manager);
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync(
@@ -476,17 +635,24 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     }
 
     [Fact]
-    public async Task A_preset_response_never_carries_its_owner()
+    public async Task A_preset_response_never_carries_an_actor_identity()
     {
         await SeedAsync();
-        using var factory = CreateFactory(TestActor.Reader);
+        using var factory = CreateFactory(TestActor.Manager);
         using var client = factory.CreateClient();
-        await CreatePresetAsync(client, "Privada", new { });
+        var created = await CreatePresetAsync(client, "Compartida", new { });
 
-        var body = await (await client.GetAsync(PresetRoute)).Content.ReadAsStringAsync();
+        var bodies = new[]
+        {
+            await (await client.GetAsync(PresetRoute)).Content.ReadAsStringAsync(),
+            await (await client.GetAsync($"{PresetRoute}/{created.Id}")).Content.ReadAsStringAsync(),
+        };
 
-        Assert.DoesNotContain("ownerId", body, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("integration-actor", body, StringComparison.Ordinal);
+        foreach (var body in bodies)
+        {
+            Assert.DoesNotContain("owner", body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("integration-admin", body, StringComparison.Ordinal);
+        }
     }
 
     private async Task<IReadOnlyList<ParityCandidate>> SeedAsync()
@@ -502,6 +668,13 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         await dbContext.Documents.ExecuteDeleteAsync();
         await dbContext.Candidates.ExecuteDeleteAsync();
         return await SearchParityFixture.SeedAsync(dbContext, CancellationToken.None);
+    }
+
+    private async Task<SearchPresetResponse> CreateAsManagerAsync(string name, object filters)
+    {
+        using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        return await CreatePresetAsync(client, name, filters);
     }
 
     private static async Task<SearchPage<CandidateSearchItem>> SearchAsync(
@@ -570,8 +743,22 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     {
         public static TestActor Reader => new(true, "integration-actor", Permissions.CandidatesRead);
         public static TestActor OtherReader => new(true, "other-actor", Permissions.CandidatesRead);
+        public static TestActor Manager =>
+            new(true, "integration-admin", Permissions.CandidatesRead, Permissions.PresetsManage);
+        public static TestActor ManagerOnly => new(true, "integration-admin", Permissions.PresetsManage);
         public static TestActor None => new(true, "integration-actor");
         public static TestActor Unauthenticated => new(false, null);
+
+        /// <summary>Lets theory data name an actor, since xUnit data must be serializable.</summary>
+        public static TestActor Named(string name) => name switch
+        {
+            nameof(Reader) => Reader,
+            nameof(Manager) => Manager,
+            nameof(ManagerOnly) => ManagerOnly,
+            nameof(None) => None,
+            nameof(Unauthenticated) => Unauthenticated,
+            _ => throw new ArgumentOutOfRangeException(nameof(name), name, null),
+        };
 
         public string? ExternalKey => key;
         public bool IsAuthenticated => authenticated;

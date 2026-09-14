@@ -114,7 +114,8 @@ public static class SearchErrors
     public const string PresetNameRequired = "search_preset.name.required";
     public const string PresetNameTooLong = "search_preset.name.too_long";
     public const string PresetNameConflict = "search_preset.name.conflict";
-    public const string PresetOwnerUnknown = "search_preset.owner.unknown";
+    public const string PresetConcurrencyConflict = "search_preset.concurrency.conflict";
+    public const string PresetVersionInvalid = "search_preset.version.invalid";
     public const string PresetFiltersInvalid = "search_preset.filters.invalid";
 
     public const string StatusInvalidMessage = "El estado del candidato no es válido.";
@@ -129,8 +130,10 @@ public static class SearchErrors
     public const string PresetNotFoundMessage = "Búsqueda guardada no encontrada.";
     public const string PresetNameRequiredMessage = "El nombre de la búsqueda guardada es obligatorio.";
     public const string PresetNameTooLongMessage = "El nombre de la búsqueda guardada es demasiado largo.";
-    public const string PresetNameConflictMessage = "Ya tiene una búsqueda guardada con ese nombre.";
-    public const string PresetOwnerUnknownMessage = "No se ha podido determinar el propietario de la búsqueda guardada.";
+    public const string PresetNameConflictMessage = "Ya existe una búsqueda guardada con ese nombre.";
+    public const string PresetConcurrencyConflictMessage =
+        "La búsqueda guardada ha cambiado desde que se cargó. Vuelva a cargarla e inténtelo de nuevo.";
+    public const string PresetVersionInvalidMessage = "La versión de la búsqueda guardada no es válida.";
     public const string PresetFiltersInvalidMessage = "Los filtros de la búsqueda guardada no son válidos.";
 }
 

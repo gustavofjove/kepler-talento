@@ -1,3 +1,4 @@
+using System.Globalization;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Search;
@@ -6,7 +7,7 @@ using MediatR;
 namespace KeplerTalento.Web.Features.Search;
 
 /// <summary>
-/// Candidate search and the saved searches that drive it.
+/// Candidate search and the shared saved-search library that drives it.
 /// </summary>
 /// <remarks>
 /// Search is a POST even though it reads nothing but data. The filter value carries nested
@@ -14,15 +15,22 @@ namespace KeplerTalento.Web.Features.Search;
 /// terms are personal data that would otherwise appear in every proxy and access log that
 /// records a URL. POST does not make the operation stateful: the handler writes nothing.
 ///
-/// Every route authorizes before dispatching, as the candidate group does, so an
-/// unauthorized caller cannot distinguish a valid request from an invalid one, nor an
-/// existing preset from a missing one, by the shape of the refusal.
+/// Every route authorizes before dispatching, so an unauthorized caller cannot distinguish a
+/// valid request from an invalid one, nor an existing preset from a missing one, by the shape
+/// of the refusal. Reading and applying presets needs <c>candidates.read</c>; writing them
+/// needs <c>presets.manage</c> (KTL-14).
 /// </remarks>
 public static class SearchEndpoints
 {
     public sealed record SearchCandidatesRequest(SearchFiltersInput? Filters, int? Page, int? PageSize);
 
     public sealed record SearchPresetRequest(string? Name, SearchFiltersInput? Filters);
+
+    /// <summary>
+    /// The version is nullable so an omitted one reaches validation — after authorization —
+    /// as an invalid version, rather than being quietly read as zero by the binder.
+    /// </summary>
+    public sealed record SearchPresetUpdateRequest(string? Name, SearchFiltersInput? Filters, uint? Version);
 
     public static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -32,7 +40,7 @@ public static class SearchEndpoints
                 ICurrentActor actor,
                 CancellationToken cancellationToken) =>
             {
-                Require(actor);
+                Require(actor, Permissions.CandidatesRead);
                 return Results.Ok(await sender.Send(
                     new SearchCandidatesQuery(request.Filters, request.Page, request.PageSize),
                     cancellationToken));
@@ -47,12 +55,26 @@ public static class SearchEndpoints
 
         presets.MapGet("/", async (ISender sender, ICurrentActor actor, CancellationToken cancellationToken) =>
             {
-                Require(actor);
+                Require(actor, Permissions.CandidatesRead);
                 return Results.Ok(await sender.Send(new ListSearchPresetsQuery(), cancellationToken));
             })
             .WithName("ListSearchPresets")
             .Produces<IReadOnlyList<SearchPresetResponse>>()
             .ProducesProblem(StatusCodes.Status403Forbidden);
+
+        presets.MapGet("/{id:guid}", async (
+                Guid id,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesRead);
+                return Results.Ok(await sender.Send(new GetSearchPresetQuery(id), cancellationToken));
+            })
+            .WithName("GetSearchPreset")
+            .Produces<SearchPresetResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         presets.MapPost("/", async (
                 SearchPresetRequest request,
@@ -60,7 +82,7 @@ public static class SearchEndpoints
                 ICurrentActor actor,
                 CancellationToken cancellationToken) =>
             {
-                Require(actor);
+                Require(actor, Permissions.PresetsManage);
                 var created = await sender.Send(
                     new CreateSearchPresetCommand(request.Name, request.Filters),
                     cancellationToken);
@@ -74,34 +96,44 @@ public static class SearchEndpoints
 
         presets.MapPut("/{id:guid}", async (
                 Guid id,
-                SearchPresetRequest request,
+                SearchPresetUpdateRequest request,
                 ISender sender,
                 ICurrentActor actor,
                 CancellationToken cancellationToken) =>
             {
-                Require(actor);
+                Require(actor, Permissions.PresetsManage);
                 return Results.Ok(await sender.Send(
-                    new UpdateSearchPresetCommand(id, request.Name, request.Filters),
+                    new UpdateSearchPresetCommand(id, request.Name, request.Filters, request.Version ?? 0),
                     cancellationToken));
             })
             .WithName("UpdateSearchPreset")
             .WithPresetResponses()
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        // The version travels in the query string: a body on DELETE is poorly supported by
+        // proxies and clients, and a version number is not personal data. It is bound as a
+        // string on purpose — a typed parameter would let the binder reject "?version=abc"
+        // with a 400 before this handler, and so before authorization, runs.
         presets.MapDelete("/{id:guid}", async (
                 Guid id,
+                string? version,
                 ISender sender,
                 ICurrentActor actor,
                 CancellationToken cancellationToken) =>
             {
-                Require(actor);
-                await sender.Send(new DeleteSearchPresetCommand(id), cancellationToken);
+                Require(actor, Permissions.PresetsManage);
+                var expected = uint.TryParse(version, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : 0u;
+                await sender.Send(new DeleteSearchPresetCommand(id, expected), cancellationToken);
                 return Results.NoContent();
             })
             .WithName("DeleteSearchPreset")
             .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status404NotFound);
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         // Applying a preset changes its last-used time, so it is a POST on a sub-resource
         // rather than a GET that quietly writes.
@@ -111,11 +143,12 @@ public static class SearchEndpoints
                 ICurrentActor actor,
                 CancellationToken cancellationToken) =>
             {
-                Require(actor);
+                Require(actor, Permissions.CandidatesRead);
                 return Results.Ok(await sender.Send(new UseSearchPresetCommand(id), cancellationToken));
             })
             .WithName("UseSearchPreset")
-            .WithPresetResponses();
+            .WithPresetResponses()
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         return endpoints;
     }
@@ -128,14 +161,14 @@ public static class SearchEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
     /// <summary>
-    /// Reading candidates is what searching and saving a search require. There is
-    /// deliberately no consultation of <c>view_all_candidates</c>: see the KTL-10 design —
-    /// the domain models no ownership or team from which a narrower scope could truthfully
-    /// be derived, so acting on that permission would be arbitrary rather than restrictive.
+    /// There is deliberately no consultation of <c>view_all_candidates</c> for reads: see the
+    /// KTL-10 design — the domain models no ownership or team from which a narrower scope could
+    /// truthfully be derived, so acting on that permission would be arbitrary rather than
+    /// restrictive.
     /// </summary>
-    private static void Require(ICurrentActor actor)
+    private static void Require(ICurrentActor actor, string permission)
     {
-        if (!actor.IsAuthenticated || !actor.HasPermission(Permissions.CandidatesRead))
+        if (!actor.IsAuthenticated || !actor.HasPermission(permission))
         {
             throw new ForbiddenException();
         }

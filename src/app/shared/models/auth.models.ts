@@ -9,6 +9,7 @@ export type Permission =
   | 'export_candidates'
   | 'import_candidates'
   | 'manage_catalogs'
+  | 'manage_presets'
   | 'manage_users'
   | 'manage_roles';
 
@@ -23,6 +24,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'export_candidates',
   'import_candidates',
   'manage_catalogs',
+  'manage_presets',
   'manage_users',
   'manage_roles',
 ];
@@ -60,6 +62,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       'export_candidates',
       'import_candidates',
       'manage_catalogs',
+      'manage_presets',
       'manage_users',
       'manage_roles',
     ],
@@ -97,6 +100,7 @@ export const DEFAULT_ROLES: RoleDefinition[] = [
       'view_candidates',
       'view_all_candidates',
       'manage_catalogs',
+      'manage_presets',
       'manage_users',
       'manage_roles',
     ],

@@ -6,6 +6,9 @@ that candidate matches.
 
 ## Endpoints
 
+> The preset routes below describe KTL-10. Their permissions and contract changed in KTL-14;
+> see [`docs/ktl-14/presets.md`](../ktl-14/presets.md).
+
 | Method | Route                          | Capability        | Result                               |
 | ------ | ------------------------------ | ----------------- | ------------------------------------ |
 | POST   | `/api/candidates/search`       | `candidates.read` | one page of matches plus the total   |
@@ -168,6 +171,11 @@ substring matching, so it would change results rather than accelerate them. **If
 evidence stops supporting this, amend the design before adding an index.**
 
 ## Saved searches
+
+> **Superseded by KTL-14.** Saved searches are now a shared, administrator-curated library:
+> writes require `presets.manage`, `OwnerId` is gone, names fold accents as well as case, and
+> updates carry an optimistic-concurrency version. The owner-scoped model below is kept as the
+> record of KTL-10. The current contract is [`docs/ktl-14/presets.md`](../ktl-14/presets.md).
 
 `ADM_SearchPresets` — `ADM_`, not `CND_`, because this is user-owned configuration, not
 candidate data.

@@ -118,6 +118,23 @@ para incluir el margen acotado del framing multipart.
 Consulta el [contrato y flujo de documentos KTL-9](docs/ktl-9/documents.md) y la
 [nota de versión](docs/ktl-9/release-notes.md).
 
+## Presets de búsqueda KTL-14
+
+Las búsquedas guardadas son una biblioteca compartida en PostgreSQL (`ADM_SearchPresets`). Se
+gestionan en **Admin › Presets** (`/app/admin/presets`) con el permiso `manage_presets` del
+frontend, que corresponde a la capacidad `presets.manage` de la API; ver y aplicar presets desde
+**Búsqueda** sigue requiriendo `view_candidates` (`candidates.read`). Ambas se aplican en el
+servidor; ocultar la interfaz no es el control.
+
+La migración `ShareSearchPresets` elimina las búsquedas guardadas privadas de KTL-10, que hay que
+volver a crear. Los presets se borran físicamente, con confirmación y contra la versión leída;
+la regla de no borrar físicamente sigue aplicándose a candidatos y catálogos. Búsqueda y los
+presets comparten un único formulario de criterios y un único resumen de solo lectura.
+
+El detalle de rutas, códigos de error, concurrencia, modelo de datos y rollback está en
+[`docs/ktl-14/presets.md`](docs/ktl-14/presets.md), y la nota para usuarios en
+[`docs/ktl-14/release-notes.md`](docs/ktl-14/release-notes.md).
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se

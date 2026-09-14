@@ -47,6 +47,7 @@ export function PrimaryNav() {
   // tables. Call it once per permission and filter against the result.
   const canViewCandidates = usePermission('view_candidates');
   const canManageCatalogs = usePermission('manage_catalogs');
+  const canManagePresets = usePermission('manage_presets');
   const canManageUsers = usePermission('manage_users');
   const canManageRoles = usePermission('manage_roles');
   const canImport = usePermission('import_candidates');
@@ -55,11 +56,19 @@ export function PrimaryNav() {
     () => ({
       view_candidates: canViewCandidates,
       manage_catalogs: canManageCatalogs,
+      manage_presets: canManagePresets,
       manage_users: canManageUsers,
       manage_roles: canManageRoles,
       import_candidates: canImport,
     }),
-    [canViewCandidates, canManageCatalogs, canManageUsers, canManageRoles, canImport],
+    [
+      canViewCandidates,
+      canManageCatalogs,
+      canManagePresets,
+      canManageUsers,
+      canManageRoles,
+      canImport,
+    ],
   );
 
   const topLevel = useMemo(() => visibleItems(TOP_LEVEL_ITEMS, granted), [granted]);

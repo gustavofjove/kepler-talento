@@ -16,6 +16,7 @@ import type { Permission } from '../../src/app/shared/models/auth.models';
 const ALL: Permission[] = [
   'view_candidates',
   'manage_catalogs',
+  'manage_presets',
   'manage_users',
   'manage_roles',
   'import_candidates',
@@ -69,9 +70,44 @@ describe('PrimaryNav - entries and permissions', () => {
     renderNav(ALL);
 
     expect(screen.queryByTestId('nav-catalogs')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nav-presets')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-users')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-roles')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-import')).not.toBeInTheDocument();
+  });
+
+  it('lists Presets right after Catálogos once the group is opened', async () => {
+    const user = userEvent.setup();
+    renderNav(ALL);
+
+    await user.click(trigger());
+
+    const order = Array.from(screen.getByTestId('nav-admin-panel').querySelectorAll('a')).map(
+      (link) => link.getAttribute('data-testid'),
+    );
+    expect(order.slice(0, 2)).toEqual(['nav-catalogs', 'nav-presets']);
+    expect(screen.getByTestId('nav-presets')).toHaveAttribute('href', '/app/admin/presets');
+  });
+
+  it('renders the group with Presets as its only child when only manage_presets is held', async () => {
+    const user = userEvent.setup();
+    renderNav(['manage_presets']);
+
+    await user.click(trigger());
+
+    expect(screen.getByTestId('nav-presets')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-catalogs')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nav-roles')).not.toBeInTheDocument();
+  });
+
+  it('hides Presets from a profile that manages catalogs but not presets', async () => {
+    const user = userEvent.setup();
+    renderNav(['manage_catalogs']);
+
+    await user.click(trigger());
+
+    expect(screen.getByTestId('nav-catalogs')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-presets')).not.toBeInTheDocument();
   });
 
   it('hides candidate entries without view_candidates but keeps Dashboard', () => {
@@ -201,6 +237,13 @@ describe('PrimaryNav - active route indication', () => {
     expect(trigger().className).toContain('active');
     expect(trigger()).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('nav-roles')).toBeInTheDocument();
+  });
+
+  it('marks the parent active on a nested preset administration route', () => {
+    renderNav(ALL, '/app/admin/presets/p-1/edit');
+
+    expect(trigger().className).toContain('active');
+    expect(trigger()).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('leaves the parent inactive on a non-admin route', () => {
