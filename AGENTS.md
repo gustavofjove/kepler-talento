@@ -1,58 +1,217 @@
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the design documentation
-at specs/001-gestion-cvs-rrhh/plan.md and the standing project principles in
-openspec/config.yaml.
+# Kepler Talento — agent rules
 
-Planned and in-flight work lives under openspec/changes/. Use the OpenSpec
-workflow (/opsx:new, /opsx:continue, /opsx:apply, /opsx:archive) rather than
-editing those artifacts by hand.
+Shared instructions for every coding agent (Codex reads this file directly; Claude Code
+imports it from `CLAUDE.md`). Edit rules here, never in a tool-specific copy.
 
-Frontend conventions (since KTL-3, the Angular to React migration):
+Kepler Talento is an internal HR application for registering, searching, exporting and
+governing candidate CVs. It holds **personal data**. The frontend is a React SPA; the
+target backend is ASP.NET Core 10 + application-owned PostgreSQL, rolled out one vertical
+slice at a time (KTL-5 onwards). Remaining Supabase / `localStorage` paths are legacy and
+stay only until their slice migrates.
 
-- Pages and components are React function components under src/app/features/**
-  and src/app/core/**, written as .tsx with co-located plain .css files. Do not
-  use CSS Modules - several Playwright specs bind to class names such as
-  a.skip-link and span.badge.
+## Sources of truth
+
+Read these before non-trivial work instead of guessing:
+
+- `openspec/config.yaml` — standing principles, domain rules and per-artifact rules. It
+  wins over anything else when they disagree.
+- `openspec/specs/<capability>/spec.md` — current requirements per capability.
+- `openspec/KTL-<n>.md` — ticket briefs. `openspec/changes/` — in-flight work;
+  `openspec/changes/archive/` — delivered changes with their design decisions.
+- `docs/ktl-<n>/` — contracts, runbooks and release notes per slice. Start with
+  `docs/ktl-5/database-conventions.md` for anything touching PostgreSQL.
+- `specs/001-gestion-cvs-rrhh/` — historical design record of the original app. New work
+  goes through OpenSpec, not here.
+
+## Commands
+
+Requirements: Node 22 / npm 10, .NET SDK 10.0.102 (`global.json`), Docker Desktop.
+
+```sh
+npm ci && dotnet tool restore && dotnet restore backend/KeplerTalento.slnx   # setup
+npm start                     # Vite dev server on :4200 (strict port)
+docker compose up --build     # full stack behind Nginx on http://localhost:4200 (copy .env.example to .env first)
+
+npm test                      # Vitest: unit + integration + security projects
+npx vitest run tests/unit/candidate.service.spec.ts   # single frontend spec
+npm run test:backend          # xUnit; needs Docker running (Testcontainers PostgreSQL) and a prior restore
+dotnet test backend/KeplerTalento.slnx --no-restore --filter "FullyQualifiedName~CatalogHandlerTests"
+npm run e2e                   # Playwright (starts the dev server itself)
+npx playwright test tests/e2e/candidate-crud.spec.ts
+
+npm run build:all             # tsc + vite build + dotnet build (warnings are errors)
+npm run lint && npm run format:check                 # required before any change is done
+npm run security:rls && npm run security:storage     # security gates
+```
+
+EF Core migrations (schema changes only through these, never hand-written SQL):
+
+```sh
+dotnet ef migrations add <Name> --project backend/Infrastructure --startup-project backend/Web --output-dir Persistence/Migrations
+```
+
+The API never migrates on normal startup; migrations run through the explicit `--migrate`
+entry point (the `migrator` container in Compose).
+
+## Non-negotiables
+
+These come from `openspec/config.yaml`. Breaking one is a defect even if tests pass.
+
+1. **Personal data by design.** Candidate identity, contact details, consent and
+   retention data, audit data and documents are personal data. Expose the minimum, never
+   log it (Serilog runs `PersonalDataRedactionEnricher`; do not work around it), and never
+   put internal storage paths or keys in responses.
+2. **The API is the boundary.** Browser code reaches PostgreSQL, files, scanning and
+   privileged work only through the ASP.NET Core API. Do not add new Supabase or
+   `localStorage` data paths. Any new runtime dependency (npm or NuGet) needs a documented
+   reason in the change's design.
+3. **Fail closed.** Every business endpoint checks `ICurrentActor` authentication and the
+   specific permission **before** validating or dispatching the request. Hiding UI is never
+   the control. The `DevelopmentActor` must stay impossible to enable in Production.
+4. **Least privilege.** DDL runs as `ktl_migrator`; the API runs as `ktl_runtime` with
+   DML limited to approved tables. A migration ships its constraints, indexes and runtime
+   grants in the same slice.
+5. **No physical deletes.** Candidates and catalog items are retired by deactivation. Do not
+   add `DELETE` endpoints, and do not grant `DELETE` where it was revoked.
+6. **Private documents.** Binaries live outside the webroot under opaque keys, stay
+   quarantined until ClamAV reports `Clean`, and download only via permission-checked API
+   responses.
+7. **Search semantics.** Empty filters are ignored; different filter families combine with
+   AND; multi-value families support ANY and ALL; results never contain duplicate candidates.
+8. **Never commit** `.accdb`/`.mdb` files, `.env`, exported candidate data, CV files,
+   `backups/`, credentials or private storage paths.
+
+## Workflow
+
+- Work is ticket-driven: `KTL-<n>` briefs → OpenSpec change → implementation. Use the
+  OpenSpec skills rather than hand-editing change artifacts. Both tools have them in git:
+  Codex in `.agents/skills/` (`$openspec-new-change`, `$openspec-continue-change`,
+  `$openspec-ff-change`, `$openspec-apply-change`, `$openspec-verify-change`,
+  `$openspec-sync-specs`, `$openspec-archive-change`), Claude Code in `.claude/skills/`
+  plus the `/opsx:*` shortcuts. Regenerate them with `openspec update`, never by hand.
+- To turn a thin brief into a complete user story before creating a change, use the
+  `enrich-us` skill: `$enrich-us KTL-<n>` (Codex) or `/enrich-us KTL-<n>` (Claude Code).
+  Its single source is `.agents/skills/enrich-us/SKILL.md`.
+- Change folders are named `ktl-<n>-<slug>`; archived ones keep the ticket segment after the
+  date prefix (`2026-08-25-ktl-6-catalog-write-slice-api-cutover`).
+- Do not mark a task done unless its command was actually run and its output inspected. A
+  slice touching personal data, permissions, grants or storage is not done without security
+  evidence (tests that fail closed for unauthenticated and unauthorized callers).
+- Update `docs/`, `README.md` or the relevant spec for anything user-visible or
+  contract-changing, in the same change.
+
+## Backend conventions (`backend/`)
+
+- Vertical slices across projects: `Domain` → `Application` → `Infrastructure` → `Web`.
+  The allowed reference graph is enforced by
+  `Tests/UnitTests/Architecture/ProjectDependencyTests.cs`. `Tools/DataMigration`
+  (`ktl-migrate`) is operator-only: no production project may reference `Tools/`.
+- A feature lives in one file per use case under `Application/Features/<Feature>/`: a
+  `sealed record` command/query implementing MediatR `IRequest<T>`, its FluentValidation
+  validator, and a `sealed` handler with primary-constructor dependencies. Handlers repeat
+  the permission guard (e.g. `CatalogGuards.RequireManage(actor)`).
+- HTTP lives in `Web/Features/<Feature>/<Feature>Endpoints.cs` as a static
+  `Map<Feature>Endpoints` extension using `MapGroup("/api/<feature>")`, request records
+  nested in the class, `.WithName()` and explicit `.Produces*` metadata, and dispatch via
+  `ISender`. Register the map call in `Program.cs`.
+- Errors are thrown as the exception types in `Application/Common/Errors` and mapped to
+  ProblemDetails by `GlobalExceptionHandler`; do not build error responses by hand.
+- Updates use optimistic concurrency (`Version` in requests → 409 on mismatch).
+  New ids use `Guid.CreateVersion7()`. Timestamps are `DateTimeOffset` UTC.
+- Persistence: repository interfaces in `Application/Abstractions`, implementations and
+  EF configurations in `Infrastructure/Persistence`. Physical tables use a registered prefix
+  (`CND_`, `CAT_`, `OPS_`, `AUD_`, `ADM_`) and quoted identifiers; C# names stay idiomatic
+  without prefixes. New prefixes need an architecture decision.
+- NuGet versions are pinned centrally in `backend/Directory.Packages.props`; do not put
+  versions in `.csproj` files. Nullable is on and warnings are errors.
+- Tests: xUnit, `sealed` test classes, sentence-style names
+  (`List_excludes_inactive_values_by_default`). Unit tests use hand-written doubles;
+  integration tests use the Testcontainers `PostgreSqlFixture` against a real database.
+
+## Frontend conventions (`src/`)
+
+Since KTL-3 (Angular → React migration):
+
+- Pages and components are React function components under `src/app/features/**` and
+  `src/app/core/**`, written as `.tsx` with co-located plain `.css` files. Do not use CSS
+  Modules — several Playwright specs bind to class names such as `a.skip-link` and
+  `span.badge`.
 - Shared state lives in plain singleton service classes that hold a signal from
-  src/app/core/state/signal.ts. Components subscribe with useSignal(). Pass the
-  signal itself, never a derived call such as service.list(), or React will loop
-  on getSnapshot. Derive with useMemo instead.
-- Services are wired explicitly in src/app/core/di/services.ts and reached
-  through useServices(). Tests swap doubles in with <ServicesProvider>.
-- If a service is READ during render, reach it through its subscribing hook -
-  useCatalogs(), useCandidates(), or usePermission() for authorisation checks -
-  not through useServices(). Those hooks subscribe and return the value
-  together. Taking the service from useServices() and calling a read method on
-  it renders correctly once and then silently stops updating, with no error and
-  no failing test. A new service that is read during render should get the same
-  kind of hook.
-- Never call authService.hasPermission() directly in a component. Use
-  usePermission('...') at the top of the component. Because it is a hook it
-  cannot be called inside a loop or a callback, so hoist the result to a const.
-- Report errors with useErrorToast() rather than hand-rolling
+  `src/app/core/state/signal.ts`. Components subscribe with `useSignal()`. Pass the signal
+  itself, never a derived call such as `service.list()`, or React will loop on
+  `getSnapshot`. Derive with `useMemo` instead.
+- Services are wired explicitly in `src/app/core/di/services.ts` and reached through
+  `useServices()`. Tests swap doubles in with `<ServicesProvider>`. API calls go through
+  `src/app/core/http/api-transport.ts`; authorization logic belongs in the API, not
+  duplicated in services.
+- If a service is READ during render, reach it through its subscribing hook —
+  `useCatalogs()`, `useCandidates()`, or `usePermission()` for authorisation checks — not
+  through `useServices()`. Those hooks subscribe and return the value together. Taking the
+  service from `useServices()` and calling a read method on it renders correctly once and
+  then silently stops updating, with no error and no failing test. A new service that is
+  read during render should get the same kind of hook.
+- Never call `authService.hasPermission()` directly in a component. Use
+  `usePermission('...')` at the top of the component. Because it is a hook it cannot be
+  called inside a loop or a callback, so hoist the result to a const.
+- Report errors with `useErrorToast()` rather than hand-rolling
   `error instanceof Error ? error.message : fallback`.
-- Use the .span-all utility class instead of inline
-  style={{ gridColumn: '1 / -1' }}; inline styles bypass the Kepler tokens.
-- Keep pure helpers and constants in a sibling .ts file rather than exporting
-  them from a .tsx component module, so fast refresh keeps working.
+- Use the `.span-all` utility class instead of inline `style={{ gridColumn: '1 / -1' }}`;
+  inline styles bypass the Kepler tokens (`docs/CORPORATE_IDENTITY_Kepler.md`).
+- Keep pure helpers and constants in a sibling `.ts` file (e.g. `*.logic.ts`) rather than
+  exporting them from a `.tsx` component module, so fast refresh keeps working.
 - Shell navigation is data, not markup. Add a section by adding an entry to
-  src/app/core/layout/nav-items.ts - never by adding another NavLink to
-  app-layout.tsx. Administration sections (Catálogos, Usuarios, Roles,
-  Importación) live under the Admin group, whose parent is a disclosure button
-  with no route. If the new entry needs a permission the nav does not already
-  consult, add it to NAV_PERMISSIONS and call usePermission() for it at the top
-  of PrimaryNav - the hook cannot be called while iterating the table.
-- The shell has a single breakpoint at 768px, and it lives entirely in
-  primary-nav.css. Do not branch on window.innerWidth or matchMedia: one DOM
-  tree serves both widths. jsdom has no media queries, so unit specs assert on
-  presence and aria-expanded, and layout is covered by
-  tests/e2e/navigation-responsive.spec.ts instead.
-- Route guards are layout-route elements (RequireAuth, RequirePermission), not
+  `src/app/core/layout/nav-items.ts` — never by adding another `NavLink` to
+  `app-layout.tsx`. Administration sections (Catálogos, Usuarios, Roles, Importación) live
+  under the Admin group, whose parent is a disclosure button with no route. If the new
+  entry needs a permission the nav does not already consult, add it to `NAV_PERMISSIONS`
+  and call `usePermission()` for it at the top of `PrimaryNav` — the hook cannot be called
+  while iterating the table.
+- The shell has a single breakpoint at 768px, and it lives entirely in `primary-nav.css`.
+  Do not branch on `window.innerWidth` or `matchMedia`: one DOM tree serves both widths.
+  jsdom has no media queries, so unit specs assert on presence and `aria-expanded`, and
+  layout is covered by `tests/e2e/navigation-responsive.spec.ts` instead.
+- Route guards are layout-route elements (`RequireAuth`, `RequirePermission`), not
   loaders, so they can subscribe to the auth signal and stay test-swappable.
-- Forms are controlled components using useState. Validation stays in the
-  service layer as thrown Errors with Spanish messages; do not move it into the
-  components or introduce a schema library.
-- Do not reintroduce Angular idioms, RxJS, or a state-management library. Any
-  new runtime dependency needs an explicit reason under principle 2.
-- Keep the name= attribute on every form control and every data-testid. They are
+- Forms are controlled components using `useState`. Validation stays in the service layer
+  as thrown `Error`s with Spanish messages; do not move it into the components or
+  introduce a schema library.
+- Do not reintroduce Angular idioms, RxJS, or a state-management library.
+- Keep the `name=` attribute on every form control and every `data-testid`. They are
   decorative in React but load-bearing for the Playwright suite.
+- Tests live outside `src/`: `tests/unit/*.spec.ts(x)` (jsdom + Testing Library, shared
+  doubles in `tests/unit/support/`), `tests/integration/`, `tests/security/`, `tests/e2e/`.
+- Formatting is Prettier (single quotes, trailing commas, width 100); the pre-commit hook
+  runs it through lint-staged.
+
+## Language
+
+- **UI copy is Spanish**, with correct accents and wording — in components, service
+  validation messages, `src/assets/i18n/es.json` and test assertions on rendered text.
+  Never translate a Spanish literal the app actually renders.
+- **Prose is English**: code comments, OpenSpec artifacts, ticket briefs, specs and
+  `docs/`.
+- **Exception: `README.md` is maintained in Spanish.** Keep commands, paths, flags and
+  identifiers untranslated inside it.
+
+## Git
+
+- Branches: `feat/KTL-<n>` for tickets, `hotfix/<slug>` and `chore/<slug>` otherwise.
+  Never commit directly to `main`.
+- Commit messages: `KTL-<n> - <Summary in imperative mood>`.
+- Only commit, push or open a pull request when explicitly asked. PRs use
+  `.github/pull_request_template.md`.
+- Never skip hooks (`--no-verify`) or rewrite published history.
+
+## Environment gotchas
+
+- Development happens on Windows. **Do not bulk-edit files with Windows PowerShell
+  `Get-Content | Set-Content` or `-replace` pipelines**: PowerShell 5.1 reads UTF-8 as
+  Windows-1252 and silently corrupts Spanish accents and em dashes. Use the agent's file
+  editing tool; if a script is unavoidable, use `[IO.File]::ReadAllText/WriteAllText` with
+  explicit UTF-8 (no BOM).
+- Port 4200 is strict: a stale dev server makes Playwright fail instead of attaching
+  elsewhere.
+- `docker compose down --volumes` destroys development data (PostgreSQL, documents, ClamAV
+  signatures). Do not run it unless asked.
+- ClamAV needs ~3 GiB of RAM; a degraded `/api/health/scanner` alone does not mean the API
+  is broken.
