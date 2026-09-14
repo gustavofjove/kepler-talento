@@ -1,0 +1,44 @@
+.preset-list td {
+  vertical-align: middle;
+}
+.preset-list .preset-sort {
+  font: inherit;
+  font-weight: 600;
+}
+.preset-name-cell {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+/* The eye button beside a preset's name: an icon-only control with a usable hit area. */
+.icon-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 32px;
+  min-width: 32px;
+  padding: 4px;
+}
+.preset-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.preset-meta {
+  display: grid;
+  gap: 6px 16px;
+  grid-template-columns: max-content 1fr;
+  margin: 0;
+}
+.preset-meta dt {
+  color: var(--fg-2);
+  font-weight: 600;
+}
+.preset-meta dd {
+  margin: 0;
+}
+.field-error {
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0;
+}

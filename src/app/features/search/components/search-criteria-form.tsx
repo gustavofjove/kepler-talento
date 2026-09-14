@@ -1,63 +1,53 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateStatus } from '../../candidates/models/candidate.models';
-import {
-  ALL_CANDIDATE_STATUSES,
-  type CriteriaFilter,
-  type SearchFilters as SearchFiltersModel,
-} from '../models/search.models';
+import type { CriteriaFilter, SearchFilters } from '../models/search.models';
 import { CriteriaGroup } from './criteria-group';
 import { CRITERIA_GROUPS, type CriteriaKind } from './criteria-group.model';
-import { FiltersSummary } from './filters-summary';
-import { buildSummaryGroups } from './filters-summary.logic';
+import { EMPTY_DRAFTS, statusOptions } from './search-criteria.logic';
+import { SearchCriteriaSummary } from './search-criteria-summary';
 import './search-filters.css';
 
-const STATUS_LABELS: Record<CandidateStatus, string> = {
-  new: 'Nuevo',
-  available: 'Disponible',
-  in_process: 'En proceso',
-  hired: 'Contratado',
-  rejected: 'Descartado',
-};
-
-const STATUS_OPTIONS = ALL_CANDIDATE_STATUSES.map((value) => ({
-  value,
-  label: STATUS_LABELS[value],
-}));
-
-const EMPTY_DRAFTS: Record<CriteriaKind, CriteriaFilter> = {
-  skill: { value: '', level: '' },
-  language: { value: '', level: '' },
-  program: { value: '', level: '' },
-};
-
-interface SearchFiltersProps {
-  filters: SearchFiltersModel;
-  onFiltersChange: (next: SearchFiltersModel) => void;
-  collapsed: boolean;
-  onCollapsedChange: (next: boolean) => void;
-  onSearch: (filters: SearchFiltersModel) => void;
-  onClear: () => void;
+interface SearchCriteriaFormProps {
+  filters: SearchFilters;
+  onFiltersChange: (next: SearchFilters) => void;
+  onSubmit: (filters: SearchFilters) => void;
+  /** The host's own buttons: searching on the search page, saving on the preset pages. */
+  actions: ReactNode;
+  /** Rendered inside the form before the criteria, e.g. the preset name field. */
+  leading?: ReactNode;
+  /** Collapsing is offered only when the host controls it. Omitted, the body always shows. */
+  collapsed?: boolean;
+  onCollapsedChange?: (next: boolean) => void;
 }
 
 /**
- * Controlled component. The Angular original mutated its @Input in place and
- * relied on sharing the object reference with the parent; every write here is an
- * immutable update pushed back through onFiltersChange.
+ * The criteria editor. The one component that edits a filter set: the search page and the
+ * preset create and edit pages all render it, so a change here reaches every screen.
+ *
+ * Controlled: every write is an immutable update pushed back through `onFiltersChange`, and
+ * nothing here runs a search or saves a preset - that is the host's `onSubmit`.
  */
-export function SearchFilters({
+export function SearchCriteriaForm({
   filters,
   onFiltersChange,
+  onSubmit,
+  actions,
+  leading,
   collapsed,
   onCollapsedChange,
-  onSearch,
-  onClear,
-}: SearchFiltersProps) {
+}: SearchCriteriaFormProps) {
+  const { t } = useTranslation();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
   const [drafts, setDrafts] = useState<Record<CriteriaKind, CriteriaFilter>>(EMPTY_DRAFTS);
+  const options = useMemo(() => statusOptions(t), [t]);
+
+  const collapsible = onCollapsedChange !== undefined;
+  const isCollapsed = collapsible && Boolean(collapsed);
 
   const toggleStatus = (status: CandidateStatus, event: ChangeEvent<HTMLInputElement>): void => {
     onFiltersChange({
@@ -88,43 +78,47 @@ export function SearchFilters({
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    onSearch(filters);
+    onSubmit(filters);
   };
 
   return (
     <>
       <div className="filters-header">
-        <h2>Parámetros de búsqueda</h2>
-        <button
-          className="button ghost small"
-          type="button"
-          data-testid="toggle-filters"
-          aria-expanded={!collapsed}
-          onClick={() => onCollapsedChange(!collapsed)}
-        >
-          {collapsed ? 'Mostrar filtros' : 'Ocultar filtros'}
-        </button>
+        <h2>{t('search.criteria.title')}</h2>
+        {collapsible ? (
+          <button
+            className="button ghost small"
+            type="button"
+            data-testid="toggle-filters"
+            aria-expanded={!isCollapsed}
+            onClick={() => onCollapsedChange(!isCollapsed)}
+          >
+            {isCollapsed ? t('search.criteria.toggle.show') : t('search.criteria.toggle.hide')}
+          </button>
+        ) : null}
       </div>
 
       <form className="grid" onSubmit={submit} noValidate>
-        <FiltersSummary groups={buildSummaryGroups(filters, STATUS_OPTIONS)} />
+        {leading}
 
-        {!collapsed ? (
+        <SearchCriteriaSummary filters={filters} />
+
+        {!isCollapsed ? (
           <div className="filters-body grid">
             <div className="grid two">
               <div className="basic-filters">
                 <div className="inline-field">
-                  <label htmlFor="filter-text">Texto</label>
+                  <label htmlFor="filter-text">{t('search.criteria.text')}</label>
                   <input
                     id="filter-text"
                     name="text"
                     value={filters.text}
-                    placeholder="Nombre, email, notas..."
+                    placeholder={t('search.criteria.textPlaceholder')}
                     onChange={(e) => onFiltersChange({ ...filters, text: e.target.value })}
                   />
                 </div>
                 <div className="inline-field">
-                  <label htmlFor="filter-hasCv">CV</label>
+                  <label htmlFor="filter-hasCv">{t('search.criteria.cv')}</label>
                   <select
                     id="filter-hasCv"
                     name="hasCv"
@@ -132,20 +126,20 @@ export function SearchFilters({
                     onChange={(e) =>
                       onFiltersChange({
                         ...filters,
-                        hasCv: e.target.value as SearchFiltersModel['hasCv'],
+                        hasCv: e.target.value as SearchFilters['hasCv'],
                       })
                     }
                   >
-                    <option value="">Todos</option>
-                    <option value="yes">Con CV</option>
-                    <option value="no">Sin CV</option>
+                    <option value="">{t('search.criteria.cv.any')}</option>
+                    <option value="yes">{t('search.criteria.cv.yes')}</option>
+                    <option value="no">{t('search.criteria.cv.no')}</option>
                   </select>
                 </div>
               </div>
               <fieldset className="status-group">
-                <legend>Estados</legend>
+                <legend>{t('search.criteria.statuses')}</legend>
                 <div className="status-options">
-                  {STATUS_OPTIONS.map((option) => (
+                  {options.map((option) => (
                     <label className="inline-check" key={option.value}>
                       <input
                         type="checkbox"
@@ -191,14 +185,7 @@ export function SearchFilters({
           </div>
         ) : null}
 
-        <div className="toolbar">
-          <button className="button" type="submit">
-            Buscar
-          </button>
-          <button className="button secondary" type="button" onClick={onClear}>
-            Limpiar
-          </button>
-        </div>
+        <div className="toolbar">{actions}</div>
       </form>
     </>
   );

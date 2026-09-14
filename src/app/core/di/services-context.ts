@@ -18,7 +18,7 @@ export function useServices(): Services {
 }
 
 /**
- * Subscribes to the current actor's saved searches.
+ * Subscribes to the shared saved-search library.
  *
  * Presets are read during render, so a component must subscribe to the service's
  * signal rather than call `listPresets()` off `useServices()` - the latter would

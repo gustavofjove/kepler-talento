@@ -836,19 +836,18 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<string>("OwnerId")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("OwnerId", "NormalizedName")
+                    b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("UX_ADM_SearchPresets_Owner_NormalizedName");
+                        .HasDatabaseName("UX_ADM_SearchPresets_NormalizedName");
 
                     b.ToTable("ADM_SearchPresets", null, t =>
                         {
@@ -858,9 +857,9 @@ namespace Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_ADM_SearchPresets_Name", "char_length(btrim(\"Name\")) > 0 AND char_length(\"NormalizedName\") > 0");
 
-                            t.HasCheckConstraint("CK_ADM_SearchPresets_Owner", "char_length(\"OwnerId\") > 0");
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\" AND (\"LastUsedAtUtc\" IS NULL OR \"LastUsedAtUtc\" >= \"CreatedAtUtc\")");
 
-                            t.HasCheckConstraint("CK_ADM_SearchPresets_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\" AND (\"LastUsedAtUtc\" IS NULL OR \"LastUsedAtUtc\" <= \"UpdatedAtUtc\")");
+                            t.HasCheckConstraint("CK_ADM_SearchPresets_Version", "\"Version\" >= 1");
                         });
                 });
 

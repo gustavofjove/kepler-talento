@@ -24,10 +24,7 @@ const LEGACY_HARDCODED_COPY = [
   'src/app/features/catalogs/pages/catalog-management-page.tsx',
   'src/app/features/dashboard/dashboard-page.tsx',
   'src/app/features/search/components/criteria-group.tsx',
-  'src/app/features/search/components/filters-summary.tsx',
-  'src/app/features/search/components/search-filters.tsx',
   'src/app/features/search/components/search-results.tsx',
-  'src/app/features/search/pages/advanced-search-page.tsx',
   'src/app/shared/components/pagination.tsx',
 ];
 

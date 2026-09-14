@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router';
 import { usePermission, useSearchPresets, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { AppError, toAppError } from '../../../shared/models/error.models';
 import type { ExportBatchRecord } from '../services/export.service';
-import { SearchFilters as SearchFiltersPanel } from '../components/search-filters';
+import { SearchCriteriaForm } from '../components/search-criteria-form';
 import { SearchResults } from '../components/search-results';
 import {
   DEFAULT_SEARCH_PAGE_SIZE,
@@ -36,8 +38,8 @@ export function AdvancedSearchPage() {
     exportService,
     toastService,
     observabilityService,
-    confirmDialogService,
   } = useServices();
+  const { t } = useTranslation();
   const notifyError = useErrorToast();
 
   // filters and results are deliberately separate. Editing a filter must NOT
@@ -56,7 +58,6 @@ export function AdvancedSearchPage() {
     exportService.listBatches(),
   );
   const [selectedPresetId, setSelectedPresetId] = useState('');
-  const [presetName, setPresetName] = useState('');
   const [showExportHistory, setShowExportHistory] = useState(false);
   // The filter panel starts open, and collapses when the user runs a search.
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -97,10 +98,10 @@ export function AdvancedSearchPage() {
         }
         setFailed(true);
         setLoading(false);
-        notifyError(error, 'No se pudo completar la búsqueda.');
+        notifyError(error, t('search.page.searchFailed'));
       }
     },
-    [candidateSearchService, notifyError],
+    [candidateSearchService, notifyError, t],
   );
 
   /** Debounced entry point for user-driven searches. */
@@ -121,7 +122,7 @@ export function AdvancedSearchPage() {
   useEffect(() => {
     void execute(searchPresetsService.loadLastFilters(), 1);
     void searchPresetsService.load().catch(() => {
-      toastService.show('No se pudieron cargar las búsquedas guardadas.', 'error');
+      toastService.show(t('search.presets.loadFailed'), 'error');
     });
     return () => {
       if (debounce.current) {
@@ -129,7 +130,7 @@ export function AdvancedSearchPage() {
       }
       inFlight.current?.abort();
     };
-  }, [execute, searchPresetsService, toastService]);
+  }, [execute, searchPresetsService, toastService, t]);
 
   const run = (next: SearchFilters): void => {
     const cloned = cloneSearchFilters(next);
@@ -151,27 +152,10 @@ export function AdvancedSearchPage() {
     void execute(filters, page);
   };
 
-  const savePreset = async (): Promise<void> => {
-    const name = presetName.trim();
-    if (!name) {
-      toastService.show('Indica un nombre para la búsqueda guardada.', 'warning');
-      return;
-    }
-    try {
-      // Saving over the selected preset renames and replaces it; saving with no selection
-      // creates a new one. The server refuses a name this owner already uses, so an
-      // accidental overwrite is a conflict rather than a silent replacement.
-      const saved = selectedPresetId
-        ? await searchPresetsService.updatePreset(selectedPresetId, name, filters)
-        : await searchPresetsService.createPreset(name, filters);
-      setSelectedPresetId(saved.id);
-      setPresetName(saved.name);
-      toastService.show(`Preset guardado: ${saved.name}.`, 'success');
-    } catch (error) {
-      notifyError(error, 'No se pudo guardar el preset.');
-    }
-  };
-
+  /**
+   * Applying is the only thing this page does with presets. Creating, editing and deleting
+   * them is the administration section's job (KTL-14).
+   */
   const loadPreset = async (presetId: string): Promise<void> => {
     setSelectedPresetId(presetId);
     if (!presetId) {
@@ -181,45 +165,20 @@ export function AdvancedSearchPage() {
       const applied = await searchPresetsService.applyPreset(presetId);
       setFilters(applied);
       searchPresetsService.rememberLastFilters(applied);
-      setPresetName(presets.presets.find((item) => item.id === presetId)?.name ?? '');
       setFiltersCollapsed(true);
       await execute(applied, 1);
-      toastService.show('Preset aplicado correctamente.', 'success');
+      toastService.show(t('search.presets.applied'), 'success');
     } catch (error) {
+      // The current filters are left exactly as they were: a preset that could not be applied
+      // - typically one an administrator has just deleted - must not half-replace them.
       setSelectedPresetId('');
-      notifyError(error, 'No se pudo cargar el preset.');
-    }
-  };
-
-  const deletePreset = async (): Promise<void> => {
-    if (!selectedPresetId) {
-      toastService.show('Selecciona un preset para eliminar.', 'warning');
-      return;
-    }
-    const preset = presets.presets.find((item) => item.id === selectedPresetId);
-    const confirmDelete = await confirmDialogService.confirm({
-      title: 'Eliminar preset guardado',
-      message: `Se eliminará el preset "${preset?.name ?? 'sin nombre'}".`,
-      confirmText: 'Eliminar',
-      cancelText: 'Cancelar',
-      danger: true,
-    });
-    if (!confirmDelete) {
-      return;
-    }
-    try {
-      await searchPresetsService.removePreset(selectedPresetId);
-      setSelectedPresetId('');
-      setPresetName('');
-      toastService.show('Preset eliminado.', 'success');
-    } catch (error) {
-      notifyError(error, 'No se pudo eliminar el preset.');
+      notifyError(error, t('search.presets.applyFailed'));
     }
   };
 
   const exportCsv = (): void => {
     if (!results.items.length) {
-      toastService.show('No hay resultados para exportar.', 'warning');
+      toastService.show(t('search.export.noResults'), 'warning');
       return;
     }
     const requestId = observabilityService.log('export.started', { rows: results.items.length });
@@ -228,10 +187,7 @@ export function AdvancedSearchPage() {
       // rather than letting the user believe they exported every match.
       const count = exportService.exportCandidatesToCsv(results.items);
       setExportBatches(exportService.listBatches());
-      toastService.show(
-        `Exportación generada (${count} filas de esta página) sin rutas internas de Storage.`,
-        'success',
-      );
+      toastService.show(t('search.export.done', { count }), 'success');
       observabilityService.log('export.completed', { request_id: requestId, rows: count });
     } catch (error) {
       const appError = toAppError(error, 'VALIDATION_ERROR');
@@ -245,14 +201,15 @@ export function AdvancedSearchPage() {
   };
 
   const canExport = usePermission('export_candidates');
+  const canManagePresets = usePermission('manage_presets');
   const lastPage = Math.max(1, Math.ceil(results.totalCount / results.pageSize));
 
   return (
     <section className="page">
       <div className="toolbar">
         <div className="page-header">
-          <h1>Búsqueda avanzada</h1>
-          <p className="muted">Filtros combinados, ANY/ALL y resultados sin duplicados.</p>
+          <h1>{t('search.page.title')}</h1>
+          <p className="muted">{t('search.page.subtitle')}</p>
         </div>
         <div className="toolbar">
           <button
@@ -261,7 +218,7 @@ export function AdvancedSearchPage() {
             disabled={!canExport}
             onClick={exportCsv}
           >
-            Exportar CSV
+            {t('search.page.export')}
           </button>
           <button
             className="button ghost"
@@ -272,20 +229,16 @@ export function AdvancedSearchPage() {
               setShowExportHistory(true);
             }}
           >
-            Historial de exportaciones
+            {t('search.page.exportHistory')}
           </button>
         </div>
       </div>
 
-      {!canExport ? (
-        <p className="empty-state">
-          Tu rol actual no permite exportar resultados; puedes seguir buscando y revisando perfiles.
-        </p>
-      ) : null}
+      {!canExport ? <p className="empty-state">{t('search.page.exportNotAllowed')}</p> : null}
 
       <div className="panel grid three">
         <div className="field">
-          <label htmlFor="selectedPreset">Preset guardado</label>
+          <label htmlFor="selectedPreset">{t('search.presets.picker')}</label>
           <select
             id="selectedPreset"
             name="selectedPreset"
@@ -293,7 +246,7 @@ export function AdvancedSearchPage() {
             disabled={presets.status === 'loading'}
             onChange={(e) => void loadPreset(e.target.value)}
           >
-            <option value="">Selecciona un preset</option>
+            <option value="">{t('search.presets.placeholder')}</option>
             {presets.presets.map((preset) => (
               <option key={preset.id} value={preset.id}>
                 {preset.name}
@@ -302,47 +255,40 @@ export function AdvancedSearchPage() {
           </select>
           {presets.status === 'failed' ? (
             <p className="muted" data-testid="presets-error">
-              No se pudieron cargar las búsquedas guardadas.
+              {t('search.presets.loadFailed')}
             </p>
           ) : null}
         </div>
-        <div className="field">
-          <label htmlFor="presetName">Nombre para guardar</label>
-          <input
-            id="presetName"
-            name="presetName"
-            value={presetName}
-            placeholder="Ej: Java + Inglés B2"
-            onChange={(e) => setPresetName(e.target.value)}
-          />
-        </div>
-        <div className="form-actions preset-actions">
-          <button
-            className="button secondary small"
-            type="button"
-            onClick={() => void savePreset()}
-          >
-            Guardar actual
-          </button>
-          <button
-            className="button danger small"
-            type="button"
-            disabled={!selectedPresetId}
-            onClick={() => void deletePreset()}
-          >
-            Eliminar
-          </button>
-        </div>
+        {canManagePresets ? (
+          <div className="form-actions preset-actions">
+            <Link
+              className="button ghost small"
+              to="/app/admin/presets"
+              data-testid="manage-presets-link"
+            >
+              {t('search.presets.manage')}
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <div className="panel">
-        <SearchFiltersPanel
+        <SearchCriteriaForm
           filters={filters}
           onFiltersChange={setFilters}
           collapsed={filtersCollapsed}
           onCollapsedChange={setFiltersCollapsed}
-          onSearch={run}
-          onClear={clear}
+          onSubmit={run}
+          actions={
+            <>
+              <button className="button" type="submit">
+                {t('search.actions.search')}
+              </button>
+              <button className="button secondary" type="button" onClick={clear}>
+                {t('search.actions.clear')}
+              </button>
+            </>
+          }
         />
       </div>
       <div className="panel">
@@ -365,16 +311,16 @@ export function AdvancedSearchPage() {
             data-testid="export-history-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 id="export-history-title">Historial de exportaciones</h2>
+            <h2 id="export-history-title">{t('search.page.exportHistory')}</h2>
             {exportBatches.length ? (
               <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>Fecha</th>
-                      <th>Fichero</th>
-                      <th>Filas</th>
-                      <th>Estado</th>
+                      <th>{t('search.export.history.date')}</th>
+                      <th>{t('search.export.history.file')}</th>
+                      <th>{t('search.export.history.rows')}</th>
+                      <th>{t('search.export.history.status')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -384,7 +330,9 @@ export function AdvancedSearchPage() {
                         <td>{batch.fileName}</td>
                         <td>{batch.rowCount}</td>
                         <td>
-                          <span className="status status--success">Completado</span>
+                          <span className="status status--success">
+                            {t('search.export.history.completed')}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -392,7 +340,7 @@ export function AdvancedSearchPage() {
                 </table>
               </div>
             ) : (
-              <p className="empty-state">Sin exportaciones registradas.</p>
+              <p className="empty-state">{t('search.export.history.empty')}</p>
             )}
             <div className="modal-actions">
               <button
@@ -401,7 +349,7 @@ export function AdvancedSearchPage() {
                 data-testid="close-export-history"
                 onClick={() => setShowExportHistory(false)}
               >
-                Cerrar
+                {t('search.export.history.close')}
               </button>
             </div>
           </section>

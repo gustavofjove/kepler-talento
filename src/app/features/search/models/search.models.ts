@@ -60,6 +60,10 @@ export interface SearchResultPage {
   totalCount: number;
 }
 
+/**
+ * A saved search from the shared library. `updatedAt` moves only when its content changes;
+ * applying it moves `lastUsedAt` alone. `version` is what an update or delete must send back.
+ */
 export interface SearchPreset {
   id: string;
   name: string;
@@ -67,6 +71,7 @@ export interface SearchPreset {
   createdAt: string;
   updatedAt: string;
   lastUsedAt?: string;
+  version: number;
 }
 
 export const EMPTY_SEARCH_FILTERS: SearchFilters = {

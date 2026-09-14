@@ -22,4 +22,10 @@ public static class Permissions
     public const string DocumentsDownload = "documents.download";
     public const string CatalogsRead = "catalogs.read";
     public const string CatalogsManage = "catalogs.manage";
+
+    /// <summary>
+    /// Creating, changing and deleting the shared saved-search library. Deliberately does not
+    /// imply <see cref="CandidatesRead"/>, which listing and applying presets require.
+    /// </summary>
+    public const string PresetsManage = "presets.manage";
 }

@@ -1,4 +1,5 @@
 import type { ApiTransport } from '../../../core/http/api-transport';
+import { TranslatableError } from '../../../core/i18n/translatable-error';
 import { signal, type WritableSignal } from '../../../core/state/signal';
 import {
   ALL_CANDIDATE_STATUSES,
@@ -13,14 +14,13 @@ import {
  *
  * This is the one thing about search that is still local, and deliberately so: it is a
  * convenience for returning to the same screen on the same machine, not shared or
- * authoritative state. Saved searches themselves live in PostgreSQL under their owner.
+ * authoritative state. Saved searches themselves are a shared library in PostgreSQL.
  *
- * Saved searches themselves used to live under a browser key of their own. That key is gone
- * from this source - not merely unused but unwritten, so it cannot be resurrected by a
- * careless call - along with everything that read it. Browser data has no trustworthy owner
- * identity, and attaching it to whichever API actor next opened a shared machine could
- * disclose someone's search terms or hand their saved searches to a colleague. Retained
- * browser values are ignored: never read, never uploaded, never deleted.
+ * Saved searches used to live under a browser key of their own. That key is gone from this
+ * source - not merely unused but unwritten, so it cannot be resurrected by a careless call -
+ * along with everything that read it. Browser data has no trustworthy owner identity, and
+ * publishing it to the shared library could disclose someone's private search terms.
+ * Retained browser values are ignored: never read, never uploaded, never deleted.
  */
 const STORAGE_LAST_FILTERS_KEY = 'rrhh.search.last-filters.v1';
 
@@ -49,11 +49,10 @@ export class SearchPresetsService {
   constructor(private readonly transport: ApiTransport) {}
 
   /**
-   * Loads the current actor's saved searches.
+   * Loads the shared library.
    *
    * A failure leaves the previously loaded list in place and reports `failed`: dropping the
-   * presets on a transient network error would look to the user like their saved searches
-   * had been deleted.
+   * presets on a transient network error would look to the user like they had been deleted.
    */
   async load(): Promise<SearchPreset[]> {
     this.state.update((current) => ({ ...current, status: 'loading' }));
@@ -72,21 +71,37 @@ export class SearchPresetsService {
     return this.state().presets;
   }
 
-  /** Creates a saved search. The server rejects a name this owner already uses. */
+  /** Reads one preset as the server holds it now, including the version to write against. */
+  async get(id: string): Promise<SearchPreset> {
+    const preset = await this.transport.request<SearchPreset>(
+      `/search-presets/${encodeURIComponent(id)}`,
+    );
+    return this.normalizePreset(preset);
+  }
+
+  /** Creates a saved search. The server rejects a name the library already uses. */
   async createPreset(name: string, filters: SearchFilters): Promise<SearchPreset> {
     const created = await this.transport.request<SearchPreset>('/search-presets', {
       method: 'POST',
-      body: JSON.stringify({ name, filters }),
+      body: JSON.stringify({ name: this.requireName(name), filters }),
     });
     await this.load();
     return this.normalizePreset(created);
   }
 
-  /** Renames a saved search and replaces its filters; both travel in one write. */
-  async updatePreset(id: string, name: string, filters: SearchFilters): Promise<SearchPreset> {
+  /**
+   * Renames a saved search and replaces its filters; both travel in one write, against the
+   * version the caller loaded, so someone else's newer change is a conflict and not overwritten.
+   */
+  async updatePreset(
+    id: string,
+    name: string,
+    filters: SearchFilters,
+    version: number,
+  ): Promise<SearchPreset> {
     const updated = await this.transport.request<SearchPreset>(
       `/search-presets/${encodeURIComponent(id)}`,
-      { method: 'PUT', body: JSON.stringify({ name, filters }) },
+      { method: 'PUT', body: JSON.stringify({ name: this.requireName(name), filters, version }) },
     );
     await this.load();
     return this.normalizePreset(updated);
@@ -94,7 +109,7 @@ export class SearchPresetsService {
 
   /**
    * Applies a saved search: the server answers with its filters and records the use, so the
-   * "last used" ordering reflects real use rather than what this browser happens to know.
+   * "last used" column reflects real use rather than what this browser happens to know.
    */
   async applyPreset(id: string): Promise<SearchFilters> {
     const applied = await this.transport.request<SearchPreset>(
@@ -105,10 +120,11 @@ export class SearchPresetsService {
     return this.normalizeFilters(applied.filters);
   }
 
-  async removePreset(id: string): Promise<void> {
-    await this.transport.request<void>(`/search-presets/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
+  async removePreset(id: string, version: number): Promise<void> {
+    await this.transport.request<void>(
+      `/search-presets/${encodeURIComponent(id)}?version=${encodeURIComponent(String(version))}`,
+      { method: 'DELETE' },
+    );
     await this.load();
   }
 
@@ -137,6 +153,18 @@ export class SearchPresetsService {
 
   emptyFilters(): SearchFilters {
     return structuredClone(EMPTY_SEARCH_FILTERS);
+  }
+
+  /**
+   * Refuses a blank name before a request is made. A convenience for an immediate message,
+   * not a second authority: the server validates every write it stores.
+   */
+  private requireName(name: string): string {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new TranslatableError('presets.errors.nameRequired');
+    }
+    return trimmed;
   }
 
   private normalizePreset(preset: SearchPreset): SearchPreset {

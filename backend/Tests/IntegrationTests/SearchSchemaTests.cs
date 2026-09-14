@@ -2,18 +2,25 @@ using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Search;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
 using Xunit;
 
 namespace KeplerTalento.Tests.IntegrationTests;
 
 /// <summary>
-/// Database-level evidence for the KTL-10 migration: what the table enforces, which indexes
-/// exist, what the runtime role may do, and that deploying twice changes nothing.
+/// Database-level evidence for the saved-search table as KTL-10 created it and KTL-14 shared
+/// it: what the table enforces, which indexes exist, what the runtime role may do, that the
+/// shared-library migration discards owner-scoped rows, and that deploying twice changes
+/// nothing.
 /// </summary>
 public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixture<PostgreSqlFixture>
 {
     private const string Table = "ADM_SearchPresets";
+
+    /// <summary>The last migration before KTL-14 reshaped the table.</summary>
+    private const string BeforeSharedLibrary = "20260910170641_EnforceCandidateRelationUniqueness";
 
     [Fact]
     public async Task Deploying_the_migration_twice_leaves_the_same_schema()
@@ -42,6 +49,7 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
             ORDER BY column_name
             """);
 
+        // No owner column: the library is shared and nothing records who wrote a preset.
         Assert.Equal(
             [
                 "CreatedAtUtc timestamp with time zone NO",
@@ -51,8 +59,8 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
                 "LastUsedAtUtc timestamp with time zone YES",
                 "Name character varying NO",
                 "NormalizedName character varying NO",
-                "OwnerId character varying NO",
                 "UpdatedAtUtc timestamp with time zone NO",
+                "Version integer NO",
             ],
             columns);
     }
@@ -64,7 +72,7 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
 
         var checks = await QueryAsync(
             """
-            SELECT conname FROM pg_constraint
+            SELECT conname || ' ' || pg_get_constraintdef(oid) FROM pg_constraint
             WHERE conrelid = format('%I', @table)::regclass AND contype = 'c'
             ORDER BY conname
             """);
@@ -80,14 +88,19 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
                 $"CK_{Table}_FilterSchemaVersion",
                 $"CK_{Table}_Filters",
                 $"CK_{Table}_Name",
-                $"CK_{Table}_Owner",
                 $"CK_{Table}_Timestamps",
+                $"CK_{Table}_Version",
             ],
-            checks);
-        // The unique index is also the listing index; a second index over the same columns
+            checks.Select(check => check.Split(' ')[0]));
+        // Applying a preset records its use without touching its update time, so the check
+        // must allow "last used" to be later than "last updated" — only not before creation.
+        var timestamps = checks.Single(check => check.StartsWith($"CK_{Table}_Timestamps", StringComparison.Ordinal));
+        Assert.Contains("\"LastUsedAtUtc\" >= \"CreatedAtUtc\"", timestamps, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"LastUsedAtUtc\" <= \"UpdatedAtUtc\"", timestamps, StringComparison.Ordinal);
+        // The unique index is also the listing index; a second index over the same column
         // would cost writes and buy nothing.
         Assert.Equal(
-            [$"PK_{Table}", "UX_ADM_SearchPresets_Owner_NormalizedName"],
+            [$"PK_{Table}", "UX_ADM_SearchPresets_NormalizedName"],
             indexes);
     }
 
@@ -140,15 +153,21 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     {
         await MigrateAsync();
 
+        // Exactly the four verbs KTL-10 granted, which KTL-14 deliberately did not broaden.
+        Assert.Equal(
+            ["DELETE", "INSERT", "SELECT", "UPDATE"],
+            await QueryAsync(
+                """
+                SELECT privilege_type FROM information_schema.role_table_grants
+                WHERE table_name = @table AND grantee = 'ktl_runtime'
+                ORDER BY privilege_type
+                """));
+
         await using var connection = new NpgsqlConnection(database.ConnectionString);
         await connection.OpenAsync();
         await using var command = new NpgsqlCommand(
             """
             SELECT
-                has_table_privilege('ktl_runtime', '"ADM_SearchPresets"', 'SELECT'),
-                has_table_privilege('ktl_runtime', '"ADM_SearchPresets"', 'INSERT'),
-                has_table_privilege('ktl_runtime', '"ADM_SearchPresets"', 'UPDATE'),
-                has_table_privilege('ktl_runtime', '"ADM_SearchPresets"', 'DELETE'),
                 has_table_privilege('ktl_runtime', '"ADM_SearchPresets"', 'TRUNCATE'),
                 has_schema_privilege('ktl_runtime', 'public', 'CREATE'),
                 pg_has_role('ktl_runtime', 'pg_read_all_data', 'MEMBER'),
@@ -158,30 +177,28 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
         await using var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
 
-        Assert.True(reader.GetBoolean(0));
-        Assert.True(reader.GetBoolean(1));
-        Assert.True(reader.GetBoolean(2));
-        Assert.True(reader.GetBoolean(3));
-        // Everything a saved search needs, and nothing beyond it: no bulk removal, no DDL,
-        // no blanket read of the cluster, no role or database creation.
-        Assert.False(reader.GetBoolean(4));
-        Assert.False(reader.GetBoolean(5));
-        Assert.False(reader.GetBoolean(6));
-        Assert.False(reader.GetBoolean(7));
+        // Nothing beyond what a saved search needs: no bulk removal, no DDL, no blanket read
+        // of the cluster, no role or database creation.
+        Assert.False(reader.GetBoolean(0));
+        Assert.False(reader.GetBoolean(1));
+        Assert.False(reader.GetBoolean(2));
+        Assert.False(reader.GetBoolean(3));
     }
 
-    [Fact]
-    public async Task The_database_refuses_a_second_preset_with_the_same_owner_and_folded_name()
+    [Theory]
+    [InlineData("Duplicada", "DUPLICADA")]
+    [InlineData("Inglés B2", "ingles b2")]
+    public async Task The_database_refuses_a_second_preset_with_the_same_folded_name(string first, string second)
     {
         await MigrateAsync();
         await using var dbContext = NewContext();
         await dbContext.SearchPresets.ExecuteDeleteAsync();
         var filters = SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Filters"));
         var now = DateTimeOffset.UtcNow;
-        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), "owner", "Duplicada", filters, 1, now));
+        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), first, filters, 1, now));
         await dbContext.SaveChangesAsync();
 
-        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), "owner", "DUPLICADA", filters, 1, now));
+        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), second, filters, 1, now));
         var failure = await Assert.ThrowsAsync<DbUpdateException>(() => dbContext.SaveChangesAsync());
 
         Assert.Equal(
@@ -190,19 +207,52 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task The_same_folded_name_is_free_for_a_different_owner()
+    public async Task A_last_used_time_later_than_the_update_time_is_accepted()
     {
         await MigrateAsync();
         await using var dbContext = NewContext();
         await dbContext.SearchPresets.ExecuteDeleteAsync();
         var filters = SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Filters"));
-        var now = DateTimeOffset.UtcNow;
-
-        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), "owner-a", "Compartida", filters, 1, now));
-        dbContext.SearchPresets.Add(new SearchPreset(Guid.CreateVersion7(), "owner-b", "compartida", filters, 1, now));
+        var preset = new SearchPreset(Guid.CreateVersion7(), "Usada", filters, 1, DateTimeOffset.UtcNow);
+        dbContext.SearchPresets.Add(preset);
         await dbContext.SaveChangesAsync();
 
-        Assert.Equal(2, await dbContext.SearchPresets.CountAsync());
+        preset.MarkUsed(DateTimeOffset.UtcNow.AddMinutes(5));
+        await dbContext.SaveChangesAsync();
+
+        var stored = await NewContext().SearchPresets.AsNoTracking().SingleAsync();
+        Assert.True(stored.LastUsedAtUtc > stored.UpdatedAtUtc);
+        Assert.Equal(1, stored.Version);
+    }
+
+    [Fact]
+    public async Task The_shared_library_migration_discards_every_owner_scoped_preset()
+    {
+        await MigrateAsync();
+        await using (var dbContext = NewContext())
+        {
+            // Back to the owner-scoped shape KTL-10 deployed, holding presets from two owners —
+            // including two whose names collide once owners no longer separate them.
+            await dbContext.GetService<IMigrator>().MigrateAsync(BeforeSharedLibrary);
+            await dbContext.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "ADM_SearchPresets"
+                    ("Id", "OwnerId", "Name", "NormalizedName", "Filters", "FilterSchemaVersion", "CreatedAtUtc", "UpdatedAtUtc")
+                VALUES
+                    (gen_random_uuid(), 'owner-a', 'Candidatos de Marta', 'candidatos de marta', '{{"text":"Marta"}}', 1, now(), now()),
+                    (gen_random_uuid(), 'owner-a', 'Compartida', 'compartida', '{{}}', 1, now(), now()),
+                    (gen_random_uuid(), 'owner-b', 'compartida', 'compartida', '{{}}', 1, now(), now())
+                """);
+        }
+
+        await MigrateAsync();
+
+        Assert.Equal(["0"], await QueryAsync("""SELECT count(*)::text FROM "ADM_SearchPresets" """));
+        Assert.Empty(await QueryAsync(
+            """
+            SELECT column_name FROM information_schema.columns
+            WHERE table_schema = 'public' AND table_name = @table AND column_name = 'OwnerId'
+            """));
     }
 
     private DbContextOptions<ApplicationDbContext> Options =>

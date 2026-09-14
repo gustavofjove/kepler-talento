@@ -20,6 +20,7 @@ describe('nav-items table', () => {
       ['Candidatos', '/app/candidates', 'view_candidates'],
       ['Búsqueda', '/app/search', 'view_candidates'],
       ['Catálogos', '/app/catalogs', 'manage_catalogs'],
+      ['Presets', '/app/admin/presets', 'manage_presets'],
       ['Usuarios', '/app/admin/users', 'manage_users'],
       ['Roles', '/app/admin/roles', 'manage_roles'],
       ['Importación', '/app/admin/import', 'import_candidates'],
@@ -53,6 +54,9 @@ describe('isAdminRoute', () => {
     expect(isAdminRoute('/app/admin/roles')).toBe(true);
     expect(isAdminRoute('/app/catalogs')).toBe(true);
     expect(isAdminRoute('/app/admin/users/u-1')).toBe(true);
+    expect(isAdminRoute('/app/admin/presets')).toBe(true);
+    expect(isAdminRoute('/app/admin/presets/new')).toBe(true);
+    expect(isAdminRoute('/app/admin/presets/p-1/edit')).toBe(true);
   });
 
   it('does not match the day-to-day routes', () => {

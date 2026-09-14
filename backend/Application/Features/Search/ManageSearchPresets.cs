@@ -1,3 +1,4 @@
+using FluentValidation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Common.Errors;
@@ -8,16 +9,34 @@ namespace KeplerTalento.Application.Features.Search;
 
 public sealed record ListSearchPresetsQuery : IRequest<IReadOnlyList<SearchPresetResponse>>;
 
+public sealed record GetSearchPresetQuery(Guid Id) : IRequest<SearchPresetResponse>;
+
 public sealed record CreateSearchPresetCommand(string? Name, SearchFiltersInput? Filters)
     : IRequest<SearchPresetResponse>;
 
-public sealed record UpdateSearchPresetCommand(Guid Id, string? Name, SearchFiltersInput? Filters)
+public sealed record UpdateSearchPresetCommand(Guid Id, string? Name, SearchFiltersInput? Filters, uint Version)
     : IRequest<SearchPresetResponse>;
 
-public sealed record DeleteSearchPresetCommand(Guid Id) : IRequest;
+public sealed record DeleteSearchPresetCommand(Guid Id, uint Version) : IRequest;
 
 /// <summary>Applying a preset: it answers with its filters and records that it was used.</summary>
 public sealed record UseSearchPresetCommand(Guid Id) : IRequest<SearchPresetResponse>;
+
+/// <summary>
+/// Versions start at 1, so 0 is what an absent or unparseable version arrives as, and it is
+/// refused as invalid rather than treated as "whatever is current".
+/// </summary>
+public sealed class UpdateSearchPresetValidator : AbstractValidator<UpdateSearchPresetCommand>
+{
+    public UpdateSearchPresetValidator() =>
+        RuleFor(command => command.Version).MustBeAnIssuedPresetVersion();
+}
+
+public sealed class DeleteSearchPresetValidator : AbstractValidator<DeleteSearchPresetCommand>
+{
+    public DeleteSearchPresetValidator() =>
+        RuleFor(command => command.Version).MustBeAnIssuedPresetVersion();
+}
 
 public sealed class ListSearchPresetsHandler(ISearchPresetRepository presets, ICurrentActor actor)
     : IRequestHandler<ListSearchPresetsQuery, IReadOnlyList<SearchPresetResponse>>
@@ -26,9 +45,23 @@ public sealed class ListSearchPresetsHandler(ISearchPresetRepository presets, IC
         ListSearchPresetsQuery request,
         CancellationToken cancellationToken)
     {
-        var owner = SearchGuards.RequireOwner(actor);
-        var stored = await presets.ListAsync(owner, cancellationToken);
+        SearchGuards.RequireRead(actor);
+        var stored = await presets.ListAsync(cancellationToken);
         return [.. stored.Select(SearchPresetMapping.ToResponse)];
+    }
+}
+
+public sealed class GetSearchPresetHandler(ISearchPresetRepository presets, ICurrentActor actor)
+    : IRequestHandler<GetSearchPresetQuery, SearchPresetResponse>
+{
+    public async Task<SearchPresetResponse> Handle(
+        GetSearchPresetQuery request,
+        CancellationToken cancellationToken)
+    {
+        SearchGuards.RequireRead(actor);
+        var preset = await presets.FindAsync(request.Id, cancellationToken)
+            ?? throw SearchGuards.PresetNotFound();
+        return SearchPresetMapping.ToResponse(preset);
     }
 }
 
@@ -39,16 +72,14 @@ public sealed class CreateSearchPresetHandler(ISearchPresetRepository presets, I
         CreateSearchPresetCommand request,
         CancellationToken cancellationToken)
     {
-        var owner = SearchGuards.RequireOwner(actor);
+        SearchGuards.RequireManagePresets(actor);
         var (name, filters) = SearchPresetMapping.Validate(request.Name, request.Filters);
-        var now = DateTimeOffset.UtcNow;
         var preset = new SearchPreset(
             Guid.CreateVersion7(),
-            owner,
             name,
             SearchFilterDocument.Serialize(filters),
             SearchFilterNormalization.FilterSchemaVersion,
-            now);
+            DateTimeOffset.UtcNow);
         presets.Add(preset);
         // No read-then-check for the name: the unique index is the only answer that holds
         // under two concurrent creations, so the conflict is detected where it is decided.
@@ -65,21 +96,24 @@ public sealed class UpdateSearchPresetHandler(ISearchPresetRepository presets, I
         UpdateSearchPresetCommand request,
         CancellationToken cancellationToken)
     {
-        var owner = SearchGuards.RequireOwner(actor);
+        SearchGuards.RequireManagePresets(actor);
         var (name, filters) = SearchPresetMapping.Validate(request.Name, request.Filters);
-        var preset = await presets.FindAsync(owner, request.Id, cancellationToken)
+        var preset = await presets.FindAsync(request.Id, cancellationToken)
             ?? throw SearchGuards.PresetNotFound();
-        var now = DateTimeOffset.UtcNow;
-        // Identifier, owner and creation time are not part of the update surface: they are
-        // not writable fields that happen to be left alone, they are simply not writable.
-        preset.Rename(name, now);
-        preset.ReplaceFilters(
+        presets.ExpectVersion(preset, request.Version);
+        // Identifier and creation time are not part of the update surface: they are not
+        // writable fields that happen to be left alone, they are simply not writable.
+        preset.Update(
+            name,
             SearchFilterDocument.Serialize(filters),
             SearchFilterNormalization.FilterSchemaVersion,
-            now);
-        return await presets.SaveAsync(cancellationToken) == SearchPresetSaveOutcome.NameConflict
-            ? throw SearchGuards.PresetNameConflict()
-            : SearchPresetMapping.ToResponse(preset);
+            DateTimeOffset.UtcNow);
+        return await presets.SaveAsync(cancellationToken) switch
+        {
+            SearchPresetSaveOutcome.NameConflict => throw SearchGuards.PresetNameConflict(),
+            SearchPresetSaveOutcome.ConcurrencyConflict => throw SearchGuards.PresetConcurrencyConflict(),
+            _ => SearchPresetMapping.ToResponse(preset),
+        };
     }
 }
 
@@ -88,11 +122,17 @@ public sealed class DeleteSearchPresetHandler(ISearchPresetRepository presets, I
 {
     public async Task Handle(DeleteSearchPresetCommand request, CancellationToken cancellationToken)
     {
-        var owner = SearchGuards.RequireOwner(actor);
-        var preset = await presets.FindAsync(owner, request.Id, cancellationToken)
+        SearchGuards.RequireManagePresets(actor);
+        var preset = await presets.FindAsync(request.Id, cancellationToken)
             ?? throw SearchGuards.PresetNotFound();
+        // A physical delete, deliberately: see the KTL-14 design (D7). It is still refused
+        // against a stale version, so nobody deletes a preset they have not seen as it is.
+        presets.ExpectVersion(preset, request.Version);
         presets.Remove(preset);
-        await presets.SaveAsync(cancellationToken);
+        if (await presets.SaveAsync(cancellationToken) == SearchPresetSaveOutcome.ConcurrencyConflict)
+        {
+            throw SearchGuards.PresetConcurrencyConflict();
+        }
     }
 }
 
@@ -103,16 +143,21 @@ public sealed class UseSearchPresetHandler(ISearchPresetRepository presets, ICur
         UseSearchPresetCommand request,
         CancellationToken cancellationToken)
     {
-        var owner = SearchGuards.RequireOwner(actor);
-        var preset = await presets.FindAsync(owner, request.Id, cancellationToken)
+        SearchGuards.RequireRead(actor);
+        var preset = await presets.FindAsync(request.Id, cancellationToken)
             ?? throw SearchGuards.PresetNotFound();
         // Reading the filters before recording the use: a stored value the application can
         // no longer understand is refused, and refusing it must not first leave a "used"
         // timestamp behind for an apply that did not happen.
         var response = SearchPresetMapping.ToResponse(preset);
         preset.MarkUsed(DateTimeOffset.UtcNow);
-        await presets.SaveAsync(cancellationToken);
-        return response with { UpdatedAt = preset.UpdatedAtUtc, LastUsedAt = preset.LastUsedAtUtc };
+        // The version token still guards this write, so an apply racing an administrator's
+        // edit or delete is refused rather than resurrecting or overwriting anything.
+        if (await presets.SaveAsync(cancellationToken) == SearchPresetSaveOutcome.ConcurrencyConflict)
+        {
+            throw SearchGuards.PresetConcurrencyConflict();
+        }
+        return response with { LastUsedAt = preset.LastUsedAtUtc };
     }
 }
 
@@ -146,15 +191,17 @@ internal static class SearchPresetMapping
         return issues.Count > 0 ? throw new RequestValidationException(issues) : (trimmed, value);
     }
 
-    /// <summary>
-    /// The owner identifier is deliberately absent from the response. A preset is private,
-    /// and its owner already knows who they are.
-    /// </summary>
     public static SearchPresetResponse ToResponse(SearchPreset preset) => new(
         preset.Id,
         preset.Name,
         SearchFilterDocument.Parse(preset.Filters).ToInput(),
         preset.CreatedAtUtc,
         preset.UpdatedAtUtc,
-        preset.LastUsedAtUtc);
+        preset.LastUsedAtUtc,
+        (uint)preset.Version);
+
+    public static IRuleBuilderOptions<T, uint> MustBeAnIssuedPresetVersion<T>(this IRuleBuilder<T, uint> rule) =>
+        rule.GreaterThan(0u)
+            .WithErrorCode(SearchErrors.PresetVersionInvalid)
+            .WithMessage(SearchErrors.PresetVersionInvalidMessage);
 }

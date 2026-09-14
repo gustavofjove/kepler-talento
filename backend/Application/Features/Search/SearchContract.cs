@@ -40,14 +40,18 @@ public sealed record CandidateSearchItem(
     Guid? PrimaryCvDocumentId,
     DateTimeOffset UpdatedAt);
 
-/// <summary>A saved search as its owner sees it. The owner identifier is never on the wire.</summary>
+/// <summary>
+/// A saved search from the shared library. No actor identity is on the wire: nothing records
+/// who wrote or used a preset.
+/// </summary>
 public sealed record SearchPresetResponse(
     Guid Id,
     string Name,
     SearchFiltersInput Filters,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
-    DateTimeOffset? LastUsedAt);
+    DateTimeOffset? LastUsedAt,
+    uint Version);
 
 /// <summary>Bounds the server applies to every search, whatever the caller asks for.</summary>
 public static class SearchPaging
@@ -101,31 +105,23 @@ internal static class SearchGuards
     }
 
     /// <summary>
-    /// The owner of a preset is the current actor and can never be supplied by the caller —
-    /// a client-chosen owner is a confused deputy waiting to happen.
+    /// Writing the shared preset library. Managing does not imply reading: an actor needs
+    /// <see cref="Permissions.CandidatesRead"/> as well to list or apply presets.
     /// </summary>
-    /// <remarks>
-    /// An authenticated actor without a stable key is refused rather than defaulted to the
-    /// empty string, which would silently pool every such actor's presets into one shared
-    /// owner.
-    /// </remarks>
-    public static string RequireOwner(ICurrentActor actor)
+    public static void RequireManagePresets(ICurrentActor actor)
     {
-        RequireRead(actor);
-        var owner = actor.ExternalKey?.Trim();
-        return string.IsNullOrEmpty(owner)
-            ? throw new ForbiddenException(SearchErrors.PresetOwnerUnknown)
-            : owner;
+        if (!actor.IsAuthenticated || !actor.HasPermission(Permissions.PresetsManage))
+        {
+            throw new ForbiddenException();
+        }
     }
 
-    /// <summary>
-    /// The single refusal for "this preset is not yours" and "this preset does not exist".
-    /// They must be indistinguishable, or the API answers questions about other owners'
-    /// presets to anyone willing to guess identifiers.
-    /// </summary>
     public static NotFoundException PresetNotFound() =>
         new(SearchErrors.PresetNotFound, SearchErrors.PresetNotFoundMessage);
 
     public static ConflictException PresetNameConflict() =>
         new(SearchErrors.PresetNameConflict, SearchErrors.PresetNameConflictMessage);
+
+    public static ConflictException PresetConcurrencyConflict() =>
+        new(SearchErrors.PresetConcurrencyConflict, SearchErrors.PresetConcurrencyConflictMessage);
 }

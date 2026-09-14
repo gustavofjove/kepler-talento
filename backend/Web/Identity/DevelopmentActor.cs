@@ -25,6 +25,7 @@ public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) 
         Permissions.DocumentsDownload,
         Permissions.CatalogsRead,
         Permissions.CatalogsManage,
+        Permissions.PresetsManage,
     ];
 
     public bool HasPermission(string permission) =>

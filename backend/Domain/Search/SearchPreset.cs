@@ -1,20 +1,21 @@
+using KeplerTalento.Domain.Catalogs;
+
 namespace KeplerTalento.Domain.Search;
 
 /// <summary>
-/// Case-insensitive comparison of saved-search names, matching what the browser-side service
-/// did before presets moved to the API.
+/// Uniqueness comparison of saved-search names: whitespace, casing and accents are ignored.
 /// </summary>
 /// <remarks>
-/// This deliberately does not fold accents, unlike <c>CatalogName.Normalize</c>. A catalog
-/// name is a shared vocabulary where <c>"Ingles"</c> and <c>"Inglés"</c> must be the same
-/// entry; a saved-search name is one person's private label, and refusing "Búsqueda" because
-/// they already have "Busqueda" would be a surprise rather than a safeguard.
+/// KTL-14 made presets a shared library, so a preset name is now a shared vocabulary in the
+/// same sense as a catalog name: "Ingles B2" and "Inglés B2" would be two entries every
+/// recruiter has to tell apart, which is a mistake to prevent rather than a choice to allow.
+/// The comparison is therefore the catalog one, not a copy of it.
 /// </remarks>
 public static class SearchPresetName
 {
     public const int MaximumLength = 120;
 
-    public static string Normalize(string? name) => (name ?? string.Empty).Trim().ToLowerInvariant();
+    public static string Normalize(string? name) => CatalogName.Normalize(name);
 
     public static bool IsValid(string? name)
     {
@@ -24,18 +25,21 @@ public static class SearchPresetName
 }
 
 /// <summary>
-/// One person's saved search. Private to its owner: presets are never shared, and the owner
-/// is derived from the current actor rather than supplied by the caller.
+/// A saved search in the shared library. Administrators curate it; everyone who can search
+/// candidates applies it.
 /// </summary>
 /// <remarks>
 /// The filter value is held as a JSON document rather than as child rows. Nothing queries
-/// across presets by filter content — they are read whole, by their owner — so normalizing
-/// them into a dozen tables would add write complexity that buys no query. The document
-/// carries its own schema version so a future shape change can be an explicit upgrade
-/// instead of a guess about what an old row meant.
+/// across presets by filter content — they are read whole — so normalizing them into a dozen
+/// tables would add write complexity that buys no query. The document carries its own schema
+/// version so a future shape change can be an explicit upgrade instead of a guess about what
+/// an old row meant.
 ///
-/// The preset name and its filters can contain personal data: an owner is free to save
-/// "Candidatos de Marta". They are therefore stored, never logged.
+/// There is deliberately no owner or author. Nothing in the product shows who wrote a preset,
+/// and an actor key stored for no purpose is personal data held for no purpose.
+///
+/// The preset name and its filters can still contain personal data, so they are stored,
+/// never logged.
 /// </remarks>
 public sealed class SearchPreset
 {
@@ -43,37 +47,24 @@ public sealed class SearchPreset
 
     public SearchPreset(
         Guid id,
-        string ownerId,
         string name,
         string filtersJson,
         int filterSchemaVersion,
         DateTimeOffset createdAtUtc)
     {
-        if (string.IsNullOrWhiteSpace(ownerId))
-        {
-            throw new ArgumentException("A saved search always belongs to a known owner.", nameof(ownerId));
-        }
         Id = id;
-        OwnerId = ownerId.Trim();
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = createdAtUtc;
-        FilterSchemaVersion = filterSchemaVersion;
-        Rename(name, createdAtUtc);
-        ReplaceFilters(filtersJson, filterSchemaVersion, createdAtUtc);
+        Version = 1;
+        ApplyName(name);
+        ApplyFilters(filtersJson, filterSchemaVersion);
     }
 
     public Guid Id { get; private set; }
 
-    /// <summary>
-    /// The current actor's stable key. There is deliberately no foreign key: the identity
-    /// schema does not exist yet, and inventing a parallel user table here would couple
-    /// saved searches to an identity design nobody has approved.
-    /// </summary>
-    public string OwnerId { get; private set; } = string.Empty;
-
     public string Name { get; private set; } = string.Empty;
 
-    /// <summary>The case-folded uniqueness key; carries the per-owner unique index.</summary>
+    /// <summary>The folded uniqueness key; carries the library-wide unique index.</summary>
     public string NormalizedName { get; private set; } = string.Empty;
 
     /// <summary>The complete filter value as a JSON object.</summary>
@@ -82,12 +73,40 @@ public sealed class SearchPreset
     public int FilterSchemaVersion { get; private set; }
 
     public DateTimeOffset CreatedAtUtc { get; private set; }
+
+    /// <summary>When the preset's content last changed. Applying it is not a change.</summary>
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 
-    /// <summary>When the owner last applied this preset; null until they have.</summary>
+    /// <summary>When someone last applied this preset; null until anyone has.</summary>
     public DateTimeOffset? LastUsedAtUtc { get; private set; }
 
-    public void Rename(string name, DateTimeOffset updatedAtUtc)
+    /// <summary>
+    /// The optimistic-concurrency version of the preset's content.
+    /// </summary>
+    /// <remarks>
+    /// An ordinary counter rather than PostgreSQL's <c>xmin</c>, which the other aggregates use.
+    /// <c>xmin</c> moves on every row update, and applying a preset writes its last-used time:
+    /// with <c>xmin</c> every recruiter applying a preset would invalidate the version an
+    /// administrator is editing against. Only <see cref="Update"/> advances this.
+    /// </remarks>
+    public int Version { get; private set; }
+
+    /// <summary>Renames the preset and replaces its filters as one change, one version.</summary>
+    public void Update(string name, string filtersJson, int filterSchemaVersion, DateTimeOffset updatedAtUtc)
+    {
+        ApplyName(name);
+        ApplyFilters(filtersJson, filterSchemaVersion);
+        UpdatedAtUtc = updatedAtUtc;
+        Version++;
+    }
+
+    /// <summary>
+    /// Records an apply. It touches neither the update time nor the version: using a preset
+    /// does not change what it is, and must not make an edit in progress stale.
+    /// </summary>
+    public void MarkUsed(DateTimeOffset usedAtUtc) => LastUsedAtUtc = usedAtUtc;
+
+    private void ApplyName(string name)
     {
         if (!SearchPresetName.IsValid(name))
         {
@@ -95,10 +114,9 @@ public sealed class SearchPreset
         }
         Name = name.Trim();
         NormalizedName = SearchPresetName.Normalize(Name);
-        UpdatedAtUtc = updatedAtUtc;
     }
 
-    public void ReplaceFilters(string filtersJson, int filterSchemaVersion, DateTimeOffset updatedAtUtc)
+    private void ApplyFilters(string filtersJson, int filterSchemaVersion)
     {
         if (string.IsNullOrWhiteSpace(filtersJson))
         {
@@ -106,16 +124,5 @@ public sealed class SearchPreset
         }
         Filters = filtersJson;
         FilterSchemaVersion = filterSchemaVersion;
-        UpdatedAtUtc = updatedAtUtc;
-    }
-
-    /// <summary>
-    /// Records an apply. Both timestamps move together and in one write, so "last used" can
-    /// never be newer than the row it describes.
-    /// </summary>
-    public void MarkUsed(DateTimeOffset usedAtUtc)
-    {
-        LastUsedAtUtc = usedAtUtc;
-        UpdatedAtUtc = usedAtUtc;
     }
 }

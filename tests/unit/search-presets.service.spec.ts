@@ -88,12 +88,12 @@ describe('SearchPresetsService', () => {
     const created = await service.createPreset('Disponibles con CV', filters);
     expect(created.name).toBe('Disponibles con CV');
 
-    await service.updatePreset('p-1', 'Renombrada', filters);
+    await service.updatePreset('p-1', 'Renombrada', filters, 3);
     const applied = await service.applyPreset('p-1');
     expect(applied.text).toBe('ana');
     expect(applied.hasCv).toBe('yes');
 
-    await service.removePreset('p-1');
+    await service.removePreset('p-1', 4);
 
     expect(called(fetcher)).toEqual([
       'POST /api/search-presets',
@@ -104,9 +104,44 @@ describe('SearchPresetsService', () => {
       // would be a lie about the verb.
       'POST /api/search-presets/p-1/use',
       'GET /api/search-presets',
-      'DELETE /api/search-presets/p-1',
+      // The version travels in the query string: DELETE carries no body.
+      'DELETE /api/search-presets/p-1?version=4',
       'GET /api/search-presets',
     ]);
+  });
+
+  it('sends the version it loaded with an update, so a newer change is a conflict', async () => {
+    const fetcher = vi
+      .fn()
+      .mockImplementation((_input: string, init?: RequestInit) =>
+        Promise.resolve(json((init?.method ?? 'GET') === 'GET' ? [preset()] : preset())),
+      );
+    const service = build(fetcher);
+
+    await service.updatePreset('p-1', '  Renombrada  ', service.emptyFilters(), 7);
+
+    const body = JSON.parse(fetcher.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({ name: 'Renombrada', version: 7 });
+  });
+
+  it('reads a single preset with its version', async () => {
+    const fetcher = vi.fn().mockResolvedValue(json(preset({ version: 5 })));
+
+    const found = await build(fetcher).get('p-1');
+
+    expect(found.version).toBe(5);
+    expect(found.filters.hasCv).toBe('yes');
+    expect(called(fetcher)).toEqual(['GET /api/search-presets/p-1']);
+  });
+
+  it('refuses a blank name before sending anything', async () => {
+    const fetcher = vi.fn();
+    const service = build(fetcher);
+
+    await expect(service.createPreset('   ', service.emptyFilters())).rejects.toMatchObject({
+      key: 'presets.errors.nameRequired',
+    });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it('surfaces a name conflict as a failure rather than swallowing it', async () => {

@@ -56,6 +56,7 @@ describe('AdvancedSearchPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    authService.hasPermission.mockImplementation(() => true);
     searchPresetsService = {
       state: signal<{ status: string; presets: unknown[] }>({ status: 'loaded', presets: [] }),
       load: vi.fn().mockResolvedValue([]),
@@ -194,5 +195,91 @@ describe('AdvancedSearchPage', () => {
       ),
     );
     expect(toastService.show).toHaveBeenCalledWith('Servidor caído.', 'error');
+  });
+
+  describe('presets (KTL-14: apply only)', () => {
+    const idleSearch = () => ({
+      search: vi.fn().mockResolvedValue(page([])),
+      emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS),
+    });
+
+    const withPreset = () =>
+      searchPresetsService.state.set({
+        status: 'loaded',
+        presets: [
+          {
+            id: 'p-1',
+            name: 'Java senior',
+            filters: structuredClone(EMPTY_SEARCH_FILTERS),
+            createdAt: '2026-03-01T09:00:00Z',
+            updatedAt: '2026-03-01T09:00:00Z',
+            version: 1,
+          },
+        ],
+      });
+
+    it('offers no control to save, rename or delete a preset, whatever the permissions', async () => {
+      const { container } = renderPage(idleSearch());
+
+      await waitFor(() => expect(searchPresetsService.load).toHaveBeenCalled());
+      expect(container.querySelector('[name="presetName"]')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Guardar actual' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
+    });
+
+    it('links to the preset administration section for manage_presets', async () => {
+      renderPage(idleSearch());
+
+      expect(await screen.findByTestId('manage-presets-link')).toHaveAttribute(
+        'href',
+        '/app/admin/presets',
+      );
+    });
+
+    it('shows no administration link without manage_presets', async () => {
+      authService.hasPermission.mockImplementation(
+        (permission: string) => permission !== 'manage_presets',
+      );
+
+      renderPage(idleSearch());
+
+      await waitFor(() => expect(searchPresetsService.load).toHaveBeenCalled());
+      expect(screen.queryByTestId('manage-presets-link')).toBeNull();
+    });
+
+    it('applies a selected preset and searches with its filters', async () => {
+      withPreset();
+      const applied = { ...structuredClone(EMPTY_SEARCH_FILTERS), text: 'java' };
+      searchPresetsService.applyPreset.mockResolvedValue(applied);
+      const searching = idleSearch();
+      renderPage(searching);
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(1));
+
+      await userEvent.selectOptions(
+        screen.getByRole('combobox', { name: 'Preset guardado' }),
+        'p-1',
+      );
+
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(2));
+      expect(searchPresetsService.applyPreset).toHaveBeenCalledWith('p-1');
+      expect(searching.search.mock.calls[1][0]).toMatchObject({ text: 'java' });
+    });
+
+    it('keeps the filters and clears the selection when a preset can no longer be applied', async () => {
+      withPreset();
+      searchPresetsService.applyPreset.mockRejectedValue(
+        new AppError('NOT_FOUND', 'El preset ya no existe.'),
+      );
+      const searching = idleSearch();
+      renderPage(searching);
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(1));
+      const picker = screen.getByRole('combobox', { name: 'Preset guardado' });
+
+      await userEvent.selectOptions(picker, 'p-1');
+
+      await waitFor(() => expect(picker).toHaveValue(''));
+      expect(searching.search).toHaveBeenCalledTimes(1);
+      expect(toastService.show).toHaveBeenCalledWith('El preset ya no existe.', 'error');
+    });
   });
 });
