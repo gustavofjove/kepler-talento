@@ -2,15 +2,14 @@
 set -eu
 
 storage_root=/var/lib/kepler-talento/documents
-ownership_marker="$storage_root/.app-ownership-v1"
 
-# Existing installations may contain directories created by an older root-running
-# container. su-exec is used solely to repair the persistent volume once and then
-# drop privileges before any application code runs.
-if [ ! -f "$ownership_marker" ]; then
-  chown -R app:app "$storage_root"
-  touch "$ownership_marker"
-  chown app:app "$ownership_marker"
-fi
+# Anything that writes into the persistent volume without going through this entrypoint
+# (`docker compose exec`, `docker cp`, `run --entrypoint`, an alpine tools container) writes
+# as root, and the API running as app then fails to create candidate folders. Re-own only
+# the entries not already owned by app on every start: cheap on a healthy volume, and it
+# repairs root-owned writes that appear after the first start. su-exec drops privileges
+# before any application code runs.
+find "$storage_root" ! -user app -exec chown app:app {} +
+rm -f "$storage_root/.app-ownership-v1"
 
 exec su-exec app "$@"

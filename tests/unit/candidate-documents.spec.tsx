@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
@@ -98,6 +98,19 @@ describe('CandidateDocuments', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Documento heredado sin archivo asociado.')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Descargar' })).toHaveLength(1);
+  });
+
+  it('shows the upload failure inside the documents section', async () => {
+    const { documentService } = renderDocuments([]);
+    vi.mocked(documentService.upload).mockRejectedValue(new Error(''));
+    await screen.findByText('Sin CV adjunto.');
+
+    fireEvent.change(screen.getByTestId('document-file'), {
+      target: { files: [new File(['%PDF-1.7'], 'cv.pdf', { type: 'application/pdf' })] },
+    });
+    fireEvent.click(screen.getByTestId('document-upload'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo subir el documento.');
   });
 
   it('aborts pending observation when the view unmounts', async () => {

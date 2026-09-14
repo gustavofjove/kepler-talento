@@ -29,17 +29,17 @@ function fieldMessage(error: unknown): string | null {
  *
  * Business validation lives in the service layer and throws `Error`s carrying
  * the exact Spanish message the user should see; the fallback only applies when
- * something non-Error reaches the catch block.
+ * something non-Error reaches the catch block. Returns the message shown, for callers
+ * that also render it next to the failed action.
  */
-export function useErrorToast(): (error: unknown, fallback: string) => void {
+export function useErrorToast(): (error: unknown, fallback: string) => string {
   const { toastService } = useServices();
   return useCallback(
-    (error: unknown, fallback: string): void => {
-      const specific = fieldMessage(error);
-      toastService.show(
-        specific ?? (error instanceof Error && error.message ? error.message : fallback),
-        'error',
-      );
+    (error: unknown, fallback: string): string => {
+      const message =
+        fieldMessage(error) ?? (error instanceof Error && error.message ? error.message : fallback);
+      toastService.show(message, 'error');
+      return message;
     },
     [toastService],
   );

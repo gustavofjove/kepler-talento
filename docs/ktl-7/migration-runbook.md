@@ -179,6 +179,47 @@ DROP SCHEMA migration_staging CASCADE;
 
 A successful run drops it automatically.
 
+## Writing into the documents volume
+
+The API runs as `app` (uid 1654) and must own every entry in the `documents` volume. Any
+tool that writes CV binaries into the volume — a `ktl-migrate load`, a KTL-11 synthetic set,
+a manual copy — **runs as `app`**, never as `root`. `docker compose exec`, `docker exec`,
+`docker cp` and `docker compose run --entrypoint …` all write as `root` unless told otherwise,
+and a root-owned `quarantine/candidates/` makes every upload fail with HTTP 500 (KTL-13).
+
+Inside a container built from `backend/Dockerfile`, pass the user explicitly:
+
+```powershell
+docker compose exec --user app api <command>
+docker compose run --rm --user app --entrypoint <command> api <arguments>
+```
+
+Commands that go through the image entrypoint (plain `docker compose run --rm api …`) already
+drop to `app`. The `file-tools` operations service is plain Alpine with no `app` user, so use
+the numeric uid there:
+
+```powershell
+docker compose --profile operations run --rm --user 1654:1654 file-tools <command>
+```
+
+The API entrypoint re-owns anything not owned by `app` on every start, and
+`GET /api/health/ready` reports `storage` unhealthy while `quarantine/candidates/` is not
+writable, but neither replaces running the tool as the right user.
+
+### Repairing an affected volume
+
+If uploads fail with `Permission denied` under `quarantine/candidates/`, re-own the volume
+and check the result. The commands change ownership only; they never print or copy file
+contents.
+
+```powershell
+docker compose --profile operations run --rm file-tools chown -R 1654:1654 /documents
+docker compose --profile operations run --rm file-tools sh -c "find /documents ! -user 1654 | wc -l"
+```
+
+The second command must print `0`. Restarting the `api` service (`docker compose restart api`)
+performs the same repair through the entrypoint.
+
 ## Development and test runs
 
 Never point this tool at the production Access dataset outside a real migration. The

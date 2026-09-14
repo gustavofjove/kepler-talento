@@ -24,7 +24,7 @@ foreach ($artifact in $manifest.artifacts) {
 $env:KTL_BACKUP_ROOT = $resolvedBackupRoot
 docker compose --profile operations run --rm db-tools pg_restore --host postgres --username ktl_migrator --dbname kepler_talento --clean --if-exists "/backups/$RecoveryId/database.dump"
 if ($LASTEXITCODE -ne 0) { throw "PostgreSQL restore failed." }
-docker compose --profile operations run --rm file-tools sh -eu -c "find /documents -mindepth 1 -delete; tar -xzf /backups/$RecoveryId/documents.tar.gz -C /documents"
+docker compose --profile operations run --rm file-tools sh -eu -c "find /documents -mindepth 1 -delete; tar -xzf /backups/$RecoveryId/documents.tar.gz -C /documents; chown -R 1654:1654 /documents"
 if ($LASTEXITCODE -ne 0) { throw "Document restore failed." }
 docker compose run --rm migrator --migrate
 if ($LASTEXITCODE -ne 0) { throw "Restored schema validation failed." }

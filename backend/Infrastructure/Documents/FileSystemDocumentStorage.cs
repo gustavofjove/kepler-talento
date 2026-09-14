@@ -96,6 +96,24 @@ public sealed class FileSystemDocumentStorage(DocumentStorageOptions options) : 
         }
         Probe(PrepareRoot(options, options.QuarantineDirectory));
         Probe(PrepareRoot(options, options.AvailableDirectory));
+        ProbeCandidateFolder(PrepareRoot(options, options.QuarantineDirectory));
+    }
+
+    // Uploads create a folder per candidate under quarantine/candidates/. A writable root
+    // says nothing about that folder when it is owned by another user, so probe the same
+    // operations an upload performs: create a directory there and write a file into it.
+    private static void ProbeCandidateFolder(string quarantineRoot)
+    {
+        var probeDirectory = Path.Combine(quarantineRoot, "candidates", $".write-probe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(probeDirectory);
+        try
+        {
+            Probe(probeDirectory);
+        }
+        finally
+        {
+            Directory.Delete(probeDirectory, recursive: true);
+        }
     }
 
     private static string PrepareRoot(DocumentStorageOptions options, string child)

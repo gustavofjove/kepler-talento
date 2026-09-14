@@ -157,6 +157,26 @@ public sealed class DocumentStorageTests : IDisposable
         }
     }
 
+    [Fact]
+    public void Readiness_fails_when_candidate_folders_cannot_be_created()
+    {
+        var options = new DocumentStorageOptions { Root = _root };
+        Directory.CreateDirectory(Path.Combine(_root, "quarantine"));
+        // A file in place of quarantine/candidates/ makes folder creation fail on every OS,
+        // the same way a folder owned by another user does in the container.
+        File.WriteAllText(Path.Combine(_root, "quarantine", "candidates"), string.Empty);
+
+        Assert.ThrowsAny<IOException>(() => FileSystemDocumentStorage.ValidateAndPrepare(options));
+    }
+
+    [Fact]
+    public void Readiness_probe_leaves_no_entries_under_candidate_folders()
+    {
+        FileSystemDocumentStorage.ValidateAndPrepare(new DocumentStorageOptions { Root = _root });
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(_root, "quarantine", "candidates")));
+    }
+
     private FileSystemDocumentStorage CreateStorage()
     {
         var options = new DocumentStorageOptions { Root = _root };

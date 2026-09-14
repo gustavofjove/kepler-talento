@@ -43,6 +43,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
   const [selectedFile, setSelectedFile] = useState<File | undefined>();
   const [isPrimary, setIsPrimary] = useState(true);
   const [pollingExhausted, setPollingExhausted] = useState(false);
+  const [uploadError, setUploadError] = useState<string | undefined>();
   const fileInput = useRef<HTMLInputElement>(null);
   const polling = useRef(new Map<string, AbortController>());
 
@@ -105,6 +106,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
   const upload = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (!candidate || !selectedFile) return;
+    setUploadError(undefined);
     try {
       const uploaded = await documentService.upload({
         candidateId: candidate.id,
@@ -121,7 +123,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       toastService.show('Archivo aceptado. El análisis de seguridad está en curso.', 'success');
       observe(uploaded);
     } catch (error) {
-      notifyError(error, 'No se pudo subir el documento.');
+      setUploadError(notifyError(error, 'No se pudo subir el documento.'));
     }
   };
 
@@ -256,6 +258,11 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
               </label>
             </div>
           </div>
+          {uploadError ? (
+            <p className="empty-state" role="alert" data-testid="document-upload-error">
+              {uploadError}
+            </p>
+          ) : null}
           <div className="form-actions">
             <button
               className="button"

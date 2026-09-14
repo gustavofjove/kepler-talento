@@ -64,7 +64,9 @@ test.describe('Candidate documents flow', () => {
       buffer: oversized,
     });
     await documents.getByTestId('document-upload').click();
-    await expect(page.getByText('El archivo supera el máximo permitido de 20 MB.')).toBeVisible();
+    await expect(documents.getByTestId('document-upload-error')).toHaveText(
+      'El archivo supera el máximo permitido de 20 MB.',
+    );
 
     const edgeResponse = await page.request.post(`/api/candidates/${candidateId}/documents`, {
       multipart: {
