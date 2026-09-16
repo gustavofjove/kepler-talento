@@ -41,7 +41,15 @@ describe('CandidateSearchService', () => {
     );
 
   const build = (fetcher: ReturnType<typeof vi.fn>) =>
-    new CandidateSearchService(new ApiTransport('/api', 1_000, fetcher));
+    new CandidateSearchService(
+      new ApiTransport(
+        '/api',
+        async () => 'test-token',
+        () => undefined,
+        1_000,
+        fetcher,
+      ),
+    );
 
   const filters = (overrides: Partial<SearchFilters> = {}): SearchFilters => ({
     text: '',

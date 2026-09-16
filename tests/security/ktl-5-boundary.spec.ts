@@ -115,7 +115,7 @@ describe('KTL-5 fail-closed security boundary', () => {
     const worker = read('backend/Infrastructure/Operations/DurableOperationWorker.cs');
     const scanner = read('backend/Infrastructure/Documents/ScanOperationHandler.cs');
     const loggingSource = `${program}\n${worker}\n${scanner}`;
-    expect(program).toContain('settings.EnableJWTBearerAuth = false');
+    expect(program).toContain('settings.EnableJWTBearerAuth = true');
     expect(program).toContain('CorrelationMiddleware.HeaderName');
     expect(program).toContain('ProxyTrust:KnownNetworks');
     expect(loggingSource).not.toMatch(

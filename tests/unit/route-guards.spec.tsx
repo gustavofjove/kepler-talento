@@ -31,9 +31,8 @@ function renderGuards(profile: Partial<UserProfile> | null, initialEntry: string
         <Routes>
           <Route path="/login" element={<p>SENTINEL login</p>} />
           <Route element={<RequireAuth />}>
-            <Route path="/mfa" element={<p>SENTINEL mfa</p>} />
             <Route path="/app" element={<p>SENTINEL app</p>} />
-            <Route element={<RequirePermission permission="create_candidates" />}>
+            <Route element={<RequirePermission permission="candidates.create" />}>
               <Route path="/app/candidates/new" element={<p>SENTINEL create</p>} />
             </Route>
           </Route>
@@ -49,17 +48,9 @@ describe('Route guards', () => {
     expect(screen.getByText('SENTINEL login')).toBeInTheDocument();
   });
 
-  it('redirects to mfa when profile requires MFA', () => {
-    renderGuards(
-      { id: 'u-1', isActive: true, mfaRequired: true, permissions: ['view_candidates'] },
-      '/app/candidates/new',
-    );
-    expect(screen.getByText('SENTINEL mfa')).toBeInTheDocument();
-  });
-
   it('denies readonly profile on create route and redirects to app shell', () => {
     renderGuards(
-      { id: 'u-2', isActive: true, mfaRequired: false, permissions: ['view_candidates'] },
+      { id: 'u-2', isActive: true, permissions: ['candidates.read'] },
       '/app/candidates/new',
     );
     expect(screen.getByText('SENTINEL app')).toBeInTheDocument();
@@ -70,8 +61,7 @@ describe('Route guards', () => {
       {
         id: 'u-3',
         isActive: true,
-        mfaRequired: false,
-        permissions: ['view_candidates', 'create_candidates'],
+        permissions: ['candidates.read', 'candidates.create'],
       },
       '/app/candidates/new',
     );
@@ -80,17 +70,14 @@ describe('Route guards', () => {
 
   it('denies permission guard for inactive profile even if permission is listed', () => {
     renderGuards(
-      { id: 'u-4', isActive: false, mfaRequired: false, permissions: ['create_candidates'] },
+      { id: 'u-4', isActive: false, permissions: ['candidates.create'] },
       '/app/candidates/new',
     );
     expect(screen.getByText('SENTINEL app')).toBeInTheDocument();
   });
 
-  it('allows authenticated profile when MFA is not required', () => {
-    renderGuards(
-      { id: 'u-5', isActive: true, mfaRequired: false, permissions: ['view_candidates'] },
-      '/app',
-    );
+  it('allows an authenticated profile', () => {
+    renderGuards({ id: 'u-5', isActive: true, permissions: ['candidates.read'] }, '/app');
     expect(screen.getByText('SENTINEL app')).toBeInTheDocument();
   });
 });

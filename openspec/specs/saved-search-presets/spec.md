@@ -11,7 +11,7 @@ last-used filters as a local browser preference.
 ### Requirement: Shared preset listing and retrieval
 
 Saved search presets SHALL form a single library shared by every permitted actor. An authenticated
-actor with `view_candidates` SHALL list all presets and SHALL retrieve any single preset by its
+actor with `candidates.read` SHALL list all presets and SHALL retrieve any single preset by its
 identifier. Each preset SHALL contain an opaque identifier, trimmed name, complete normalized search
 filters, creation time, update time, optional last-used time, and a concurrency version. Responses
 SHALL NOT contain the identity of any actor who created, changed or used a preset.
@@ -38,21 +38,21 @@ SHALL NOT contain the identity of any actor who created, changed or used a prese
 
 #### Scenario: Caller cannot view candidates
 
-- **WHEN** an unauthenticated actor or an actor without `view_candidates` lists, retrieves or
+- **WHEN** an unauthenticated actor or an actor without `candidates.read` lists, retrieves or
   applies presets
 - **THEN** the request fails closed before validation and returns no preset data
 
 ### Requirement: Preset management permission
 
 Creating, updating and deleting presets SHALL require an authenticated actor holding
-`manage_presets`. The API SHALL check authentication and this permission before validating the
-request or revealing whether the named preset exists. Holding `view_candidates` alone SHALL NOT
-permit any preset write, and holding `manage_presets` alone SHALL NOT permit listing, retrieving or
+`presets.manage`. The API SHALL check authentication and this permission before validating the
+request or revealing whether the named preset exists. Holding `candidates.read` alone SHALL NOT
+permit any preset write, and holding `presets.manage` alone SHALL NOT permit listing, retrieving or
 applying presets.
 
 #### Scenario: Reader attempts a write
 
-- **WHEN** an actor with `view_candidates` but without `manage_presets` creates, updates or deletes
+- **WHEN** an actor with `candidates.read` but without `presets.manage` creates, updates or deletes
   a preset
 - **THEN** the request is refused as forbidden and no preset changes
 
@@ -64,17 +64,17 @@ applying presets.
 
 #### Scenario: Manager without read permission
 
-- **WHEN** an actor holding `manage_presets` but not `view_candidates` lists or applies presets
+- **WHEN** an actor holding `presets.manage` but not `candidates.read` lists or applies presets
 - **THEN** the request is refused as forbidden
 
 #### Scenario: Default administrative roles
 
-- **WHEN** the default role definitions are inspected
-- **THEN** `rrhh_admin` and `system_admin` include `manage_presets` and no other default role does
+- **WHEN** the seeded role definitions are inspected
+- **THEN** `rrhh_admin` and `system_admin` include `presets.manage` and no other seeded role does
 
 ### Requirement: Preset create and update
 
-An actor holding `manage_presets` SHALL create a preset and SHALL update its name or complete filter
+An actor holding `presets.manage` SHALL create a preset and SHALL update its name or complete filter
 value. Names SHALL be non-blank after trimming, at most 120 characters, and unique across the whole
 library under comparison that ignores case and accents. Creating or renaming to a conflicting name
 SHALL be rejected without changing either preset. An update SHALL supply the version the actor last
@@ -115,10 +115,10 @@ creation time, SHALL advance the update time and SHALL return a new version.
 
 ### Requirement: Preset deletion and last-used tracking
 
-An actor holding `manage_presets` SHALL delete a preset by supplying the version it last read.
+An actor holding `presets.manage` SHALL delete a preset by supplying the version it last read.
 Deletion SHALL physically remove only the named preset and SHALL NOT alter candidate data or any
 other preset; a stale version SHALL be rejected with the concurrency-conflict problem. An actor
-holding `view_candidates` SHALL apply a preset; applying SHALL return its normalized filters and
+holding `candidates.read` SHALL apply a preset; applying SHALL return its normalized filters and
 advance only `lastUsedAt`, leaving the update time and version unchanged, so that applying never
 invalidates an edit in progress. A stored filter value that can no longer be understood SHALL be
 refused without recording a use.
@@ -170,7 +170,7 @@ Release documentation SHALL state that these presets must be recreated by an adm
 ### Requirement: Preset administration section
 
 The application SHALL provide an administration section for presets, reachable only by actors
-holding `manage_presets`. It SHALL offer a list of all presets and a create page and an edit page,
+holding `presets.manage`. It SHALL offer a list of all presets and a create page and an edit page,
 each at its own route; there SHALL be no separate read-only page. The list SHALL show each preset's
 name, its update time and its last-used time (shown as never used when absent), and SHALL support
 filtering by name, sorting and pagination. Beside each name the list SHALL offer a view control,
@@ -184,7 +184,7 @@ everyone with search access and must not contain personal data. All copy SHALL b
 
 #### Scenario: Administrator opens the section
 
-- **WHEN** an actor with `manage_presets` opens the presets section
+- **WHEN** an actor with `presets.manage` opens the presets section
 - **THEN** every preset is listed with its name, update time and last-used time, and no criteria
   are rendered in the rows
 
@@ -197,7 +197,7 @@ everyone with search access and must not contain personal data. All copy SHALL b
 
 #### Scenario: Route reached without permission
 
-- **WHEN** an actor without `manage_presets` navigates directly to any presets administration route
+- **WHEN** an actor without `presets.manage` navigates directly to any presets administration route
 - **THEN** the route guard redirects the actor away and no preset page is rendered
 
 #### Scenario: Preset is created from the section
@@ -222,10 +222,10 @@ everyone with search access and must not contain personal data. All copy SHALL b
 
 ### Requirement: Search page applies presets only
 
-The advanced search page SHALL let any actor with `view_candidates` choose a preset from the shared
+The advanced search page SHALL let any actor with `candidates.read` choose a preset from the shared
 library and apply it, replacing the current filters, running the search and recording the use. It
 SHALL NOT offer creating, renaming, updating or deleting presets to any actor. It SHALL show a link
-to the presets administration section only to actors holding `manage_presets`.
+to the presets administration section only to actors holding `presets.manage`.
 
 #### Scenario: Recruiter applies a preset
 
@@ -239,7 +239,7 @@ to the presets administration section only to actors holding `manage_presets`.
 
 #### Scenario: Link to administration
 
-- **WHEN** an actor holding `manage_presets` opens the search page
+- **WHEN** an actor holding `presets.manage` opens the search page
 - **THEN** a link to the presets administration section is shown, and it is absent for actors
   without that permission
 

@@ -53,8 +53,8 @@ export function CandidateListPage() {
   const paged = useMemo(() => paginate(filtered, page, pageSize), [filtered, page, pageSize]);
   const chips = useMemo(() => buildFilterChips(filters), [filters]);
 
-  const canEdit = usePermission('edit_candidates');
-  const canCreate = usePermission('create_candidates');
+  const canEdit = usePermission('candidates.update');
+  const canCreate = usePermission('candidates.create');
   const allVisibleSelected = paged.length > 0 && paged.every((item) => selectedIds.has(item.id));
 
   const patchFilters = (patch: Partial<CandidateFilters>): void => {

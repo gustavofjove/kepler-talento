@@ -1,139 +1,72 @@
+import type { ApiTransport } from '../../../core/http/api-transport';
 import { signal } from '../../../core/state/signal';
-import {
-  ALL_PERMISSIONS,
-  DEFAULT_ROLES,
-  Permission,
-  RoleDefinition,
-} from '../../../shared/models/auth.models';
+import { ALL_PERMISSIONS, type Permission } from '../../../shared/models/auth.models';
 
-const STORAGE_KEY = 'rrhh-admin-roles';
+export interface AdminRole {
+  id: string;
+  name: string;
+  label: string;
+  isSystem: boolean;
+  permissions: Permission[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
 
 export class RoleService {
-  readonly roles = signal<RoleDefinition[]>(this.restore());
+  readonly roles = signal<AdminRole[]>([]);
   readonly allPermissions = ALL_PERMISSIONS;
+  constructor(private readonly api: ApiTransport) {}
 
-  create(name: string, label: string): RoleDefinition {
-    const normalizedName = name.trim().toLowerCase();
-    const normalizedLabel = label.trim();
+  async load(): Promise<AdminRole[]> {
+    const roles = await this.api.request<AdminRole[]>('/admin/roles');
+    this.roles.set(roles);
+    return roles;
+  }
 
-    if (!normalizedName || !normalizedLabel) {
-      throw new Error('Nombre interno y etiqueta son obligatorios.');
-    }
-
-    if (!/^[a-z0-9_]+$/.test(normalizedName)) {
-      throw new Error('El nombre interno solo admite minúsculas, números y guion bajo.');
-    }
-
-    if (this.roles().some((role) => role.name === normalizedName)) {
-      throw new Error('Ya existe un rol con ese nombre interno.');
-    }
-
-    const created: RoleDefinition = {
-      name: normalizedName,
-      label: normalizedLabel,
-      permissions: ['view_candidates'],
-      isSystem: false,
-    };
-
-    this.persist([...this.roles(), created]);
+  async create(
+    name: string,
+    label: string,
+    permissions: Permission[] = ['candidates.read'],
+  ): Promise<AdminRole> {
+    const created = await this.api.request<AdminRole>('/admin/roles', {
+      method: 'POST',
+      body: JSON.stringify({ name, label, permissions }),
+    });
+    this.roles.set([...this.roles(), created]);
     return created;
   }
 
-  updateLabel(name: string, label: string): void {
-    const normalizedLabel = label.trim();
-    if (!normalizedLabel) {
-      throw new Error('La etiqueta del rol no puede quedar vacia.');
-    }
-
-    const role = this.roles().find((item) => item.name === name);
-    if (!role) {
-      throw new Error('El rol no existe.');
-    }
-    if (role.isSystem) {
-      throw new Error('No se puede editar un rol de sistema.');
-    }
-
-    this.persist(
-      this.roles().map((role) =>
-        role.name === name
-          ? {
-              ...role,
-              label: normalizedLabel,
-            }
-          : role,
-      ),
-    );
-  }
-
-  setPermission(name: string, permission: Permission, enabled: boolean): void {
-    const role = this.roles().find((item) => item.name === name);
-    if (!role) {
-      throw new Error('El rol no existe.');
-    }
-    if (role.isSystem) {
-      throw new Error('No se pueden modificar permisos de un rol de sistema.');
-    }
-
-    this.persist(
-      this.roles().map((role) => {
-        if (role.name !== name) {
-          return role;
-        }
-
-        const nextPermissions = enabled
-          ? Array.from(new Set([...role.permissions, permission]))
-          : role.permissions.filter((item) => item !== permission);
-
-        if (!nextPermissions.length) {
-          throw new Error('Cada rol debe tener al menos un permiso.');
-        }
-
-        return {
-          ...role,
-          permissions: nextPermissions,
-        };
+  async updateLabel(role: AdminRole, label: string): Promise<AdminRole> {
+    return this.replace(
+      await this.api.request<AdminRole>(`/admin/roles/${role.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ label, version: role.version }),
       }),
     );
   }
 
-  remove(name: string): void {
-    const role = this.roles().find((item) => item.name === name);
-    if (!role) {
-      return;
-    }
-
-    if (role.isSystem) {
-      throw new Error('No se puede eliminar un rol de sistema.');
-    }
-
-    this.persist(this.roles().filter((item) => item.name !== name));
+  async setPermissions(role: AdminRole, permissions: Permission[]): Promise<AdminRole> {
+    return this.replace(
+      await this.api.request<AdminRole>(`/admin/roles/${role.id}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify({ permissions, version: role.version }),
+      }),
+    );
   }
 
-  permissionsForRole(name: string): Permission[] {
-    const role = this.roles().find((item) => item.name === name);
-    return role?.permissions ?? [];
+  async setActive(role: AdminRole, isActive: boolean): Promise<AdminRole> {
+    return this.replace(
+      await this.api.request<AdminRole>(`/admin/roles/${role.id}/active`, {
+        method: 'PUT',
+        body: JSON.stringify({ isActive, version: role.version }),
+      }),
+    );
   }
 
-  private persist(roles: RoleDefinition[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(roles));
-    this.roles.set(roles);
-  }
-
-  private restore(): RoleDefinition[] {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as RoleDefinition[];
-        if (Array.isArray(parsed) && parsed.length) {
-          return parsed.map((role) => ({
-            ...role,
-            isSystem: role.isSystem ?? DEFAULT_ROLES.some((base) => base.name === role.name),
-          }));
-        }
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    return DEFAULT_ROLES.map((role) => ({ ...role }));
+  private replace(updated: AdminRole): AdminRole {
+    this.roles.set(this.roles().map((role) => (role.id === updated.id ? updated : role)));
+    return updated;
   }
 }

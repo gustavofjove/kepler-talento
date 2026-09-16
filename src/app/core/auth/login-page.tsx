@@ -1,27 +1,29 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { DEFAULT_ROLES } from '../../shared/models/auth.models';
 import { useServices } from '../di/services-context';
+import { useErrorToast } from '../services/use-error-toast';
 import './login-page.css';
 
 export function LoginPage() {
   const { t } = useTranslation();
   const { authService } = useServices();
   const navigate = useNavigate();
+  const notifyError = useErrorToast();
 
-  const [email, setEmail] = useState('rrhh.admin@example.com');
-  const [password, setPassword] = useState('local-demo');
-  const [role, setRole] = useState('rrhh_admin');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      await authService.signIn(email, password, role);
+      setBusy(true);
+      await authService.signIn();
       await navigate('/app');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.login.failed'));
+      setError(notifyError(err, t('auth.login.failed')));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -31,45 +33,8 @@ export function LoginPage() {
         <h1>{t('app.title')}</h1>
         <p className="muted">{t('auth.login.intro')}</p>
         <div className="grid">
-          <div className="field">
-            <label htmlFor="email">{t('auth.login.email')}</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="password">{t('auth.login.password')}</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="role">{t('auth.login.role')}</label>
-            <select
-              id="role"
-              name="role"
-              value={role}
-              onChange={(event) => setRole(event.target.value)}
-            >
-              {DEFAULT_ROLES.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
           {error ? <p className="muted">{error}</p> : null}
-          <button className="button" type="submit">
+          <button className="button" type="submit" disabled={busy} data-testid="sign-in">
             {t('auth.login.submit')}
           </button>
         </div>

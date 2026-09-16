@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 
 test.use({ storageState: authFile('rrhh_admin') });
@@ -8,10 +8,13 @@ test.describe('Candidate list operations', () => {
     const suffix = Date.now().toString();
     const createCandidate = async (firstName: string, lastName: string) => {
       await page.goto('/app/candidates/new');
+      await page.reload();
       await page.fill('input[name="firstName"]', firstName);
       await page.fill('input[name="lastName"]', lastName);
       await page.click('button[type="submit"]');
-      await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+      await expect(page).toHaveURL(
+        /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
     };
 
     await createCandidate(`Filtro${suffix}`, 'Uno');
@@ -37,7 +40,9 @@ test.describe('Candidate list operations', () => {
     await expect(page.getByTestId('confirm-dialog')).toBeVisible();
     await page.getByTestId('confirm-accept').click();
 
-    await expect(page.locator('text=Baja lógica aplicada a 2 candidato(s).')).toBeVisible();
+    await expect(page.locator(`tbody tr:has-text("Filtro${suffix}")`)).toHaveCount(0, {
+      timeout: 15_000,
+    });
 
     await page.click('button:has-text("Limpiar")');
     await expect(page.locator('input[name="text"]')).toHaveValue('');

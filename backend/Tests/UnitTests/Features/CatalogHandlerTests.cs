@@ -426,6 +426,10 @@ public sealed class CatalogHandlerTests
         public static Actor Unauthenticated => new(false, Permissions.CatalogsRead, Permissions.CatalogsManage);
 
         public string? ExternalKey => authenticated ? "test-actor" : null;
+
+        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
+        public Guid? UserId => null;
+
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);

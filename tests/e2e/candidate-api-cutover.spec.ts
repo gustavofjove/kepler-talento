@@ -1,5 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { authorizationHeaders } from './support/auth';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -91,8 +92,10 @@ test.describe('Candidate API cutover', () => {
     await page.goto(`/app/candidates/${id}/edit`);
     await expect(page.locator('input[name="firstName"]')).toHaveValue(firstName);
 
-    const loaded = await (await page.request.get(`/api/candidates/${id}`)).json();
+    const headers = authorizationHeaders(page);
+    const loaded = await (await page.request.get(`/api/candidates/${id}`, { headers })).json();
     const interloper = await page.request.put(`/api/candidates/${id}`, {
+      headers,
       data: { ...loaded, lastName: 'Candidato Adelantado', version: loaded.version },
     });
     expect(interloper.ok()).toBeTruthy();
@@ -104,7 +107,7 @@ test.describe('Candidate API cutover', () => {
     // The user is kept on the form rather than sent to a detail page that did not change.
     await expect(page).toHaveURL(new RegExp(`/app/candidates/${id}/edit$`));
     // And the other write is what survived; the stale submit overwrote nothing.
-    const stored = await (await page.request.get(`/api/candidates/${id}`)).json();
+    const stored = await (await page.request.get(`/api/candidates/${id}`, { headers })).json();
     expect(stored.lastName).toBe('Candidato Adelantado');
   });
 

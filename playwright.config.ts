@@ -3,6 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
+  // The suite mutates one shared development database and scanner. Serial execution keeps
+  // lifecycle journeys deterministic and mirrors their operator-facing use.
+  workers: 1,
   globalSetup: './tests/e2e/global-setup.ts',
   // The Vite dev server, so specs run the working tree. It proxies /api to the Compose
   // stack, which must be up (`docker compose up`). Never 4200: that is nginx serving the

@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { authFile } from './global-setup';
+import { expect, test } from './fixtures';
+import { signInAs } from './support/auth';
 
 test.describe('Secure access', () => {
   test('redirects an unauthenticated user from a protected route to /login', async ({ page }) => {
@@ -8,17 +8,14 @@ test.describe('Secure access', () => {
   });
 
   test('lets an rrhh_admin log in and reach the protected app shell', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#email', 'rrhh.admin@example.com');
-    await page.fill('#password', 'local-demo');
-    await page.selectOption('#role', 'rrhh_admin');
-    await page.click('button[type="submit"]');
+    await signInAs(page, 'rrhh_admin');
     await expect(page).toHaveURL(/\/app$/);
   });
 
   test('blocks a readonly user from the candidate creation route', async ({ browser, baseURL }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('readonly') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'readonly');
 
     await page.goto('/app/candidates/new');
 
@@ -30,8 +27,9 @@ test.describe('Secure access', () => {
     browser,
     baseURL,
   }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('rrhh_admin') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'rrhh_admin');
 
     await page.goto('/app/candidates/new');
 
@@ -39,22 +37,18 @@ test.describe('Secure access', () => {
     await context.close();
   });
 
-  test('lets an authenticated user reach the MFA verification route and continue', async ({
-    browser,
-    baseURL,
-  }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('rrhh_admin') });
+  test('does not expose the removed application-owned MFA route', async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'rrhh_admin');
 
     await page.goto('/mfa');
-    await expect(page.locator('h1')).toHaveText('Verificación MFA');
-    await page.click('a:has-text("Continuar")');
     await expect(page).toHaveURL(/\/app$/);
 
     await context.close();
   });
 
-  test('redirects an unauthenticated user away from the MFA route', async ({ page }) => {
+  test('does not restore the removed MFA flow for an unauthenticated caller', async ({ page }) => {
     await page.goto('/mfa');
     await expect(page).toHaveURL(/\/login$/);
   });

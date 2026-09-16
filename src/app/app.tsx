@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { LoginPage } from './core/auth/login-page';
-import { MfaPage } from './core/auth/mfa-page';
 import { AppLayout } from './core/layout/app-layout';
 import { RequireAuth } from './core/routing/require-auth';
 import { RequirePermission } from './core/routing/require-permission';
@@ -31,18 +30,17 @@ export function createAppRouter() {
     {
       element: <RequireAuth />,
       children: [
-        { path: '/mfa', element: <MfaPage /> },
         {
           path: '/app',
           element: <AppLayout />,
           children: [
             { index: true, element: <DashboardPage /> },
             {
-              element: <RequirePermission permission="create_candidates" />,
+              element: <RequirePermission permission="candidates.create" />,
               children: [{ path: 'candidates/new', element: <CandidateEditPage /> }],
             },
             {
-              element: <RequirePermission permission="view_candidates" />,
+              element: <RequirePermission permission="candidates.read" />,
               children: [
                 { path: 'candidates', element: <CandidateListPage /> },
                 { path: 'candidates/:id', element: <CandidateDetailPage /> },
@@ -50,17 +48,17 @@ export function createAppRouter() {
               ],
             },
             {
-              element: <RequirePermission permission="edit_candidates" />,
+              element: <RequirePermission permission="candidates.update" />,
               children: [{ path: 'candidates/:id/edit', element: <CandidateEditPage /> }],
             },
             {
-              element: <RequirePermission permission="manage_catalogs" />,
+              element: <RequirePermission permission="catalogs.manage" />,
               children: [{ path: 'catalogs', element: <CatalogManagementPage /> }],
             },
             {
               // No read-only preset route: a preset's criteria are viewed in the list's dialog,
               // and the separate page exists only to create or edit.
-              element: <RequirePermission permission="manage_presets" />,
+              element: <RequirePermission permission="presets.manage" />,
               children: [
                 { path: 'admin/presets', element: <PresetListPage /> },
                 { path: 'admin/presets/new', element: <PresetEditPage /> },
@@ -68,15 +66,15 @@ export function createAppRouter() {
               ],
             },
             {
-              element: <RequirePermission permission="manage_users" />,
+              element: <RequirePermission permission="users.manage" />,
               children: [{ path: 'admin/users', element: <AdminUsersPage /> }],
             },
             {
-              element: <RequirePermission permission="manage_roles" />,
+              element: <RequirePermission permission="roles.manage" />,
               children: [{ path: 'admin/roles', element: <AdminRolesPage /> }],
             },
             {
-              element: <RequirePermission permission="import_candidates" />,
+              element: <RequirePermission permission="candidates.import" />,
               children: [{ path: 'admin/import', element: <ImportPage /> }],
             },
           ],

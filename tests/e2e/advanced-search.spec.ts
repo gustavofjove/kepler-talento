@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { ensureSearchCandidate } from './support/seed-candidate';
 
@@ -12,10 +12,10 @@ test.describe('Advanced search', () => {
   test('finds the seeded candidate by free text', async ({ page }) => {
     // The filter panel starts open; it collapses once a search has been run.
     await page.goto('/app/search');
-    await page.fill('input[name="text"]', 'Laura');
+    await page.fill('input[name="text"]', 'KtlSearchSeed');
     await page.click('button[type="submit"]:has-text("Buscar")');
 
-    await expect(page.locator('text=Laura Garcia')).toBeVisible();
+    await expect(page.getByText('KtlSearchSeed Candidate')).toBeVisible();
   });
 
   test('shows no results for a text filter that matches nobody', async ({ page }) => {
@@ -28,7 +28,7 @@ test.describe('Advanced search', () => {
 
   test('clearing the filters restores the full result set', async ({ page }) => {
     await page.goto('/app/search');
-    await page.fill('input[name="text"]', 'Laura');
+    await page.fill('input[name="text"]', 'KtlSearchSeed');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('tbody tr')).toHaveCount(1);
 
@@ -47,7 +47,7 @@ test.describe('Advanced search', () => {
     page,
   }) => {
     await page.goto('/app/search');
-    await page.fill('input[name="text"]', 'Laura');
+    await page.fill('input[name="text"]', 'KtlSearchSeed');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('tbody tr')).toHaveCount(1);
 
@@ -56,7 +56,7 @@ test.describe('Advanced search', () => {
 
     // Still the previous result set: no submit has happened.
     await expect(page.locator('tbody tr')).toHaveCount(1);
-    await expect(page.locator('text=Laura Garcia')).toBeVisible();
+    await expect(page.getByText('KtlSearchSeed Candidate')).toBeVisible();
 
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
@@ -85,10 +85,10 @@ test.describe('Advanced search', () => {
 
   test('the CV filter and the multi-value mode reach the server query', async ({ page }) => {
     await page.goto('/app/search');
-    await page.fill('input[name="text"]', 'Laura');
+    await page.fill('input[name="text"]', 'KtlSearchSeed');
     await page.selectOption('select[name="hasCv"]', 'yes');
     await page.click('button[type="submit"]:has-text("Buscar")');
-    await expect(page.locator('text=Laura Garcia')).toBeVisible();
+    await expect(page.getByText('KtlSearchSeed Candidate')).toBeVisible();
 
     await page.getByTestId('toggle-filters').click();
     await page.selectOption('select[name="hasCv"]', 'no');
@@ -130,13 +130,13 @@ test.describe('Advanced search', () => {
     await page.getByTestId('toggle-filters').click();
     // Two searches in quick succession: the first must not be waited out, and its answer
     // must never reach the screen.
-    await page.fill('input[name="text"]', 'Laura');
+    await page.fill('input[name="text"]', 'KtlSearchSeed');
     await page.click('button[type="submit"]:has-text("Buscar")');
     await page.getByTestId('toggle-filters').click();
     await page.fill('input[name="text"]', 'nadie-existe-xyz');
     await page.click('button[type="submit"]:has-text("Buscar")');
 
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
-    await expect(page.locator('text=Laura Garcia')).toHaveCount(0);
+    await expect(page.getByText('KtlSearchSeed Candidate')).toHaveCount(0);
   });
 });

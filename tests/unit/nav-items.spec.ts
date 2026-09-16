@@ -17,13 +17,13 @@ describe('nav-items table', () => {
 
     expect(mapped).toEqual([
       ['Dashboard', '/app', null],
-      ['Candidatos', '/app/candidates', 'view_candidates'],
-      ['Búsqueda', '/app/search', 'view_candidates'],
-      ['Catálogos', '/app/catalogs', 'manage_catalogs'],
-      ['Presets', '/app/admin/presets', 'manage_presets'],
-      ['Usuarios', '/app/admin/users', 'manage_users'],
-      ['Roles', '/app/admin/roles', 'manage_roles'],
-      ['Importación', '/app/admin/import', 'import_candidates'],
+      ['Candidatos', '/app/candidates', 'candidates.read'],
+      ['Búsqueda', '/app/search', 'candidates.read'],
+      ['Catálogos', '/app/catalogs', 'catalogs.manage'],
+      ['Presets', '/app/admin/presets', 'presets.manage'],
+      ['Usuarios', '/app/admin/users', 'users.manage'],
+      ['Roles', '/app/admin/roles', 'roles.manage'],
+      ['Importación', '/app/admin/import', 'candidates.import'],
     ]);
   });
 
@@ -72,7 +72,7 @@ describe('visibleItems', () => {
   });
 
   it('keeps only the entries the permission map grants', () => {
-    const granted = { manage_roles: true, manage_users: false };
+    const granted = { 'roles.manage': true, 'users.manage': false };
     expect(visibleItems(ADMIN_GROUP.items, granted).map((item) => item.label)).toEqual(['Roles']);
   });
 });

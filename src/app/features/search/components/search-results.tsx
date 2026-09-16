@@ -20,7 +20,7 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { documentService, toastService } = useServices();
   const notifyError = useErrorToast();
-  const canDownload = usePermission('download_candidate_documents');
+  const canDownload = usePermission('documents.download');
 
   const canOpenCv = (result: SearchResult): boolean =>
     canDownload && Boolean(result.hasPrimaryCv && result.primaryCvDocumentId);

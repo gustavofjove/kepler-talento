@@ -16,7 +16,7 @@ export function CandidateDetailPage() {
   const candidateService = useCandidate(candidateId);
 
   const item = candidateService.find(candidateId);
-  const canEdit = usePermission('edit_candidates');
+  const canEdit = usePermission('candidates.update');
   const aggregate = candidateService.aggregateStatus(candidateId);
   const isLoading = aggregate === 'loading';
   const hasFailed = aggregate === 'error';

@@ -23,7 +23,12 @@ export function AppLayout() {
         <PrimaryNav />
         <div className="user">
           <span className="badge">{profile?.role}</span>
-          <button className="button secondary" type="button" onClick={() => authService.signOut()}>
+          <button
+            className="button secondary"
+            type="button"
+            data-testid="sign-out"
+            onClick={() => authService.signOut()}
+          >
             Salir
           </button>
         </div>

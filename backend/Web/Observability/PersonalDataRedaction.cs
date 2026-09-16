@@ -56,7 +56,38 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         "name",
         "normalizedName",
         "presetName",
+        // KTL-16. A user row holds a display name, an email and the provider's subject, and a
+        // token carries the same claims. The subject is not merely personal data, it is the key
+        // that identifies a person at the provider, and it never appears in a response either.
+        "displayName",
+        "externalSubject",
+        "externalKey",
+        "subject",
+        "sub",
+        "oid",
+        "upn",
+        "preferred_username",
+        "given_name",
+        "family_name",
+        // Credentials. A token in a log is a usable credential for as long as it lives, and
+        // logs outlive tokens.
+        "token",
+        "accessToken",
+        "access_token",
+        "idToken",
+        "id_token",
+        "authorization",
+        "signingKey",
     };
+
+    /// <summary>
+    /// A JWS compact serialization: three base64url segments. Matching the shape rather than the
+    /// property name is what catches a token logged as part of a header string, an exception
+    /// message or a URL, where no property is called "token" at all.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex TokenShape = new(
+        @"eyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]+",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
@@ -81,8 +112,24 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
             StructureValue structure => RedactStructure(structure),
             SequenceValue sequence => RedactSequence(sequence),
             DictionaryValue dictionary => RedactDictionary(dictionary),
+            ScalarValue scalar => RedactScalar(scalar),
             _ => value,
         };
+    }
+
+    /// <summary>
+    /// Masks a bearer token wherever it appears inside a logged string, whatever the property is
+    /// called. Property-name masking cannot catch "Authorization: Bearer eyJ..." logged as one
+    /// message, and that is the shape a token most often reaches a log in.
+    /// </summary>
+    private static LogEventPropertyValue RedactScalar(ScalarValue scalar)
+    {
+        if (scalar.Value is not string text || text.Length < 20 || !text.Contains("eyJ", StringComparison.Ordinal))
+        {
+            return scalar;
+        }
+        var masked = TokenShape.Replace(text, Mask);
+        return ReferenceEquals(masked, text) || masked == text ? scalar : new ScalarValue(masked);
     }
 
     private static LogEventPropertyValue RedactStructure(StructureValue structure)

@@ -92,9 +92,9 @@ public sealed class SearchHandlerTests
     }
 
     [Fact]
-    public async Task Actors_differing_only_by_view_all_candidates_issue_the_same_query()
+    public async Task Actors_differing_only_by_a_broader_read_permission_issue_the_same_query()
     {
-        // KTL-10 defines no visibility scope, so there is nothing for the broader permission
+        // KTL-10 defines no visibility scope, so there is nothing for a broader permission
         // to widen. This asserts the decision rather than assuming nobody implemented one.
         var narrow = new RecordingCandidateRepository();
         var broad = new RecordingCandidateRepository();
@@ -573,12 +573,17 @@ public sealed class SearchHandlerTests
         public static Actor ManagerOnly => new(true, Permissions.PresetsManage);
 
         /// <summary>
-        /// The frontend's <c>view_all_candidates</c> has no backend capability of its own and
-        /// no scoping effect; this actor exists to prove that.
+        /// A hypothetical broader read permission has no backend capability of its own and no
+        /// scoping effect; this actor exists to prove that. KTL-16 removed the frontend's inert
+        /// <c>view_all_candidates</c> for the same reason.
         /// </summary>
         public static Actor ReaderWithViewAll => new(true, Permissions.CandidatesRead, "candidates.read_all");
 
         public string? ExternalKey => authenticated ? "test-actor" : null;
+
+        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
+        public Guid? UserId => null;
+
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);

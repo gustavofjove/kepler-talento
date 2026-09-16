@@ -1,105 +1,91 @@
-import { useState, type FormEvent } from 'react';
-import { useServices } from '../../../core/di/services-context';
-import { useErrorToast } from '../../../core/services/use-error-toast';
-import { useSignal } from '../../../core/state/use-signal';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useRoles, useServices, useUsers } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
+import { AppError } from '../../../shared/models/error.models';
+import type { AdminUser } from './profile.service';
 
-const EMPTY_DRAFT = {
-  displayName: '',
-  email: '',
-  role: 'rrhh_user',
-  isActive: true,
-  mfaRequired: false,
-};
+const EMPTY = { displayName: '', email: '', roleName: 'readonly' };
 
 export function AdminUsersPage() {
-  const { authService, profileService, roleService, toastService, confirmDialogService } =
-    useServices();
-  const notify = useErrorToast();
-  const users = useSignal(profileService.users);
-  const roles = useSignal(roleService.roles);
+  const { t } = useTranslation();
+  const { profileService, roleService, toastService, confirmDialogService } = useServices();
+  const users = useUsers();
+  const roles = useRoles();
+  const [draft, setDraft] = useState(EMPTY);
+  const [error, setError] = useState('');
 
-  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  useEffect(() => {
+    void Promise.all([profileService.load(), roleService.load()]).catch((err) =>
+      setError(adminError(err, t)),
+    );
+  }, [profileService, roleService, t]);
 
-  const createUser = (event: FormEvent<HTMLFormElement>): void => {
+  const create = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError('');
     try {
-      profileService.create(draft);
-      setDraft({ ...EMPTY_DRAFT, role: roles[0]?.name || 'rrhh_user' });
-      toastService.show('Usuario creado.', 'success');
-    } catch (error) {
-      notify(error, 'No se pudo crear el usuario.');
+      await profileService.create(draft);
+      setDraft({ ...EMPTY, roleName: roles[0]?.name ?? 'readonly' });
+      toastService.show(t('admin.users.created'), 'success');
+    } catch (err) {
+      setError(adminError(err, t));
     }
   };
 
-  const changeRole = (userId: string, role: string): void => {
+  const changeRole = async (user: AdminUser, roleName: string) => {
     try {
-      profileService.updateRole(userId, role, authService.profile()?.email);
-      toastService.show('Rol actualizado.', 'success');
-    } catch (error) {
-      notify(error, 'No se pudo actualizar el rol.');
+      await profileService.setRole(user, roleName);
+      toastService.show(t('admin.users.roleUpdated'), 'success');
+    } catch (err) {
+      setError(adminError(err, t));
     }
   };
 
-  const toggleActive = (userId: string): void => {
-    try {
-      profileService.toggleActive(userId, authService.profile()?.email);
-      toastService.show('Estado actualizado.', 'success');
-    } catch (error) {
-      notify(error, 'No se pudo actualizar el estado.');
-    }
-  };
-
-  const toggleMfa = (userId: string): void => {
-    try {
-      profileService.toggleMfa(userId);
-      toastService.show('MFA actualizado.', 'success');
-    } catch (error) {
-      notify(error, 'No se pudo actualizar MFA.');
-    }
-  };
-
-  const remove = async (userId: string): Promise<void> => {
+  const changeActive = async (user: AdminUser) => {
+    const isActive = !user.isActive;
     const confirmed = await confirmDialogService.confirm({
-      title: 'Eliminar usuario',
-      message: 'Esta acción retirará el usuario de la operación actual.',
-      confirmText: 'Eliminar usuario',
-      cancelText: 'Cancelar',
-      danger: true,
+      title: t(isActive ? 'admin.users.reactivateTitle' : 'admin.users.deactivateTitle'),
+      message: t(isActive ? 'admin.users.reactivateMessage' : 'admin.users.deactivateMessage', {
+        name: user.displayName,
+      }),
+      confirmText: t(isActive ? 'admin.users.reactivate' : 'admin.users.deactivate'),
+      cancelText: t('admin.common.cancel'),
+      danger: !isActive,
     });
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
     try {
-      profileService.remove(userId, authService.profile()?.email);
-      toastService.show('Usuario eliminado.', 'success');
-    } catch (error) {
-      notify(error, 'No se pudo eliminar el usuario.');
+      await profileService.setActive(user, isActive);
+      toastService.show(t('admin.users.stateUpdated'), 'success');
+    } catch (err) {
+      setError(adminError(err, t));
     }
   };
 
   return (
     <section className="page">
       <div className="page-header">
-        <h1>Usuarios</h1>
-        <p className="muted">Alta y mantenimiento de usuarios internos por rol.</p>
+        <h1>{t('admin.users.title')}</h1>
+        <p className="muted">{t('admin.users.subtitle')}</p>
       </div>
-
-      <form className="panel grid two" onSubmit={createUser} noValidate>
+      <form className="panel grid two" onSubmit={create} noValidate>
         <div className="field">
-          <label htmlFor="displayName">Nombre</label>
+          <label htmlFor="displayName">{t('admin.users.name')}</label>
           <input
             id="displayName"
             name="displayName"
+            data-testid="user-display-name"
             value={draft.displayName}
             onChange={(e) => setDraft({ ...draft, displayName: e.target.value })}
             required
           />
         </div>
         <div className="field">
-          <label htmlFor="user-email">Email</label>
+          <label htmlFor="user-email">{t('admin.users.email')}</label>
           <input
             id="user-email"
             name="email"
+            data-testid="user-email"
             type="email"
             value={draft.email}
             onChange={(e) => setDraft({ ...draft, email: e.target.value })}
@@ -107,54 +93,43 @@ export function AdminUsersPage() {
           />
         </div>
         <div className="field">
-          <label htmlFor="user-role">Rol</label>
+          <label htmlFor="user-role">{t('admin.users.role')}</label>
           <select
             id="user-role"
-            name="role"
-            value={draft.role}
-            onChange={(e) => setDraft({ ...draft, role: e.target.value })}
-            required
+            name="roleName"
+            data-testid="user-role"
+            value={draft.roleName}
+            onChange={(e) => setDraft({ ...draft, roleName: e.target.value })}
           >
-            {roles.map((role) => (
-              <option key={role.name} value={role.name}>
-                {role.label}
-              </option>
-            ))}
+            {roles
+              .filter((role) => role.isActive)
+              .map((role) => (
+                <option key={role.id} value={role.name}>
+                  {role.label}
+                </option>
+              ))}
           </select>
         </div>
-        <div className="field">
-          <label className="inline-check">
-            <input
-              name="mfa"
-              type="checkbox"
-              checked={draft.mfaRequired}
-              onChange={(e) => setDraft({ ...draft, mfaRequired: e.target.checked })}
-            />
-            Requerir MFA
-          </label>
-        </div>
+        {error ? (
+          <p className="muted span-all" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="form-actions span-all">
-          <button className="button" type="submit">
-            Crear usuario
+          <button className="button" type="submit" data-testid="create-user">
+            {t('admin.users.create')}
           </button>
         </div>
       </form>
-
       <div className="panel table-wrap">
-        {!users.length ? (
-          <p className="empty-state">
-            No hay usuarios cargados. Crea el primero para iniciar la operación.
-          </p>
-        ) : null}
         <table>
           <thead>
             <tr>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>MFA</th>
-              <th>Acciones</th>
+              <th>{t('admin.users.name')}</th>
+              <th>{t('admin.users.email')}</th>
+              <th>{t('admin.users.role')}</th>
+              <th>{t('admin.users.state')}</th>
+              <th>{t('admin.common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -164,43 +139,32 @@ export function AdminUsersPage() {
                 <td>{user.email}</td>
                 <td>
                   <select
-                    value={user.role}
                     name={`role_${user.id}`}
-                    onChange={(e) => changeRole(user.id, e.target.value)}
+                    data-testid={`user-role-${user.id}`}
+                    value={user.roleName}
+                    onChange={(e) => void changeRole(user, e.target.value)}
                   >
                     {roles.map((role) => (
-                      <option key={role.name} value={role.name}>
+                      <option key={role.id} value={role.name}>
                         {role.label}
                       </option>
                     ))}
                   </select>
                 </td>
                 <td>
-                  <span className="badge">{user.isActive ? 'Activo' : 'Inactivo'}</span>
+                  <span className="badge">
+                    {t(user.isActive ? 'admin.common.active' : 'admin.common.inactive')}
+                  </span>
                 </td>
                 <td>
-                  <span className="badge">{user.mfaRequired ? 'Obligatoria' : 'Opcional'}</span>
-                </td>
-                <td>
-                  <div className="form-actions">
-                    <button
-                      className="button secondary"
-                      type="button"
-                      onClick={() => toggleActive(user.id)}
-                    >
-                      {user.isActive ? 'Desactivar' : 'Activar'}
-                    </button>
-                    <button
-                      className="button secondary"
-                      type="button"
-                      onClick={() => toggleMfa(user.id)}
-                    >
-                      Cambiar MFA
-                    </button>
-                    <button className="button danger" type="button" onClick={() => remove(user.id)}>
-                      Eliminar
-                    </button>
-                  </div>
+                  <button
+                    className={user.isActive ? 'button danger' : 'button secondary'}
+                    type="button"
+                    data-testid={`user-active-${user.id}`}
+                    onClick={() => void changeActive(user)}
+                  >
+                    {t(user.isActive ? 'admin.users.deactivate' : 'admin.users.reactivate')}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -209,4 +173,12 @@ export function AdminUsersPage() {
       </div>
     </section>
   );
+}
+
+function adminError(err: unknown, t: ReturnType<typeof useTranslation>['t']): string {
+  if (err instanceof AppError && err.backendCode) {
+    const key = `admin.errors.${err.backendCode}`;
+    return t(key, { defaultValue: errorText(err, t) });
+  }
+  return errorText(err, t);
 }

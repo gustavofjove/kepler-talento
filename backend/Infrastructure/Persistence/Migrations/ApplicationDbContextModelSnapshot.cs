@@ -671,6 +671,132 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Identity.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("Permissions");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_Roles_Name");
+
+                    b.ToTable("ADM_Roles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ADM_Roles_Label", "char_length(btrim(\"Label\")) > 0");
+
+                            t.HasCheckConstraint("CK_ADM_Roles_Name", "\"Name\" ~ '^[a-z0-9_]+$'");
+
+                            t.HasCheckConstraint("CK_ADM_Roles_Permissions", "jsonb_typeof(\"Permissions\") = 'array' AND jsonb_array_length(\"Permissions\") > 0");
+
+                            t.HasCheckConstraint("CK_ADM_Roles_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\"");
+                        });
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Identity.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("ExternalSubject")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastSignInAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_Users_Email");
+
+                    b.HasIndex("ExternalSubject")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_Users_ExternalSubject")
+                        .HasFilter("\"ExternalSubject\" IS NOT NULL");
+
+                    b.HasIndex("RoleName")
+                        .HasDatabaseName("IX_ADM_Users_RoleName");
+
+                    b.ToTable("ADM_Users", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ADM_Users_DisplayName", "char_length(btrim(\"DisplayName\")) > 0");
+
+                            t.HasCheckConstraint("CK_ADM_Users_Email", "\"Email\" = lower(\"Email\") AND position('@' in \"Email\") > 1");
+
+                            t.HasCheckConstraint("CK_ADM_Users_ExternalSubject", "\"ExternalSubject\" IS NULL OR char_length(btrim(\"ExternalSubject\")) > 0");
+
+                            t.HasCheckConstraint("CK_ADM_Users_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\" AND (\"LastSignInAtUtc\" IS NULL OR \"LastSignInAtUtc\" >= \"CreatedAtUtc\")");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Operations.MigrationRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -976,6 +1102,16 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
                         .WithMany()
                         .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Identity.User", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Identity.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleName")
+                        .HasPrincipalKey("Name")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

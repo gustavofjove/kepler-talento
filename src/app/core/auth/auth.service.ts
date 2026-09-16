@@ -1,15 +1,15 @@
 import { signal } from '../../core/state/signal';
-import { DEFAULT_ROLES, Permission, UserProfile } from '../../shared/models/auth.models';
+import type { Permission, UserProfile } from '../../shared/models/auth.models';
 import type { AppNavigator } from '../routing/navigator';
-import { SupabaseClientService } from '../supabase/supabase-client.service';
-
-const STORAGE_KEY = 'rrhh-demo-profile';
+import type { ApiTransport } from '../http/api-transport';
+import type { TokenSource } from './token-source';
 
 export class AuthService {
-  readonly profile = signal<UserProfile | null>(this.restoreProfile());
+  readonly profile = signal<UserProfile | null>(null);
 
   constructor(
-    private readonly supabaseClient: SupabaseClientService,
+    private readonly tokenSource: TokenSource,
+    private readonly api: ApiTransport,
     private readonly router: AppNavigator,
   ) {}
 
@@ -22,50 +22,19 @@ export class AuthService {
     return Boolean(profile?.isActive && profile.permissions.includes(permission));
   }
 
-  async signIn(email: string, password: string, role = 'rrhh_admin'): Promise<void> {
-    const client = this.supabaseClient.supabase;
-    if (client) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) {
-        throw error;
-      }
-    }
-
-    const roleDefinition = DEFAULT_ROLES.find((item) => item.name === role) ?? DEFAULT_ROLES[0];
-    const profile: UserProfile = {
-      id: crypto.randomUUID(),
-      displayName: email.split('@')[0] || 'Usuario RRHH',
-      email,
-      role: roleDefinition.name,
-      isActive: true,
-      mfaRequired: false,
-      permissions: roleDefinition.permissions,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-    this.profile.set(profile);
+  async signIn(): Promise<void> {
+    await this.tokenSource.signIn();
+    const profile = await this.api.request<UserProfile & { roleName?: string }>('/me');
+    this.profile.set({ ...profile, role: profile.roleName ?? profile.role });
   }
 
   async signOut(): Promise<void> {
-    const client = this.supabaseClient.supabase;
-    if (client) {
-      await client.auth.signOut();
-    }
-    localStorage.removeItem(STORAGE_KEY);
     this.profile.set(null);
+    await this.tokenSource.signOut();
     await this.router.navigateByUrl('/login');
   }
 
-  private restoreProfile(): UserProfile | null {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(raw) as UserProfile;
-    } catch {
-      localStorage.removeItem(STORAGE_KEY);
-      return null;
-    }
+  async handleUnauthorized(): Promise<void> {
+    if (this.profile() !== null) await this.signOut();
   }
 }

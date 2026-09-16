@@ -5,7 +5,12 @@
  * location, consent and retention metadata, status, source and notes — as one JSON blob,
  * in clear, per device.
  */
-const SUPERSEDED_KEYS = ['rrhh-candidates'];
+const SUPERSEDED_KEYS = [
+  'rrhh-candidates', // Candidate personal data formerly cached by CandidateService.
+  'rrhh-demo-profile', // Fabricated local sign-in profile and effective permissions.
+  'rrhh-admin-users', // Browser-local user directory, including names and emails.
+  'rrhh-admin-roles', // Browser-local role definitions and permission assignments.
+];
 
 /**
  * Removes superseded personal-data keys from the browser.
