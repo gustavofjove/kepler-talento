@@ -1,214 +1,106 @@
-import { ImportBatchRecord, ImportRowError, ImportSummary } from './import.models';
-import { AppError } from '../../../shared/models/error.models';
+import type { ApiTransport } from '../../../core/http/api-transport';
+import { TranslatableError } from '../../../core/i18n/translatable-error';
+import { isTransient, POLL_INTERVAL_MS, POLL_MAX_ATTEMPTS } from './import.logic';
+import type { ImportBatch, ImportBatchPage, ImportPhase, ImportRowReport } from './import.models';
 
-const REQUIRED_COLUMNS = ['first_name', 'last_name'];
-const IMPORT_BATCHES_STORAGE_KEY = 'rrhh.import.batches.v1';
-export const MAX_IMPORT_ROWS = 2000;
+export interface PollOptions {
+  intervalMs?: number;
+  maxAttempts?: number;
+  signal?: AbortSignal;
+  onProgress?: (batch: ImportBatch) => void;
+}
 
-export class ImportService {
-  async validateLocalCsv(file: File, dryRun: boolean): Promise<ImportSummary> {
-    const content = await file.text();
-    return this.validateCsvContent(file.name, content, dryRun);
-  }
-
-  validateCsvContent(sourceName: string, content: string, dryRun: boolean): ImportSummary {
-    const rows = this.parseCsv(content);
-    if (!rows.length) {
-      return {
-        sourceName,
-        dryRun,
-        totalRows: 0,
-        loadedRows: 0,
-        errorRows: 0,
-        requiredColumns: REQUIRED_COLUMNS,
-        errors: [],
-      };
-    }
-
-    const [header, ...dataRows] = rows;
-    if (dataRows.length > MAX_IMPORT_ROWS) {
-      throw new AppError(
-        'VALIDATION_ERROR',
-        `El límite máximo por importación es ${MAX_IMPORT_ROWS} filas.`,
-      );
-    }
-
-    const headerIndex = this.headerIndex(header);
-    const errors: ImportRowError[] = [];
-
-    for (const required of REQUIRED_COLUMNS) {
-      if (headerIndex[required] === undefined) {
-        errors.push({
-          rowNumber: 1,
-          field: required,
-          message: `Falta la columna obligatoria: ${required}.`,
-        });
-      }
-    }
-
-    dataRows.forEach((row, index) => {
-      const rowNumber = index + 2;
-      const firstName = this.getValue(row, headerIndex, 'first_name');
-      const lastName = this.getValue(row, headerIndex, 'last_name');
-      const email = this.getValue(row, headerIndex, 'email');
-
-      if (!firstName) {
-        errors.push({ rowNumber, field: 'first_name', message: 'Nombre obligatorio.' });
-      }
-
-      if (!lastName) {
-        errors.push({ rowNumber, field: 'last_name', message: 'Apellidos obligatorios.' });
-      }
-
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errors.push({ rowNumber, field: 'email', message: 'Email inválido.' });
-      }
-    });
-
-    const erroredRows = new Set(
-      errors.filter((error) => error.rowNumber > 1).map((e) => e.rowNumber),
+const wait = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        reject(new TranslatableError('admin.import.errors.cancelled'));
+      },
+      { once: true },
     );
-    const totalRows = dataRows.length;
+  });
 
-    const summary: ImportSummary = {
-      sourceName,
-      dryRun,
-      totalRows,
-      loadedRows: dryRun ? 0 : Math.max(totalRows - erroredRows.size, 0),
-      errorRows: erroredRows.size,
-      requiredColumns: REQUIRED_COLUMNS,
-      errors,
-    };
+/**
+ * The candidate import, as an API gateway (KTL-17 design D10).
+ *
+ * The CSV parser, the validation rules, the `localStorage` batch store and the `Math.random()`
+ * id generator of the old stub are gone rather than kept as a fallback: a fallback would be a
+ * screen that sometimes validates against the real rules and sometimes against the stub's.
+ */
+export class ImportService {
+  constructor(private readonly api: ApiTransport) {}
 
-    const status = dryRun ? 'validated' : 'committed';
-    const batch = this.appendBatch(summary, status);
-
-    return {
-      ...summary,
-      batchId: batch.id,
-    };
-  }
-
-  listBatches(): ImportBatchRecord[] {
-    return this.readBatches().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-
-  markCommitted(batchId: string): ImportBatchRecord {
-    const batches = this.readBatches();
-    const batch = batches.find((item) => item.id === batchId);
-    if (!batch) {
-      throw new Error('Lote de importación no encontrado.');
+  async upload(file: File | null): Promise<ImportBatch> {
+    if (!file) {
+      throw new TranslatableError('admin.import.errors.noFile');
     }
-
-    const updated: ImportBatchRecord = {
-      ...batch,
-      status: 'committed',
-      dryRun: false,
-      loadedRows: Math.max(batch.totalRows - batch.errorRows, 0),
-      committedAt: new Date().toISOString(),
-    };
-    this.writeBatches(batches.map((item) => (item.id === batchId ? updated : item)));
-    return updated;
+    const form = new FormData();
+    form.append('file', file);
+    return this.api.request<ImportBatch>('/import/batches', {
+      method: 'POST',
+      body: form,
+      timeoutMs: 60_000,
+    });
   }
 
-  private headerIndex(header: string[]): Record<string, number> {
-    return header.reduce<Record<string, number>>((acc, key, index) => {
-      acc[key.trim().toLowerCase()] = index;
-      return acc;
-    }, {});
+  getBatch(id: string): Promise<ImportBatch> {
+    return this.api.request<ImportBatch>(`/import/batches/${encodeURIComponent(id)}`);
   }
 
-  private getValue(row: string[], indexByName: Record<string, number>, key: string): string {
-    const index = indexByName[key];
-    if (index === undefined) {
-      return '';
+  validate(batch: ImportBatch): Promise<ImportBatch> {
+    return this.transition(batch, 'validation');
+  }
+
+  commit(batch: ImportBatch): Promise<ImportBatch> {
+    return this.transition(batch, 'commit');
+  }
+
+  listBatches(page = 1, pageSize = 20): Promise<ImportBatchPage> {
+    return this.api.request<ImportBatchPage>(`/import/batches?page=${page}&pageSize=${pageSize}`);
+  }
+
+  getRowReport(id: string, page = 1, pageSize = 50, phase?: ImportPhase): Promise<ImportRowReport> {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (phase) {
+      query.set('phase', phase);
     }
-    return (row[index] || '').trim();
+    return this.api.request<ImportRowReport>(
+      `/import/batches/${encodeURIComponent(id)}/rows?${query.toString()}`,
+    );
   }
 
-  private parseCsv(content: string): string[][] {
-    return content
-      .split(/\r?\n/)
-      .filter((line) => line.trim().length > 0)
-      .map((line) => this.parseCsvLine(line));
-  }
-
-  private parseCsvLine(line: string): string[] {
-    const values: string[] = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i];
-      const next = line[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && next === '"') {
-          current += '"';
-          i += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-        continue;
+  /**
+   * Polls a batch until it leaves the transient states, with a bounded interval and a give-up.
+   * Giving up throws; it never pretends the batch finished.
+   */
+  async waitUntilSettled(batch: ImportBatch, options: PollOptions = {}): Promise<ImportBatch> {
+    const interval = options.intervalMs ?? POLL_INTERVAL_MS;
+    const maxAttempts = options.maxAttempts ?? POLL_MAX_ATTEMPTS;
+    let current = batch;
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      if (!isTransient(current.state)) {
+        return current;
       }
-
-      if (char === ',' && !inQuotes) {
-        values.push(current.trim());
-        current = '';
-        continue;
-      }
-
-      current += char;
+      await wait(interval, options.signal);
+      current = await this.getBatch(current.id);
+      options.onProgress?.(current);
     }
-
-    values.push(current.trim());
-    return values;
-  }
-
-  private appendBatch(
-    summary: ImportSummary,
-    status: 'validated' | 'committed',
-  ): ImportBatchRecord {
-    const now = new Date().toISOString();
-    const batch: ImportBatchRecord = {
-      id: this.generateId(),
-      sourceName: summary.sourceName,
-      dryRun: summary.dryRun,
-      status,
-      totalRows: summary.totalRows,
-      loadedRows: summary.loadedRows,
-      errorRows: summary.errorRows,
-      createdAt: now,
-      committedAt: status === 'committed' ? now : undefined,
-    };
-
-    this.writeBatches([...this.readBatches(), batch]);
-    return batch;
-  }
-
-  private readBatches(): ImportBatchRecord[] {
-    try {
-      const raw = localStorage.getItem(IMPORT_BATCHES_STORAGE_KEY);
-      if (!raw) {
-        return [];
-      }
-
-      const parsed = JSON.parse(raw) as ImportBatchRecord[];
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-
-      return parsed.filter((item) => item && typeof item.id === 'string');
-    } catch {
-      return [];
+    if (!isTransient(current.state)) {
+      return current;
     }
+    throw new TranslatableError('admin.import.errors.pollTimeout');
   }
 
-  private writeBatches(batches: ImportBatchRecord[]): void {
-    localStorage.setItem(IMPORT_BATCHES_STORAGE_KEY, JSON.stringify(batches));
-  }
-
-  private generateId(): string {
-    return `imp_${Math.random().toString(36).slice(2, 10)}`;
+  private transition(batch: ImportBatch, step: 'validation' | 'commit'): Promise<ImportBatch> {
+    return this.api.request<ImportBatch>(
+      `/import/batches/${encodeURIComponent(batch.id)}/${step}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ version: batch.version }),
+      },
+    );
   }
 }

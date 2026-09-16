@@ -7,7 +7,7 @@ Kepler Talento is an internal HR application for registering, searching, exporti
 governing candidate CVs. It holds **personal data**. The frontend is a React SPA; the
 target backend is ASP.NET Core 10 + application-owned PostgreSQL, rolled out one vertical
 slice at a time (KTL-5 onwards). Remaining `localStorage` paths are legacy and stay only
-until their slice migrates; identity, users and roles are API-owned.
+until their slice migrates; identity, users, roles and candidate import (KTL-17) are API-owned.
 
 ## Sources of truth
 

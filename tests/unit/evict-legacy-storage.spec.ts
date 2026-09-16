@@ -19,6 +19,19 @@ describe('superseded browser storage', () => {
     expect(localStorage.getItem('rrhh-candidates')).toBeNull();
   });
 
+  // KTL-17. The stub's batch records describe candidates that were never created; they are
+  // removed rather than migrated, so server history starts empty.
+  it('removes the fabricated import batch history of the browser stub', () => {
+    localStorage.setItem(
+      'rrhh.import.batches.v1',
+      JSON.stringify([{ id: 'imp_abc123', sourceName: 'candidatos.csv', status: 'committed' }]),
+    );
+
+    evictSupersededStorage();
+
+    expect(localStorage.getItem('rrhh.import.batches.v1')).toBeNull();
+  });
+
   it('leaves other keys alone', () => {
     localStorage.setItem('rrhh-search-presets', '[]');
 
