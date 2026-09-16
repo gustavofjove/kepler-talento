@@ -29,14 +29,14 @@ Requirements: Node 22 / npm 10, .NET SDK 10.0.102 (`global.json`), Docker Deskto
 
 ```sh
 npm ci && dotnet tool restore && dotnet restore backend/KeplerTalento.slnx   # setup
-npm start                     # Vite dev server on :5173 (strict port), proxies /api to the stack on :4200
+npm start                     # Vite dev server on :4300 (strict port), proxies /api to the stack on :4200
 docker compose up --build     # full stack behind Nginx on http://localhost:4200 (copy .env.example to .env first)
 
 npm test                      # Vitest: unit + integration + security projects
 npx vitest run tests/unit/candidate.service.spec.ts   # single frontend spec
 npm run test:backend          # xUnit; needs Docker running (Testcontainers PostgreSQL) and a prior restore
 dotnet test backend/KeplerTalento.slnx --no-restore --filter "FullyQualifiedName~CatalogHandlerTests"
-npm run e2e                   # Playwright against the dev server on :5173 (starts it itself); needs `docker compose up`
+npm run e2e                   # Playwright against the dev server on :4300 (starts it itself); needs `docker compose up`
 npx playwright test tests/e2e/candidate-crud.spec.ts
 
 npm run build:all             # tsc + vite build + dotnet build (warnings are errors)
@@ -225,9 +225,9 @@ Since KTL-3 (Angular → React migration):
   editing tool; if a script is unavoidable, use `[IO.File]::ReadAllText/WriteAllText` with
   explicit UTF-8 (no BOM).
 - Ports are split on purpose. **4200** is the Compose nginx serving the bundle built into
-  its image, which can be days old; **5173** is the Vite dev server serving the working tree
+  its image, which can be days old; **4300** is the Vite dev server serving the working tree
   and proxying `/api` to 4200 (override with `KTL_API_PROXY_TARGET`). Playwright targets
-  5173, so e2e always tests current code. Browsing 4200 shows the image's build, not your
+  4300, so e2e always tests current code. Browsing 4200 shows the image's build, not your
   edits, until `docker compose build nginx`. Both ports are strict, so a clash fails
   instead of drifting.
 - `docker compose down --volumes` destroys development data (PostgreSQL, documents, ClamAV
