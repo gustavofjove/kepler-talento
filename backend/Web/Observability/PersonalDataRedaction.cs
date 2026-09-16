@@ -69,6 +69,23 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         "preferred_username",
         "given_name",
         "family_name",
+        // KTL-17. An import file is a bulk collection of candidate data, so its column names are
+        // masked as readily as the candidate properties they become, and the uploaded file's own
+        // name — caller text that routinely names a person — along with every spelling of it.
+        // The storage key is not personal data, but it is an internal location no log needs.
+        "first_name",
+        "last_name",
+        "received_at",
+        "consent_at",
+        "review_due_at",
+        "country",
+        "availability",
+        "source",
+        "languages",
+        "fileName",
+        "file_name",
+        "importFileName",
+        "storageKey",
         // Credentials. A token in a log is a usable credential for as long as it lives, and
         // logs outlive tokens.
         "token",

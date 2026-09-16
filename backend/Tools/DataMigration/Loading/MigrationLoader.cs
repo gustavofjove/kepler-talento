@@ -1,3 +1,4 @@
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;

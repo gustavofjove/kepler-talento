@@ -1,4 +1,5 @@
 using System.Text;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Tools.DataMigration.Validation;
 
 namespace KeplerTalento.Tools.DataMigration.Export;

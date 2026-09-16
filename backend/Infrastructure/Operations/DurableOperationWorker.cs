@@ -2,7 +2,6 @@ using KeplerTalento.Application.Abstractions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using KeplerTalento.Infrastructure.Documents;
 
 namespace KeplerTalento.Infrastructure.Operations;
 
@@ -25,16 +24,23 @@ public sealed class DurableOperationWorker(
                 var operation = await repository.ClaimNextAsync(_owner, TimeSpan.FromSeconds(options.LeaseSeconds), stoppingToken);
                 if (operation is not null)
                 {
-                    if (operation.Type == "document.scan")
+                    var handler = scope.ServiceProvider.GetServices<IOperationHandler>()
+                        .FirstOrDefault(candidate => string.Equals(candidate.Type, operation.Type, StringComparison.Ordinal));
+                    if (handler is not null)
                     {
-                        var handler = scope.ServiceProvider.GetRequiredService<ScanOperationHandler>();
                         var handling = handler.HandleAsync(operation, stoppingToken);
                         while (!handling.IsCompleted)
                         {
                             var delay = Task.Delay(TimeSpan.FromSeconds(Math.Max(1, options.LeaseSeconds / 2)), stoppingToken);
                             if (await Task.WhenAny(handling, delay) == delay)
                             {
-                                if (!await repository.RenewLeaseAsync(operation.Id, _owner, TimeSpan.FromSeconds(options.LeaseSeconds), stoppingToken))
+                                // Renewed through its own scope. The handler is using this scope's
+                                // DbContext on another continuation, and a DbContext does not allow
+                                // concurrent operations — sharing it made any handler that outlived half
+                                // a lease (a long import commit) fail at its first renewal.
+                                await using var renewalScope = scopeFactory.CreateAsyncScope();
+                                var renewals = renewalScope.ServiceProvider.GetRequiredService<IOperationRepository>();
+                                if (!await renewals.RenewLeaseAsync(operation.Id, _owner, TimeSpan.FromSeconds(options.LeaseSeconds), stoppingToken))
                                 {
                                     throw new InvalidOperationException("operation.lease.lost");
                                 }

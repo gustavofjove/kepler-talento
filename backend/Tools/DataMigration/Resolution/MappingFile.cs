@@ -1,4 +1,5 @@
 using System.Text;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Tools.DataMigration.Export;
 using KeplerTalento.Tools.DataMigration.Validation;

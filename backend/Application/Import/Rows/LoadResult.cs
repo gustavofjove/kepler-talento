@@ -1,8 +1,4 @@
-using KeplerTalento.Domain.Operations;
-using KeplerTalento.Tools.DataMigration.Resolution;
-using KeplerTalento.Tools.DataMigration.Validation;
-
-namespace KeplerTalento.Tools.DataMigration.Loading;
+namespace KeplerTalento.Application.Import.Rows;
 
 /// <summary>
 /// A record in the target carrying a source key the current export does not contain.
@@ -38,17 +34,17 @@ public sealed class LoadResult
         [.. _unmatched.OrderBy(record => record.Entity, StringComparer.Ordinal)
             .ThenBy(record => record.SourceKey, StringComparer.Ordinal)];
 
-    public IReadOnlyList<UnresolvedValue> UnresolvedValues { get; internal set; } = [];
+    public IReadOnlyList<UnresolvedValue> UnresolvedValues { get; set; } = [];
 
-    public IReadOnlyList<UnresolvedValue> BrokenMappings { get; internal set; } = [];
+    public IReadOnlyList<UnresolvedValue> BrokenMappings { get; set; } = [];
 
     /// <summary>Number of records the operator explicitly chose to overwrite.</summary>
-    public int OverwrittenApplicationEdits { get; internal set; }
+    public int OverwrittenApplicationEdits { get; set; }
 
-    internal void Record(string entity, string sourceKey, RowOutcome outcome) =>
+    public void Record(string entity, string sourceKey, RowOutcome outcome) =>
         _outcomes[(entity, sourceKey)] = outcome;
 
-    internal void AddProblem(RowProblem problem)
+    public void AddProblem(RowProblem problem)
     {
         _problems.Add(problem);
         Record(problem.Entity, problem.SourceKey, RowOutcome.Rejected);
@@ -56,13 +52,16 @@ public sealed class LoadResult
 
     /// <summary>
     /// Records a reason without rejecting the row. Used where the row is sound and the
-    /// migration is deliberately leaving it alone — an application-changed record is
-    /// skipped, not rejected, and the distinction matters to the operator reading the
-    /// report.
+    /// loader is deliberately leaving it alone — an application-changed record or a
+    /// duplicate is skipped, not rejected, and the distinction matters to whoever reads
+    /// the report. The caller records the outcome itself.
     /// </summary>
-    internal void AddProblemWithoutRejecting(RowProblem problem) => _problems.Add(problem);
+    public void AddProblemWithoutRejecting(RowProblem problem) => _problems.Add(problem);
 
-    internal void AddUnmatched(UnmatchedTargetRecord record) => _unmatched.Add(record);
+    public void AddUnmatched(UnmatchedTargetRecord record) => _unmatched.Add(record);
+
+    public RowOutcome? OutcomeOf(string entity, string sourceKey) =>
+        _outcomes.TryGetValue((entity, sourceKey), out var outcome) ? outcome : null;
 
     public int Count(RowOutcome outcome) => _outcomes.Count(entry => entry.Value == outcome);
 
@@ -71,19 +70,11 @@ public sealed class LoadResult
 
     public int TotalRows => _outcomes.Count;
 
+    public int UnmatchedCount => _unmatched.Count;
+
     public IReadOnlyList<string> SourceKeys(string entity, RowOutcome outcome) =>
         [.. _outcomes
             .Where(entry => entry.Key.Entity == entity && entry.Value == outcome)
             .Select(entry => entry.Key.SourceKey)
             .OrderBy(key => key, StringComparer.Ordinal)];
-
-    public MigrationRunCounts ToCounts(int sourceRows) => new(
-        SourceRows: sourceRows,
-        Loaded: Count(RowOutcome.Loaded),
-        Rejected: Count(RowOutcome.Rejected),
-        Skipped: Count(RowOutcome.Skipped),
-        UnmatchedTargetRecords: _unmatched.Count,
-        UnresolvedValues: UnresolvedValues.Count,
-        DocumentsLoaded: Count(MigrationEntities.Document, RowOutcome.Loaded),
-        DocumentsRejected: Count(MigrationEntities.Document, RowOutcome.Rejected));
 }

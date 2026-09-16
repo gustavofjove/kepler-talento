@@ -10,6 +10,7 @@ using KeplerTalento.Web.Features.Admin;
 using KeplerTalento.Web.Features.Candidates;
 using KeplerTalento.Web.Features.Catalogs;
 using KeplerTalento.Web.Features.Documents;
+using KeplerTalento.Web.Features.Import;
 using KeplerTalento.Web.Features.Search;
 using KeplerTalento.Web.Health;
 using KeplerTalento.Web.Identity;
@@ -202,6 +203,13 @@ builder.Services.AddAuthorization(options =>
         && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
         && actor.IsAuthenticated
         && actor.HasPermission(Permissions.RolesManage)));
+    // KTL-17. Before the multipart form is read, so an unauthorized upload's bytes are never
+    // parsed or stored, and before body binding, so a malformed request is refused identically.
+    options.AddPolicy(Permissions.CandidatesImport, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.CandidatesImport)));
 });
 builder.Services.AddScoped<CorrelationContext>();
 builder.Services.AddScoped<ICorrelationContext>(provider => provider.GetRequiredService<CorrelationContext>());
@@ -240,6 +248,15 @@ if (args.Contains("--reconcile", StringComparer.Ordinal))
     var report = await reconciler.ReconcileAsync(TimeSpan.FromHours(24), app.Lifetime.ApplicationStopping);
     Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(report));
     if (!report.IsSuccessful) Environment.ExitCode = 2;
+    return;
+}
+if (args.Contains("--purge-imports", StringComparer.Ordinal))
+{
+    // The same purge the worker schedules, runnable on demand the way --reconcile is.
+    await using var scope = app.Services.CreateAsyncScope();
+    var purge = scope.ServiceProvider.GetRequiredService<KeplerTalento.Infrastructure.Import.ImportPurgeHandler>();
+    var report = await purge.PurgeAsync(DateTimeOffset.UtcNow, app.Lifetime.ApplicationStopping);
+    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(report));
     return;
 }
 if (args.Contains("--migrate", StringComparer.Ordinal))
@@ -338,6 +355,7 @@ app.MapGet("/api/health/scanner", async (
 app.MapCatalogEndpoints();
 app.MapCandidateEndpoints();
 app.MapDocumentEndpoints();
+app.MapImportEndpoints();
 app.MapSearchEndpoints();
 app.MapAdminEndpoints();
 app.MapMeEndpoints();

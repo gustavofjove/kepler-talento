@@ -1,3 +1,4 @@
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Tools.DataMigration.Resolution;
 using Xunit;

@@ -43,14 +43,14 @@ public static class Permissions
     public const string PresetsManage = "presets.manage";
 
     /// <summary>
-    /// Bulk candidate import. Its only enforcement point is still the browser import page;
-    /// KTL-17 (server-side candidate import) gives it a server-side guard.
+    /// Bulk candidate import. Since KTL-17 it guards every <c>/api/import</c> endpoint — upload,
+    /// validate, commit, batch history and row reports. It does not imply
+    /// <see cref="CandidatesCreate"/> or <see cref="CandidatesRead"/>, nor is it implied by them.
     /// </summary>
     public const string CandidatesImport = "candidates.import";
 
     /// <summary>
-    /// Exporting candidate data. Like <see cref="CandidatesImport"/> its only enforcement point
-    /// is still the browser — the CSV export on the advanced search page. It is kept in the
+    /// Exporting candidate data. Its only enforcement point is still the browser — the CSV export on the advanced search page. It is kept in the
     /// catalogue because removing it would ungate candidate personal data.
     /// </summary>
     public const string CandidatesExport = "candidates.export";
