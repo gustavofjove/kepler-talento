@@ -57,7 +57,7 @@ export const services = {
   candidateSearchService: new CandidateSearchService(apiTransport),
   searchPresetsService: new SearchPresetsService(apiTransport),
   exportService: new ExportService(),
-  importService: new ImportService(),
+  importService: new ImportService(apiTransport),
   roleService,
   profileService,
   apiTransport,

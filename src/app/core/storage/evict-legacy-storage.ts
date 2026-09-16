@@ -10,6 +10,10 @@ const SUPERSEDED_KEYS = [
   'rrhh-demo-profile', // Fabricated local sign-in profile and effective permissions.
   'rrhh-admin-users', // Browser-local user directory, including names and emails.
   'rrhh-admin-roles', // Browser-local role definitions and permission assignments.
+  // KTL-17. Import batch records from the browser stub. They described candidates that were
+  // never created — the stub parsed the file locally and wrote nothing — so they are removed,
+  // not migrated: carrying them to the server would give a fabricated history a real one's look.
+  'rrhh.import.batches.v1',
 ];
 
 /**

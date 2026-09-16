@@ -57,8 +57,10 @@ lo rellena desde la base de datos Access heredada.
 `backend/Tools/DataMigration`, compilada como `ktl-migrate`, es una **herramienta de línea de
 comandos que ejecuta el operador**. Deliberadamente no es accesible por HTTP y ningún proyecto
 de la API la referencia: mover todo el conjunto de datos de candidatos no es una superficie de
-petición que el producto deba tener. **No** es la pantalla de administración «Importación»,
-que valida un CSV plano y pequeño en el navegador y no crea ningún candidato.
+petición que el producto deba tener. **No** es la pantalla de administración «Importación»
+(KTL-17), que sube un CSV pequeño y plano a la API con su propio permiso, su propio límite de
+filas y análisis antivirus. Ambas comparten la misma semántica de filas y de resolución de
+catálogos, definida una sola vez en `Application/Import/Rows`.
 
 ```powershell
 ktl-migrate validate --connection <string> --export <directory> [--mappings <file>] [--output <directory>]
@@ -148,6 +150,45 @@ presets comparten un único formulario de criterios y un único resumen de solo 
 El detalle de rutas, códigos de error, concurrencia, modelo de datos y rollback está en
 [`docs/ktl-14/presets.md`](docs/ktl-14/presets.md), y la nota para usuarios en
 [`docs/ktl-14/release-notes.md`](docs/ktl-14/release-notes.md).
+
+## Importación de candidatos KTL-17
+
+**Admin › Importación** (`/app/admin/import`) crea candidatos reales desde un CSV. Antes la
+pantalla analizaba el archivo en el navegador, guardaba un historial en `localStorage` y **no
+creaba ningún candidato**; ahora todo ocurre en la API y en dos pasos:
+
+1. **Subir y validar.** El archivo se guarda con una clave opaca en cuarentena, ClamAV lo
+   analiza y solo un resultado `Clean` permite leerlo. La validación es una simulación: no
+   crea, cambia ni desactiva candidatos, y devuelve un informe por fila con número de fila,
+   columna y código de motivo, nunca con valores.
+2. **Confirmar carga.** Solo un lote validado y sin filas rechazadas se puede confirmar. La
+   carga es una operación duradera: si la API se reinicia a mitad, se reanuda sin duplicar
+   candidatos. Las personas que ya existen (mismo correo) se omiten, no se rechazan.
+
+Todo el recorrido exige `candidates.import`, que tiene `rrhh_admin`; `candidates.create` no
+basta. Para probarlo en local con el stack completo:
+
+```powershell
+docker compose up --build        # aplica la migración AddImportBatches con el migrator
+npm start                        # http://localhost:4300/app/admin/import
+```
+
+Un archivo mínimo válido:
+
+```csv
+first_name,last_name,email,status,languages
+Ana,Ruiz,ana.ruiz@example.test,available,Inglés:B2
+```
+
+Los archivos subidos se purgan 30 días después de cerrarse el lote (`Import:RetentionDays`);
+los recuentos y el informe por fila se conservan. La purga también se puede lanzar a mano con
+`dotnet backend/Web/bin/Debug/net10.0/Web.dll --purge-imports`. La clave del navegador
+`rrhh.import.batches.v1` se elimina en el primer arranque y no se migra, porque describía
+cargas que nunca ocurrieron.
+
+Consulta el [contrato del archivo](docs/ktl-17/import-file-contract.md), los
+[códigos de motivo](docs/ktl-17/row-reason-codes.md), el [runbook](docs/ktl-17/runbook.md) y la
+[nota de versión](docs/ktl-17/release-notes.md).
 
 ## Requisitos
 
