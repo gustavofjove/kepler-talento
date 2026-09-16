@@ -722,6 +722,9 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         Environment.SetEnvironmentVariable(
             "ConnectionStrings__ApplicationDatabase",
             database.ConnectionString);
+        // Program selects DevelopmentActor vs token identity while composing services, before
+        // WebApplicationFactory's in-memory override is applied.
+        Environment.SetEnvironmentVariable("DevelopmentActor__Enabled", "true");
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
@@ -761,6 +764,10 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         };
 
         public string? ExternalKey => key;
+
+        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
+        public Guid? UserId => null;
+
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);

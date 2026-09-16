@@ -91,8 +91,9 @@ internal static class SearchGuards
 {
     /// <summary>
     /// Reading candidates is the capability searching requires; there is no separate search
-    /// permission. <c>view_all_candidates</c> is intentionally not consulted — see the
-    /// KTL-10 design: the domain models no ownership, team or assignment from which a
+    /// permission. There is no broader "see every candidate" permission — KTL-16 removed the
+    /// frontend's inert <c>view_all_candidates</c> rather than give it meaning, for the reason
+    /// the KTL-10 design gives: the domain models no ownership, team or assignment from which a
     /// narrower scope could truthfully be derived, so every permitted actor sees the same
     /// eligible population until one exists.
     /// </summary>

@@ -31,10 +31,10 @@ export const TOP_LEVEL_ITEMS: NavItem[] = [
   {
     label: 'Candidatos',
     to: '/app/candidates',
-    permission: 'view_candidates',
+    permission: 'candidates.read',
     testId: 'nav-candidates',
   },
-  { label: 'Búsqueda', to: '/app/search', permission: 'view_candidates', testId: 'nav-search' },
+  { label: 'Búsqueda', to: '/app/search', permission: 'candidates.read', testId: 'nav-search' },
 ];
 
 /**
@@ -49,26 +49,26 @@ export const ADMIN_GROUP: NavGroup = {
     {
       label: 'Catálogos',
       to: '/app/catalogs',
-      permission: 'manage_catalogs',
+      permission: 'catalogs.manage',
       testId: 'nav-catalogs',
     },
     {
       label: 'Presets',
       to: '/app/admin/presets',
-      permission: 'manage_presets',
+      permission: 'presets.manage',
       testId: 'nav-presets',
     },
     {
       label: 'Usuarios',
       to: '/app/admin/users',
-      permission: 'manage_users',
+      permission: 'users.manage',
       testId: 'nav-users',
     },
-    { label: 'Roles', to: '/app/admin/roles', permission: 'manage_roles', testId: 'nav-roles' },
+    { label: 'Roles', to: '/app/admin/roles', permission: 'roles.manage', testId: 'nav-roles' },
     {
       label: 'Importación',
       to: '/app/admin/import',
-      permission: 'import_candidates',
+      permission: 'candidates.import',
       testId: 'nav-import',
     },
   ],
@@ -80,12 +80,12 @@ export const ADMIN_GROUP: NavGroup = {
  * per entry here and filters against the resulting map.
  */
 export const NAV_PERMISSIONS: Permission[] = [
-  'view_candidates',
-  'manage_catalogs',
-  'manage_presets',
-  'manage_users',
-  'manage_roles',
-  'import_candidates',
+  'candidates.read',
+  'catalogs.manage',
+  'presets.manage',
+  'users.manage',
+  'roles.manage',
+  'candidates.import',
 ];
 
 /** Single source for the active-state derivation of the group's parent. */

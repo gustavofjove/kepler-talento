@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 
-export const SEARCH_CANDIDATE = { firstName: 'Laura', lastName: 'Garcia' };
+export const SEARCH_CANDIDATE = { firstName: 'KtlSearchSeed', lastName: 'Candidate' };
 
 interface CandidateSummary {
   id: string;
@@ -27,7 +27,7 @@ interface CandidateSummary {
  *
  * **Exactly one active match must survive.** Five specs call this, Playwright runs them in
  * parallel workers, and a plain check-then-create races: two workers both find nothing and
- * both create, leaving two Laura Garcias. The specs then fail on `text=Laura Garcia`
+ * both create, leaving duplicate search fixtures. The specs then fail on the fixture name
  * resolving to two elements, which reads as a search bug and is not one. Two things prevent
  * that: `globalSetup` calls this once before any worker starts, closing the window, and the
  * duplicate collapse below repairs a database an earlier run already polluted.
@@ -41,7 +41,7 @@ export async function ensureSearchCandidate(request: APIRequestContext): Promise
   await request.post(`/api/candidates/${candidate.id}/documents`, {
     multipart: {
       file: {
-        name: 'cv_laura_garcia.pdf',
+        name: 'cv_ktl_search_seed.pdf',
         mimeType: 'application/pdf',
         buffer: Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF'),
       },
@@ -94,7 +94,7 @@ async function create(request: APIRequestContext): Promise<CandidateSummary | un
     data: {
       ...SEARCH_CANDIDATE,
       phone: '+34 600 100 200',
-      email: 'laura.garcia@example.invalid',
+      email: 'ktl.search.seed@example.invalid',
       location: 'Madrid',
       province: 'Madrid',
       country: 'España',

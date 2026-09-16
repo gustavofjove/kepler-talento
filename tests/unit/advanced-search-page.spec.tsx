@@ -227,7 +227,7 @@ describe('AdvancedSearchPage', () => {
       expect(screen.queryByRole('button', { name: 'Eliminar' })).toBeNull();
     });
 
-    it('links to the preset administration section for manage_presets', async () => {
+    it('links to the preset administration section for presets.manage', async () => {
       renderPage(idleSearch());
 
       expect(await screen.findByTestId('manage-presets-link')).toHaveAttribute(
@@ -236,9 +236,9 @@ describe('AdvancedSearchPage', () => {
       );
     });
 
-    it('shows no administration link without manage_presets', async () => {
+    it('shows no administration link without presets.manage', async () => {
       authService.hasPermission.mockImplementation(
-        (permission: string) => permission !== 'manage_presets',
+        (permission: string) => permission !== 'presets.manage',
       );
 
       renderPage(idleSearch());

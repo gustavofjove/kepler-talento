@@ -1,55 +1,53 @@
-import { ProfileService } from '../../src/app/features/admin/users/profile.service';
-import { RoleService } from '../../src/app/features/admin/roles/role.service';
+import { ProfileService, type AdminUser } from '../../src/app/features/admin/users/profile.service';
+
+const user = (overrides: Partial<AdminUser> = {}): AdminUser => ({
+  id: 'u-1',
+  displayName: 'Ana',
+  email: 'ana@example.com',
+  roleName: 'readonly',
+  isActive: true,
+  lastSignInAt: null,
+  createdAt: '2026-01-01',
+  updatedAt: '2026-01-01',
+  version: 3,
+  ...overrides,
+});
 
 describe('ProfileService', () => {
-  let roles: RoleService;
-  let service: ProfileService;
-
-  beforeEach(() => {
-    localStorage.clear();
-    roles = new RoleService();
-    service = new ProfileService(roles);
-  });
-
-  it('prevents self role changes', () => {
-    const admin = service.users()[0];
-
-    expect(() => service.updateRole(admin.id, 'readonly', admin.email)).toThrow(/propio rol/i);
-  });
-
-  it('prevents self deactivation', () => {
-    const admin = service.users()[0];
-
-    expect(() => service.toggleActive(admin.id, admin.email)).toThrow(/desactivarte/i);
-  });
-
-  it('prevents deleting self user', () => {
-    const admin = service.users()[0];
-
-    expect(() => service.remove(admin.id, admin.email)).toThrow(/propio usuario/i);
-  });
-
-  it('prevents removing the last active admin', () => {
-    const admin = service.users()[0];
-
-    expect(() => service.toggleActive(admin.id, 'otro@example.com')).toThrow(
-      /al menos un administrador activo/i,
+  it('loads users from the API into its signal', async () => {
+    const api = {
+      request: vi
+        .fn()
+        .mockResolvedValue({ items: [user()], page: 1, pageSize: 100, totalCount: 1 }),
+    };
+    const service = new ProfileService(api as never);
+    await service.load();
+    expect(api.request).toHaveBeenCalledWith(
+      '/admin/users?includeInactive=true&page=1&pageSize=100',
     );
+    expect(service.users()).toEqual([user()]);
   });
 
-  it('allows admin replacement when another admin exists', () => {
-    service.create({
-      displayName: 'Admin 2',
-      email: 'admin2@example.com',
-      role: 'rrhh_admin',
-      isActive: true,
-      mfaRequired: false,
-    });
+  it('creates through the API without browser persistence', async () => {
+    const created = user();
+    const api = { request: vi.fn().mockResolvedValue(created) };
+    const service = new ProfileService(api as never);
+    await service.create({ displayName: 'Ana', email: 'ana@example.com', roleName: 'readonly' });
+    expect(api.request).toHaveBeenCalledWith(
+      '/admin/users',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(service.users()).toEqual([created]);
+  });
 
-    const admin = service.users().find((user) => user.email === 'rrhh.admin@example.com')!;
-    service.updateRole(admin.id, 'readonly', 'operator@example.com');
-
-    const updated = service.users().find((user) => user.id === admin.id)!;
-    expect(updated.role).toBe('readonly');
+  it('sends the current version when changing role and activation', async () => {
+    const current = user();
+    const api = { request: vi.fn().mockResolvedValue(user({ version: 4 })) };
+    const service = new ProfileService(api as never);
+    service.users.set([current]);
+    await service.setRole(current, 'rrhh_user');
+    await service.setActive(current, false);
+    expect(api.request.mock.calls[0][1].body).toContain('"version":3');
+    expect(api.request.mock.calls[1][1].body).toContain('"version":3');
   });
 });

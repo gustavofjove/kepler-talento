@@ -45,21 +45,21 @@ export function PrimaryNav() {
 
   // usePermission is a hook, so it cannot be called while iterating the nav
   // tables. Call it once per permission and filter against the result.
-  const canViewCandidates = usePermission('view_candidates');
-  const canManageCatalogs = usePermission('manage_catalogs');
-  const canManagePresets = usePermission('manage_presets');
-  const canManageUsers = usePermission('manage_users');
-  const canManageRoles = usePermission('manage_roles');
-  const canImport = usePermission('import_candidates');
+  const canViewCandidates = usePermission('candidates.read');
+  const canManageCatalogs = usePermission('catalogs.manage');
+  const canManagePresets = usePermission('presets.manage');
+  const canManageUsers = usePermission('users.manage');
+  const canManageRoles = usePermission('roles.manage');
+  const canImport = usePermission('candidates.import');
 
   const granted = useMemo(
     () => ({
-      view_candidates: canViewCandidates,
-      manage_catalogs: canManageCatalogs,
-      manage_presets: canManagePresets,
-      manage_users: canManageUsers,
-      manage_roles: canManageRoles,
-      import_candidates: canImport,
+      'candidates.read': canViewCandidates,
+      'catalogs.manage': canManageCatalogs,
+      'presets.manage': canManagePresets,
+      'users.manage': canManageUsers,
+      'roles.manage': canManageRoles,
+      'candidates.import': canImport,
     }),
     [
       canViewCandidates,

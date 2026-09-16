@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
+import { authorizationHeaders } from './support/auth';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -69,6 +70,7 @@ test.describe('Candidate documents flow', () => {
     );
 
     const edgeResponse = await page.request.post(`/api/candidates/${candidateId}/documents`, {
+      headers: authorizationHeaders(page),
       multipart: {
         file: {
           name: 'demasiado-grande.pdf',

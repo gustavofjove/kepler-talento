@@ -22,7 +22,7 @@ public sealed class DatabaseNamingTests
             .Cast<string>()
             .ToArray();
 
-        Assert.Equal(12, mappedTables.Length);
+        Assert.Equal(14, mappedTables.Length);
         Assert.All(mappedTables, name =>
         {
             Assert.Contains(ApprovedPrefixes, prefix => name.StartsWith(prefix, StringComparison.Ordinal));
@@ -42,6 +42,8 @@ public sealed class DatabaseNamingTests
         // User-owned configuration, so ADM_ rather than CND_: saved searches belong to the
         // employee who wrote them, not to the candidates they happen to find.
         Assert.Contains("ADM_SearchPresets", mappedTables);
+        Assert.Contains("ADM_Users", mappedTables);
+        Assert.Contains("ADM_Roles", mappedTables);
     }
 
     [Fact]

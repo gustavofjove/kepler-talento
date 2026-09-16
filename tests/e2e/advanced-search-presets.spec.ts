@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
+import { signInAs } from './support/auth';
 import { ensureSearchCandidate } from './support/seed-candidate';
 
 /**
@@ -116,12 +117,13 @@ test.describe('Shared search presets', () => {
     await deletePreset(page, name);
   });
 
-  test('a user without manage_presets can search but cannot reach preset administration', async ({
+  test('a user without presets.manage can search but cannot reach preset administration', async ({
     browser,
     baseURL,
   }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('readonly') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'readonly');
 
     await page.goto('/app/search');
     await expect(page.locator('select[name="selectedPreset"]')).toBeVisible();

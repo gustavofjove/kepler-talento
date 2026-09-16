@@ -11,35 +11,40 @@ import { CandidateSearchService } from '../../features/search/services/candidate
 import { ExportService } from '../../features/search/services/export.service';
 import { SearchPresetsService } from '../../features/search/services/search-presets.service';
 import { AuthService } from '../auth/auth.service';
-import { MfaService } from '../auth/mfa.service';
 import { DataRouterNavigator } from '../routing/navigator';
 import { ObservabilityService } from '../services/observability.service';
 import { ToastService } from '../services/toast.service';
-import { SupabaseClientService } from '../supabase/supabase-client.service';
 import { ConfirmDialogService } from '../../shared/components/confirm-dialog.service';
 import { ApiTransport } from '../http/api-transport';
 import { readAppConfig } from '../services/app-config.model';
+import { createTokenSource } from '../auth/token-source';
 
 /**
  * Composition root - replaces Angular's `providedIn: 'root'` injector.
  *
  * The graph is acyclic and shallow: CandidateService is the root of the feature
- * graph, ProfileService takes RoleService, and the auth pair take the Supabase
- * client wrapper.
+ * graph, while the token source and API transport form the authentication boundary.
  */
 
 export const appNavigator = new DataRouterNavigator();
 
-const supabaseClientService = new SupabaseClientService();
-const roleService = new RoleService();
-const apiTransport = new ApiTransport(readAppConfig().API_BASE_URL);
+const appConfig = readAppConfig();
+const tokenSource = createTokenSource(appConfig);
+const authServiceRef: { current: AuthService | null } = { current: null };
+const apiTransport = new ApiTransport(
+  appConfig.API_BASE_URL,
+  () => tokenSource.getToken(),
+  () => authServiceRef.current?.handleUnauthorized(),
+);
+const authService = new AuthService(tokenSource, apiTransport, appNavigator);
+authServiceRef.current = authService;
+const roleService = new RoleService(apiTransport);
+const profileService = new ProfileService(apiTransport);
 const candidateService = new CandidateService(new CandidateApi(apiTransport));
 
 export const services = {
   appNavigator,
-  supabaseClientService,
-  authService: new AuthService(supabaseClientService, appNavigator),
-  mfaService: new MfaService(supabaseClientService),
+  authService,
   toastService: new ToastService(),
   observabilityService: new ObservabilityService(),
   confirmDialogService: new ConfirmDialogService(),
@@ -54,7 +59,7 @@ export const services = {
   exportService: new ExportService(),
   importService: new ImportService(),
   roleService,
-  profileService: new ProfileService(roleService),
+  profileService,
   apiTransport,
 };
 

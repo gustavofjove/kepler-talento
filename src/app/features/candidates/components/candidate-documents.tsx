@@ -47,8 +47,8 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
   const fileInput = useRef<HTMLInputElement>(null);
   const polling = useRef(new Map<string, AbortController>());
 
-  const canDownload = usePermission('download_candidate_documents');
-  const canUpload = usePermission('upload_candidate_documents');
+  const canDownload = usePermission('documents.download');
+  const canUpload = usePermission('documents.upload');
 
   const replaceDocument = useCallback((next: CandidateDocument) => {
     setDocuments((current) => current.map((item) => (item.id === next.id ? next : item)));

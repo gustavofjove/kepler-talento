@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { ensureSearchCandidate } from './support/seed-candidate';
 

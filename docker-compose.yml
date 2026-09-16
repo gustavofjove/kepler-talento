@@ -45,6 +45,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__ApplicationDatabase: Host=postgres;Port=5432;Database=kepler_talento;Username=ktl_migrator;Password=${KTL_MIGRATOR_PASSWORD:-development-migrator-only}
+      # KTL-16: who administers the installation when it has nobody. The migrator refuses to
+      # finish without an active administrator, so this is what keeps a fresh stack usable.
+      Authentication__BootstrapAdministrator__Email: admin@kepler-talento.local
+      Authentication__BootstrapAdministrator__DisplayName: Administrador local
       DocumentStorage__Root: /var/lib/kepler-talento/documents
       ClamAv__Host: clamav
     volumes:
@@ -62,7 +66,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__ApplicationDatabase: Host=postgres;Port=5432;Database=kepler_talento;Username=ktl_runtime;Password=development-runtime-only
-      DevelopmentActor__Enabled: 'true'
+      # KTL-16: the stack runs the real token flow. The development actor is off, so every
+      # request carries a bearer token and is authorized against a stored user and role, exactly
+      # as in production. The development issuer (design D8) is what mints those tokens without
+      # the corporate tenant; it cannot be enabled in Production, where start-up fails.
+      DevelopmentActor__Enabled: 'false'
+      Authentication__DevelopmentIssuer__Enabled: 'true'
+      Authentication__DevelopmentIssuer__SigningKey: development-only-signing-key-change-me-32b
+      Authentication__DevelopmentIssuer__Issuer: https://kepler-talento.local/dev
+      Authentication__DevelopmentIssuer__Audience: kepler-talento-api
+      Authentication__BootstrapAdministrator__Email: admin@kepler-talento.local
+      Authentication__BootstrapAdministrator__DisplayName: Administrador local
       DocumentStorage__Root: /var/lib/kepler-talento/documents
       DocumentStorage__MaximumBytes: 20971520
       ClamAv__Host: clamav

@@ -1,5 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
+import { signInAs } from './support/auth';
 
 /**
  * The counterpart to tests/unit/primary-nav.spec.tsx. Everything that depends
@@ -116,6 +117,7 @@ test.describe('Primary navigation - wide viewport', () => {
 
     const trigger = page.getByTestId('nav-admin-trigger');
     await expect(trigger).toHaveClass(/active/);
+    await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByTestId('nav-import')).toBeVisible();
   });
@@ -125,6 +127,7 @@ test.describe('Primary navigation - wide viewport', () => {
 
     const trigger = page.getByTestId('nav-admin-trigger');
     await expect(trigger).toHaveClass(/active/);
+    await trigger.click();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByTestId('nav-presets')).toBeVisible();
   });
@@ -222,8 +225,9 @@ test.describe('Primary navigation - hiding a link is not the control', () => {
     browser,
     baseURL,
   }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('readonly') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'readonly');
 
     await page.goto('/app');
     await expect(page.getByTestId('nav-admin-trigger')).toHaveCount(0);

@@ -25,9 +25,9 @@
     "release:gate": "node scripts/release-gate.js"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.22.0",
     "@fontsource/montserrat": "^5.2.5",
     "@fontsource/nunito-sans": "^5.2.5",
-    "@supabase/supabase-js": "^2.110.0",
     "i18next": "^26.4.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -2,8 +2,9 @@
 
 Aplicación interna de RR. HH. para gestionar candidatos y CVs. La interfaz actual es una
 SPA React; KTL-5 añade la plataforma objetivo ASP.NET Core, PostgreSQL, almacenamiento
-privado de documentos, ClamAV y Nginx. Las funcionalidades existentes que todavía usan
-`localStorage` o Supabase se mantienen hasta que cada vertical se migre explícitamente.
+privado de documentos, ClamAV y Nginx. Las funcionalidades heredadas que todavía usan
+`localStorage` se mantienen hasta que cada vertical se migre explícitamente; identidad,
+usuarios y roles ya pertenecen a la API.
 
 ## Plataforma KTL-5
 
@@ -15,9 +16,22 @@ privado de documentos, ClamAV y Nginx. Las funcionalidades existentes que todav�
 - ClamAV 1.4.3 en una red Docker privada.
 - Nginx sin privilegios como único punto publicado, en `http://localhost:4200`.
 
-La autenticación de producción está aplazada. El actor sintético solo existe en
-Development/Testing y el proceso se niega a arrancar si se intenta habilitar en
-Production.
+La autenticación de producción usa tokens de Microsoft Entra ID. El actor sintético y el
+emisor local solo existen en Development/Testing; el proceso se niega a arrancar si se
+intenta habilitarlos en Production.
+
+## Identidad y acceso KTL-16
+
+Con `docker compose up --build`, ejecuta `npm start`, abre `http://localhost:4300/login` y
+pulsa **Iniciar sesión**. En `APP_ENV=local`, la SPA obtiene un token firmado de
+`POST /api/dev/token` para `admin@kepler-talento.local`; el backend lo valida por el mismo
+pipeline JWT que las peticiones normales. El token no se guarda en `localStorage`.
+
+En producción se configuran `ENTRA_CLIENT_ID`, `ENTRA_AUTHORITY` y `ENTRA_API_SCOPE`. Los
+permisos efectivos se leen de PostgreSQL en cada petición y usan una sola nomenclatura
+`<resource>.<action>`, por ejemplo `candidates.read`, `users.manage` y `roles.manage`.
+Consulta el [contrato de autenticación y autorización](docs/ktl-16/authentication-and-authorization.md)
+y el [runbook de despliegue y recuperación](docs/ktl-16/runbook.md).
 
 ## Catálogos KTL-6
 

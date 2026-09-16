@@ -9,11 +9,8 @@ const i18next = require('eslint-plugin-i18next');
 // when a change touches one of these files' copy, move it to src/assets/i18n/es.json,
 // render it with t(), and delete the path here. Never add a file to silence the rule.
 const LEGACY_HARDCODED_COPY = [
-  'src/app/core/auth/mfa-page.tsx',
   'src/app/core/layout/app-layout.tsx',
   'src/app/features/admin/import/import-page.tsx',
-  'src/app/features/admin/roles/admin-roles-page.tsx',
-  'src/app/features/admin/users/admin-users-page.tsx',
   'src/app/features/candidates/components/candidate-documents.tsx',
   'src/app/features/candidates/components/candidate-filters-bar.tsx',
   'src/app/features/candidates/components/candidate-form.tsx',

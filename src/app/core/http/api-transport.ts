@@ -20,10 +20,13 @@ export interface ApiDownload {
 }
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type TokenProvider = () => Promise<string | null>;
 
 export class ApiTransport {
   constructor(
     private readonly baseUrl = '/api',
+    private readonly tokenProvider: TokenProvider,
+    private readonly onUnauthorized: () => void | Promise<void> = () => undefined,
     private readonly defaultTimeoutMs = 15_000,
     private readonly fetcher: FetchLike = globalThis.fetch.bind(globalThis),
   ) {}
@@ -67,6 +70,8 @@ export class ApiTransport {
   }
 
   private async send(path: string, options: ApiRequestOptions): Promise<Response> {
+    const token = await this.tokenProvider();
+    if (!token) throw new AppError('UNAUTHENTICATED');
     const controller = new AbortController();
     const callerSignal = options.signal;
     let callerCancelled = callerSignal?.aborted ?? false;
@@ -81,6 +86,7 @@ export class ApiTransport {
     );
     const headers = new Headers(options.headers);
     headers.set('Accept', 'application/json, application/problem+json');
+    headers.set('Authorization', `Bearer ${token}`);
     if (!headers.has('X-Correlation-ID')) headers.set('X-Correlation-ID', createCorrelationId());
     if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
@@ -91,6 +97,7 @@ export class ApiTransport {
         headers,
         signal: controller.signal,
       });
+      if (response.status === 401) await this.onUnauthorized();
       if (!response.ok) throw await this.toProblemError(response);
       return response;
     } catch (error) {

@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 import type { PresetsState } from '../../features/search/services/search-presets.service';
 import type { Permission } from '../../shared/models/auth.models';
+import type { AdminUser } from '../../features/admin/users/profile.service';
+import type { AdminRole } from '../../features/admin/roles/role.service';
 import { useSignal } from '../state/use-signal';
 import { services, type Services } from './services';
 
@@ -38,4 +40,14 @@ export function usePermission(permission: Permission): boolean {
   const { authService } = useServices();
   useSignal(authService.profile);
   return authService.hasPermission(permission);
+}
+
+export function useUsers(): AdminUser[] {
+  const { profileService } = useServices();
+  return useSignal(profileService.users);
+}
+
+export function useRoles(): AdminRole[] {
+  const { roleService } = useServices();
+  return useSignal(roleService.roles);
 }

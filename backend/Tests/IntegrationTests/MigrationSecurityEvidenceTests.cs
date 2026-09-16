@@ -201,6 +201,37 @@ public sealed class MigrationSecurityEvidenceTests(PostgreSqlFixture database)
     }
 
     [Fact]
+    public async Task Runtime_role_can_read_and_write_identity_rows_but_cannot_delete_them()
+    {
+        await using (var dbContext = NewContext())
+        {
+            await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
+        }
+
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        foreach (var table in new[] { "ADM_Users", "ADM_Roles" })
+        {
+            await using var command = new NpgsqlCommand(
+                """
+                SELECT
+                    has_table_privilege('ktl_runtime', @table, 'SELECT'),
+                    has_table_privilege('ktl_runtime', @table, 'INSERT'),
+                    has_table_privilege('ktl_runtime', @table, 'UPDATE'),
+                    has_table_privilege('ktl_runtime', @table, 'DELETE')
+                """,
+                connection);
+            command.Parameters.AddWithValue("table", $"public.\"{table}\"");
+            await using var reader = await command.ExecuteReaderAsync();
+            Assert.True(await reader.ReadAsync());
+            Assert.True(reader.GetBoolean(0));
+            Assert.True(reader.GetBoolean(1));
+            Assert.True(reader.GetBoolean(2));
+            Assert.False(reader.GetBoolean(3));
+        }
+    }
+
+    [Fact]
     public void The_migration_tool_exposes_no_http_surface()
     {
         var tool = typeof(MigrationRunner).Assembly;

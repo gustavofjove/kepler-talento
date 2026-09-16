@@ -34,7 +34,15 @@ describe('SearchPresetsService', () => {
     });
 
   const build = (fetcher: ReturnType<typeof vi.fn>) =>
-    new SearchPresetsService(new ApiTransport('/api', 1_000, fetcher));
+    new SearchPresetsService(
+      new ApiTransport(
+        '/api',
+        async () => 'test-token',
+        () => undefined,
+        1_000,
+        fetcher,
+      ),
+    );
 
   const called = (fetcher: ReturnType<typeof vi.fn>) =>
     fetcher.mock.calls.map((call) => `${call[1]?.method ?? 'GET'} ${call[0]}`);

@@ -6,8 +6,8 @@ imports it from `CLAUDE.md`). Edit rules here, never in a tool-specific copy.
 Kepler Talento is an internal HR application for registering, searching, exporting and
 governing candidate CVs. It holds **personal data**. The frontend is a React SPA; the
 target backend is ASP.NET Core 10 + application-owned PostgreSQL, rolled out one vertical
-slice at a time (KTL-5 onwards). Remaining Supabase / `localStorage` paths are legacy and
-stay only until their slice migrates.
+slice at a time (KTL-5 onwards). Remaining `localStorage` paths are legacy and stay only
+until their slice migrates; identity, users and roles are API-owned.
 
 ## Sources of truth
 
@@ -68,6 +68,8 @@ These come from `openspec/config.yaml`. Breaking one is a defect even if tests p
 3. **Fail closed.** Every business endpoint checks `ICurrentActor` authentication and the
    specific permission **before** validating or dispatching the request. Hiding UI is never
    the control. The `DevelopmentActor` must stay impossible to enable in Production.
+   Permission names use the single `<resource>.<action>` vocabulary shared by API and SPA;
+   do not add underscore-style aliases or permission claims to tokens.
 4. **Least privilege.** DDL runs as `ktl_migrator`; the API runs as `ktl_runtime` with
    DML limited to approved tables. A migration ships its constraints, indexes and runtime
    grants in the same slice.

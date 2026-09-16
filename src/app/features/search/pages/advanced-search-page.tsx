@@ -200,8 +200,8 @@ export function AdvancedSearchPage() {
     }
   };
 
-  const canExport = usePermission('export_candidates');
-  const canManagePresets = usePermission('manage_presets');
+  const canExport = usePermission('candidates.export');
+  const canManagePresets = usePermission('presets.manage');
   const lastPage = Math.max(1, Math.ceil(results.totalCount / results.pageSize));
 
   return (

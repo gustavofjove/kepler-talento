@@ -161,10 +161,10 @@ public static class SearchEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound);
 
     /// <summary>
-    /// There is deliberately no consultation of <c>view_all_candidates</c> for reads: see the
+    /// There is deliberately no broader "see every candidate" permission for reads: see the
     /// KTL-10 design — the domain models no ownership or team from which a narrower scope could
-    /// truthfully be derived, so acting on that permission would be arbitrary rather than
-    /// restrictive.
+    /// truthfully be derived, so acting on such a permission would be arbitrary rather than
+    /// restrictive. KTL-16 removed the frontend's inert <c>view_all_candidates</c> accordingly.
     /// </summary>
     private static void Require(ICurrentActor actor, string permission)
     {

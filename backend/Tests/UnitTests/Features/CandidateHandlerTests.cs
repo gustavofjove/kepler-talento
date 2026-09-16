@@ -614,6 +614,10 @@ public sealed class CandidateHandlerTests
             new(true, Permissions.CandidatesRead, Permissions.CandidatesDelete);
 
         public string? ExternalKey => authenticated ? "test-actor" : null;
+
+        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
+        public Guid? UserId => null;
+
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);

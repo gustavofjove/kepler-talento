@@ -1,10 +1,11 @@
-import { expect, test } from '@playwright/test';
-import { authFile } from './global-setup';
+import { expect, test } from './fixtures';
+import { signInAs } from './support/auth';
 
 test.describe('Security operational flows', () => {
   test('blocks export action for readonly user', async ({ browser, baseURL }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('readonly') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'readonly');
 
     await page.goto('/app/search');
     await expect(page.locator('button:has-text("Exportar CSV")')).toBeDisabled();
@@ -16,8 +17,9 @@ test.describe('Security operational flows', () => {
     browser,
     baseURL,
   }) => {
-    const context = await browser.newContext({ baseURL, storageState: authFile('rrhh_admin') });
+    const context = await browser.newContext({ baseURL });
     const page = await context.newPage();
+    await signInAs(page, 'rrhh_admin');
     const suffix = Date.now().toString();
 
     await page.goto('/app/candidates/new');

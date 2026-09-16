@@ -2,6 +2,45 @@ import { ApiTransport, safeDownloadFileName } from '../../src/app/core/http/api-
 import { AppError } from '../../src/app/shared/models/error.models';
 
 describe('ApiTransport', () => {
+  it('attaches the bearer token to every request', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    await new ApiTransport(
+      '/api',
+      async () => 'signed-token',
+      () => undefined,
+      1_000,
+      fetcher,
+    ).request('/me');
+    const init = fetcher.mock.calls[0][1] as RequestInit;
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed-token');
+  });
+
+  it('sends no request when the session has no token', async () => {
+    const fetcher = vi.fn();
+    await expect(
+      new ApiTransport(
+        '/api',
+        async () => null,
+        () => undefined,
+        1_000,
+        fetcher,
+      ).request('/me'),
+    ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('notifies the session on a 401', async () => {
+    const onUnauthorized = vi.fn();
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 401 }));
+    await expect(
+      new ApiTransport('/api', async () => 'token', onUnauthorized, 1_000, fetcher).request('/me'),
+    ).rejects.toBeInstanceOf(AppError);
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+  });
   it('uses the shared base path and preserves a problem correlation identifier', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(
@@ -14,7 +53,13 @@ describe('ApiTransport', () => {
         { status: 404, headers: { 'content-type': 'application/problem+json' } },
       ),
     );
-    const transport = new ApiTransport('/api', 1_000, fetcher);
+    const transport = new ApiTransport(
+      '/api',
+      async () => 'test-token',
+      () => undefined,
+      1_000,
+      fetcher,
+    );
     const error = await transport
       .request('/reference/candidates/missing')
       .catch((value: unknown) => value);
@@ -31,7 +76,13 @@ describe('ApiTransport', () => {
     const fetcher = vi
       .fn()
       .mockResolvedValue(new Response('<html>private path</html>', { status: 500 }));
-    const error = await new ApiTransport('/api', 1_000, fetcher)
+    const error = await new ApiTransport(
+      '/api',
+      async () => 'test-token',
+      () => undefined,
+      1_000,
+      fetcher,
+    )
       .request('/broken')
       .catch((value: unknown) => value);
     expect(error).toMatchObject({ code: 'INTERNAL_ERROR' });
@@ -47,11 +98,25 @@ describe('ApiTransport', () => {
           ),
         ),
     );
-    await expect(new ApiTransport('/api', 1, fetcher).request('/slow')).rejects.toMatchObject({
+    await expect(
+      new ApiTransport(
+        '/api',
+        async () => 'test-token',
+        () => undefined,
+        1,
+        fetcher,
+      ).request('/slow'),
+    ).rejects.toMatchObject({
       code: 'TIMEOUT',
     });
     const controller = new AbortController();
-    const request = new ApiTransport('/api', 1_000, fetcher).request('/cancelled', {
+    const request = new ApiTransport(
+      '/api',
+      async () => 'test-token',
+      () => undefined,
+      1_000,
+      fetcher,
+    ).request('/cancelled', {
       signal: controller.signal,
     });
     controller.abort();
@@ -67,10 +132,13 @@ describe('ApiTransport', () => {
         },
       }),
     );
-    const result = await new ApiTransport('/api', 1_000, fetcher).download(
-      '/documents/1',
-      'documento.pdf',
-    );
+    const result = await new ApiTransport(
+      '/api',
+      async () => 'test-token',
+      () => undefined,
+      1_000,
+      fetcher,
+    ).download('/documents/1', 'documento.pdf');
     expect(result.fileName).toBe('_candidate.pdf');
     expect(result.contentType).toBe('application/pdf');
   });

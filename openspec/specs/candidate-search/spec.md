@@ -159,10 +159,10 @@ metadata, document paths, storage keys, filenames, or scan internals.
 
 ### Requirement: Search authorization and visibility decision
 
-Every search SHALL fail closed unless the current actor has `view_candidates`. For KTL-10,
-`view_all_candidates` SHALL remain inert because the domain has no ownership, team, or assignment
-attribute from which a narrower truthful scope can be derived; every actor with `view_candidates`
-SHALL therefore see the same eligible candidate population. Search terms and filter values SHALL
+Every search SHALL fail closed unless the current actor has `candidates.read`. The domain has no
+ownership, team, or assignment attribute from which a narrower truthful scope could be derived, so
+every actor holding `candidates.read` SHALL see the same eligible candidate population and the
+system SHALL NOT offer a permission that widens or narrows it. Search terms and filter values SHALL
 NOT be recorded in application, request, audit, or diagnostic logs.
 
 #### Scenario: Unauthenticated caller searches
@@ -172,14 +172,19 @@ NOT be recorded in application, request, audit, or diagnostic logs.
 
 #### Scenario: Actor lacks candidate viewing permission
 
-- **WHEN** an authenticated actor without `view_candidates` invokes search
+- **WHEN** an authenticated actor without `candidates.read` invokes search
 - **THEN** the request is refused and returns no candidate data or count
+
+#### Scenario: Two permitted actors see the same population
+
+- **WHEN** two actors holding `candidates.read` search the same unchanged data
+- **THEN** both receive the same matches, because no visibility scope narrows either one
 
 #### Scenario: Actors differ only by view-all permission
 
-- **WHEN** two actors with `view_candidates` search the same unchanged data and only one also has
-  `view_all_candidates`
-- **THEN** both receive the same matches because KTL-10 defines no unsupported visibility scope
+- **WHEN** the permission vocabulary is inspected for a permission that widens candidate visibility
+- **THEN** none exists: the inert `view_all_candidates` is gone, so no pair of actors can differ by
+  it and no caller can be misled into believing it grants anything
 
 #### Scenario: Personal search term reaches diagnostics
 

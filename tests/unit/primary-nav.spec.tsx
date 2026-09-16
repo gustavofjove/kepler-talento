@@ -14,12 +14,12 @@ import type { Permission } from '../../src/app/shared/models/auth.models';
  */
 
 const ALL: Permission[] = [
-  'view_candidates',
-  'manage_catalogs',
-  'manage_presets',
-  'manage_users',
-  'manage_roles',
-  'import_candidates',
+  'candidates.read',
+  'catalogs.manage',
+  'presets.manage',
+  'users.manage',
+  'roles.manage',
+  'candidates.import',
 ];
 
 function LocationProbe() {
@@ -89,9 +89,9 @@ describe('PrimaryNav - entries and permissions', () => {
     expect(screen.getByTestId('nav-presets')).toHaveAttribute('href', '/app/admin/presets');
   });
 
-  it('renders the group with Presets as its only child when only manage_presets is held', async () => {
+  it('renders the group with Presets as its only child when only presets.manage is held', async () => {
     const user = userEvent.setup();
-    renderNav(['manage_presets']);
+    renderNav(['presets.manage']);
 
     await user.click(trigger());
 
@@ -102,7 +102,7 @@ describe('PrimaryNav - entries and permissions', () => {
 
   it('hides Presets from a profile that manages catalogs but not presets', async () => {
     const user = userEvent.setup();
-    renderNav(['manage_catalogs']);
+    renderNav(['catalogs.manage']);
 
     await user.click(trigger());
 
@@ -110,8 +110,8 @@ describe('PrimaryNav - entries and permissions', () => {
     expect(screen.queryByTestId('nav-presets')).not.toBeInTheDocument();
   });
 
-  it('hides candidate entries without view_candidates but keeps Dashboard', () => {
-    renderNav(['manage_roles']);
+  it('hides candidate entries without candidates.read but keeps Dashboard', () => {
+    renderNav(['roles.manage']);
 
     expect(screen.queryByTestId('nav-candidates')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-search')).not.toBeInTheDocument();
@@ -120,7 +120,7 @@ describe('PrimaryNav - entries and permissions', () => {
 
   it('renders the group with a single child when only one admin permission is held', async () => {
     const user = userEvent.setup();
-    renderNav(['manage_roles']);
+    renderNav(['roles.manage']);
 
     await user.click(trigger());
 
@@ -131,7 +131,7 @@ describe('PrimaryNav - entries and permissions', () => {
   });
 
   it('omits the Admin group entirely without any administration permission', () => {
-    renderNav(['view_candidates']);
+    renderNav(['candidates.read']);
 
     expect(screen.queryByTestId('nav-admin-trigger')).not.toBeInTheDocument();
     expect(screen.getByTestId('nav-candidates')).toBeInTheDocument();

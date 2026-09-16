@@ -2,8 +2,21 @@ namespace KeplerTalento.Application.Abstractions.Identity;
 
 public interface ICurrentActor
 {
+    /// <summary>
+    /// An opaque key identifying the caller for correlation. Never the provider's subject claim
+    /// in a response or a log — see <see cref="UserId"/> for what identifies them to the domain.
+    /// </summary>
     string? ExternalKey { get; }
+
+    /// <summary>
+    /// The caller's internal user id, or <see langword="null"/> when there is no stored user
+    /// behind the caller — a development actor, or a token whose subject was not provisioned.
+    /// This is the id responses carry and the one KTL-19 will record on audit rows.
+    /// </summary>
+    Guid? UserId { get; }
+
     bool IsAuthenticated { get; }
+
     bool HasPermission(string permission);
 }
 
@@ -28,4 +41,44 @@ public static class Permissions
     /// imply <see cref="CandidatesRead"/>, which listing and applying presets require.
     /// </summary>
     public const string PresetsManage = "presets.manage";
+
+    /// <summary>
+    /// Bulk candidate import. Its only enforcement point is still the browser import page;
+    /// KTL-17 (server-side candidate import) gives it a server-side guard.
+    /// </summary>
+    public const string CandidatesImport = "candidates.import";
+
+    /// <summary>
+    /// Exporting candidate data. Like <see cref="CandidatesImport"/> its only enforcement point
+    /// is still the browser — the CSV export on the advanced search page. It is kept in the
+    /// catalogue because removing it would ungate candidate personal data.
+    /// </summary>
+    public const string CandidatesExport = "candidates.export";
+
+    /// <summary>Governs creating, changing and deactivating users, and assigning their roles.</summary>
+    public const string UsersManage = "users.manage";
+
+    /// <summary>Governs creating, changing and deactivating roles, and setting their permissions.</summary>
+    public const string RolesManage = "roles.manage";
+
+    /// <summary>
+    /// The whole permission catalogue. A role may only hold values from this array, and
+    /// the frontend's <c>ALL_PERMISSIONS</c> is asserted to match it.
+    /// </summary>
+    public static readonly string[] All =
+    [
+        CandidatesRead,
+        CandidatesCreate,
+        CandidatesUpdate,
+        CandidatesDelete,
+        CandidatesImport,
+        CandidatesExport,
+        DocumentsUpload,
+        DocumentsDownload,
+        CatalogsRead,
+        CatalogsManage,
+        PresetsManage,
+        UsersManage,
+        RolesManage,
+    ];
 }
