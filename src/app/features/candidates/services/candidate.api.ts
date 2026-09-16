@@ -6,8 +6,9 @@ import type {
   CandidateExperience,
   CandidateLanguage,
   CandidateProgram,
+  CandidateListPage,
+  CandidateListQuery,
   CandidateSkill,
-  CandidateSummary,
 } from '../models/candidate.models';
 
 /**
@@ -23,7 +24,7 @@ import type {
  * guess about what the server did.
  */
 export interface CandidateGateway {
-  list(includeInactive: boolean): Promise<CandidateSummary[]>;
+  listPage(query: CandidateListQuery, signal?: AbortSignal): Promise<CandidateListPage>;
   get(id: string): Promise<Candidate>;
   create(draft: CandidateDraft): Promise<Candidate>;
   update(id: string, draft: CandidateDraft, version: number): Promise<Candidate>;
@@ -39,10 +40,28 @@ export interface CandidateGateway {
 export class CandidateApi implements CandidateGateway {
   constructor(private readonly transport: ApiTransport) {}
 
-  list(includeInactive: boolean): Promise<CandidateSummary[]> {
-    return this.transport.request<CandidateSummary[]>(
-      `/candidates?includeInactive=${includeInactive}`,
-    );
+  /**
+   * One page of the candidate list, through the search endpoint (KTL-18). The list is a
+   * search with preset criteria, so it shares search's envelope, projection and ordering
+   * rules. It is a POST for the same reason search is: the text filter is personal data.
+   */
+  listPage(query: CandidateListQuery, signal?: AbortSignal): Promise<CandidateListPage> {
+    return this.transport.request<CandidateListPage>('/candidates/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        filters: {
+          text: query.text,
+          statusValues: query.status ? [query.status] : [],
+          hasCv: query.hasCv,
+        },
+        page: query.page,
+        pageSize: query.pageSize,
+        sortField: query.sortField,
+        sortDirection: query.sortDirection,
+        includeInactive: query.includeInactive,
+      }),
+      signal,
+    });
   }
 
   get(id: string): Promise<Candidate> {

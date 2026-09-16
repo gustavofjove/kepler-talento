@@ -248,6 +248,14 @@ return only data the API has supplied — never seeded, fabricated, or browser-p
 and the service SHALL expose its load state so that a consumer can distinguish "not loaded yet"
 from "no such record".
 
+Such a cache SHALL be scoped to the records a screen actually needs. A feature service SHALL NOT
+load a whole table, and SHALL NOT pre-load the full aggregate of every record in a list in order to
+serve a later detail view. A detail view SHALL load the one record it opens.
+
+A cache SHALL NOT be the means by which a screen filters, sorts or pages. Those SHALL be requested
+from the API, so that what the user sees reflects the whole matching set and not merely the subset
+the browser happens to hold.
+
 #### Scenario: Consumer reads a loaded record synchronously
 
 - **WHEN** a consumer synchronously reads a record the service has already loaded from the API
@@ -269,6 +277,24 @@ from "no such record".
 
 - **WHEN** the application is reloaded
 - **THEN** the service holds no records until it loads them from the API again
+
+#### Scenario: List screen is opened
+
+- **WHEN** a list screen loads
+- **THEN** the service requests one page of the minimal list projection, and does not load the
+  aggregate of every listed record
+
+#### Scenario: Detail screen is opened from a list
+
+- **WHEN** a user opens one record from a list
+- **THEN** that record's aggregate is loaded on demand, and no other record's aggregate is loaded
+  with it
+
+#### Scenario: User sorts or filters a list
+
+- **WHEN** a user changes a list's sort or filter
+- **THEN** the service requests the corresponding page from the API, rather than reordering or
+  filtering data it already holds
 
 ### Requirement: File content transmission
 

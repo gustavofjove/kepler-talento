@@ -29,10 +29,19 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     /// The candidates a filter value matches. The count and the page are both taken from
     /// this, so neither can drift from the other's idea of "matching".
     /// </summary>
-    public async Task<IQueryable<Candidate>> MatchingAsync(SearchFiltersValue filters, CancellationToken cancellationToken)
+    public async Task<IQueryable<Candidate>> MatchingAsync(
+        SearchFiltersValue filters,
+        bool includeInactive,
+        CancellationToken cancellationToken)
     {
         // Logical removal is the only removal, so this is the whole of "the candidate exists".
-        var query = dbContext.Candidates.AsNoTracking().Where(candidate => candidate.IsActive);
+        // Including removed candidates is a guarded option (KTL-18); the handler has already
+        // checked the permission by the time this is true.
+        var query = dbContext.Candidates.AsNoTracking();
+        if (!includeInactive)
+        {
+            query = query.Where(candidate => candidate.IsActive);
+        }
 
         if (!filters.StatusIsUnrestricted)
         {
@@ -99,15 +108,14 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     /// evidence can capture the statement the application actually issues — a plan for a
     /// reconstruction of the query would prove nothing about the query.
     /// </remarks>
-    public IQueryable<CandidateSearchItem> Page(IQueryable<Candidate> matching, int page, int pageSize) =>
-        matching
-            // Update time descending is the order the screen expects; the identifier breaks
-            // ties, without which two candidates saved in the same instant could appear on
-            // both of two adjacent pages, or on neither.
-            .OrderByDescending(candidate => candidate.UpdatedAtUtc)
+    public IQueryable<CandidateSearchItem> Page(IQueryable<Candidate> matching, SearchOptions options) =>
+        // The identifier ascending is always the final term, whichever field is chosen:
+        // without it, two candidates sharing a sort value could appear on both of two
+        // adjacent pages, or on neither.
+        Order(matching, options.Sort)
             .ThenBy(candidate => candidate.Id)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Skip((options.Page - 1) * options.PageSize)
+            .Take(options.PageSize)
             .Select(candidate => new CandidateSearchItem(
                 candidate.Id,
                 candidate.FirstName,
@@ -121,7 +129,34 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                     .Where(document => document.CandidateId == candidate.Id && document.IsPrimary)
                     .Select(document => (Guid?)document.Id)
                     .FirstOrDefault(),
-                candidate.UpdatedAtUtc));
+                candidate.UpdatedAtUtc,
+                candidate.IsActive));
+
+    /// <summary>
+    /// Maps the validated sort onto a fixed ordering expression. The switch is over enum
+    /// members only; no caller text reaches this point.
+    /// </summary>
+    /// <remarks>
+    /// <c>lastName</c> orders by last name then first name, as the list always has.
+    /// <c>status</c> orders by the status code, matching the previous browser ordering.
+    /// </remarks>
+    private static IOrderedQueryable<Candidate> Order(IQueryable<Candidate> query, SearchSort sort)
+    {
+        var ascending = sort.Direction == SearchSortDirection.Ascending;
+        return sort.Field switch
+        {
+            SearchSortField.LastName => ascending
+                ? query.OrderBy(candidate => candidate.LastName).ThenBy(candidate => candidate.FirstName)
+                : query.OrderByDescending(candidate => candidate.LastName)
+                    .ThenByDescending(candidate => candidate.FirstName),
+            SearchSortField.Status => ascending
+                ? query.OrderBy(candidate => candidate.Status)
+                : query.OrderByDescending(candidate => candidate.Status),
+            _ => ascending
+                ? query.OrderBy(candidate => candidate.UpdatedAtUtc)
+                : query.OrderByDescending(candidate => candidate.UpdatedAtUtc),
+        };
+    }
 
     /// <summary>
     /// Adds one filter family's predicate.

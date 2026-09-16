@@ -260,6 +260,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 "hasPrimaryCv",
                 "primaryCvDocumentId",
                 "updatedAt",
+                "isActive",
             ],
             item.EnumerateObject().Select(property => property.Name));
         // Named individually as well, because a renamed field would satisfy the count above
@@ -361,6 +362,199 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             Assert.DoesNotContain("candidateId", body, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("totalCount", body, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Fact]
+    public async Task Removed_candidates_are_included_on_request_and_marked_as_removed()
+    {
+        var fixture = await SeedAsync();
+        var removed = fixture.Single(candidate => !candidate.IsActive);
+        using var factory = CreateFactory(TestActor.Remover);
+        using var client = factory.CreateClient();
+        var filters = new SearchFiltersInput(null, null, null, null, null, null, null, null, null);
+
+        var byDefault = await SearchAsync(client, filters, pageSize: 100);
+        var included = await ReadPageAsync(await client.PostAsJsonAsync(
+            SearchRoute,
+            new { filters, page = 1, pageSize = 100, includeInactive = true }));
+
+        Assert.DoesNotContain(byDefault.Items, item => item.CandidateId == removed.Id);
+        Assert.All(byDefault.Items, item => Assert.True(item.IsActive));
+        Assert.Equal(fixture.Count, included.TotalCount);
+        Assert.False(Assert.Single(included.Items, item => item.CandidateId == removed.Id).IsActive);
+        Assert.Equal(byDefault.TotalCount + 1, included.TotalCount);
+    }
+
+    [Fact]
+    public async Task Including_removed_candidates_is_forbidden_for_a_reader_before_validation()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        // Malformed in every other respect, so a 400 would reveal validation ran first.
+        var response = await client.PostAsJsonAsync(
+            SearchRoute,
+            new { filters = new { statusValues = new[] { "archived" } }, page = 0, pageSize = 500, includeInactive = true, sortField = "nope" });
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.DoesNotContain("candidateId", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("totalCount", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static TheoryData<string, string> SortCases()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var field in new[] { "updatedAt", "lastName", "status" })
+        {
+            foreach (var direction in new[] { "asc", "desc" })
+            {
+                data.Add(field, direction);
+            }
+        }
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(SortCases))]
+    public async Task Every_sort_pages_through_heavily_tied_data_without_overlap_or_omission(string field, string direction)
+    {
+        await SeedAsync();
+        var tied = await SeedTiedCandidatesAsync(40);
+        using var factory = CreateFactory(TestActor.Remover);
+        using var client = factory.CreateClient();
+        var filters = new { text = TiedMarker };
+
+        var seen = new List<CandidateSearchItem>();
+        for (var page = 1; ; page++)
+        {
+            var result = await ReadPageAsync(await client.PostAsJsonAsync(
+                SearchRoute,
+                new { filters, page, pageSize = 7, includeInactive = true, sortField = field, sortDirection = direction }));
+            Assert.Equal(tied.Count, result.TotalCount);
+            if (result.Items.Count == 0)
+            {
+                break;
+            }
+            seen.AddRange(result.Items);
+        }
+
+        var ids = seen.Select(item => item.CandidateId).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+        Assert.Equal(tied.Order(), ids.Order());
+        // Within a run of equal sort values, the identifier ascending decides — in both
+        // directions, because the tie-breaker never flips.
+        Func<CandidateSearchItem, string> key = field switch
+        {
+            "lastName" => item => $"{item.LastName}{item.FirstName}",
+            "status" => item => item.Status,
+            _ => item => item.UpdatedAt.UtcTicks.ToString("D20", System.Globalization.CultureInfo.InvariantCulture),
+        };
+        for (var index = 1; index < seen.Count; index++)
+        {
+            if (key(seen[index]) == key(seen[index - 1]))
+            {
+                // PostgreSQL orders uuid bytewise, which is the ordinal order of the hex text.
+                Assert.True(string.CompareOrdinal(
+                    seen[index - 1].CandidateId.ToString(),
+                    seen[index].CandidateId.ToString()) < 0);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("email")]
+    [InlineData("\"UpdatedAtUtc\"; DROP TABLE \"CND_Candidates\"; --")]
+    [InlineData("LastName")]
+    public async Task An_unknown_sort_field_is_refused_with_a_stable_code_and_never_reaches_the_query(string sortField)
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(SearchRoute, new { filters = new { }, sortField });
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(SearchErrors.SortFieldInvalid, body, StringComparison.Ordinal);
+        // The refusal does not echo the caller's text back.
+        Assert.DoesNotContain("DROP TABLE", body, StringComparison.Ordinal);
+        await using var dbContext = NewDbContext();
+        // The table the injection-shaped value names is still there and still populated.
+        Assert.True(await dbContext.Candidates.AnyAsync());
+    }
+
+    [Fact]
+    public async Task A_page_past_the_end_is_empty_and_reports_the_true_total()
+    {
+        var fixture = await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(SearchRoute, new { filters = new { }, page = 50, pageSize = 25 });
+        var page = await ReadPageAsync(response);
+
+        Assert.Empty(page.Items);
+        Assert.Equal(50, page.Page);
+        Assert.Equal(fixture.Count(candidate => candidate.IsActive), page.TotalCount);
+    }
+
+    [Fact]
+    public async Task A_list_response_with_removed_candidates_still_carries_no_personal_detail_beyond_the_projection()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Remover);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(
+            SearchRoute,
+            new { filters = new { }, page = 1, pageSize = 100, includeInactive = true, sortField = "lastName", sortDirection = "asc" });
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        foreach (var forbidden in new[]
+        {
+            "notes", "consentAt", "reviewDueAt", "receivedAt", "location", "province", "country",
+            "source", "availability", "deletedAt", "storageKey", "originalFilename", "scanState",
+            "skills", "languages", "programs", "education", "experience", "documents", "sourceKey",
+        })
+        {
+            Assert.DoesNotContain($"\"{forbidden}\"", body, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private const string TiedMarker = "EmpateKtl18";
+
+    /// <summary>
+    /// Candidates that share an update instant, a status and a surname, so every contracted
+    /// sort leaves the identifier as the only thing separating most of them.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> SeedTiedCandidatesAsync(int count)
+    {
+        await using var dbContext = NewDbContext();
+        var instant = new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero);
+        var ids = new List<Guid>();
+        for (var index = 0; index < count; index++)
+        {
+            var id = Guid.CreateVersion7();
+            var candidate = new Candidate(id, index % 2 == 0 ? "Ana" : "Luis", TiedMarker, instant);
+            candidate.SetDetails(
+                phone: string.Empty,
+                email: string.Empty,
+                location: string.Empty,
+                province: string.Empty,
+                country: string.Empty,
+                availability: string.Empty,
+                status: index % 5 == 0 ? CandidateStatuses.Hired : CandidateStatuses.Available,
+                source: string.Empty,
+                notes: string.Empty,
+                updatedAtUtc: index % 3 == 0 ? instant.AddMinutes(1) : instant);
+            dbContext.Candidates.Add(candidate);
+            ids.Add(id);
+        }
+        await dbContext.SaveChangesAsync();
+        return ids;
     }
 
     public static TheoryData<string, bool, bool> PresetAuthorizationMatrix() => new()
@@ -745,6 +939,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     private sealed class TestActor(bool authenticated, string? key, params string[] permissions) : ICurrentActor
     {
         public static TestActor Reader => new(true, "integration-actor", Permissions.CandidatesRead);
+        public static TestActor Remover =>
+            new(true, "integration-remover", Permissions.CandidatesRead, Permissions.CandidatesDelete);
         public static TestActor OtherReader => new(true, "other-actor", Permissions.CandidatesRead);
         public static TestActor Manager =>
             new(true, "integration-admin", Permissions.CandidatesRead, Permissions.PresetsManage);

@@ -11,17 +11,12 @@ const i18next = require('eslint-plugin-i18next');
 const LEGACY_HARDCODED_COPY = [
   'src/app/core/layout/app-layout.tsx',
   'src/app/features/candidates/components/candidate-documents.tsx',
-  'src/app/features/candidates/components/candidate-filters-bar.tsx',
   'src/app/features/candidates/components/candidate-form.tsx',
-  'src/app/features/candidates/components/candidate-table.tsx',
   'src/app/features/candidates/pages/candidate-detail-page.tsx',
   'src/app/features/candidates/pages/candidate-edit-page.tsx',
-  'src/app/features/candidates/pages/candidate-list-page.tsx',
   'src/app/features/catalogs/pages/catalog-management-page.tsx',
-  'src/app/features/dashboard/dashboard-page.tsx',
   'src/app/features/search/components/criteria-group.tsx',
   'src/app/features/search/components/search-results.tsx',
-  'src/app/shared/components/pagination.tsx',
 ];
 
 module.exports = [

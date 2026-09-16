@@ -136,6 +136,27 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
+    public async Task Each_contracted_sort_field_has_an_index_ending_in_the_identifier_tie_breaker()
+    {
+        await MigrateAsync();
+
+        var definitions = await QueryAsync(
+            """
+            SELECT indexdef FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname IN (
+                'IX_CND_Candidates_IsActive_LastName_FirstName_Id',
+                'IX_CND_Candidates_IsActive_Status_Id')
+            ORDER BY indexname
+            """);
+
+        // KTL-18: sorting the list by last name or status stays bounded at deep offsets.
+        Assert.Equal(2, definitions.Count);
+        Assert.Contains("(\"IsActive\", \"LastName\", \"FirstName\", \"Id\")", definitions[0], StringComparison.Ordinal);
+        Assert.Contains("(\"IsActive\", \"Status\", \"Id\")", definitions[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task No_full_text_extension_is_installed_by_this_slice()
     {
         await MigrateAsync();

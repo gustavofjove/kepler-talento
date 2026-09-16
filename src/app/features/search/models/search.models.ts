@@ -39,6 +39,8 @@ export interface SearchResult {
   hasPrimaryCv: boolean;
   primaryCvDocumentId?: string;
   updatedAt: string;
+  /** False only when removed candidates were explicitly requested (KTL-18). */
+  isActive: boolean;
 }
 
 /** Defaults the server applies; mirrored here so the UI can show them before it asks. */

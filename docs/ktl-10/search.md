@@ -4,6 +4,12 @@ Filtering, counting, ordering and paging are owned by PostgreSQL. The browser no
 a candidate collection, and no longer loads a candidate's aggregate in order to decide whether
 that candidate matches.
 
+> **KTL-18.** The candidate list now shares this endpoint and contract rather than having its
+> own. Search gained optional `sortField`/`sortDirection` (`updatedAt`, `lastName`, `status`,
+> with the identifier always the final tie-breaker) and `includeInactive`, which requires
+> `candidates.delete`; each item gained `isActive`. Requests that omit them behave as described
+> below. See [`docs/ktl-18/list-contract.md`](../ktl-18/list-contract.md).
+
 ## Endpoints
 
 > The preset routes below describe KTL-10. Their permissions and contract changed in KTL-14;

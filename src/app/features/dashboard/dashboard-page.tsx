@@ -1,71 +1,125 @@
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { useCandidates } from '../candidates/use-candidates';
+import { usePermission, useServices } from '../../core/di/services-context';
+import { formatNumber } from '../../core/i18n/format';
+import type { CandidateListQuery } from '../candidates/models/candidate.models';
 
+interface Counts {
+  active: number;
+  withoutCv: number;
+  withPrimaryCv: number;
+  /** Absent for actors who may not see removed candidates. */
+  inactive?: number;
+}
+
+const COUNT_QUERY: CandidateListQuery = {
+  page: 1,
+  pageSize: 1,
+  sortField: 'updatedAt',
+  sortDirection: 'desc',
+  text: '',
+  status: '',
+  hasCv: '',
+  includeInactive: false,
+};
+
+/**
+ * Operational counts, taken from the server's totals (KTL-18).
+ *
+ * Each figure is the `totalCount` of a one-row search, so no candidate list reaches the
+ * browser to be counted. "Pendientes de revisión" and "Recibidos este mes" were removed: the
+ * search contract has no review-date or received-date filter, and computing them used to
+ * mean downloading every candidate's retention metadata.
+ */
 export function DashboardPage() {
-  // These counts are cheap enough that plain in-render computation beats
-  // memoising with stale-dep risk.
-  const candidateService = useCandidates();
+  const { candidateService } = useServices();
+  const { t } = useTranslation();
+  const canSeeRemoved = usePermission('candidates.delete');
+  const [counts, setCounts] = useState<Counts | null>(null);
+  const [failed, setFailed] = useState(false);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const month = today.slice(0, 7);
+  useEffect(() => {
+    const controller = new AbortController();
+    const total = (patch: Partial<CandidateListQuery>) =>
+      candidateService
+        .listPage({ ...COUNT_QUERY, ...patch }, controller.signal)
+        .then((page) => page.totalCount);
+    Promise.all([
+      total({}),
+      total({ hasCv: 'no' }),
+      total({ hasCv: 'yes' }),
+      canSeeRemoved ? total({ includeInactive: true }) : Promise.resolve(undefined),
+    ])
+      .then(([active, withoutCv, withPrimaryCv, everyone]) => {
+        if (!controller.signal.aborted) {
+          setCounts({
+            active,
+            withoutCv,
+            withPrimaryCv,
+            inactive: everyone === undefined ? undefined : everyone - active,
+          });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setFailed(true);
+        }
+      });
+    return () => controller.abort();
+  }, [candidateService, canSeeRemoved]);
 
-  const active = candidateService.list();
-  const activeCount = active.length;
-  const inactiveCount = candidateService.list(true).filter((c) => !c.isActive).length;
-  const withoutCv = active.filter((c) => c.documentCount === 0).length;
-  const pendingReview = active.filter((c) => c.reviewDueAt && c.reviewDueAt < today).length;
-  const withPrimaryCv = active.filter((c) => c.primaryDocumentId).length;
-  const receivedThisMonth = active.filter((c) => c.receivedAt.startsWith(month)).length;
+  const value = (count: number | undefined) =>
+    count === undefined ? (failed ? '—' : '…') : formatNumber(count);
 
   return (
     <section className="page">
       <div className="toolbar">
         <div className="page-header">
-          <h1>Dashboard</h1>
-          <p className="muted">Resumen operativo de candidatos y CVs.</p>
+          <h1>{t('dashboard.title')}</h1>
+          <p className="muted">{t('dashboard.subtitle')}</p>
         </div>
         <Link className="button" to="/app/candidates/new">
-          Alta de candidato
+          {t('candidate.new')}
         </Link>
       </div>
-      <div className="grid four">
-        <article className="panel kpi-card">
-          <span className="kpi-label">Candidatos activos</span>
-          <span className="kpi-value">{activeCount}</span>
+      {failed ? (
+        <p className="empty-state" data-testid="dashboard-error">
+          {t('dashboard.error')}
+        </p>
+      ) : null}
+      <div className="grid three">
+        <article className="panel kpi-card" data-testid="kpi-active">
+          <span className="kpi-label">{t('dashboard.kpi.active')}</span>
+          <span className="kpi-value">{value(counts?.active)}</span>
         </article>
-        <article className="panel kpi-card">
-          <span className="kpi-label">Sin CV adjunto</span>
-          <span className="kpi-value">{withoutCv}</span>
+        <article className="panel kpi-card" data-testid="kpi-without-cv">
+          <span className="kpi-label">{t('dashboard.kpi.withoutCv')}</span>
+          <span className="kpi-value">{value(counts?.withoutCv)}</span>
         </article>
-        <article className="panel kpi-card">
-          <span className="kpi-label">Pendientes de revisión</span>
-          <span className="kpi-value">{pendingReview}</span>
-        </article>
-        <article className="panel kpi-card">
-          <span className="kpi-label">Recibidos este mes</span>
-          <span className="kpi-value">{receivedThisMonth}</span>
+        <article className="panel kpi-card" data-testid="kpi-with-primary-cv">
+          <span className="kpi-label">{t('dashboard.kpi.withPrimaryCv')}</span>
+          <span className="kpi-value">{value(counts?.withPrimaryCv)}</span>
         </article>
       </div>
 
       <div className="grid three">
         <article className="panel stack">
-          <h2>Centro operativo</h2>
-          <p className="muted">Accesos rápidos para las tareas diarias de RRHH.</p>
+          <h2>{t('dashboard.shortcuts.title')}</h2>
+          <p className="muted">{t('dashboard.shortcuts.subtitle')}</p>
           <Link className="button secondary" to="/app/candidates">
-            Gestionar listado
+            {t('dashboard.shortcuts.list')}
           </Link>
           <Link className="button secondary" to="/app/search">
-            Búsqueda avanzada
+            {t('candidate.search')}
           </Link>
         </article>
-        <article className="panel kpi-card">
-          <span className="kpi-label">Inactivos</span>
-          <span className="kpi-value">{inactiveCount}</span>
-        </article>
-        <article className="panel kpi-card">
-          <span className="kpi-label">Con CV principal</span>
-          <span className="kpi-value">{withPrimaryCv}</span>
-        </article>
+        {canSeeRemoved ? (
+          <article className="panel kpi-card" data-testid="kpi-inactive">
+            <span className="kpi-label">{t('dashboard.kpi.inactive')}</span>
+            <span className="kpi-value">{value(counts?.inactive)}</span>
+          </article>
+        ) : null}
       </div>
     </section>
   );

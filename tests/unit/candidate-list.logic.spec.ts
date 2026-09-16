@@ -1,95 +1,116 @@
+import { i18n } from '../../src/app/core/i18n/i18n';
+import * as logic from '../../src/app/features/candidates/pages/candidate-list.logic';
 import {
   buildFilterChips,
   type CandidateFilters,
+  DEFAULT_PAGE_SIZE,
   EMPTY_FILTERS,
-  filterCandidates,
+  nextSort,
+  readListView,
   removeFilter,
+  toListQuery,
+  writeListView,
 } from '../../src/app/features/candidates/pages/candidate-list.logic';
-import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
-import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
-import { createCandidateTestBed } from './support/candidate-doubles';
 
-/** Mirrors what the page does before filtering: scope by active flag. */
-const scope = (service: CandidateService, filters: CandidateFilters) =>
-  service.list(filters.includeInactive);
+const t = i18n.t.bind(i18n);
 
 describe('candidate list logic', () => {
-  let candidateService: CandidateService;
-
-  beforeEach(async () => {
-    localStorage.clear();
-    ({ service: candidateService } = createCandidateTestBed());
-    await candidateService.ensureLoaded();
-
-    await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Ana',
-      lastName: 'Rios',
-      status: 'available',
-      email: 'ana@example.com',
-    });
-    await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Bea',
-      lastName: 'Mora',
-      status: 'new',
-      email: 'bea@example.com',
-    });
-    const inactive = await candidateService.create({
-      ...EMPTY_CANDIDATE_DRAFT,
-      firstName: 'Carla',
-      lastName: 'Gil',
-      status: 'hired',
-      email: 'carla@example.com',
-    });
-    await candidateService.deactivate(inactive.id);
+  it('keeps no candidate filtering, sorting or paging helper', () => {
+    const exported = Object.keys(logic);
+    for (const removed of ['filterCandidates', 'sortCandidates', 'paginate', 'totalPages']) {
+      expect(exported).not.toContain(removed);
+    }
   });
 
-  it('filters by text and status', () => {
-    const filters: CandidateFilters = {
-      ...EMPTY_FILTERS,
-      textFilter: 'ana',
-      statusFilter: 'available',
-    };
+  describe('URL state', () => {
+    it('reads a URL with page, sort and filters into that view', () => {
+      const view = readListView(
+        new URLSearchParams(
+          'page=3&pageSize=50&sort=lastName&dir=desc&status=hired&cv=yes&inactive=1',
+        ),
+      );
 
-    const rows = filterCandidates(scope(candidateService, filters), filters);
+      expect(view).toEqual({
+        filters: {
+          textFilter: '',
+          statusFilter: 'hired',
+          hasCvFilter: 'yes',
+          includeInactive: true,
+        },
+        sort: { field: 'lastName', direction: 'desc' },
+        page: 3,
+        pageSize: 50,
+      });
+    });
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0].firstName).toBe('Ana');
+    it('omits every default, so the plain list URL stays empty', () => {
+      const view = readListView(new URLSearchParams());
+
+      expect(writeListView(view).toString()).toBe('');
+      expect(view.pageSize).toBe(DEFAULT_PAGE_SIZE);
+      expect(view.sort).toEqual({ field: 'updatedAt', direction: 'desc' });
+    });
+
+    it('round-trips a non-default view', () => {
+      const params = 'status=new&cv=no&sort=status&page=2';
+      expect(writeListView(readListView(new URLSearchParams(params))).toString()).toBe(params);
+    });
+
+    it.each(['0', '-2', 'abc', '1.5', ''])(
+      'falls back to page 1 for a malformed page "%s"',
+      (page) => {
+        expect(readListView(new URLSearchParams({ page })).page).toBe(1);
+      },
+    );
+
+    it.each(['0', '101', 'x'])('falls back to the default page size for "%s"', (pageSize) => {
+      expect(readListView(new URLSearchParams({ pageSize })).pageSize).toBe(DEFAULT_PAGE_SIZE);
+    });
+
+    it('ignores a status or CV value that is not one', () => {
+      const view = readListView(new URLSearchParams('status=archived&cv=maybe'));
+      expect(view.filters.statusFilter).toBe('');
+      expect(view.filters.hasCvFilter).toBe('');
+    });
+
+    it('keeps an unknown sort field so the API can refuse it', () => {
+      expect(toListQuery(readListView(new URLSearchParams('sort=email'))).sortField).toBe('email');
+    });
+
+    it('never writes the free-text filter to the URL', () => {
+      const view = readListView(new URLSearchParams(), 'Marta Ruiz');
+
+      expect(writeListView(view).toString()).not.toContain('Marta');
+      expect(toListQuery(view).text).toBe('Marta Ruiz');
+    });
   });
 
-  it('excludes inactive by default and includes them when selected', () => {
-    const withoutInactive = filterCandidates(scope(candidateService, EMPTY_FILTERS), EMPTY_FILTERS);
-    expect(withoutInactive.some((item) => item.lastName === 'Gil')).toBe(false);
-
-    const filters: CandidateFilters = { ...EMPTY_FILTERS, includeInactive: true };
-    const withInactive = filterCandidates(scope(candidateService, filters), filters);
-    expect(withInactive.some((item) => item.lastName === 'Gil')).toBe(true);
+  it('flips direction on the same field and uses the natural direction on a new one', () => {
+    expect(nextSort({ field: 'lastName', direction: 'asc' }, 'lastName').direction).toBe('desc');
+    expect(nextSort({ field: 'lastName', direction: 'asc' }, 'updatedAt')).toEqual({
+      field: 'updatedAt',
+      direction: 'desc',
+    });
   });
 
-  it('builds active filter chips and removes them correctly', () => {
+  it('builds translated filter chips with the status label and removes them correctly', () => {
     let filters: CandidateFilters = {
       textFilter: 'ana',
-      statusFilter: 'available',
+      statusFilter: 'in_process',
       hasCvFilter: 'no',
       includeInactive: true,
     };
 
-    expect(buildFilterChips(filters).map((chip) => chip.key)).toEqual([
-      'text',
-      'status',
-      'hasCv',
-      'includeInactive',
+    expect(buildFilterChips(filters, t)).toEqual([
+      { key: 'text', label: 'Texto: ana' },
+      { key: 'status', label: 'Estado: En proceso' },
+      { key: 'hasCv', label: 'CV: Sin CV' },
+      { key: 'includeInactive', label: 'Incluye inactivos' },
     ]);
 
-    filters = removeFilter(filters, 'text');
-    filters = removeFilter(filters, 'status');
-    filters = removeFilter(filters, 'hasCv');
-    filters = removeFilter(filters, 'includeInactive');
-
-    expect(filters.textFilter).toBe('');
-    expect(filters.statusFilter).toBe('');
-    expect(filters.hasCvFilter).toBe('');
-    expect(filters.includeInactive).toBe(false);
+    for (const key of ['text', 'status', 'hasCv', 'includeInactive']) {
+      filters = removeFilter(filters, key);
+    }
+    expect(filters).toEqual(EMPTY_FILTERS);
   });
 });

@@ -20,6 +20,7 @@ describe('ExportService', () => {
         status: 'available',
         hasPrimaryCv: true,
         updatedAt: '2026-07-01T10:00:00Z',
+        isActive: true,
       },
     ];
 

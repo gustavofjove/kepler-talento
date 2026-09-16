@@ -8,9 +8,12 @@ import type {
   CandidateExperience,
   CandidateLanguage,
   CandidateProgram,
+  CandidateListPage,
+  CandidateListQuery,
   CandidateSkill,
-  CandidateSummary,
 } from '../../../src/app/features/candidates/models/candidate.models';
+
+const SORT_FIELDS = ['updatedAt', 'lastName', 'status'];
 
 /**
  * In-memory stand-in for the candidate API, so service and component tests exercise the
@@ -25,7 +28,8 @@ export class FakeCandidateApi implements CandidateGateway {
   /** When set, every call rejects with it — used to drive the failure branch. */
   failure: Error | null = null;
   getCalls: string[] = [];
-  listCalls = 0;
+  /** Every page request, in order, so a spec can assert "one request per view". */
+  listQueries: CandidateListQuery[] = [];
 
   seed(candidate: Partial<Candidate> & { id: string }): Candidate {
     const stored = { ...blank(candidate.id), ...candidate };
@@ -33,12 +37,64 @@ export class FakeCandidateApi implements CandidateGateway {
     return stored;
   }
 
-  async list(includeInactive: boolean): Promise<CandidateSummary[]> {
+  /**
+   * Stands in for the server's paged search: it filters, orders (with the identifier as the
+   * tie-breaker) and pages here so that the page under test does none of it. It refuses an
+   * unknown sort field and removed candidates without the option, as the API does.
+   */
+  async listPage(query: CandidateListQuery): Promise<CandidateListPage> {
     this.reject();
-    this.listCalls += 1;
-    return [...this.candidates.values()]
-      .filter((candidate) => includeInactive || candidate.isActive)
-      .map(toSummary);
+    this.listQueries.push(query);
+    if (!SORT_FIELDS.includes(query.sortField)) {
+      throw new AppError('VALIDATION_ERROR', 'El campo de ordenación no es válido.');
+    }
+    const text = query.text.toLowerCase();
+    const matching = [...this.candidates.values()].filter(
+      (candidate) =>
+        (query.includeInactive || candidate.isActive) &&
+        (!query.status || candidate.status === query.status) &&
+        (!query.hasCv || (query.hasCv === 'yes') === Boolean(candidate.primaryDocumentId)) &&
+        (!text ||
+          [
+            candidate.firstName,
+            candidate.lastName,
+            candidate.email,
+            candidate.phone,
+            candidate.notes,
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(text)),
+    );
+    const key = (candidate: Candidate): string =>
+      query.sortField === 'lastName'
+        ? `${candidate.lastName}${candidate.firstName}`
+        : query.sortField === 'status'
+          ? candidate.status
+          : candidate.updatedAt;
+    matching.sort((a, b) => {
+      const order = key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
+      const directed = query.sortDirection === 'asc' ? order : -order;
+      return directed || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    });
+    const start = (query.page - 1) * query.pageSize;
+    return {
+      items: matching.slice(start, start + query.pageSize).map((candidate) => ({
+        candidateId: candidate.id,
+        firstName: candidate.firstName,
+        lastName: candidate.lastName,
+        phone: candidate.phone,
+        email: candidate.email,
+        status: candidate.status,
+        hasPrimaryCv: Boolean(candidate.primaryDocumentId),
+        primaryCvDocumentId: candidate.primaryDocumentId,
+        updatedAt: candidate.updatedAt,
+        isActive: candidate.isActive,
+      })),
+      page: query.page,
+      pageSize: query.pageSize,
+      totalCount: matching.length,
+    };
   }
 
   async get(id: string): Promise<Candidate> {
@@ -157,27 +213,6 @@ export interface CandidateTestBed {
 
 export function createCandidateTestBed(api = new FakeCandidateApi()): CandidateTestBed {
   return { service: new CandidateService(api), api };
-}
-
-/** A candidate service whose list has already loaded, for component tests. */
-export async function loadedCandidateService(
-  api = new FakeCandidateApi(),
-): Promise<CandidateService> {
-  const service = new CandidateService(api);
-  await service.ensureLoaded();
-  return service;
-}
-
-function toSummary({
-  languages: _languages,
-  programs: _programs,
-  education: _education,
-  experience: _experience,
-  skills: _skills,
-  documents: _documents,
-  ...summary
-}: Candidate): CandidateSummary {
-  return summary;
 }
 
 function clone(candidate: Candidate): Candidate {

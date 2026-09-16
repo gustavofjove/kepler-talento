@@ -6,17 +6,17 @@ import {
   CandidateEducation,
   CandidateExperience,
   CandidateLanguage,
+  CandidateListPage,
+  CandidateListQuery,
   CandidateLoadStatus,
   CandidateProgram,
   CandidateSkill,
-  CandidateSummary,
 } from '../models/candidate.models';
 import type { CandidateGateway } from './candidate.api';
 
 export interface CandidateState {
+  /** `error` once an aggregate load has failed for a reason other than "not found". */
   status: CandidateLoadStatus;
-  /** Core fields for every candidate the list endpoint returned. */
-  summaries: CandidateSummary[];
   /** Complete aggregates, by identifier, for the candidates that have been opened. */
   aggregates: Record<string, Candidate>;
   /**
@@ -33,24 +33,23 @@ export interface CandidateState {
 /**
  * Candidate records, owned by the API.
  *
- * This is a read-through aggregate cache. `find(id)` and `list()` stay synchronous, so
- * the consuming services and screens keep their existing shape, but they read a load
- * state rather than a browser blob: nothing about a candidate is stored on the device.
+ * This is a per-identifier aggregate cache and nothing wider. Since KTL-18 it holds no
+ * whole-table list: the candidate list asks the API for one page at a time through
+ * `listPage`, and filtering, sorting and paging happen in PostgreSQL. No cache here is the
+ * means by which a screen filters, sorts or pages.
  *
- * The gap that leaves is real and is handled rather than papered over. `find(id)`
- * returning `undefined` now means "not loaded yet" as well as "no such candidate", so
- * `status` is exposed alongside the data, `ensureLoaded(id)` is idempotent and shares an
- * in-flight promise per identifier, and the consumer services call it before they read.
+ * `find(id)` stays synchronous so the consuming services and screens keep their shape.
+ * `find(id)` returning `undefined` means "not loaded yet" as well as "no such candidate", so
+ * `aggregateStatus` separates them, and `ensureAggregate(id)` is idempotent and shares an
+ * in-flight promise per identifier.
  */
 export class CandidateService {
   readonly state = signal<CandidateState>({
     status: 'idle',
-    summaries: [],
     aggregates: {},
     missing: [],
   });
 
-  private listInFlight: Promise<void> | null = null;
   private readonly aggregatesInFlight = new Map<string, Promise<void>>();
 
   constructor(private readonly api: CandidateGateway) {}
@@ -63,21 +62,18 @@ export class CandidateService {
     return this.state().error;
   }
 
-  /** Loads the candidate list once. Repeated calls while a load is in flight share it. */
-  ensureLoaded(): Promise<void> {
-    if (this.state().status === 'loaded') {
-      return Promise.resolve();
-    }
-    this.listInFlight ??= this.loadList().finally(() => {
-      this.listInFlight = null;
-    });
-    return this.listInFlight;
+  /** One page of the candidate list. Not cached: the page is the screen's state, not ours. */
+  listPage(query: CandidateListQuery, signal?: AbortSignal): Promise<CandidateListPage> {
+    return this.api.listPage(query, signal);
   }
 
-  async reload(): Promise<void> {
-    this.listInFlight = null;
-    this.state.set({ ...this.state(), status: 'idle' });
-    await this.ensureLoaded();
+  /**
+   * Forgets every cached aggregate, so the next reader loads current data. Used after work
+   * that changes candidates outside this service, such as an import.
+   */
+  invalidate(): void {
+    this.aggregatesInFlight.clear();
+    this.state.set({ status: 'idle', aggregates: {}, missing: [] });
   }
 
   /**
@@ -100,19 +96,6 @@ export class CandidateService {
     return request;
   }
 
-  /**
-   * Loads every listed candidate's aggregate.
-   *
-   * Only the advanced search uses this, because searching over languages, programs and
-   * skills needs the collections the list endpoint deliberately omits. It is a stopgap
-   * with a known cost — one request per candidate — and it is superseded by KTL-10, which
-   * moves search to the server where it belongs. It is not on any screen's load path.
-   */
-  async ensureAllAggregates(): Promise<void> {
-    await this.ensureLoaded();
-    await Promise.all(this.state().summaries.map((summary) => this.ensureAggregate(summary.id)));
-  }
-
   /** A synchronous read of the cache. `undefined` means "not loaded" or "no such candidate". */
   find(id: string): Candidate | undefined {
     return this.state().aggregates[id];
@@ -131,11 +114,6 @@ export class CandidateService {
       return 'missing';
     }
     return state.status === 'error' ? 'error' : 'loading';
-  }
-
-  list(includeInactive = false): CandidateSummary[] {
-    const summaries = this.state().summaries;
-    return includeInactive ? summaries : summaries.filter((candidate) => candidate.isActive);
   }
 
   async create(draft: CandidateDraft): Promise<Candidate> {
@@ -187,14 +165,18 @@ export class CandidateService {
   }
 
   /**
-   * Sequential per-candidate calls, counting the ones that actually changed — today's
-   * contract. A refusal on one candidate leaves the rest applied, and the count the UI
-   * reports is the count that really happened.
+   * Sequential per-candidate calls, counting the ones that actually changed. A refusal on
+   * one candidate leaves the rest applied, and the count the UI reports is the count that
+   * really happened.
+   *
+   * The list rows carry no version, so each candidate's aggregate is loaded first and its
+   * version used — one read per selected row, bounded by the page the user selected on.
    */
   private async setActiveMany(ids: string[], isActive: boolean): Promise<number> {
     let changed = 0;
     for (const id of ids) {
-      const before = this.summaryOf(id);
+      await this.ensureAggregate(id);
+      const before = this.find(id);
       if (!before || before.isActive === isActive) {
         continue;
       }
@@ -207,65 +189,23 @@ export class CandidateService {
     return changed;
   }
 
-  /** Replaces the cached summary and aggregate from a response, never from a local guess. */
+  /** Replaces the cached aggregate from a response, never from a local guess. */
   private absorb(candidate: Candidate): Candidate {
     const current = this.state();
-    const summary = toSummary(candidate);
-    const summaries = current.summaries.some((item) => item.id === candidate.id)
-      ? current.summaries.map((item) => (item.id === candidate.id ? summary : item))
-      : [...current.summaries, summary];
     this.state.set({
       ...current,
-      summaries,
       aggregates: { ...current.aggregates, [candidate.id]: candidate },
     });
     return candidate;
   }
 
-  /**
-   * The version a write must carry. The aggregate is preferred because a screen that
-   * opened a candidate holds the newer token; the summary is the fallback for the list
-   * screen's bulk actions, which never load aggregates.
-   */
+  /** The version a write must carry: the one on the aggregate the caller opened. */
   private versionOf(id: string): number {
-    const candidate = this.state().aggregates[id] ?? this.summaryOf(id);
+    const candidate = this.state().aggregates[id];
     if (!candidate) {
       throw new AppError('NOT_FOUND', 'Candidato no encontrado.');
     }
     return candidate.version;
-  }
-
-  private summaryOf(id: string): CandidateSummary | undefined {
-    return this.state().summaries.find((candidate) => candidate.id === id);
-  }
-
-  private require(id: string): Candidate {
-    const candidate = this.find(id);
-    if (!candidate) {
-      throw new AppError('NOT_FOUND', 'Candidato no encontrado.');
-    }
-    return candidate;
-  }
-
-  private async loadList(): Promise<void> {
-    this.state.set({ ...this.state(), status: 'loading', error: undefined });
-    try {
-      // Inactive candidates are fetched too: the list screen offers "incluir inactivos"
-      // as a filter over what it already holds, and a removed candidate must stay
-      // reachable so it can be restored.
-      const summaries = await this.api.list(true);
-      this.state.set({ ...this.state(), status: 'loaded', summaries, error: undefined });
-    } catch (error) {
-      // No local fallback. A stale private copy of personal data is worse than a visible
-      // failure, and this service exists to stop keeping one.
-      this.state.set({
-        status: 'error',
-        summaries: [],
-        aggregates: {},
-        missing: [],
-        error: toAppError(error),
-      });
-    }
   }
 
   private async loadAggregate(id: string): Promise<void> {
@@ -284,16 +224,4 @@ export class CandidateService {
       this.state.set({ ...this.state(), status: 'error', error: appError });
     }
   }
-}
-
-function toSummary({
-  languages: _languages,
-  programs: _programs,
-  education: _education,
-  experience: _experience,
-  skills: _skills,
-  documents: _documents,
-  ...summary
-}: Candidate): CandidateSummary {
-  return summary;
 }

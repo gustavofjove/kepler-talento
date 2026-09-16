@@ -13,7 +13,6 @@ describe('CandidateRelationsService', () => {
     localStorage.clear();
     ({ service: candidateService, api } = createCandidateTestBed());
     relations = new CandidateRelationsService(candidateService);
-    await candidateService.ensureLoaded();
     candidateId = (
       await candidateService.create({
         ...EMPTY_CANDIDATE_DRAFT,

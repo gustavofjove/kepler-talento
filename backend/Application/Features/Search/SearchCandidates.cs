@@ -14,7 +14,17 @@ namespace KeplerTalento.Application.Features.Search;
 /// asking for a thousand rows is a request it will not serve and does not quietly rewrite
 /// into one it will.
 /// </remarks>
-public sealed record SearchCandidatesQuery(SearchFiltersInput? Filters, int? Page, int? PageSize)
+/// <remarks>
+/// <paramref name="SortField"/> and <paramref name="SortDirection"/> are the wire values;
+/// they are parsed against a closed set before anything reaches the repository.
+/// </remarks>
+public sealed record SearchCandidatesQuery(
+    SearchFiltersInput? Filters,
+    int? Page,
+    int? PageSize,
+    bool IncludeInactive = false,
+    string? SortField = null,
+    string? SortDirection = null)
     : IRequest<SearchPage<CandidateSearchItem>>;
 
 public sealed class SearchCandidatesHandler(ICandidateRepository candidates, ICurrentActor actor)
@@ -28,17 +38,25 @@ public sealed class SearchCandidatesHandler(ICandidateRepository candidates, ICu
         // unauthorized caller must not be able to tell a well-formed request from a
         // malformed one, let alone reach the data.
         SearchGuards.RequireRead(actor);
+        if (request.IncludeInactive)
+        {
+            SearchGuards.RequireIncludeRemoved(actor);
+        }
 
         // Validation is collected rather than thrown at the first problem, so one refusal
         // reports everything wrong with the request.
         var issues = new List<ValidationIssue>();
         var filters = SearchFilterNormalization.TryNormalize(request.Filters, "Filters", issues);
         var (page, pageSize) = SearchPaging.Validate(request.Page, request.PageSize, issues);
+        var sort = SearchSort.Parse(request.SortField, request.SortDirection, issues);
         if (issues.Count > 0)
         {
             throw new RequestValidationException(issues);
         }
 
-        return await candidates.SearchAsync(filters, page, pageSize, cancellationToken);
+        return await candidates.SearchAsync(
+            filters,
+            new SearchOptions(page, pageSize, sort, request.IncludeInactive),
+            cancellationToken);
     }
 }

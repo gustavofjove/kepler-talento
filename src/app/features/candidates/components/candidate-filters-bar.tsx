@@ -1,35 +1,50 @@
+import { useTranslation } from 'react-i18next';
 import type { CandidateStatus } from '../models/candidate.models';
 import {
   type CandidateFilters,
   type FilterChip,
   type HasCvFilter,
   STATUS_OPTIONS,
+  statusLabel,
 } from '../pages/candidate-list.logic';
 
 interface Props {
   filters: CandidateFilters;
   chips: FilterChip[];
+  /**
+   * Whether the actor may include removed candidates. Without it the control is absent, not
+   * merely disabled: the API refuses the option for them (KTL-18 design D3).
+   */
+  canIncludeInactive: boolean;
   onPatch: (patch: Partial<CandidateFilters>) => void;
   onClear: () => void;
   onRemoveChip: (key: string) => void;
 }
 
-export function CandidateFiltersBar({ filters, chips, onPatch, onClear, onRemoveChip }: Props) {
+export function CandidateFiltersBar({
+  filters,
+  chips,
+  canIncludeInactive,
+  onPatch,
+  onClear,
+  onRemoveChip,
+}: Props) {
+  const { t } = useTranslation();
   return (
     <>
-      <div className="panel filters-bar">
+      <div className="panel filters-bar" data-testid="candidate-filters">
         <div className="field">
-          <label htmlFor="filter-text">Texto</label>
+          <label htmlFor="filter-text">{t('candidates.list.filter.text')}</label>
           <input
             id="filter-text"
             name="text"
             value={filters.textFilter}
-            placeholder="Nombre, email, teléfono"
+            placeholder={t('candidates.list.filter.textPlaceholder')}
             onChange={(event) => onPatch({ textFilter: event.target.value })}
           />
         </div>
         <div className="field">
-          <label htmlFor="filter-status">Estado</label>
+          <label htmlFor="filter-status">{t('candidates.list.filter.status')}</label>
           <select
             id="filter-status"
             name="status"
@@ -38,39 +53,41 @@ export function CandidateFiltersBar({ filters, chips, onPatch, onClear, onRemove
               onPatch({ statusFilter: event.target.value as CandidateStatus | '' })
             }
           >
-            <option value="">Todos</option>
+            <option value="">{t('candidates.list.filter.all')}</option>
             {STATUS_OPTIONS.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {statusLabel(status, t)}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label htmlFor="filter-hasCv">CV</label>
+          <label htmlFor="filter-hasCv">{t('candidates.list.filter.cv')}</label>
           <select
             id="filter-hasCv"
             name="hasCv"
             value={filters.hasCvFilter}
             onChange={(event) => onPatch({ hasCvFilter: event.target.value as HasCvFilter })}
           >
-            <option value="">Todos</option>
-            <option value="yes">Con CV</option>
-            <option value="no">Sin CV</option>
+            <option value="">{t('candidates.list.filter.all')}</option>
+            <option value="yes">{t('candidates.list.filter.withCv')}</option>
+            <option value="no">{t('candidates.list.filter.withoutCv')}</option>
           </select>
         </div>
-        <label className="inline-check">
-          <input
-            name="includeInactive"
-            type="checkbox"
-            checked={filters.includeInactive}
-            onChange={(event) => onPatch({ includeInactive: event.target.checked })}
-          />
-          Incluir inactivos
-        </label>
+        {canIncludeInactive ? (
+          <label className="inline-check">
+            <input
+              name="includeInactive"
+              type="checkbox"
+              checked={filters.includeInactive}
+              onChange={(event) => onPatch({ includeInactive: event.target.checked })}
+            />
+            {t('candidates.list.filter.includeInactive')}
+          </label>
+        ) : null}
         <div className="filters-actions">
           <button className="button secondary" type="button" onClick={onClear}>
-            Limpiar
+            {t('candidates.list.filter.clear')}
           </button>
         </div>
       </div>
@@ -78,7 +95,7 @@ export function CandidateFiltersBar({ filters, chips, onPatch, onClear, onRemove
       {chips.length ? (
         <div className="panel">
           <div className="toolbar">
-            <strong>Filtros activos</strong>
+            <strong>{t('candidates.list.filter.active')}</strong>
             <div className="form-actions">
               {chips.map((chip) => (
                 <button
@@ -87,7 +104,7 @@ export function CandidateFiltersBar({ filters, chips, onPatch, onClear, onRemove
                   key={chip.key}
                   onClick={() => onRemoveChip(chip.key)}
                 >
-                  {chip.label} ×
+                  {t('candidates.list.chip.remove', { label: chip.label })}
                 </button>
               ))}
             </div>

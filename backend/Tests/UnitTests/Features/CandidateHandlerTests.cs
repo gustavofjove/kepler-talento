@@ -557,12 +557,11 @@ public sealed class CandidateHandlerTests
 
         public Task<SearchPage<CandidateSearchItem>> SearchAsync(
             SearchFiltersValue filters,
-            int page,
-            int pageSize,
+            SearchOptions options,
             CancellationToken cancellationToken)
         {
             LastSearchFilters = filters;
-            LastSearchPaging = (page, pageSize);
+            LastSearchPaging = (options.Page, options.PageSize);
             return Task.FromResult(NextSearchPage);
         }
 

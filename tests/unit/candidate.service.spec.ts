@@ -13,8 +13,22 @@ describe('CandidateService', () => {
   beforeEach(async () => {
     localStorage.clear();
     ({ service, api } = createCandidateTestBed());
-    await service.ensureLoaded();
   });
+
+  const listQuery = {
+    page: 1,
+    pageSize: 25,
+    sortField: 'updatedAt',
+    sortDirection: 'desc' as const,
+    text: '',
+    status: '' as const,
+    hasCv: '' as const,
+    includeInactive: false,
+  };
+  const listedIds = async (includeInactive = false) =>
+    (await service.listPage({ ...listQuery, includeInactive })).items.map(
+      (item) => item.candidateId,
+    );
 
   it('creates a candidate with audit timestamps and empty relations', async () => {
     const candidate = await service.create({
@@ -42,11 +56,46 @@ describe('CandidateService', () => {
     });
     await service.deactivate(inactive.id);
 
-    const visible = service.list().map((candidate) => candidate.id);
+    const visible = await listedIds();
 
     expect(visible).toContain(active.id);
     expect(visible).not.toContain(inactive.id);
-    expect(service.list(true).map((candidate) => candidate.id)).toContain(inactive.id);
+    expect(await listedIds(true)).toContain(inactive.id);
+  });
+
+  it('asks the API for exactly the page it was given and caches nothing from it', async () => {
+    api.seed({ id: 'c1', firstName: 'Ana', lastName: 'Gil' });
+    const query = {
+      ...listQuery,
+      page: 2,
+      pageSize: 50,
+      sortField: 'lastName',
+      sortDirection: 'asc' as const,
+    };
+
+    await service.listPage(query);
+
+    expect(api.listQueries).toEqual([query]);
+    expect(service.find('c1')).toBeUndefined();
+    expect(api.getCalls).toEqual([]);
+    expect(Object.keys(service.state())).not.toContain('summaries');
+  });
+
+  it('has no whole-table loaders', () => {
+    const surface = service as unknown as Record<string, unknown>;
+    for (const name of ['list', 'ensureLoaded', 'ensureAllAggregates']) {
+      expect(surface[name]).toBeUndefined();
+    }
+  });
+
+  it('loads each candidate for its version before a bulk change it never opened', async () => {
+    api.seed({ id: 'c1', firstName: 'Ana', lastName: 'Gil', version: 7 });
+
+    const updated = await service.deactivateMany(['c1']);
+
+    expect(updated).toBe(1);
+    expect(api.getCalls).toEqual(['c1']);
+    expect(api.candidates.get('c1')?.isActive).toBe(false);
   });
 
   it('updates a candidate and refreshes updatedAt without losing relations', async () => {
@@ -124,7 +173,7 @@ describe('CandidateService', () => {
     await service.reactivate(candidate.id);
 
     expect(service.find(candidate.id)?.isActive).toBe(true);
-    expect(service.list().map((item) => item.id)).toContain(candidate.id);
+    expect(await listedIds()).toContain(candidate.id);
   });
 
   it('reactivates only the inactive candidates and returns updated count', async () => {
@@ -173,15 +222,25 @@ describe('CandidateService', () => {
       expect(service.find('c1')?.firstName).toBe('Ana');
     });
 
-    it('reports a failed load rather than presenting an empty list as a result', async () => {
+    it('reports a failed load rather than presenting an absent candidate', async () => {
       const { service: failing, api: failingApi } = createCandidateTestBed();
       failingApi.failure = new Error('sin conexión');
 
-      await failing.ensureLoaded();
+      await failing.ensureAggregate('c1');
 
       expect(failing.status).toBe('error');
-      expect(failing.list()).toEqual([]);
+      expect(failing.aggregateStatus('c1')).toBe('error');
       expect(failing.error?.message).toBeTruthy();
+    });
+
+    it('forgets cached aggregates when invalidated', async () => {
+      api.seed({ id: 'c1', firstName: 'Ana', lastName: 'Gil' });
+      await service.ensureAggregate('c1');
+
+      service.invalidate();
+      await service.ensureAggregate('c1');
+
+      expect(api.getCalls).toEqual(['c1', 'c1']);
     });
 
     it('leaves find() undefined for a candidate that does not exist, without failing', async () => {

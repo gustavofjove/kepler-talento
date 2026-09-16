@@ -80,15 +80,14 @@ public sealed class CandidateRepository(
 
     public async Task<SearchPage<CandidateSearchItem>> SearchAsync(
         SearchFiltersValue filters,
-        int page,
-        int pageSize,
+        SearchOptions options,
         CancellationToken cancellationToken)
     {
         var search = new CandidateSearchQuery(dbContext);
-        var matching = await search.MatchingAsync(filters, cancellationToken);
+        var matching = await search.MatchingAsync(filters, options.IncludeInactive, cancellationToken);
         var totalCount = await matching.CountAsync(cancellationToken);
-        var items = await search.Page(matching, page, pageSize).ToListAsync(cancellationToken);
-        return new SearchPage<CandidateSearchItem>(items, page, pageSize, totalCount);
+        var items = await search.Page(matching, options).ToListAsync(cancellationToken);
+        return new SearchPage<CandidateSearchItem>(items, options.Page, options.PageSize, totalCount);
     }
 
     public void Add(Candidate candidate) => dbContext.Candidates.Add(candidate);

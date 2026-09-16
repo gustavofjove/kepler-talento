@@ -2,6 +2,54 @@ export type CandidateStatus = 'new' | 'available' | 'in_process' | 'hired' | 're
 
 export type CandidateLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
+/** The closed set of fields the list and search may be ordered by (KTL-18). */
+export type CandidateSortField = 'updatedAt' | 'lastName' | 'status';
+export type CandidateSortDirection = 'asc' | 'desc';
+export type HasCvFilter = '' | 'yes' | 'no';
+
+/**
+ * One page request for the candidate list. Filtering, sorting and paging happen in
+ * PostgreSQL; the browser only states what it wants.
+ *
+ * `sortField` is typed as a string on purpose: a value read from a URL is sent as-is so an
+ * unknown field is refused by the API rather than silently replaced here.
+ */
+export interface CandidateListQuery {
+  page: number;
+  pageSize: number;
+  sortField: string;
+  sortDirection: CandidateSortDirection;
+  text: string;
+  status: CandidateStatus | '';
+  hasCv: HasCvFilter;
+  includeInactive: boolean;
+}
+
+/**
+ * A list row: the minimal search projection. No notes, consent, retention, location or
+ * source — the list never rendered them, so they no longer cross the network for it.
+ */
+export interface CandidateListItem {
+  candidateId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  status: CandidateStatus;
+  hasPrimaryCv: boolean;
+  primaryCvDocumentId?: string | null;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+/** One page plus the server's count. Page navigation reads `totalCount`, never `items.length`. */
+export interface CandidateListPage {
+  items: CandidateListItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
 /**
  * A candidate as the list endpoint returns it: core fields, no collections.
  *
