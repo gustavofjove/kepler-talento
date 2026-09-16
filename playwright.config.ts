@@ -8,12 +8,12 @@ export default defineConfig({
   // stack, which must be up (`docker compose up`). Never 4200: that is nginx serving the
   // image's prebuilt bundle.
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: 'http://127.0.0.1:4300',
     trace: 'on-first-retry',
   },
   webServer: {
     command: 'npm start',
-    url: 'http://127.0.0.1:5173',
+    url: 'http://127.0.0.1:4300',
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,
   },
