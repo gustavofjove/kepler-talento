@@ -1,4 +1,5 @@
 using KeplerTalento.Application.Abstractions.Documents;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Documents;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Persistence;

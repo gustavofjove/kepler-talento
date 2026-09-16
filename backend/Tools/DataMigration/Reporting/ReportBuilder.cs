@@ -1,3 +1,4 @@
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Operations;
 using KeplerTalento.Tools.DataMigration.Export;
 using KeplerTalento.Tools.DataMigration.Loading;

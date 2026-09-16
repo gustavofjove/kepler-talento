@@ -95,6 +95,42 @@ public sealed class ProjectDependencyTests
             path => File.ReadAllText(path).Contains("KeplerTalento.Infrastructure", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// KTL-17 (design D1). The row semantics were moved into Application so the operator
+    /// migration and the API import share one definition of "rejected with a reason code".
+    /// A copy reintroduced under Tools would drift silently, because neither side would fail.
+    /// </summary>
+    [Theory]
+    [InlineData("RowProblem")]
+    [InlineData("StructuralProblem")]
+    [InlineData("RowOutcome")]
+    [InlineData("LoadResult")]
+    [InlineData("UnmatchedTargetRecord")]
+    [InlineData("CatalogResolution")]
+    [InlineData("ResolutionStep")]
+    [InlineData("UnresolvedValue")]
+    [InlineData("CatalogResolver")]
+    public void Shared_row_types_are_not_defined_under_tools(string typeName)
+    {
+        var declaration = new System.Text.RegularExpressions.Regex(
+            $@"\b(class|record|struct|enum|interface)\s+(struct\s+)?{typeName}\b");
+        var offenders = Directory
+            .EnumerateFiles(Path.Combine(BackendRoot, "Tools"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(path => declaration.IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(BackendRoot, path))
+            .ToArray();
+
+        Assert.Empty(offenders);
+        Assert.Equal(
+            "KeplerTalento.Application.Import.Rows",
+            typeof(KeplerTalento.Application.Import.Rows.LoadResult).Assembly
+                .GetTypes()
+                .Single(type => type.Name == typeName && type.DeclaringType is null)
+                .Namespace);
+    }
+
     [Fact]
     public void Deliberately_invalid_fixture_is_rejected()
     {

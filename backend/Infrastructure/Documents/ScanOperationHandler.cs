@@ -13,8 +13,10 @@ public sealed class ScanOperationHandler(
     ApplicationDbContext dbContext,
     IDocumentStorage storage,
     IMalwareScanner scanner,
-    IDocumentRepository documents)
+    IDocumentRepository documents) : KeplerTalento.Infrastructure.Operations.IOperationHandler
 {
+    public string Type => "document.scan";
+
     public async Task<ScanOperationOutcome> HandleAsync(Operation operation, CancellationToken cancellationToken)
     {
         if (!TryGetDocumentId(operation.IdempotencyKey, out var documentId)) return new(false, "scan.document.invalid");

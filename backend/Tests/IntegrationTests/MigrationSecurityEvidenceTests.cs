@@ -1,4 +1,5 @@
 using System.Reflection;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Operations;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Persistence;
@@ -268,8 +269,24 @@ public sealed class MigrationSecurityEvidenceTests(PostgreSqlFixture database)
         Assert.NotEmpty(endpointTypes);
         Assert.DoesNotContain(
             endpointTypes,
-            name => name.Contains("Migrat", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("Import", StringComparison.OrdinalIgnoreCase));
+            name => name.Contains("Migrat", StringComparison.OrdinalIgnoreCase));
+
+        // KTL-17 adds the candidate import on purpose: a permission-guarded, scanned, row-limited
+        // upload that shares the migration's row semantics through Application — not the
+        // operator's Access migration. So one import surface is allowed, by name, and the API
+        // assembly must still not reach the migration tool in any way.
+        Assert.All(
+            typeof(DevelopmentActor).Assembly.GetTypes()
+                .Where(type => !type.IsNested
+                    && type.Namespace?.StartsWith("KeplerTalento.Web.Features", StringComparison.Ordinal) == true
+                    && type.Name.Contains("Import", StringComparison.OrdinalIgnoreCase))
+                .Select(type => type.FullName),
+            name => Assert.Equal("KeplerTalento.Web.Features.Import.ImportEndpoints", name));
+        Assert.DoesNotContain(
+            typeof(DevelopmentActor).Assembly.GetReferencedAssemblies(),
+            assembly => assembly.Name is not null
+                && (assembly.Name.Contains("DataMigration", StringComparison.OrdinalIgnoreCase)
+                    || assembly.Name.Contains("ktl-migrate", StringComparison.OrdinalIgnoreCase)));
     }
 
     [Fact]
@@ -295,7 +312,7 @@ public sealed class MigrationSecurityEvidenceTests(PostgreSqlFixture database)
     {
         // The control that keeps values out of the report is structural: there is no
         // property for one. This fails if somebody adds a convenient "Value" alongside.
-        var properties = typeof(KeplerTalento.Tools.DataMigration.Validation.RowProblem)
+        var properties = typeof(RowProblem)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Select(property => property.Name)
             .ToList();

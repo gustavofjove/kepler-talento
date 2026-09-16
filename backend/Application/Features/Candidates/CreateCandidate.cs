@@ -52,7 +52,34 @@ public sealed class CreateCandidateHandler(
         CancellationToken cancellationToken)
     {
         CandidateGuards.RequireCreate(actor);
-        var now = DateTimeOffset.UtcNow;
+        var candidate = CandidateFactory.Create(request, DateTimeOffset.UtcNow);
+
+        candidates.Add(candidate);
+        var outcome = await candidates.SaveAsync(
+            CandidateAuditEvents.Created,
+            candidate.Id.ToString("N"),
+            cancellationToken);
+        if (outcome != CandidateSaveOutcome.Saved)
+        {
+            throw CandidateGuards.ToException(outcome);
+        }
+        return await CandidateProjection.ToResponseAsync(
+            candidate,
+            [],
+            new CandidateCatalogLookup(catalogs),
+            cancellationToken);
+    }
+}
+
+/// <summary>
+/// Builds a new candidate from a validated create command. The single construction path for a
+/// candidate the application creates: the create endpoint and the KTL-17 import commit both
+/// go through it, so an imported candidate can never be assembled under weaker rules.
+/// </summary>
+public static class CandidateFactory
+{
+    public static Candidate Create(CreateCandidateCommand request, DateTimeOffset now)
+    {
         var candidate = new Candidate(
             Guid.CreateVersion7(),
             request.FirstName.Trim(),
@@ -75,20 +102,6 @@ public sealed class CreateCandidateHandler(
         CandidateDates.TryFromWire(request.ConsentAt, out var consentAt);
         CandidateDates.TryFromWire(request.ReviewDueAt, out var reviewDueAt);
         candidate.SetConsent(receivedAt, consentAt, reviewDueAt, now);
-
-        candidates.Add(candidate);
-        var outcome = await candidates.SaveAsync(
-            CandidateAuditEvents.Created,
-            candidate.Id.ToString("N"),
-            cancellationToken);
-        if (outcome != CandidateSaveOutcome.Saved)
-        {
-            throw CandidateGuards.ToException(outcome);
-        }
-        return await CandidateProjection.ToResponseAsync(
-            candidate,
-            [],
-            new CandidateCatalogLookup(catalogs),
-            cancellationToken);
+        return candidate;
     }
 }

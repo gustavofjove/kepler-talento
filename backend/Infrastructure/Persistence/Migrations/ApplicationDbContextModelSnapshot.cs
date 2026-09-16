@@ -797,6 +797,195 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Import.ImportBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorExternalKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("ClosedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CommittedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FailureDetail")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("FilePurgedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LoadedRows")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OperationAttempt")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("RejectedRows")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RowCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("ScannedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SkippedRows")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("UnresolvedValuesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("UnresolvedValues");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("ValidatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("Sha256")
+                        .HasDatabaseName("IX_ADM_ImportBatches_Sha256");
+
+                    b.HasIndex("StorageKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_ImportBatches_StorageKey");
+
+                    b.HasIndex("CreatedAtUtc", "Id")
+                        .IsDescending()
+                        .HasDatabaseName("IX_ADM_ImportBatches_CreatedAtUtc_Id");
+
+                    b.HasIndex("State", "ClosedAtUtc")
+                        .HasDatabaseName("IX_ADM_ImportBatches_State_ClosedAtUtc");
+
+                    b.ToTable("ADM_ImportBatches", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_Counts", "\"LoadedRows\" >= 0 AND \"RejectedRows\" >= 0 AND \"SkippedRows\" >= 0 AND \"OperationAttempt\" >= 0 AND (\"RowCount\" IS NULL AND \"LoadedRows\" + \"RejectedRows\" + \"SkippedRows\" = 0 OR \"RowCount\" >= 0 AND \"LoadedRows\" + \"RejectedRows\" + \"SkippedRows\" = \"RowCount\")");
+
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_Purge", "(\"State\" <> 'expired' OR \"FilePurgedAtUtc\" IS NOT NULL) AND (\"FilePurgedAtUtc\" IS NULL OR \"State\" IN ('expired', 'infected', 'unscannable'))");
+
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_Sha256", "\"Sha256\" ~ '^[0-9a-f]{64}$'");
+
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_SizeBytes", "\"SizeBytes\" > 0");
+
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_State", "\"State\" IN ('uploaded', 'scanning', 'scanned', 'validating', 'validated', 'committing', 'committed', 'infected', 'unscannable', 'failed', 'expired')");
+
+                            t.HasCheckConstraint("CK_ADM_ImportBatches_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\"");
+                        });
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Import.ImportRowOutcome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Field")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateId")
+                        .HasDatabaseName("IX_ADM_ImportRowOutcomes_CandidateId")
+                        .HasFilter("\"CandidateId\" IS NOT NULL");
+
+                    b.HasIndex("BatchId", "RowNumber")
+                        .HasDatabaseName("IX_ADM_ImportRowOutcomes_BatchId_RowNumber");
+
+                    b.HasIndex("BatchId", "Phase", "RowNumber")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ADM_ImportRowOutcomes_BatchId_Phase_RowNumber");
+
+                    b.ToTable("ADM_ImportRowOutcomes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ADM_ImportRowOutcomes_Candidate", "\"CandidateId\" IS NULL OR (\"Outcome\" = 'loaded' AND \"Phase\" = 'commit')");
+
+                            t.HasCheckConstraint("CK_ADM_ImportRowOutcomes_Outcome", "\"Outcome\" IN ('loaded', 'rejected', 'skipped')");
+
+                            t.HasCheckConstraint("CK_ADM_ImportRowOutcomes_Phase", "\"Phase\" IN ('validation', 'commit')");
+
+                            t.HasCheckConstraint("CK_ADM_ImportRowOutcomes_ReasonCode", "(\"ReasonCode\" IS NULL OR \"ReasonCode\" IN ('field.required', 'field.too_long', 'email.invalid', 'date.invalid', 'status.unknown', 'reference.malformed', 'reference.unresolved', 'reference.duplicate', 'row.shape_invalid', 'candidate.refused', 'candidate.duplicate')) AND (\"Outcome\" = 'loaded' OR \"ReasonCode\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ADM_ImportRowOutcomes_RowNumber", "\"RowNumber\" >= 1");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Operations.MigrationRun", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1114,6 +1303,28 @@ namespace Infrastructure.Persistence.Migrations
                         .HasPrincipalKey("Name")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Import.ImportBatch", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Import.ImportRowOutcome", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Import.ImportBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
+                        .WithMany()
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>

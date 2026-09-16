@@ -31,7 +31,7 @@ Every business endpoint requires authentication. Administration endpoint groups 
 | `presets.manage`     | API guard on shared preset administration                                                             |
 | `users.manage`       | API and handler guard on user administration                                                          |
 | `roles.manage`       | API and handler guard on role administration                                                          |
-| `candidates.import`  | Browser visibility only until KTL-17 adds the server import boundary                                  |
+| `candidates.import`  | API policy and handler guard on every `/api/import/batches` endpoint (KTL-17)                         |
 | `candidates.export`  | Browser guard on the current client-side CSV export; a server export ticket must add the API boundary |
 
 `view_all_candidates` was removed because KTL-10 has no ownership scope. The old underscore-style frontend vocabulary was replaced by the API's `<resource>.<action>` strings.

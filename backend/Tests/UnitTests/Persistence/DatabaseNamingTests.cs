@@ -22,7 +22,7 @@ public sealed class DatabaseNamingTests
             .Cast<string>()
             .ToArray();
 
-        Assert.Equal(14, mappedTables.Length);
+        Assert.Equal(16, mappedTables.Length);
         Assert.All(mappedTables, name =>
         {
             Assert.Contains(ApprovedPrefixes, prefix => name.StartsWith(prefix, StringComparison.Ordinal));
@@ -44,6 +44,8 @@ public sealed class DatabaseNamingTests
         Assert.Contains("ADM_SearchPresets", mappedTables);
         Assert.Contains("ADM_Users", mappedTables);
         Assert.Contains("ADM_Roles", mappedTables);
+        Assert.Contains("ADM_ImportBatches", mappedTables);
+        Assert.Contains("ADM_ImportRowOutcomes", mappedTables);
     }
 
     [Fact]

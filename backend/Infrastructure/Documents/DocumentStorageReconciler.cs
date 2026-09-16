@@ -3,6 +3,7 @@ using System.Text;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Documents;
+using KeplerTalento.Infrastructure.Import;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,8 +30,14 @@ public sealed class DocumentStorageReconciler(
         if (staleQuarantineAge <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(staleQuarantineAge));
 
         var documents = await dbContext.Documents.AsNoTracking().ToListAsync(cancellationToken);
-        var available = await inventory.ListAvailableAsync(cancellationToken);
-        var quarantine = await inventory.ListQuarantineAsync(cancellationToken);
+        // Import files share the storage mechanism under their own prefix and are reconciled by
+        // the import purge against their batches, not against candidate documents (KTL-17 D6).
+        var available = (await inventory.ListAvailableAsync(cancellationToken))
+            .Where(value => !value.StorageKey.StartsWith(ImportFileStorage.KeyPrefix, StringComparison.Ordinal))
+            .ToList();
+        var quarantine = (await inventory.ListQuarantineAsync(cancellationToken))
+            .Where(value => !value.StorageKey.StartsWith(ImportFileStorage.KeyPrefix, StringComparison.Ordinal))
+            .ToList();
         var availableByKey = available.ToDictionary(value => value.StorageKey, StringComparer.Ordinal);
         var quarantineByKey = quarantine.ToDictionary(value => value.StorageKey, StringComparer.Ordinal);
         var metadataKeys = documents.Select(value => value.StorageKey).ToHashSet(StringComparer.Ordinal);

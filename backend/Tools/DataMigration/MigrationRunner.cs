@@ -1,13 +1,14 @@
 using KeplerTalento.Application.Abstractions.Documents;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Operations;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Tools.DataMigration.Export;
 using KeplerTalento.Tools.DataMigration.Loading;
-using KeplerTalento.Tools.DataMigration.Validation;
 using KeplerTalento.Tools.DataMigration.Reporting;
 using KeplerTalento.Tools.DataMigration.Resolution;
 using KeplerTalento.Tools.DataMigration.Staging;
+using KeplerTalento.Tools.DataMigration.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace KeplerTalento.Tools.DataMigration;

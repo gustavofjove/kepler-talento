@@ -140,6 +140,13 @@ behavior until their own migration change.
   is read from or written to browser storage, and the import service retains its existing behavior
   until its own migration change
 
+#### Scenario: Import slice is deployed
+
+- **WHEN** the candidate import slice is enabled
+- **THEN** the import feature service reaches the API, no batch record, row outcome or imported
+  candidate data is read from or written to browser storage, and no feature service retains a
+  browser-storage data path
+
 #### Scenario: Slice ships without a consumer
 
 - **WHEN** a change delivers backend endpoints for a feature whose frontend service still uses
@@ -193,6 +200,10 @@ An entry that carried a user's identity, role or permission set SHALL be treated
 that carried candidate data: leaving it behind would let a stale local copy decide what the
 application renders after the authority for that decision has moved to the API.
 
+An entry whose contents describe work the application never actually performed SHALL be removed
+rather than migrated. Carrying such a record forward would give a fabricated history the appearance
+of a real one.
+
 #### Scenario: Browser holds a superseded entry
 
 - **WHEN** the new build starts in a browser that still holds the superseded storage entry
@@ -210,6 +221,13 @@ application renders after the authority for that decision has moved to the API.
   definition
 - **THEN** after first run of the new build none of it remains in browser storage, and the
   application's rendering decisions come from the caller profile endpoint instead
+
+#### Scenario: Entry describes work that never happened
+
+- **WHEN** the superseded entry held import batch records describing candidates that were never
+  created
+- **THEN** the entry is removed rather than migrated to the server, and the server's batch history
+  begins empty
 
 #### Scenario: Backend is unreachable at startup
 

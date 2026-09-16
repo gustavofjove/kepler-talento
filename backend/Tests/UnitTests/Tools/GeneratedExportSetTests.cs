@@ -1,4 +1,5 @@
 using System.Globalization;
+using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Tools.DataMigration.Export;

@@ -1,8 +1,10 @@
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Application.Abstractions.Documents;
+using KeplerTalento.Application.Abstractions.Import;
 using KeplerTalento.Application.Abstractions.Operations;
 using KeplerTalento.Infrastructure.Documents;
+using KeplerTalento.Infrastructure.Import;
 using KeplerTalento.Infrastructure.Operations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -23,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ISearchPresetRepository, SearchPresetRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IImportBatchRepository, ImportBatchRepository>();
         var storageOptions = configuration.GetSection(DocumentStorageOptions.SectionName).Get<DocumentStorageOptions>()
             ?? throw new InvalidOperationException("DocumentStorage configuration is required.");
         FileSystemDocumentStorage.ValidateAndPrepare(storageOptions);
@@ -36,7 +39,10 @@ public static class DependencyInjection
         {
             throw new InvalidOperationException("Operation worker configuration is unsafe.");
         }
+        var importOptions = configuration.GetSection(ImportOptions.SectionName).Get<ImportOptions>() ?? new();
+        importOptions.Validate();
         services.AddSingleton(storageOptions);
+        services.AddSingleton(importOptions);
         services.AddSingleton(scannerOptions);
         services.AddSingleton(workerOptions);
         services.AddSingleton<IDocumentStorage, FileSystemDocumentStorage>();
@@ -47,9 +53,23 @@ public static class DependencyInjection
         services.AddSingleton<IMalwareScanner, ClamAvScanner>();
         services.AddScoped<IDocumentDownloadService, DocumentDownloadService>();
         services.AddScoped<ScanOperationHandler>();
+        services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ScanOperationHandler>());
+        services.AddSingleton<IImportFileStorage, ImportFileStorage>();
+        services.AddSingleton<IImportFileInspector, ImportFileInspector>();
+        services.AddSingleton<IImportRowReader, CsvImportRowReader>();
+        services.AddScoped<ImportRunSupport>();
+        services.AddScoped<ImportScanHandler>();
+        services.AddScoped<ImportValidationHandler>();
+        services.AddScoped<ImportCommitHandler>();
+        services.AddScoped<ImportPurgeHandler>();
+        services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportScanHandler>());
+        services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportValidationHandler>());
+        services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportCommitHandler>());
+        services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportPurgeHandler>());
         services.AddScoped<DocumentStorageReconciler>();
         services.AddScoped<IOperationRepository, PostgreSqlOperationRepository>();
         services.AddHostedService<DurableOperationWorker>();
+        services.AddHostedService<ImportMaintenanceService>();
         return services;
     }
 }
