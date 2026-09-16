@@ -51,9 +51,9 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         report.AppendLine("`dotnet test backend/Tests/IntegrationTests/IntegrationTests.csproj`.");
         report.AppendLine();
 
-        foreach (var (name, filters) in Cases(catalog))
+        foreach (var (name, filters, options) in Cases(catalog))
         {
-            var (plan, elapsed) = await ExplainAsync(filters);
+            var (plan, elapsed) = await ExplainAsync(filters, options);
             output.WriteLine($"=== {name} ({elapsed.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} ms) ===");
             output.WriteLine(plan);
             report.AppendLine($"## {name}");
@@ -81,7 +81,32 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         await File.WriteAllTextAsync(path, report.ToString(), new UTF8Encoding(false));
     }
 
-    private static IEnumerable<(string Name, SearchFiltersValue Filters)> Cases(ScaleCatalog catalog)
+    private static IEnumerable<(string Name, SearchFiltersValue Filters, SearchOptions Options)> Cases(ScaleCatalog catalog)
+    {
+        var firstPage = new SearchOptions(1, SearchPaging.DefaultPageSize, SearchSort.Default, false);
+        var unfiltered = SearchFilterNormalization.Normalize(null, "Filters");
+
+        // KTL-18: every contracted sort field, both directions, at a deep offset — the last
+        // page of the scale dataset — with removed candidates included, as the list issues it.
+        var deepPage = CandidateCount / SearchPaging.MaximumPageSize;
+        foreach (var field in Enum.GetValues<SearchSortField>())
+        {
+            foreach (var direction in Enum.GetValues<SearchSortDirection>())
+            {
+                yield return (
+                    $"Deep page {deepPage} sorted by {field} {direction}",
+                    unfiltered,
+                    new SearchOptions(deepPage, SearchPaging.MaximumPageSize, new SearchSort(field, direction), true));
+            }
+        }
+
+        foreach (var (name, filters) in FilterCases(catalog))
+        {
+            yield return (name, filters, firstPage);
+        }
+    }
+
+    private static IEnumerable<(string Name, SearchFiltersValue Filters)> FilterCases(ScaleCatalog catalog)
     {
         SearchFiltersValue Build(SearchFiltersInput input) =>
             SearchFilterNormalization.Normalize(input, "Filters");
@@ -137,7 +162,9 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                 "yes")));
     }
 
-    private async Task<(string Plan, double ElapsedMilliseconds)> ExplainAsync(SearchFiltersValue filters)
+    private async Task<(string Plan, double ElapsedMilliseconds)> ExplainAsync(
+        SearchFiltersValue filters,
+        SearchOptions options)
     {
         // The command is captured as EF sends it, parameters and all, rather than
         // reconstructed: a plan for a reconstruction of the query would prove nothing about
@@ -147,8 +174,8 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         await using (var dbContext = NewContext(capture))
         {
             var search = new CandidateSearchQuery(dbContext);
-            var matching = await search.MatchingAsync(filters, CancellationToken.None);
-            await search.Page(matching, 1, SearchPaging.DefaultPageSize).ToListAsync();
+            var matching = await search.MatchingAsync(filters, options.IncludeInactive, CancellationToken.None);
+            await search.Page(matching, options).ToListAsync();
         }
 
         await using var connection = new NpgsqlConnection(database.ConnectionString);

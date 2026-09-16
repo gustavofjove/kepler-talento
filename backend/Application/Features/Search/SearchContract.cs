@@ -38,7 +38,70 @@ public sealed record CandidateSearchItem(
     string Status,
     bool HasPrimaryCv,
     Guid? PrimaryCvDocumentId,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    bool IsActive);
+
+/// <summary>Validated paging, ordering and population for one search.</summary>
+public sealed record SearchOptions(int Page, int PageSize, SearchSort Sort, bool IncludeInactive);
+
+/// <summary>The closed set of fields a search may be ordered by (KTL-18).</summary>
+public enum SearchSortField
+{
+    UpdatedAt,
+    LastName,
+    Status,
+}
+
+public enum SearchSortDirection
+{
+    Ascending,
+    Descending,
+}
+
+/// <summary>
+/// A validated ordering. The candidate identifier ascending is always appended after it by
+/// the query, whichever field is chosen, so it is not part of this value.
+/// </summary>
+public sealed record SearchSort(SearchSortField Field, SearchSortDirection Direction)
+{
+    public static readonly SearchSort Default = new(SearchSortField.UpdatedAt, SearchSortDirection.Descending);
+
+    /// <summary>
+    /// Parses the wire values against the closed set. Caller text is only ever compared, never
+    /// carried forward: what reaches the query is an enum member, so there is no path by which
+    /// it becomes part of generated SQL.
+    /// </summary>
+    public static SearchSort Parse(string? field, string? direction, List<ValidationIssue> issues)
+    {
+        var parsedField = (field ?? string.Empty).Trim() switch
+        {
+            "" => Default.Field,
+            "updatedAt" => SearchSortField.UpdatedAt,
+            "lastName" => SearchSortField.LastName,
+            "status" => SearchSortField.Status,
+            _ => (SearchSortField?)null,
+        };
+        if (parsedField is null)
+        {
+            issues.Add(new ValidationIssue("SortField", SearchErrors.SortFieldInvalid, SearchErrors.SortFieldInvalidMessage));
+        }
+        var parsedDirection = (direction ?? string.Empty).Trim() switch
+        {
+            "" => Default.Direction,
+            "asc" => SearchSortDirection.Ascending,
+            "desc" => SearchSortDirection.Descending,
+            _ => (SearchSortDirection?)null,
+        };
+        if (parsedDirection is null)
+        {
+            issues.Add(new ValidationIssue(
+                "SortDirection",
+                SearchErrors.SortDirectionInvalid,
+                SearchErrors.SortDirectionInvalidMessage));
+        }
+        return new SearchSort(parsedField ?? Default.Field, parsedDirection ?? Default.Direction);
+    }
+}
 
 /// <summary>
 /// A saved search from the shared library. No actor identity is on the wire: nothing records
@@ -100,6 +163,19 @@ internal static class SearchGuards
     public static void RequireRead(ICurrentActor actor)
     {
         if (!actor.IsAuthenticated || !actor.HasPermission(Permissions.CandidatesRead))
+        {
+            throw new ForbiddenException();
+        }
+    }
+
+    /// <summary>
+    /// Including logically removed candidates is a view of data that was deliberately removed,
+    /// so it takes the permission that governs removal and restoration. A caller without it is
+    /// refused rather than silently given the active-only result (KTL-18 design D3).
+    /// </summary>
+    public static void RequireIncludeRemoved(ICurrentActor actor)
+    {
+        if (!actor.IsAuthenticated || !actor.HasPermission(Permissions.CandidatesDelete))
         {
             throw new ForbiddenException();
         }

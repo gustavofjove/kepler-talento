@@ -151,6 +151,22 @@ El detalle de rutas, códigos de error, concurrencia, modelo de datos y rollback
 [`docs/ktl-14/presets.md`](docs/ktl-14/presets.md), y la nota para usuarios en
 [`docs/ktl-14/release-notes.md`](docs/ktl-14/release-notes.md).
 
+## Listado de candidatos paginado en servidor KTL-18
+
+El listado de **Candidatos** ya no descarga la tabla completa: pide una sola página a
+`POST /api/candidates/search`, y PostgreSQL filtra, ordena y pagina. Ordenar y filtrar se aplica
+a todos los candidatos que coinciden, no solo a los que tenía el navegador. La página muestra 25
+por defecto (25, 50 o 100), el texto también busca en las notas y la selección solo abarca la
+página visible.
+
+La página, la ordenación y los filtros de estado, CV e inactivos viajan en la URL, así que un
+enlace copiado reabre la misma vista; el texto buscado nunca se escribe en la URL. «Incluir
+inactivos» requiere `candidates.delete`. El dashboard muestra solo recuentos que el servidor puede
+calcular; desaparecen «Pendientes de revisión» y «Recibidos este mes».
+
+Consulta el [contrato del listado](docs/ktl-18/list-contract.md) y la
+[nota de versión](docs/ktl-18/release-notes.md).
+
 ## Importación de candidatos KTL-17
 
 **Admin › Importación** (`/app/admin/import`) crea candidatos reales desde un CSV. Antes la

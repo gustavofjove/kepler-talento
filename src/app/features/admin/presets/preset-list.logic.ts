@@ -1,6 +1,16 @@
 import type { SearchPreset } from '../../search/models/search.models';
 
-export { paginate, totalPages } from '../../candidates/pages/candidate-list.logic';
+// The preset library is small and loaded whole, so it pages in the browser. The candidate
+// list no longer does (KTL-18), which is why these live here rather than beside it.
+export function totalPages(itemCount: number, pageSize: number): number {
+  return Math.max(Math.ceil(itemCount / pageSize), 1);
+}
+
+export function paginate<T>(items: T[], page: number, pageSize: number): T[] {
+  const validPage = Math.min(Math.max(page, 1), totalPages(items.length, pageSize));
+  const start = (validPage - 1) * pageSize;
+  return items.slice(start, start + pageSize);
+}
 
 export const PRESETS_ROUTE = '/app/admin/presets';
 

@@ -48,6 +48,12 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
         // The list screen reads active candidates most-recently-updated first.
         builder.HasIndex(candidate => new { candidate.IsActive, candidate.UpdatedAtUtc })
             .HasDatabaseName("IX_CND_Candidates_IsActive_UpdatedAtUtc");
+        // The contracted list/search sort fields (KTL-18), each ending in the identifier
+        // tie-breaker so an ordered page can be read from the index without a sort step.
+        builder.HasIndex(candidate => new { candidate.IsActive, candidate.LastName, candidate.FirstName, candidate.Id })
+            .HasDatabaseName("IX_CND_Candidates_IsActive_LastName_FirstName_Id");
+        builder.HasIndex(candidate => new { candidate.IsActive, candidate.Status, candidate.Id })
+            .HasDatabaseName("IX_CND_Candidates_IsActive_Status_Id");
         builder.HasIndex(candidate => candidate.SourceKey)
             .IsUnique()
             .HasFilter("\"SourceKey\" IS NOT NULL")

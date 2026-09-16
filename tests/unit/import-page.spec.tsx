@@ -41,7 +41,7 @@ function importServiceDouble(overrides: Record<string, unknown> = {}) {
 
 function renderPage(importService: ReturnType<typeof importServiceDouble>) {
   const toastService = { show: vi.fn() };
-  const candidateService = { reload: vi.fn().mockResolvedValue(undefined) };
+  const candidateService = { invalidate: vi.fn() };
   render(
     <ServicesProvider
       value={
@@ -124,8 +124,8 @@ describe('ImportPage', () => {
       expect(screen.getByTestId('import-state')).toHaveAttribute('data-state', 'committed'),
     );
     expect(service.commit).toHaveBeenCalledOnce();
-    // The session's candidate cache is refreshed so Candidatos shows the imported people.
-    expect(candidateService.reload).toHaveBeenCalledOnce();
+    // The session's aggregate cache is dropped so no screen shows a pre-import copy.
+    expect(candidateService.invalidate).toHaveBeenCalledOnce();
     expect(toastService.show).toHaveBeenCalledWith(
       'Carga confirmada: 2 candidatos creados.',
       'success',

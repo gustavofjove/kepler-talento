@@ -109,6 +109,8 @@ public static class SearchErrors
     public const string CriteriaTooMany = "search.criteria.too_many";
     public const string PageInvalid = "search.page.invalid";
     public const string PageSizeInvalid = "search.page_size.invalid";
+    public const string SortFieldInvalid = "search.sort_field.invalid";
+    public const string SortDirectionInvalid = "search.sort_direction.invalid";
 
     public const string PresetNotFound = "search_preset.not_found";
     public const string PresetNameRequired = "search_preset.name.required";
@@ -126,6 +128,8 @@ public static class SearchErrors
     public const string CriteriaTooManyMessage = "Se han indicado demasiados criterios de búsqueda.";
     public const string PageInvalidMessage = "El número de página debe ser 1 o superior.";
     public const string PageSizeInvalidMessage = "El tamaño de página debe estar entre 1 y 100.";
+    public const string SortFieldInvalidMessage = "El campo de ordenación no es válido.";
+    public const string SortDirectionInvalidMessage = "La dirección de ordenación debe ser asc o desc.";
 
     public const string PresetNotFoundMessage = "Búsqueda guardada no encontrada.";
     public const string PresetNameRequiredMessage = "El nombre de la búsqueda guardada es obligatorio.";

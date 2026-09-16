@@ -99,7 +99,8 @@ public interface ICandidateRepository
 
     /// <summary>
     /// Counts the candidates matching a validated filter value and materializes one page of
-    /// them, in <c>UpdatedAtUtc</c> descending, <c>Id</c> ascending order.
+    /// them, ordered by the validated sort with <c>Id</c> ascending as the final tie-breaker.
+    /// Logically removed candidates are excluded unless the options include them.
     /// </summary>
     /// <remarks>
     /// Filtering, counting, ordering and paging all happen in the database. No aggregate is
@@ -113,8 +114,7 @@ public interface ICandidateRepository
     /// </remarks>
     Task<SearchPage<CandidateSearchItem>> SearchAsync(
         SearchFiltersValue filters,
-        int page,
-        int pageSize,
+        SearchOptions options,
         CancellationToken cancellationToken);
 
     void Add(Candidate candidate);

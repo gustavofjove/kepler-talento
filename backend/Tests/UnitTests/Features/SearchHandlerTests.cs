@@ -65,6 +65,95 @@ public sealed class SearchHandlerTests
     }
 
     [Fact]
+    public async Task Search_defaults_to_update_time_descending_and_active_candidates_only()
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        await new SearchCandidatesHandler(candidates, Actor.Reader)
+            .Handle(new SearchCandidatesQuery(null, null, null), CancellationToken.None);
+
+        Assert.Equal(SearchSort.Default, candidates.LastOptions!.Sort);
+        Assert.False(candidates.LastOptions.IncludeInactive);
+    }
+
+    [Theory]
+    [InlineData("updatedAt", "asc", SearchSortField.UpdatedAt, SearchSortDirection.Ascending)]
+    [InlineData("updatedAt", "desc", SearchSortField.UpdatedAt, SearchSortDirection.Descending)]
+    [InlineData("lastName", "asc", SearchSortField.LastName, SearchSortDirection.Ascending)]
+    [InlineData("lastName", "desc", SearchSortField.LastName, SearchSortDirection.Descending)]
+    [InlineData("status", "asc", SearchSortField.Status, SearchSortDirection.Ascending)]
+    [InlineData("status", "desc", SearchSortField.Status, SearchSortDirection.Descending)]
+    public async Task Each_documented_sort_field_is_accepted_in_both_directions(
+        string field,
+        string direction,
+        SearchSortField expectedField,
+        SearchSortDirection expectedDirection)
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        await new SearchCandidatesHandler(candidates, Actor.Reader)
+            .Handle(new SearchCandidatesQuery(null, null, null, false, field, direction), CancellationToken.None);
+
+        Assert.Equal(new SearchSort(expectedField, expectedDirection), candidates.LastOptions!.Sort);
+    }
+
+    [Theory]
+    [InlineData("email", null, SearchErrors.SortFieldInvalid)]
+    [InlineData("UpdatedAtUtc\"; DROP TABLE \"CND_Candidates\"; --", null, SearchErrors.SortFieldInvalid)]
+    [InlineData("LASTNAME", null, SearchErrors.SortFieldInvalid)]
+    [InlineData(null, "sideways", SearchErrors.SortDirectionInvalid)]
+    public async Task An_unknown_sort_is_refused_with_a_stable_code_before_querying(
+        string? field,
+        string? direction,
+        string code)
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        var refusal = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new SearchCandidatesHandler(candidates, Actor.Reader)
+                .Handle(new SearchCandidatesQuery(null, null, null, false, field, direction), CancellationToken.None));
+
+        Assert.Contains(refusal.Issues, issue => issue.Code == code);
+        Assert.Null(candidates.LastOptions);
+    }
+
+    [Fact]
+    public async Task Pagination_bounds_are_unchanged_by_sorting()
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        var refusal = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new SearchCandidatesHandler(candidates, Actor.Reader)
+                .Handle(new SearchCandidatesQuery(null, 0, 101, false, "status", "asc"), CancellationToken.None));
+
+        Assert.Contains(refusal.Issues, issue => issue.Code == SearchErrors.PageInvalid);
+        Assert.Contains(refusal.Issues, issue => issue.Code == SearchErrors.PageSizeInvalid);
+    }
+
+    [Fact]
+    public async Task Including_removed_candidates_without_the_removal_permission_is_forbidden_before_validation()
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        // Malformed on purpose: the refusal must be Forbidden, not a validation problem.
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            new SearchCandidatesHandler(candidates, Actor.Reader)
+                .Handle(new SearchCandidatesQuery(null, 0, 500, true, "nope", "nope"), CancellationToken.None));
+        Assert.Null(candidates.LastOptions);
+    }
+
+    [Fact]
+    public async Task Including_removed_candidates_reaches_the_repository_for_a_permitted_actor()
+    {
+        var candidates = new RecordingCandidateRepository();
+
+        await new SearchCandidatesHandler(candidates, Actor.Remover)
+            .Handle(new SearchCandidatesQuery(null, null, null, true), CancellationToken.None);
+
+        Assert.True(candidates.LastOptions!.IncludeInactive);
+    }
+
+    [Fact]
     public async Task Search_hands_the_repository_a_normalized_filter_value()
     {
         var candidates = new RecordingCandidateRepository();
@@ -442,16 +531,17 @@ public sealed class SearchHandlerTests
     {
         public SearchFiltersValue? LastFilters { get; private set; }
         public (int Page, int PageSize)? LastPaging { get; private set; }
+        public SearchOptions? LastOptions { get; private set; }
 
         public Task<SearchPage<CandidateSearchItem>> SearchAsync(
             SearchFiltersValue filters,
-            int page,
-            int pageSize,
+            SearchOptions options,
             CancellationToken cancellationToken)
         {
             LastFilters = filters;
-            LastPaging = (page, pageSize);
-            return Task.FromResult(new SearchPage<CandidateSearchItem>([], page, pageSize, 0));
+            LastPaging = (options.Page, options.PageSize);
+            LastOptions = options;
+            return Task.FromResult(new SearchPage<CandidateSearchItem>([], options.Page, options.PageSize, 0));
         }
 
         public Task<Candidate?> FindAsync(Guid id, CancellationToken cancellationToken) =>
@@ -569,6 +659,7 @@ public sealed class SearchHandlerTests
         public static Actor Anonymous => new(false);
         public static Actor WithoutPermissions => new(true);
         public static Actor Reader => new(true, Permissions.CandidatesRead);
+        public static Actor Remover => new(true, Permissions.CandidatesRead, Permissions.CandidatesDelete);
         public static Actor Manager => new(true, Permissions.CandidatesRead, Permissions.PresetsManage);
         public static Actor ManagerOnly => new(true, Permissions.PresetsManage);
 

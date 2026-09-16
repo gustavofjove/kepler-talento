@@ -26,6 +26,7 @@ describe('AdvancedSearchPage', () => {
     hasPrimaryCv: true,
     primaryCvDocumentId: 'd-1',
     updatedAt: '2026-03-01T09:01:00Z',
+    isActive: true,
   });
 
   const page = (ids: string[], overrides: Partial<SearchResultPage> = {}): SearchResultPage => ({

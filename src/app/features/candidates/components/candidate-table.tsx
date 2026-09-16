@@ -1,11 +1,18 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import type { CandidateSummary } from '../models/candidate.models';
-import { type SortDirection, type SortField, sortIndicator } from '../pages/candidate-list.logic';
+import { formatDate } from '../../../core/i18n/format';
+import type { CandidateListItem } from '../models/candidate.models';
+import {
+  type ListSort,
+  type SortField,
+  sortIndicator,
+  statusLabel,
+} from '../pages/candidate-list.logic';
 
 interface Props {
-  candidates: CandidateSummary[];
+  candidates: CandidateListItem[];
   canEdit: boolean;
-  sort: { field: SortField; direction: SortDirection };
+  sort: ListSort;
   onSort: (field: SortField) => void;
   selectedIds: ReadonlySet<string>;
   allVisibleSelected: boolean;
@@ -23,44 +30,65 @@ export function CandidateTable({
   onToggleSelected,
   onToggleSelectAll,
 }: Props) {
+  const { t } = useTranslation();
   const sortButton = (field: SortField, label: string) => (
-    <button className="button ghost" type="button" onClick={() => onSort(field)}>
+    <button
+      className="button ghost"
+      type="button"
+      name={`sort-${field}`}
+      data-testid={`candidate-sort-${field}`}
+      onClick={() => onSort(field)}
+    >
       {label} {sortIndicator(sort, field)}
     </button>
   );
+  const ariaSort = (field: SortField) =>
+    sort.field === field ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none';
 
   return (
     <div className="panel table-wrap">
-      <table>
+      <table data-testid="candidate-table">
         <thead>
           <tr>
             {canEdit ? (
               <th>
                 <input
                   type="checkbox"
+                  aria-label={t('candidates.list.selectPage')}
                   checked={allVisibleSelected}
                   onChange={(event) => onToggleSelectAll(event.target.checked)}
                 />
               </th>
             ) : null}
-            <th>{sortButton('lastName', 'Nombre')}</th>
-            <th>Teléfono</th>
-            <th>{sortButton('status', 'Estado')}</th>
-            <th>CV</th>
-            <th>{sortButton('updatedAt', 'Actualizado')}</th>
+            <th aria-sort={ariaSort('lastName')}>
+              {sortButton('lastName', t('candidates.list.column.name'))}
+            </th>
+            <th>{t('candidates.list.column.phone')}</th>
+            <th aria-sort={ariaSort('status')}>
+              {sortButton('status', t('candidates.list.column.status'))}
+            </th>
+            <th>{t('candidates.list.column.cv')}</th>
+            <th aria-sort={ariaSort('updatedAt')}>
+              {sortButton('updatedAt', t('candidates.list.column.updatedAt'))}
+            </th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {candidates.length ? (
             candidates.map((candidate) => (
-              <tr key={candidate.id}>
+              <tr key={candidate.candidateId} data-testid="candidate-row">
                 {canEdit ? (
                   <td>
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(candidate.id)}
-                      onChange={(event) => onToggleSelected(candidate.id, event.target.checked)}
+                      aria-label={t('candidates.list.selectRow', {
+                        name: `${candidate.firstName} ${candidate.lastName}`,
+                      })}
+                      checked={selectedIds.has(candidate.candidateId)}
+                      onChange={(event) =>
+                        onToggleSelected(candidate.candidateId, event.target.checked)
+                      }
                     />
                   </td>
                 ) : null}
@@ -72,16 +100,23 @@ export function CandidateTable({
                 </td>
                 <td>{candidate.phone}</td>
                 <td>
-                  <span className="badge">{candidate.status}</span>
+                  <span className="badge">{statusLabel(candidate.status, t)}</span>
                   {!candidate.isActive ? (
-                    <span className="badge inactive-badge">Inactivo</span>
+                    <span className="badge inactive-badge">{t('candidates.list.inactive')}</span>
                   ) : null}
                 </td>
-                <td>{candidate.documentCount ? 'Disponible' : 'Pendiente'}</td>
-                <td>{candidate.updatedAt.slice(0, 10)}</td>
                 <td>
-                  <Link className="button secondary" to={`/app/candidates/${candidate.id}`}>
-                    Abrir
+                  {candidate.hasPrimaryCv
+                    ? t('candidates.list.cv.available')
+                    : t('candidates.list.cv.pending')}
+                </td>
+                <td>{formatDate(candidate.updatedAt)}</td>
+                <td>
+                  <Link
+                    className="button secondary"
+                    to={`/app/candidates/${candidate.candidateId}`}
+                  >
+                    {t('candidates.list.open')}
                   </Link>
                 </td>
               </tr>
@@ -89,7 +124,7 @@ export function CandidateTable({
           ) : (
             <tr>
               <td colSpan={canEdit ? 7 : 6} className="muted">
-                Sin candidatos para mostrar.
+                {t('candidates.list.noRows')}
               </td>
             </tr>
           )}

@@ -115,10 +115,10 @@ export function ImportPage() {
       await loadReport(current, 1);
       if (current.state === 'committed') {
         if (current.loadedRows > 0) {
-          // The candidate list is cached for the session; without this the people just created
-          // would not appear on Candidatos until a reload. A caller who may import but not read
-          // candidates gets a refusal here, which is not an import failure.
-          void candidateService.reload().catch(() => undefined);
+          // The list itself is paged from the API on every view (KTL-18), but opened
+          // aggregates are cached for the session; dropping them keeps no screen showing a
+          // pre-import copy of a candidate.
+          candidateService.invalidate();
         }
         toastService.show(
           t('admin.import.committed', { loaded: formatNumber(current.loadedRows) }),

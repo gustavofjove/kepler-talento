@@ -1,78 +1,4 @@
-# Candidate Search Specification
-
-## Purpose
-
-Define la búsqueda autorizada, paginada y sin duplicados de candidatos mediante todos los filtros que utiliza la experiencia avanzada de RRHH.
-
-## Requirements
-
-### Requirement: Full candidate search filter contract
-
-The system SHALL search active candidates using free text, candidate statuses, skill criteria,
-language criteria, program criteria, and primary-CV presence. Blank text and criteria values,
-an empty or complete status selection, empty criterion families, and an unset CV filter SHALL
-place no restriction on the result. Free text SHALL preserve current behavior across candidate
-identity, contact, and notes fields using case-insensitive substring matching.
-
-#### Scenario: Empty filters are ignored
-
-- **WHEN** an authorized actor searches with blank text, every status selected, no criteria,
-  and no CV selection
-- **THEN** every non-deleted candidate within the actor's visibility scope is eligible to appear
-
-#### Scenario: Filter families combine
-
-- **WHEN** an authorized actor supplies non-empty text, status, skill, language, program, and CV
-  filters
-- **THEN** a candidate appears only when it satisfies every non-empty filter family
-
-#### Scenario: Text matching preserves parity
-
-- **WHEN** text occurs as a case-insensitive substring in a candidate identity, contact, or notes
-  field
-- **THEN** the candidate satisfies the text family without the response exposing the field that
-  matched
-
-#### Scenario: Unknown criterion value is supplied
-
-- **WHEN** a non-empty skill, language, or program value matches no known candidate relation
-- **THEN** that criterion matches no candidate rather than broadening the result or failing open
-
-### Requirement: Multi-value criteria semantics
-
-Each skill, language, and program family SHALL independently support `ANY` and `ALL` modes.
-`ANY` SHALL match when at least one criterion in that family matches; `ALL` SHALL match only when
-every distinct criterion in that family matches, including when matches occur in different
-relation rows. A criterion with an empty level SHALL match any level for the same value, while a
-non-empty level SHALL require the same value and level using case-insensitive normalized
-comparison.
-
-#### Scenario: ANY mode matches one criterion
-
-- **WHEN** a candidate satisfies one but not all criteria in a family whose mode is `ANY`
-- **THEN** the candidate satisfies that family
-
-#### Scenario: ALL mode spans relation rows
-
-- **WHEN** a candidate satisfies every distinct criterion in an `ALL` family through separate
-  relation rows
-- **THEN** the candidate satisfies that family exactly once
-
-#### Scenario: ALL mode is incomplete
-
-- **WHEN** a candidate is missing one distinct criterion in an `ALL` family
-- **THEN** the candidate does not satisfy that family
-
-#### Scenario: Criterion omits its level
-
-- **WHEN** a criterion names a value and has an empty level
-- **THEN** a candidate relation with that value satisfies it regardless of the stored level
-
-#### Scenario: Duplicate joins and criteria are present
-
-- **WHEN** several relation rows or repeated normalized criteria can satisfy the same candidate
-- **THEN** the candidate appears no more than once and repeated criteria do not change `ALL`
-  semantics
+## MODIFIED Requirements
 
 ### Requirement: Candidate status and primary-CV state
 
@@ -180,25 +106,6 @@ in any form other than selection from that closed set.
 - **THEN** an empty page is returned with the correct total matching count, rather than an error or
   the last populated page
 
-### Requirement: Minimal search result projection
-
-Each search item SHALL contain only candidate identifier, first name, last name, phone, email,
-status, primary-CV presence, the primary document identifier when one exists, and update time.
-It SHALL NOT return a full candidate aggregate, relation collections, notes, consent or retention
-metadata, document paths, storage keys, filenames, or scan internals.
-
-#### Scenario: Search item is returned
-
-- **WHEN** a candidate matches a search
-- **THEN** its item contains exactly the documented search projection and no excluded personal
-  or storage data
-
-#### Scenario: Primary document identifier is returned
-
-- **WHEN** a matching candidate has a non-removed primary document
-- **THEN** its identifier may be present for subsequent permission-checked document actions but
-  reveals no storage location and grants no download capability
-
 ### Requirement: Search authorization and visibility decision
 
 Every search SHALL fail closed unless the current actor has `candidates.read`. The domain has no
@@ -247,20 +154,3 @@ logs.
 - **WHEN** a request containing a person's name succeeds or fails
 - **THEN** logs identify the request only by safe operational metadata such as correlation ID and
   never contain the term or filter payload
-
-### Requirement: Superseded search cancellation
-
-The search experience SHALL debounce user-driven searches and SHALL abort an in-flight request
-through the shared transport when a newer search supersedes it. An aborted request SHALL NOT
-update results, counts, loading errors, or user-facing notifications.
-
-#### Scenario: User changes filters during a request
-
-- **WHEN** a debounced search is in flight and a newer filter state starts another search
-- **THEN** the earlier network request is aborted through its cancellation signal and only the
-  newer response may update the page
-
-#### Scenario: Superseded request fails after cancellation
-
-- **WHEN** an abandoned request reports a transport error after it has been superseded
-- **THEN** no error toast or stale state from that request is presented

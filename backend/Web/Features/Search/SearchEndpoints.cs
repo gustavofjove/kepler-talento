@@ -22,7 +22,19 @@ namespace KeplerTalento.Web.Features.Search;
 /// </remarks>
 public static class SearchEndpoints
 {
-    public sealed record SearchCandidatesRequest(SearchFiltersInput? Filters, int? Page, int? PageSize);
+    /// <summary>
+    /// The candidate list and advanced search share this request (KTL-18). The sort values are
+    /// strings on the wire and are parsed against a closed set by the handler, after
+    /// authorization, so an unknown one is a stable validation problem rather than a binder
+    /// failure that would precede the permission check.
+    /// </summary>
+    public sealed record SearchCandidatesRequest(
+        SearchFiltersInput? Filters,
+        int? Page,
+        int? PageSize,
+        bool? IncludeInactive = null,
+        string? SortField = null,
+        string? SortDirection = null);
 
     public sealed record SearchPresetRequest(string? Name, SearchFiltersInput? Filters);
 
@@ -41,8 +53,20 @@ public static class SearchEndpoints
                 CancellationToken cancellationToken) =>
             {
                 Require(actor, Permissions.CandidatesRead);
+                var includeInactive = request.IncludeInactive == true;
+                if (includeInactive)
+                {
+                    // Refused, not narrowed: see SearchGuards.RequireIncludeRemoved.
+                    Require(actor, Permissions.CandidatesDelete);
+                }
                 return Results.Ok(await sender.Send(
-                    new SearchCandidatesQuery(request.Filters, request.Page, request.PageSize),
+                    new SearchCandidatesQuery(
+                        request.Filters,
+                        request.Page,
+                        request.PageSize,
+                        includeInactive,
+                        request.SortField,
+                        request.SortDirection),
                     cancellationToken));
             })
             .WithTags("Candidates")
