@@ -19,7 +19,9 @@ export type Permission =
   | 'catalogs.manage'
   | 'presets.manage'
   | 'users.manage'
-  | 'roles.manage';
+  | 'roles.manage'
+  // KTL-19: reading the audit trail. Seeded on system_admin only.
+  | 'audit.read';
 
 export const ALL_PERMISSIONS: Permission[] = [
   'candidates.read',
@@ -35,6 +37,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'presets.manage',
   'users.manage',
   'roles.manage',
+  'audit.read',
 ];
 
 export interface UserProfile {

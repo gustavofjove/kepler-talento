@@ -1,6 +1,17 @@
 import type { Page, Response } from '@playwright/test';
 
-type AuthRole = 'rrhh_admin' | 'readonly';
+type AuthRole = 'rrhh_admin' | 'readonly' | 'system_admin';
+
+/**
+ * The KTL-19 auditor. `system_admin` is the only seeded role holding `audit.read`, and a new
+ * subject is provisioned as `readonly`, so global setup creates this user by email first and
+ * the sign-in links to it.
+ */
+export const AUDITOR = {
+  subject: 'e2e-auditor-oid',
+  displayName: 'Auditor e2e',
+  email: 'e2e-auditor@kepler-talento.local',
+};
 
 const patchedPages = new WeakSet<Page>();
 const pageTokens = new WeakMap<Page, string>();
@@ -47,11 +58,13 @@ async function authenticate(page: Page, role: AuthRole, goto: Page['goto']): Pro
             displayName: 'Administrador local',
             email: 'admin@kepler-talento.local',
           }
-        : {
-            subject: 'e2e-readonly-oid',
-            displayName: 'Usuario de solo lectura',
-            email: 'e2e-readonly@kepler-talento.local',
-          };
+        : role === 'system_admin'
+          ? AUDITOR
+          : {
+              subject: 'e2e-readonly-oid',
+              displayName: 'Usuario de solo lectura',
+              email: 'e2e-readonly@kepler-talento.local',
+            };
     const response = await route.fetch({
       postData: JSON.stringify(identity),
       headers: { ...request.headers(), 'content-type': 'application/json' },

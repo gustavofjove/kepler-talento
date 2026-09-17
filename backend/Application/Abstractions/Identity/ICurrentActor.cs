@@ -62,6 +62,12 @@ public static class Permissions
     public const string RolesManage = "roles.manage";
 
     /// <summary>
+    /// Reading the audit trail (KTL-19). Granted narrowly: implied by no candidate, catalog or
+    /// document permission, and seeded only on <c>system_admin</c>.
+    /// </summary>
+    public const string AuditRead = "audit.read";
+
+    /// <summary>
     /// The whole permission catalogue. A role may only hold values from this array, and
     /// the frontend's <c>ALL_PERMISSIONS</c> is asserted to match it.
     /// </summary>
@@ -80,5 +86,6 @@ public static class Permissions
         PresetsManage,
         UsersManage,
         RolesManage,
+        AuditRead,
     ];
 }

@@ -53,6 +53,7 @@ column name or a limit, never row data.
 | `import.file.changed`          | `failed`      | —          | The file's SHA-256 no longer matches the one recorded at upload.                                                   |
 | `import.file.type_not_allowed` | —             | —          | Upload refused before storing: the name does not end in `.csv`. No batch is created.                               |
 | `import.run.interrupted`       | reserved      | —          | Reserved for an operator-closed run; not written automatically.                                                    |
+| `import.actor.missing`         | `failed`      | —          | Commit refused: the batch has no stored uploader to name on the candidate audit events (KTL-19).                   |
 
 ## HTTP refusal codes
 

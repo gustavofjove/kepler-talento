@@ -28,6 +28,13 @@ namespace Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ActorKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("CorrelationId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -54,7 +61,26 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CorrelationId");
 
-                    b.ToTable("AUD_Events", (string)null);
+                    b.HasIndex("CreatedAtUtc")
+                        .IsDescending()
+                        .HasDatabaseName("IX_AUD_Events_CreatedAtUtc");
+
+                    b.HasIndex("ActorUserId", "CreatedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AUD_Events_ActorUserId_CreatedAtUtc");
+
+                    b.HasIndex("EventType", "CreatedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AUD_Events_EventType_CreatedAtUtc");
+
+                    b.HasIndex("SubjectId", "CreatedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AUD_Events_SubjectId_CreatedAtUtc");
+
+                    b.ToTable("AUD_Events", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AUD_Events_Actor", "(\"ActorKind\" IS NULL AND \"ActorUserId\" IS NULL) OR (\"ActorKind\" = 'system' AND \"ActorUserId\" IS NULL) OR (\"ActorKind\" = 'user' AND \"ActorUserId\" IS NOT NULL)");
+                        });
                 });
 
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>

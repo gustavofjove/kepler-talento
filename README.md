@@ -206,6 +206,25 @@ Consulta el [contrato del archivo](docs/ktl-17/import-file-contract.md), los
 [códigos de motivo](docs/ktl-17/row-reason-codes.md), el [runbook](docs/ktl-17/runbook.md) y la
 [nota de versión](docs/ktl-17/release-notes.md).
 
+## Auditoría KTL-19
+
+Cada evento de auditoría registra el **identificador interno del usuario** que lo causó (o el
+actor «sistema» para el antivirus y la conciliación de documentos). Nunca guarda correos, nombres
+ni el identificador del proveedor de identidad. Además de los cambios, ahora se auditan las dos
+lecturas que identifican a una persona: abrir la ficha de un candidato y descargar un documento.
+Las búsquedas y los listados no se auditan a propósito.
+
+`ktl_runtime` ya no puede modificar ni borrar eventos: el registro es de solo inserción para la
+aplicación. **Admin › Auditoría** (`/app/admin/audit`) lista el registro con filtros por fechas,
+tipo de evento, actor y sujeto; exige `audit.read`, que solo tiene `system_admin`. Los eventos
+anteriores a KTL-19 aparecen como «Actor desconocido».
+
+El actor sintético de desarrollo no tiene usuario almacenado, así que las operaciones auditadas lo
+rechazan salvo que `DevelopmentActor:UserId` indique uno. El stack de Compose no lo usa.
+
+Consulta el [contrato de auditoría](docs/ktl-19/audit-contract.md) y el
+[runbook](docs/ktl-19/runbook.md).
+
 ## Requisitos
 
 - Docker Desktop con Compose v2. El escáner necesita aproximadamente 3 GiB de RAM y se

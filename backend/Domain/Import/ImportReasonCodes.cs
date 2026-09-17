@@ -49,6 +49,9 @@ public static class ImportReasonCodes
     public const string ScanUnscannable = "import.scan.unscannable";
     public const string RunInterrupted = "import.run.interrupted";
 
+    /// <summary>The batch has no stored uploader to name on the candidate audit events (KTL-19).</summary>
+    public const string ActorMissing = "import.actor.missing";
+
     public static readonly IReadOnlyList<string> RowCodes =
     [
         FieldRequired,
@@ -82,6 +85,7 @@ public static class ImportReasonCodes
         ScanInfected,
         ScanUnscannable,
         RunInterrupted,
+        ActorMissing,
     ];
 
     public static bool IsKnown(string? code) => code is not null && RowCodes.Contains(code, StringComparer.Ordinal);

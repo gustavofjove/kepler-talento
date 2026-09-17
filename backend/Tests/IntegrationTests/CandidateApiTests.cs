@@ -4,6 +4,7 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Features.Candidates;
 using DocumentResponse = KeplerTalento.Application.Features.Documents.CandidateDocumentResponse;
+using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Infrastructure.Documents;
@@ -514,7 +515,11 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.DoesNotContain("../", response.Content.Headers.ContentDisposition?.ToString(), StringComparison.Ordinal);
         await using var auditDb = NewDbContext();
-        Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.downloaded"));
+        var downloaded = await auditDb.AuditEvents.SingleAsync(audit => audit.EventType == "document.downloaded");
+        Assert.Equal(AuditActor.User(TestActor.StoredUserId), downloaded.Actor);
+        Assert.Equal($"candidate:{candidate.Id:N};document:{document.Id:N}", downloaded.SubjectId);
+        Assert.DoesNotContain("cv.pdf", downloaded.OutcomeCode ?? string.Empty, StringComparison.Ordinal);
+        Assert.DoesNotContain("integration-actor", downloaded.OutcomeCode ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -547,6 +552,8 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await using var auditDb = NewDbContext();
         var audit = await auditDb.AuditEvents.SingleAsync(value => value.EventType == "document.scan");
         Assert.Contains("scanner.infected", audit.OutcomeCode, StringComparison.Ordinal);
+        // The scanner is background work with no person behind it.
+        Assert.Equal(AuditActor.System, audit.Actor);
         Assert.DoesNotContain(eicar, audit.OutcomeCode, StringComparison.Ordinal);
         Assert.DoesNotContain("cv.txt", audit.OutcomeCode, StringComparison.Ordinal);
     }
@@ -830,8 +837,10 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
 
         public string? ExternalKey => authenticated ? "integration-actor" : null;
 
-        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
-        public Guid? UserId => null;
+        /// <summary>The internal user id audit events name. No row is needed: the audit table has no foreign key.</summary>
+        public static readonly Guid StoredUserId = Guid.Parse("01932f00-0000-7000-8000-00000000c001");
+
+        public Guid? UserId => authenticated ? StoredUserId : null;
 
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>

@@ -50,7 +50,7 @@ public sealed class CatalogRepository(
             subjectId,
             correlation.CorrelationId,
             DateTimeOffset.UtcNow,
-            actor.ExternalKey));
+            actor.ToAuditActor()));
         try
         {
             await dbContext.SaveChangesAsync(cancellationToken);

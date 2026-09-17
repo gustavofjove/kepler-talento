@@ -6,7 +6,8 @@ export const test = base.extend({
   page: async ({ page, storageState }, use) => {
     if (typeof storageState === 'string') {
       const role = path.basename(storageState, '.json');
-      if (role === 'rrhh_admin' || role === 'readonly') await signInAs(page, role);
+      if (role === 'rrhh_admin' || role === 'readonly' || role === 'system_admin')
+        await signInAs(page, role);
     }
     await use(page);
   },

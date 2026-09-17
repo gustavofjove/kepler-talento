@@ -99,11 +99,14 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
 
         // every change is audited, and the reads are not
         await using var dbContext = NewDbContext();
-        var auditedTypes = await dbContext.AuditEvents
+        var audited = await dbContext.AuditEvents
             .AsNoTracking()
             .Where(audit => audit.EventType.StartsWith("catalog."))
-            .Select(audit => audit.EventType)
             .ToListAsync();
+        var auditedTypes = audited.Select(audit => audit.EventType).ToList();
+        // Every catalog write names the acting user, and nothing else identifying them.
+        Assert.All(audited, audit => Assert.Equal(TestActor.StoredUserId, audit.ActorUserId));
+        Assert.All(audited, audit => Assert.Null(audit.OutcomeCode));
         Assert.Contains(CatalogAuditEvents.Created, auditedTypes);
         Assert.Contains(CatalogAuditEvents.Updated, auditedTypes);
         Assert.Contains(CatalogAuditEvents.Reordered, auditedTypes);
@@ -372,8 +375,10 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
 
         public string? ExternalKey => authenticated ? "integration-actor" : null;
 
-        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
-        public Guid? UserId => null;
+        /// <summary>The internal user id audit events name. No row is needed: the audit table has no foreign key.</summary>
+        public static readonly Guid StoredUserId = Guid.Parse("01932f00-0000-7000-8000-00000000d001");
+
+        public Guid? UserId => authenticated ? StoredUserId : null;
 
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>

@@ -1,6 +1,7 @@
 import { request, type FullConfig } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { AUDITOR } from './support/auth';
 import { ensureSearchCandidate } from './support/seed-candidate';
 
 export const AUTH_DIR = path.join(__dirname, '.auth');
@@ -16,7 +17,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
   // Role filenames are metadata consumed by the custom page fixture. Credentials are never
   // serialized: each page signs in through the real development token endpoint.
-  for (const role of ['rrhh_admin', 'readonly'])
+  for (const role of ['rrhh_admin', 'readonly', 'system_admin'])
     writeFileSync(authFile(role), '{"cookies":[],"origins":[]}');
 
   // Seed the shared search candidate once, before any worker starts. The specs that need
@@ -39,6 +40,14 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   });
   try {
     await ensureSearchCandidate(api);
+    // KTL-19: the auditor must exist as system_admin before its first sign-in links to it.
+    // A 409 means an earlier run created it already.
+    const created = await api.post('/api/admin/users', {
+      data: { displayName: AUDITOR.displayName, email: AUDITOR.email, roleName: 'system_admin' },
+    });
+    if (!created.ok() && created.status() !== 409) {
+      throw new Error(`Could not ensure the e2e auditor: ${created.status()}`);
+    }
   } finally {
     await api.dispose();
   }
