@@ -3,6 +3,7 @@ import { LoginPage } from './core/auth/login-page';
 import { AppLayout } from './core/layout/app-layout';
 import { RequireAuth } from './core/routing/require-auth';
 import { RequirePermission } from './core/routing/require-permission';
+import { AuditPage } from './features/admin/audit/audit-page';
 import { ImportPage } from './features/admin/import/import-page';
 import { PresetEditPage } from './features/admin/presets/preset-edit-page';
 import { PresetListPage } from './features/admin/presets/preset-list-page';
@@ -76,6 +77,10 @@ export function createAppRouter() {
             {
               element: <RequirePermission permission="candidates.import" />,
               children: [{ path: 'admin/import', element: <ImportPage /> }],
+            },
+            {
+              element: <RequirePermission permission="audit.read" />,
+              children: [{ path: 'admin/audit', element: <AuditPage /> }],
             },
           ],
         },

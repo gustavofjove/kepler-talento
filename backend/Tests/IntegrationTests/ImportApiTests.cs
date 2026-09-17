@@ -809,6 +809,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
         await dbContext.Database.EnsureDeletedAsync();
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
         await DatabaseInitializer.SeedCatalogsAsync(dbContext, CancellationToken.None);
+        await ImportTestActor.SeedUserAsync(dbContext);
         if (Directory.Exists(_storageRoot))
         {
             Directory.Delete(_storageRoot, recursive: true);

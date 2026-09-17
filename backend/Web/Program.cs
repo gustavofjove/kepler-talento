@@ -7,6 +7,7 @@ using KeplerTalento.Infrastructure;
 using KeplerTalento.Web.Correlation;
 using KeplerTalento.Web.Errors;
 using KeplerTalento.Web.Features.Admin;
+using KeplerTalento.Web.Features.Audit;
 using KeplerTalento.Web.Features.Candidates;
 using KeplerTalento.Web.Features.Catalogs;
 using KeplerTalento.Web.Features.Documents;
@@ -210,6 +211,13 @@ builder.Services.AddAuthorization(options =>
         && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
         && actor.IsAuthenticated
         && actor.HasPermission(Permissions.CandidatesImport)));
+    // KTL-19. Before query binding, so a malformed filter from an unauthorized caller is refused
+    // identically to a valid one.
+    options.AddPolicy(Permissions.AuditRead, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.AuditRead)));
 });
 builder.Services.AddScoped<CorrelationContext>();
 builder.Services.AddScoped<ICorrelationContext>(provider => provider.GetRequiredService<CorrelationContext>());
@@ -358,6 +366,7 @@ app.MapDocumentEndpoints();
 app.MapImportEndpoints();
 app.MapSearchEndpoints();
 app.MapAdminEndpoints();
+app.MapAuditEndpoints();
 app.MapMeEndpoints();
 if (developmentIssuerEnabled)
 {

@@ -51,6 +51,7 @@ export function PrimaryNav() {
   const canManageUsers = usePermission('users.manage');
   const canManageRoles = usePermission('roles.manage');
   const canImport = usePermission('candidates.import');
+  const canReadAudit = usePermission('audit.read');
 
   const granted = useMemo(
     () => ({
@@ -60,6 +61,7 @@ export function PrimaryNav() {
       'users.manage': canManageUsers,
       'roles.manage': canManageRoles,
       'candidates.import': canImport,
+      'audit.read': canReadAudit,
     }),
     [
       canViewCandidates,
@@ -68,6 +70,7 @@ export function PrimaryNav() {
       canManageUsers,
       canManageRoles,
       canImport,
+      canReadAudit,
     ],
   );
 

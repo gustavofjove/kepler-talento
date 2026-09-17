@@ -171,7 +171,7 @@ public sealed class CandidateRepository(
                 candidate.Id.ToString("N"),
                 correlation.CorrelationId,
                 now,
-                actor.ExternalKey));
+                actor.ToAuditActor()));
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             await RefreshVersionsAsync(cancellationToken);
@@ -224,7 +224,7 @@ public sealed class CandidateRepository(
             subjectId,
             correlation.CorrelationId,
             DateTimeOffset.UtcNow,
-            actor.ExternalKey));
+            actor.ToAuditActor()));
         try
         {
             // One SaveChangesAsync means one transaction: the aggregate change and its

@@ -47,20 +47,21 @@ public sealed class DocumentRepository(ApplicationDbContext dbContext) : IDocume
         Guid documentId,
         string outcome,
         string correlationId,
-        string? actorExternalKey) =>
+        AuditActor actor) =>
         dbContext.AuditEvents.Add(new AuditEvent(
             Guid.CreateVersion7(),
             eventType,
             Subject(candidateId, documentId),
             correlationId,
             DateTimeOffset.UtcNow,
-            Outcome(outcome, actorExternalKey)));
+            actor,
+            outcome[..Math.Min(outcome.Length, 100)]));
 
     public async Task<DocumentSaveOutcome> SetPrimaryAsync(
         Guid candidateId,
         Guid documentId,
         string correlationId,
-        string? actorExternalKey,
+        AuditActor actor,
         CancellationToken cancellationToken)
     {
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
@@ -84,7 +85,7 @@ public sealed class DocumentRepository(ApplicationDbContext dbContext) : IDocume
             await dbContext.SaveChangesAsync(cancellationToken);
 
             selected.SetPrimary(true, now);
-            AddAudit("document.primary.changed", candidateId, documentId, "applied", correlationId, actorExternalKey);
+            AddAudit(DocumentAuditEvents.PrimaryChanged, candidateId, documentId, "applied", correlationId, actor);
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return DocumentSaveOutcome.Saved;
@@ -101,7 +102,7 @@ public sealed class DocumentRepository(ApplicationDbContext dbContext) : IDocume
         Guid candidateId,
         Guid documentId,
         string correlationId,
-        string? actorExternalKey,
+        AuditActor actor,
         CancellationToken cancellationToken)
     {
         var document = await dbContext.Documents.SingleOrDefaultAsync(
@@ -110,7 +111,7 @@ public sealed class DocumentRepository(ApplicationDbContext dbContext) : IDocume
         if (document is null) return null;
 
         dbContext.Documents.Remove(document);
-        AddAudit("document.removed", candidateId, documentId, "applied", correlationId, actorExternalKey);
+        AddAudit(DocumentAuditEvents.Removed, candidateId, documentId, "applied", correlationId, actor);
         await dbContext.SaveChangesAsync(cancellationToken);
         return document;
     }
@@ -119,11 +120,4 @@ public sealed class DocumentRepository(ApplicationDbContext dbContext) : IDocume
 
     private static string Subject(Guid candidateId, Guid documentId) =>
         $"candidate:{candidateId:N};document:{documentId:N}";
-
-    private static string Outcome(string outcome, string? actorExternalKey)
-    {
-        var actor = string.IsNullOrWhiteSpace(actorExternalKey) ? "system" : actorExternalKey.Trim();
-        var value = $"{outcome}|actor:{actor}";
-        return value[..Math.Min(value.Length, 100)];
-    }
 }

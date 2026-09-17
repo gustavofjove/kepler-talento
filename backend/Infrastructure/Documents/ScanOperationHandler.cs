@@ -50,12 +50,12 @@ public sealed class ScanOperationHandler(
                 break;
         }
         documents.AddAudit(
-            "document.scan",
+            DocumentAuditEvents.Scanned,
             document.CandidateId,
             document.Id,
             result.Code,
             operation.CorrelationId,
-            actorExternalKey: null);
+            AuditActor.System);
         await dbContext.SaveChangesAsync(cancellationToken);
         return result.Verdict == ScanVerdict.Error ? new(false, result.Code) : new(true, result.Code);
     }

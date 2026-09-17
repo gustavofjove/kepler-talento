@@ -87,12 +87,12 @@ public sealed class UploadCandidateDocumentHandler(
             document.SetPrimary(request.IsPrimary, now);
             documents.Add(document);
             documents.AddAudit(
-                "document.upload.accepted",
+                DocumentAuditEvents.UploadAccepted,
                 request.CandidateId,
                 documentId,
                 "accepted",
                 correlation.CorrelationId,
-                actor.ExternalKey);
+                actor.ToAuditActor());
             await operations.EnqueueAsync(
                 "document.scan",
                 correlation.CorrelationId,
