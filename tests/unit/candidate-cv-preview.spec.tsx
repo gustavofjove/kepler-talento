@@ -76,11 +76,16 @@ describe('CandidateCvPreview', () => {
       list,
       observeUntilSettled,
     } as unknown as DocumentService;
-    return render(
+    const renderCandidate = (current: CandidateDocument[]) => (
       <ServicesProvider value={{ ...services, documentService } as Services}>
-        <CandidateCvPreview candidate={candidate(documents)} />
-      </ServicesProvider>,
+        <CandidateCvPreview candidate={candidate(current)} />
+      </ServicesProvider>
     );
+    const view = render(renderCandidate(documents));
+    return {
+      ...view,
+      rerenderCandidate: (current: CandidateDocument[]) => view.rerender(renderCandidate(current)),
+    };
   };
 
   beforeEach(() => {
@@ -103,6 +108,10 @@ describe('CandidateCvPreview', () => {
   it('renders a clean PDF and revokes its URL on unmount', async () => {
     const view = renderPreview([pdf()]);
     expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute(
+      'title',
+      'Vista previa del documento PDF',
+    );
     expect(openPreview).toHaveBeenCalledOnce();
     view.unmount();
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:preview');
@@ -173,8 +182,19 @@ describe('CandidateCvPreview', () => {
     expect(openPreview).toHaveBeenCalledOnce();
   });
 
+  it('preserves the active preview across same-candidate aggregate refreshes', async () => {
+    const document = pdf();
+    const view = renderPreview([document]);
+    expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    view.rerenderCandidate([{ ...document, sizeBytes: 20 }]);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+  });
+
   it('polls a pending document and previews it when scanning settles', async () => {
-    const pending = pdf({ availabilityState: 'Pending' });
+    const pending = pdf({ availabilityState: 'Pending', isPrimary: false });
     observeUntilSettled.mockImplementationOnce(
       async (
         _candidateId: string,
