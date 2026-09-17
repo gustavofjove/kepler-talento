@@ -1,0 +1,25 @@
+.cv-preview {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cv-preview__picker {
+  max-width: 36rem;
+}
+
+.cv-preview__viewer {
+  border: 1px solid var(--border-1);
+  min-height: 600px;
+  width: 100%;
+}
+
+.cv-preview .button,
+.cv-preview select {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  .cv-preview__viewer {
+    min-height: 70vh;
+  }
+}

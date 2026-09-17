@@ -29,6 +29,10 @@ El multipart usa los campos `file`, `documentType` e `isPrimary`. Ninguna respue
 `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, nombre saneado en
 `Content-Disposition: attachment` y no admite rangos.
 
+Desde KTL-20, el mismo endpoint `/content` sirve tanto la descarga explícita como la vista previa
+PDF de la página de detalle. Conserva exactamente los mismos controles de autorización, análisis
+y caché. Consulte [la vista previa de documentos](../ktl-20/document-preview.md).
+
 ## Estados para la interfaz
 
 | Estado API          | Texto                                               |

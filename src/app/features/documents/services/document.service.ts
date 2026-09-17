@@ -102,10 +102,7 @@ export class DocumentService {
     documentId: string,
     fallbackFileName: string,
   ): Promise<ApiDownload> {
-    const result = await this.transport.download(
-      `${this.path(candidateId)}/${encodeURIComponent(documentId)}/content`,
-      fallbackFileName,
-    );
+    const result = await this.openPreview(candidateId, documentId, fallbackFileName);
     const url = URL.createObjectURL(result.blob);
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -113,6 +110,19 @@ export class DocumentService {
     anchor.click();
     URL.revokeObjectURL(url);
     return result;
+  }
+
+  openPreview(
+    candidateId: string,
+    documentId: string,
+    fallbackFileName: string,
+    signal?: AbortSignal,
+  ): Promise<ApiDownload> {
+    return this.transport.download(
+      `${this.path(candidateId)}/${encodeURIComponent(documentId)}/content`,
+      fallbackFileName,
+      { timeoutMs: 60_000, signal },
+    );
   }
 
   private path(candidateId: string): string {

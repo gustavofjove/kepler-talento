@@ -125,14 +125,19 @@ formato y programa el análisis antivirus. La aceptación responde `202 Accepted
 «aceptado y en análisis», no «disponible inmediatamente». Solo un resultado `Clean` permite
 la descarga; las respuestas nunca exponen claves ni rutas internas.
 
-Las capacidades de backend `documents.upload` y `documents.download` se corresponden con
-`upload_candidate_documents` y `download_candidate_documents` en el frontend. Ambas se
+Las capacidades `documents.upload` y `documents.download` usan el mismo vocabulario en el
+frontend y el backend. Ambas se
 comprueban por petición y son independientes de `candidates.read`. El límite de contenido es
 20 MiB para PDF, DOC, DOCX, ODT, RTF, TXT, JPEG, PNG, TIFF y BMP; Nginx admite 21 MiB únicamente
 para incluir el margen acotado del framing multipart.
 
 Consulta el [contrato y flujo de documentos KTL-9](docs/ktl-9/documents.md) y la
 [nota de versión](docs/ktl-9/release-notes.md).
+
+La página de detalle incluye una vista previa del CV principal cuando es un PDF disponible y la
+persona tiene `documents.download`. Otros formatos conservan la descarga. La vista previa reutiliza
+el endpoint privado de contenido y no expone rutas ni enlaces permanentes; consulte la
+[documentación de KTL-20](docs/ktl-20/document-preview.md).
 
 ## Presets de búsqueda KTL-14
 
