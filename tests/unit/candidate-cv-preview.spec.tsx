@@ -55,6 +55,7 @@ describe('CandidateCvPreview', () => {
   const openPreview = vi.fn();
   const download = vi.fn();
   const list = vi.fn();
+  const observeUntilSettled = vi.fn();
   const createObjectURL = vi.fn(() => 'blob:preview');
   const revokeObjectURL = vi.fn();
 
@@ -69,7 +70,12 @@ describe('CandidateCvPreview', () => {
       permissions: permitted ? ['documents.download'] : [],
     });
     list.mockResolvedValue(documents);
-    const documentService = { openPreview, download, list } as unknown as DocumentService;
+    const documentService = {
+      openPreview,
+      download,
+      list,
+      observeUntilSettled,
+    } as unknown as DocumentService;
     return render(
       <ServicesProvider value={{ ...services, documentService } as Services}>
         <CandidateCvPreview candidate={candidate(documents)} />
@@ -85,6 +91,7 @@ describe('CandidateCvPreview', () => {
       contentType: 'application/pdf',
     });
     download.mockResolvedValue(undefined);
+    observeUntilSettled.mockResolvedValue(undefined);
     vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
   });
 
@@ -124,8 +131,11 @@ describe('CandidateCvPreview', () => {
     expect(download).toHaveBeenCalledOnce();
   });
 
-  it('switches documents and reuses a cached object URL', async () => {
-    createObjectURL.mockReturnValueOnce('blob:first').mockReturnValueOnce('blob:second');
+  it('switches documents, revokes each active URL and reuses cached bytes', async () => {
+    createObjectURL
+      .mockReturnValueOnce('blob:first')
+      .mockReturnValueOnce('blob:second')
+      .mockReturnValueOnce('blob:first-again');
     renderPreview([pdf({ id: 'first' }), pdf({ id: 'second', isPrimary: false })]);
     await screen.findByTestId('cv-preview-viewer');
     const picker = screen.getByTestId('preview-document-select');
@@ -133,11 +143,53 @@ describe('CandidateCvPreview', () => {
     await waitFor(() =>
       expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:second'),
     );
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:first');
     await userEvent.selectOptions(picker, 'first');
     await waitFor(() =>
-      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:first'),
+      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:first-again'),
     );
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:second');
     expect(openPreview).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not restart a preview when refreshed metadata has the same stable fields', async () => {
+    let resolvePreview!: (value: { blob: Blob; fileName: string; contentType: string }) => void;
+    openPreview.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolvePreview = resolve;
+      }),
+    );
+    const document = pdf();
+    list.mockResolvedValueOnce([{ ...document }]);
+    renderPreview([document]);
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
+    expect(openPreview).toHaveBeenCalledOnce();
+    resolvePreview({
+      blob: new Blob(['pdf']),
+      fileName: 'cv.pdf',
+      contentType: 'application/pdf',
+    });
+    await screen.findByTestId('cv-preview-viewer');
+    expect(openPreview).toHaveBeenCalledOnce();
+  });
+
+  it('polls a pending document and previews it when scanning settles', async () => {
+    const pending = pdf({ availabilityState: 'Pending' });
+    observeUntilSettled.mockImplementationOnce(
+      async (
+        _candidateId: string,
+        _documentId: string,
+        onUpdate: (document: CandidateDocument) => void,
+      ) => {
+        const available = { ...pending, availabilityState: 'Available' as const };
+        onUpdate(available);
+        return available;
+      },
+    );
+    renderPreview([pending]);
+    expect(await screen.findByTestId('cv-preview-viewer')).toBeInTheDocument();
+    expect(observeUntilSettled).toHaveBeenCalledOnce();
+    expect(openPreview).toHaveBeenCalledOnce();
   });
 
   it('shows loading, then failure, and retries exactly once', async () => {

@@ -10,9 +10,11 @@ conversion is deliberately deferred because it would add a conversion pipeline, 
 new security boundaries.
 
 The SPA fetches the non-cacheable response through `ApiTransport`, creates an opaque `blob:` URL
-and renders it in the browser PDF viewer. Object URLs are cached by document for the page visit to
-avoid repeated transfers and duplicate audit events. They are revoked when the candidate changes
-and when the panel unmounts. No storage key, host path or permanent URL enters the DOM.
+and renders it in the browser PDF viewer. Fetched `Blob` bytes are cached by document for the page
+visit to avoid repeated transfers and duplicate audit events. Only the active selection has an
+object URL; it is revoked when the selection or candidate changes and when the panel unmounts.
+Pending documents are polled until scanning settles so a newly available PDF appears without a
+page reload. No storage key, host path or permanent URL enters the DOM.
 
 ## Security policy
 

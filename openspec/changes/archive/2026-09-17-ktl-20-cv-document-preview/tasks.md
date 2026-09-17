@@ -38,12 +38,13 @@
       picker (labelled «Documento», omitted when there is a single document) and the default
       selection from `pickDefaultDocument`. (design D4)
 - [x] 3.3 Fetch the selected document's bytes with `openPreview` inside an effect guarded by an
-      `AbortController`, only when `isPreviewable`; create the object URL and keep it in a
-      `Map<documentId, string>` cache; re-selecting a cached document issues no request.
+      `AbortController`, only when `isPreviewable`; keep the fetched `Blob` in a
+      `Map<documentId, Blob>` cache and create an object URL only for the active selection;
+      re-selecting cached bytes issues no request.
       (design D5; spec "Clean previewable document is rendered")
-- [x] 3.4 Revoke every object URL on unmount, on candidate change and when the cache is dropped;
-      abort the in-flight request on unmount and on selection change. (spec "Preview exposes no
-      durable reference")
+- [x] 3.4 Revoke the active object URL on selection change, candidate change and unmount; abort
+      the in-flight request on unmount and on selection change. Poll pending metadata so the panel
+      renders a document as soon as scanning settles. (spec "Preview exposes no durable reference")
 - [x] 3.5 Render the viewer as `<object type="application/pdf" data={objectUrl}
 data-testid="cv-preview-viewer">` with an accessible name, and the explanation plus the
       «Descargar» link as its fallback children. No `sandbox`, no inline `style`. (design D2)
@@ -96,10 +97,12 @@ data-testid="cv-preview-viewer">` with an accessible name, and the explanation p
       `pickDefaultDocument` (primary previewable, primary not previewable, no primary, ties,
       empty list) and the message mapping.
 - [x] 7.2 Create `tests/unit/candidate-cv-preview.spec.tsx` with `URL.createObjectURL` /
-      `revokeObjectURL` stubbed: clean PDF renders the viewer, picker switches document, cached
-      document issues no second request, loading state, non-PDF shows the unsupported state with
-      no request, each unavailable state shows its message with no request, failure shows retry
-      and a retry issues exactly one request, unmount aborts and revokes.
+      `revokeObjectURL` stubbed: clean PDF renders the viewer, picker switches document and revokes
+      the prior URL, cached bytes issue no second request, pending metadata settles into a preview,
+      an equivalent metadata refresh does not restart the content request, loading state, non-PDF
+      shows the unsupported state with no request, each unavailable state shows its message with
+      no request, failure shows retry and a retry issues exactly one request, unmount aborts and
+      revokes.
 - [x] 7.3 Run `npx vitest run tests/unit/candidate-cv-preview.spec.tsx tests/unit/candidate-cv-preview.logic.spec.ts tests/unit/document.service.spec.ts`
       and inspect the output.
 

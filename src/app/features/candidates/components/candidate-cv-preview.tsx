@@ -23,16 +23,14 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
   const [objectUrl, setObjectUrl] = useState<string>();
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [retry, setRetry] = useState(0);
-  const cache = useRef(new Map<string, string>());
+  const blobCache = useRef(new Map<string, Blob>());
 
   useEffect(() => {
     setDocuments(candidate.documents);
     setSelectedId(pickDefaultDocument(candidate.documents)?.id ?? '');
     setObjectUrl(undefined);
     setLoadState('idle');
-    const urls = cache.current;
-    urls.forEach((url) => URL.revokeObjectURL(url));
-    urls.clear();
+    blobCache.current.clear();
     if (!canDownload) return;
     const controller = new AbortController();
     void documentService
@@ -40,7 +38,30 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
       .then((current) => {
         if (controller.signal.aborted) return;
         setDocuments(current);
-        setSelectedId(pickDefaultDocument(current)?.id ?? '');
+        setSelectedId((selected) =>
+          current.some((document) => document.id === selected)
+            ? selected
+            : (pickDefaultDocument(current)?.id ?? ''),
+        );
+        current
+          .filter((document) => document.availabilityState === 'Pending')
+          .forEach((document) => {
+            void documentService
+              .observeUntilSettled(
+                candidate.id,
+                document.id,
+                (updated) => {
+                  setDocuments((documents) =>
+                    documents.map((item) => (item.id === updated.id ? updated : item)),
+                  );
+                },
+                controller.signal,
+              )
+              .catch((error) => {
+                if (!controller.signal.aborted)
+                  notifyError(error, t('candidate.profile.preview.failure'));
+              });
+          });
       })
       .catch((error) => {
         if (!controller.signal.aborted) notifyError(error, t('candidate.profile.preview.failure'));
@@ -49,46 +70,57 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
   }, [canDownload, candidate.id, candidate.documents, documentService, notifyError, t]);
 
   const selected = documents.find((document) => document.id === selectedId);
+  const selectedDocumentId = selected?.id;
+  const selectedFilename = selected?.originalFilename;
+  const selectedIsPreviewable = selected ? isPreviewable(selected) : false;
 
   useEffect(() => {
-    if (!canDownload || !selected || !isPreviewable(selected)) {
+    if (!canDownload || !selectedDocumentId || !selectedFilename || !selectedIsPreviewable) {
       setObjectUrl(undefined);
       setLoadState('idle');
       return;
     }
-    const cached = cache.current.get(selected.id);
-    if (cached) {
-      setObjectUrl(cached);
-      setLoadState('ready');
-      return;
-    }
     const controller = new AbortController();
+    let activeUrl: string | undefined;
+    const showBlob = (blob: Blob) => {
+      activeUrl = URL.createObjectURL(blob);
+      setObjectUrl(activeUrl);
+      setLoadState('ready');
+    };
+    const cached = blobCache.current.get(selectedDocumentId);
+    if (cached) {
+      showBlob(cached);
+      return () => URL.revokeObjectURL(activeUrl!);
+    }
     setObjectUrl(undefined);
     setLoadState('loading');
     void documentService
-      .openPreview(candidate.id, selected.id, selected.originalFilename, controller.signal)
+      .openPreview(candidate.id, selectedDocumentId, selectedFilename, controller.signal)
       .then((download) => {
         if (controller.signal.aborted) return;
-        const url = URL.createObjectURL(download.blob);
-        cache.current.set(selected.id, url);
-        setObjectUrl(url);
-        setLoadState('ready');
+        blobCache.current.set(selectedDocumentId, download.blob);
+        showBlob(download.blob);
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         setLoadState('error');
         notifyError(error, t('candidate.profile.preview.failure'));
       });
-    return () => controller.abort();
-  }, [canDownload, candidate.id, documentService, notifyError, retry, selected, t]);
-
-  useEffect(() => {
-    const urls = cache.current;
     return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
+      controller.abort();
+      if (activeUrl) URL.revokeObjectURL(activeUrl);
     };
-  }, []);
+  }, [
+    canDownload,
+    candidate.id,
+    documentService,
+    notifyError,
+    retry,
+    selectedDocumentId,
+    selectedFilename,
+    selectedIsPreviewable,
+    t,
+  ]);
 
   if (!canDownload || !documents.length || !selected) return null;
 

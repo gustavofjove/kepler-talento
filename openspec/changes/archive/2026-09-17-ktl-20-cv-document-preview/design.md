@@ -122,15 +122,16 @@ contradict the server.
 
 ### D5. Blob cache scoped to the page visit
 
-Fetched blobs are kept in a `Map<documentId, string>` of object URLs for the lifetime of the
-panel. Re-selecting a document already fetched does not hit the API again; every URL is revoked
-on unmount and when the candidate changes.
+Fetched blobs are kept in a `Map<documentId, Blob>` for the lifetime of the panel. The active
+selection gets a fresh object URL, which is revoked as soon as the selection or candidate changes
+or the panel unmounts. Re-selecting a document already fetched creates a new object URL from the
+cached bytes without hitting the API again.
 
 - Rationale: fewer repeated transfers of personal data over the network, and fewer duplicate
   `document.downloaded` audit entries from a user toggling between two CVs.
 - Trade-off: memory grows with the number of documents viewed in one visit, bounded by the 20 MB
-  upload cap per document. Realistic usage is one or two documents per visit, so this is
-  accepted over revoking on every switch.
+  upload cap per document. Realistic usage is one or two documents per visit; only the active
+  document retains an object URL.
 
 ### D6. Preview stays audited as a download
 
