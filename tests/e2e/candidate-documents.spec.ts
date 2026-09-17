@@ -22,6 +22,13 @@ async function createCandidate(page: Page, prefix: string): Promise<string> {
 
 test.describe('Candidate documents flow', () => {
   test('uploads, scans and downloads the original PDF bytes', async ({ page }) => {
+    test.setTimeout(60_000);
+    const cspViolations: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error' && message.text().includes('Content Security Policy')) {
+        cspViolations.push(message.text());
+      }
+    });
     await createCandidate(page, 'CV');
     const documents = page.getByTestId('candidate-documents');
 
@@ -49,6 +56,35 @@ test.describe('Candidate documents flow', () => {
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
     expect(Buffer.concat(chunks)).toEqual(PDF_BYTES);
+
+    await page.reload();
+    await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/);
+    expect(cspViolations).toEqual([]);
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.getByTestId('candidate-cv-preview')).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        ),
+      ).toBe(false);
+    }
+
+    const refreshedDocuments = page.getByTestId('candidate-documents');
+    await refreshedDocuments.getByTestId('document-file').setInputFiles({
+      name: 'candidate-cv.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Curriculum vitae', 'utf-8'),
+    });
+    await refreshedDocuments.getByTestId('document-is-primary').uncheck();
+    await refreshedDocuments.getByTestId('document-upload').click();
+    await expect(refreshedDocuments.getByTestId('document-availability').first()).toHaveText(
+      'Disponible',
+      { timeout: 25_000 },
+    );
+    await page.reload();
+    await page.getByTestId('preview-document-select').selectOption({ label: 'candidate-cv.txt' });
+    await expect(page.getByTestId('cv-preview-unsupported')).toBeVisible();
   });
 
   test('shows the Spanish 20 MB refusal and the edge forwards a 21 MB multipart body', async ({

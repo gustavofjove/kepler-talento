@@ -19,6 +19,26 @@ describe('i18n foundation', () => {
     expect(i18n.t('candidate.profile.yearsCount', { years: 3 })).toBe('3 años');
   });
 
+  it('resolves every CV preview message', () => {
+    for (const key of [
+      'title',
+      'document',
+      'loading',
+      'unsupported',
+      'pending',
+      'error',
+      'refused',
+      'legacyUnavailable',
+      'failure',
+      'retry',
+      'download',
+      'viewerLabel',
+      'fallback',
+    ]) {
+      expect(i18n.t(`candidate.profile.preview.${key}`)).not.toContain('candidate.profile.preview');
+    }
+  });
+
   it('fails the test run on a missing key, naming it', () => {
     expect(() => i18n.t('candidate.profile.does.not.exist')).toThrow(
       /candidate\.profile\.does\.not\.exist/,

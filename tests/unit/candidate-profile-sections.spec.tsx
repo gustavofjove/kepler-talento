@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'node:fs';
 import type { MockedObject } from 'vitest';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
@@ -11,6 +12,17 @@ import type { CatalogService } from '../../src/app/features/catalogs/services/ca
 import { loadedCatalogService } from './support/catalog-doubles';
 
 describe('Candidate profile section components', () => {
+  it('keeps the CV preview as the last block on the candidate detail page', () => {
+    const source = readFileSync(
+      'src/app/features/candidates/pages/candidate-detail-page.tsx',
+      'utf8',
+    );
+    const preview = source.indexOf('<CandidateCvPreview candidate={item} />');
+    expect(preview).toBeGreaterThan(source.indexOf('<CandidateDocuments candidate={item} />'));
+    expect(source.slice(preview)).toMatch(
+      /<CandidateCvPreview candidate=\{item\} \/>\s*<\/section>/,
+    );
+  });
   let relations: MockedObject<CandidateRelationsService>;
   let catalogService: CatalogService;
 

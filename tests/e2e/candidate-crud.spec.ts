@@ -52,7 +52,7 @@ test.describe('Candidate CRUD', () => {
 
     await page.click('button:has-text("Alta lógica")');
     await page.getByTestId('confirm-accept').click();
-    await expect(page.locator('p:has-text("Activo:")')).toContainText('Si');
+    await expect(page.locator('p:has-text("Activo:")')).toContainText('Sí');
 
     await page.goto('/app/candidates');
     await page.fill('input[name="text"]', firstName);

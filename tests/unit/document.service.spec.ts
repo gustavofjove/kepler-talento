@@ -111,8 +111,31 @@ describe('DocumentService', () => {
     expect(download).toHaveBeenCalledWith(
       '/candidates/candidate-1/documents/document-1/content',
       'cv.pdf',
+      { timeoutMs: 60_000, signal: undefined },
     );
     expect(click).toHaveBeenCalledOnce();
+  });
+
+  it('opens a preview through the content path without touching the DOM', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click');
+    const controller = new AbortController();
+    const result = {
+      blob: new Blob(['bytes']),
+      fileName: 'cv.pdf',
+      contentType: 'application/pdf',
+    };
+    download.mockResolvedValue(result);
+
+    await expect(
+      service.openPreview(candidateId, pending.id, 'cv.pdf', controller.signal),
+    ).resolves.toBe(result);
+
+    expect(download).toHaveBeenCalledWith(
+      '/candidates/candidate-1/documents/document-1/content',
+      'cv.pdf',
+      { timeoutMs: 60_000, signal: controller.signal },
+    );
+    expect(click).not.toHaveBeenCalled();
   });
 
   it('polls with bounded backoff and stops at the settled state', async () => {

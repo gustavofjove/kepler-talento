@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures';
-import { signInAs } from './support/auth';
+import { authorizationHeaders, signInAs } from './support/auth';
+
+const PDF_BYTES = Buffer.from('%PDF-1.4\n%%EOF', 'utf-8');
 
 test.describe('Secure access', () => {
   test('redirects an unauthenticated user from a protected route to /login', async ({ page }) => {
@@ -51,5 +53,56 @@ test.describe('Secure access', () => {
   test('does not restore the removed MFA flow for an unauthenticated caller', async ({ page }) => {
     await page.goto('/mfa');
     await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('fails closed for document preview and direct content access', async ({
+    browser,
+    baseURL,
+  }) => {
+    const admin = await browser.newContext({ baseURL });
+    const adminPage = await admin.newPage();
+    await signInAs(adminPage, 'rrhh_admin');
+    await adminPage.goto('/app/candidates/new');
+    await adminPage.fill('input[name="firstName"]', `Preview${Date.now()}`);
+    await adminPage.fill('input[name="lastName"]', 'Security');
+    await adminPage.click('button[type="submit"]');
+    await expect(adminPage).toHaveURL(
+      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    const candidateId = adminPage.url().split('/').pop()!;
+    const documents = adminPage.getByTestId('candidate-documents');
+    await documents.getByTestId('document-file').setInputFiles({
+      name: 'secure-preview.pdf',
+      mimeType: 'application/pdf',
+      buffer: PDF_BYTES,
+    });
+    await documents.getByTestId('document-upload').click();
+    await expect(documents.getByTestId('document-availability')).toHaveText('Disponible', {
+      timeout: 25_000,
+    });
+    const aggregate = await adminPage.request.get(`/api/candidates/${candidateId}`, {
+      headers: authorizationHeaders(adminPage),
+    });
+    expect(aggregate.status()).toBe(200);
+    const documentId = ((await aggregate.json()) as { documents: Array<{ id: string }> })
+      .documents[0]!.id;
+    await admin.close();
+
+    const readonly = await browser.newContext({ baseURL });
+    const readonlyPage = await readonly.newPage();
+    await signInAs(readonlyPage, 'readonly');
+    await readonlyPage.goto(`/app/candidates/${candidateId}`);
+    await expect(readonlyPage.getByTestId('candidate-cv-preview')).toHaveCount(0);
+    const unauthorized = await readonlyPage.request.get(
+      `/api/candidates/${candidateId}/documents/${documentId}/content`,
+      { headers: authorizationHeaders(readonlyPage) },
+    );
+    expect(unauthorized.status()).toBe(404);
+
+    const unauthenticated = await readonlyPage.request.get(
+      `/api/candidates/${candidateId}/documents/${documentId}/content`,
+    );
+    expect(unauthenticated.status()).toBe(401);
+    await readonly.close();
   });
 });
