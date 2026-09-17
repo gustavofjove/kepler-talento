@@ -24,13 +24,22 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
   const [loadState, setLoadState] = useState<LoadState>('idle');
   const [retry, setRetry] = useState(0);
   const blobCache = useRef(new Map<string, Blob>());
+  const previousCandidateId = useRef(candidate.id);
 
   useEffect(() => {
+    const candidateChanged = previousCandidateId.current !== candidate.id;
+    previousCandidateId.current = candidate.id;
     setDocuments(candidate.documents);
-    setSelectedId(pickDefaultDocument(candidate.documents)?.id ?? '');
-    setObjectUrl(undefined);
-    setLoadState('idle');
-    blobCache.current.clear();
+    setSelectedId((selected) =>
+      !candidateChanged && candidate.documents.some((document) => document.id === selected)
+        ? selected
+        : (pickDefaultDocument(candidate.documents)?.id ?? ''),
+    );
+    if (candidateChanged || !canDownload) {
+      setObjectUrl(undefined);
+      setLoadState('idle');
+      blobCache.current.clear();
+    }
     if (!canDownload) return;
     const controller = new AbortController();
     void documentService
@@ -54,6 +63,10 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
                   setDocuments((documents) =>
                     documents.map((item) => (item.id === updated.id ? updated : item)),
                   );
+                  setSelectedId((selected) => {
+                    if (selected) return selected;
+                    return isPreviewable(updated) ? updated.id : '';
+                  });
                 },
                 controller.signal,
               )
@@ -190,6 +203,7 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
           data={objectUrl}
           data-testid="cv-preview-viewer"
           aria-label={t('candidate.profile.preview.viewerLabel')}
+          title={t('candidate.profile.preview.viewerLabel')}
           className="cv-preview__viewer"
         >
           <p>{t('candidate.profile.preview.fallback')}</p>
