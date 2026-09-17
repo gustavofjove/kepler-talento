@@ -3,6 +3,7 @@ import type { PresetsState } from '../../features/search/services/search-presets
 import type { Permission } from '../../shared/models/auth.models';
 import type { AdminUser } from '../../features/admin/users/profile.service';
 import type { AdminRole } from '../../features/admin/roles/role.service';
+import type { AuditState } from '../../features/admin/audit/audit.service';
 import { useSignal } from '../state/use-signal';
 import { services, type Services } from './services';
 
@@ -45,6 +46,12 @@ export function usePermission(permission: Permission): boolean {
 export function useUsers(): AdminUser[] {
   const { profileService } = useServices();
   return useSignal(profileService.users);
+}
+
+/** Subscribes to the audit page currently loaded, with the filters that produced it. */
+export function useAudit(): AuditState {
+  const { auditService } = useServices();
+  return useSignal(auditService.state);
 }
 
 export function useRoles(): AdminRole[] {

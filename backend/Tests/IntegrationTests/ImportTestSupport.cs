@@ -6,7 +6,9 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Import;
 using KeplerTalento.Application.Abstractions.Operations;
 using KeplerTalento.Application.Features.Import;
+using KeplerTalento.Domain.Identity;
 using KeplerTalento.Infrastructure.Operations;
+using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace KeplerTalento.Tests.IntegrationTests;
@@ -91,11 +93,29 @@ internal static class ImportTestSupport
 /// <summary>A test actor whose permissions the test chooses.</summary>
 internal sealed class ImportTestActor(bool authenticated, params string[] permissions) : ICurrentActor
 {
+    /// <summary>
+    /// The stored user behind the importer. The batch references it and the commit's audit
+    /// events name it, so tests seed it with <see cref="SeedUserAsync"/> after resetting.
+    /// </summary>
+    public static readonly Guid ImporterUserId = Guid.Parse("01932f00-0000-7000-8000-00000000b001");
+
     public static ImportTestActor Importer => new(true, Permissions.CandidatesImport, Permissions.CandidatesRead);
+
+    public static async Task SeedUserAsync(ApplicationDbContext dbContext)
+    {
+        dbContext.Users.Add(new User(
+            ImporterUserId,
+            "import-integration-actor",
+            "Import Integration User",
+            "import-integration@example.test",
+            "rrhh_admin",
+            DateTimeOffset.UtcNow));
+        await dbContext.SaveChangesAsync();
+    }
 
     public string? ExternalKey => authenticated ? "import-integration-actor" : null;
 
-    public Guid? UserId => null;
+    public Guid? UserId => authenticated ? ImporterUserId : null;
 
     public bool IsAuthenticated => authenticated;
 

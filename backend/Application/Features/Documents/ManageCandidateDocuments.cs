@@ -1,6 +1,7 @@
 using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Abstractions.Identity;
+using KeplerTalento.Domain.Documents;
 using MediatR;
 
 namespace KeplerTalento.Application.Features.Documents;
@@ -46,7 +47,7 @@ public sealed class SetPrimaryCandidateDocumentHandler(
             request.CandidateId,
             request.DocumentId,
             correlation.CorrelationId,
-            actor.ExternalKey,
+            actor.ToAuditActor(),
             cancellationToken);
         if (outcome == DocumentSaveOutcome.NotFound) throw DocumentErrors.Missing();
         if (outcome == DocumentSaveOutcome.Conflict) throw DocumentErrors.PrimaryConflictException();
@@ -69,7 +70,7 @@ public sealed class RemoveCandidateDocumentHandler(
             request.CandidateId,
             request.DocumentId,
             correlation.CorrelationId,
-            actor.ExternalKey,
+            actor.ToAuditActor(),
             cancellationToken) ?? throw DocumentErrors.Missing();
 
         Exception? deletionFailure = null;
@@ -95,12 +96,12 @@ public sealed class DownloadCandidateDocumentHandler(
         var download = await downloads.OpenCleanAsync(metadata.Id, cancellationToken)
             ?? throw DocumentErrors.Missing();
         documents.AddAudit(
-            "document.downloaded",
+            DocumentAuditEvents.Downloaded,
             request.CandidateId,
             request.DocumentId,
             "served",
             correlation.CorrelationId,
-            actor.ExternalKey);
+            actor.ToAuditActor());
         try { await documents.SaveAsync(cancellationToken); }
         catch { await download.Content.DisposeAsync(); throw; }
         return download;

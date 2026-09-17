@@ -20,6 +20,7 @@ const ALL: Permission[] = [
   'users.manage',
   'roles.manage',
   'candidates.import',
+  'audit.read',
 ];
 
 function LocationProbe() {
@@ -74,6 +75,41 @@ describe('PrimaryNav - entries and permissions', () => {
     expect(screen.queryByTestId('nav-users')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-roles')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-import')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nav-audit')).not.toBeInTheDocument();
+  });
+
+  it('lists Auditoría last in the group for a profile holding audit.read', async () => {
+    const user = userEvent.setup();
+    renderNav(ALL);
+
+    await user.click(trigger());
+
+    const order = Array.from(screen.getByTestId('nav-admin-panel').querySelectorAll('a')).map(
+      (link) => link.getAttribute('data-testid'),
+    );
+    expect(order.at(-1)).toBe('nav-audit');
+    expect(screen.getByTestId('nav-audit')).toHaveAttribute('href', '/app/admin/audit');
+    expect(screen.getByTestId('nav-audit')).toHaveTextContent('Auditoría');
+  });
+
+  it('hides Auditoría from a profile holding every other administration permission', async () => {
+    const user = userEvent.setup();
+    renderNav(ALL.filter((permission) => permission !== 'audit.read'));
+
+    await user.click(trigger());
+
+    expect(screen.getByTestId('nav-users')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-audit')).not.toBeInTheDocument();
+  });
+
+  it('renders the group with Auditoría as its only child when only audit.read is held', async () => {
+    const user = userEvent.setup();
+    renderNav(['audit.read']);
+
+    await user.click(trigger());
+
+    expect(screen.getByTestId('nav-audit')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-roles')).not.toBeInTheDocument();
   });
 
   it('lists Presets right after Catálogos once the group is opened', async () => {

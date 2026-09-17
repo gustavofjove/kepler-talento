@@ -1,8 +1,10 @@
+using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Candidates;
 using KeplerTalento.Application.Features.Search;
+using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Documents;
@@ -353,12 +355,61 @@ public sealed class CandidateHandlerTests
         var candidate = Candidate("Ana", "Lopez");
         candidate.Deactivate(DateTimeOffset.UtcNow);
         candidates.Seed(candidate);
-        var handler = new GetCandidateHandler(candidates, Catalogs(), Actor.Reader);
+        var handler = new GetCandidateHandler(candidates, Catalogs(), new RecordingAuditRepository(), new StubCorrelation(), Actor.Reader);
 
         var found = await handler.Handle(new GetCandidateQuery(candidate.Id), CancellationToken.None);
 
         Assert.False(found.IsActive);
         Assert.Equal("Ana", found.FirstName);
+    }
+
+    [Fact]
+    public async Task Reading_one_candidate_records_a_read_event_naming_the_actor()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var audits = new RecordingAuditRepository();
+        var handler = new GetCandidateHandler(candidates, Catalogs(), audits, new StubCorrelation(), Actor.Reader);
+
+        await handler.Handle(new GetCandidateQuery(candidates.Single().Id), CancellationToken.None);
+
+        var recorded = Assert.Single(audits.Recorded);
+        Assert.Equal(CandidateAuditEvents.Read, recorded.EventType);
+        Assert.Equal(candidates.Single().Id.ToString("N"), recorded.SubjectId);
+        Assert.Equal(AuditActor.User(Actor.StoredUserId), recorded.Actor);
+        Assert.Equal("corr-test", recorded.CorrelationId);
+    }
+
+    [Fact]
+    public async Task A_refused_or_missing_read_records_nothing()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var audits = new RecordingAuditRepository();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() =>
+            new GetCandidateHandler(candidates, Catalogs(), audits, new StubCorrelation(), new Actor(true))
+                .Handle(new GetCandidateQuery(candidates.Single().Id), CancellationToken.None));
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            new GetCandidateHandler(candidates, Catalogs(), audits, new StubCorrelation(), Actor.Reader)
+                .Handle(new GetCandidateQuery(Guid.NewGuid()), CancellationToken.None));
+
+        Assert.Empty(audits.Recorded);
+    }
+
+    [Fact]
+    public async Task A_read_by_a_caller_without_a_stored_user_is_refused_and_records_nothing()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var audits = new RecordingAuditRepository();
+        var synthetic = new Actor(true, userId: null, Permissions.CandidatesRead);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new GetCandidateHandler(candidates, Catalogs(), audits, new StubCorrelation(), synthetic)
+                .Handle(new GetCandidateQuery(candidates.Single().Id), CancellationToken.None));
+
+        Assert.Empty(audits.Recorded);
     }
 
     [Fact]
@@ -418,7 +469,7 @@ public sealed class CandidateHandlerTests
         var candidates = new StubCandidateRepository();
         candidates.Seed(Candidate("Ana", "Lopez"));
         var existing = candidates.Single().Id;
-        var handler = new GetCandidateHandler(candidates, Catalogs(), new Actor(true));
+        var handler = new GetCandidateHandler(candidates, Catalogs(), new RecordingAuditRepository(), new StubCorrelation(), new Actor(true));
 
         var forExisting = await Assert.ThrowsAsync<ForbiddenException>(() =>
             handler.Handle(new GetCandidateQuery(existing), CancellationToken.None));
@@ -442,7 +493,7 @@ public sealed class CandidateHandlerTests
                 .Handle(UpdateOf(id, 0), CancellationToken.None),
             Permissions.CandidatesDelete => new SetCandidateActiveHandler(candidates, Catalogs(), actor)
                 .Handle(new SetCandidateActiveCommand(id, false, 0), CancellationToken.None),
-            _ => new GetCandidateHandler(candidates, Catalogs(), actor)
+            _ => new GetCandidateHandler(candidates, Catalogs(), new RecordingAuditRepository(), new StubCorrelation(), actor)
                 .Handle(new GetCandidateQuery(id), CancellationToken.None),
         };
 
@@ -604,8 +655,34 @@ public sealed class CandidateHandlerTests
         }
     }
 
-    private sealed class Actor(bool authenticated, params string[] permissions) : ICurrentActor
+    private sealed class RecordingAuditRepository : IAuditRepository
     {
+        public List<AuditEvent> Recorded { get; } = [];
+
+        public Task RecordAsync(AuditEvent auditEvent, CancellationToken cancellationToken)
+        {
+            Recorded.Add(auditEvent);
+            return Task.CompletedTask;
+        }
+
+        public Task<AuditPage> ListAsync(AuditFilter filter, int page, int pageSize, CancellationToken cancellationToken) =>
+            Task.FromResult(new AuditPage(Recorded, page, pageSize, Recorded.Count));
+    }
+
+    private sealed class StubCorrelation : ICorrelationContext
+    {
+        public string CorrelationId => "corr-test";
+    }
+
+    private sealed class Actor(bool authenticated, Guid? userId, params string[] permissions) : ICurrentActor
+    {
+        public static readonly Guid StoredUserId = Guid.Parse("01932f00-0000-7000-8000-00000000a001");
+
+        public Actor(bool authenticated, params string[] permissions)
+            : this(authenticated, StoredUserId, permissions)
+        {
+        }
+
         public static Actor Reader => new(true, Permissions.CandidatesRead);
         public static Actor Editor =>
             new(true, Permissions.CandidatesRead, Permissions.CandidatesCreate, Permissions.CandidatesUpdate);
@@ -614,8 +691,7 @@ public sealed class CandidateHandlerTests
 
         public string? ExternalKey => authenticated ? "test-actor" : null;
 
-        /// <summary>No stored user stands behind a test double; nothing under test reads it.</summary>
-        public Guid? UserId => null;
+        public Guid? UserId => authenticated ? userId : null;
 
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>

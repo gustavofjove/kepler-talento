@@ -320,6 +320,14 @@ record an audit event carrying the acting identity, the document and candidate i
 kind of event, its outcome, and the request correlation identifier. Audit events SHALL NOT
 record file content, the original filename, or any storage key or path.
 
+The acting identity SHALL be the actor's **internal user identifier**, never an email address, a
+display name or the external subject issued by the identity provider. An event produced by a
+background process — a scan verdict arriving after the request that uploaded the file, or a storage
+reconciliation — SHALL record the system actor rather than an absent one.
+
+A download SHALL be audited as a read of personal data: it identifies a specific person and is one
+of the two reads the trail exists to answer for.
+
 #### Scenario: Upload and scan are audited
 
 - **WHEN** a document is accepted and later scanned
@@ -394,3 +402,14 @@ instead, with an explanation and without fetching its content.
 - **WHEN** the content request for a preview is denied, times out, or fails
 - **THEN** no partial or stale content is rendered, the caller is shown a non-technical failure
   message with a retry affordance, and no storage detail is revealed
+
+#### Scenario: Acting identity is inspected
+
+- **WHEN** the acting identity on a document audit event is inspected
+- **THEN** it is an internal user identifier or the system actor, and it is not an email address, a
+  display name or an external subject identifier
+
+#### Scenario: Background process produces an event
+
+- **WHEN** a scan verdict or a storage reconciliation records an audit event with no person behind it
+- **THEN** the event records the system actor, distinguishable from an absent actor

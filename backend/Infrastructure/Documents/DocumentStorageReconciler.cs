@@ -91,10 +91,11 @@ public sealed class DocumentStorageReconciler(
     private void AddAudit(string subjectId, string outcomeCode, string correlationId, DateTimeOffset now) =>
         dbContext.AuditEvents.Add(new AuditEvent(
             Guid.NewGuid(),
-            "document.reconciliation",
+            DocumentAuditEvents.Reconciliation,
             subjectId,
             correlationId,
             now,
+            AuditActor.System,
             outcomeCode));
 
     private static string OpaqueSubject(string storageKey)

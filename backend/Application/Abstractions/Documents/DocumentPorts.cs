@@ -1,3 +1,4 @@
+using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Documents;
 
 namespace KeplerTalento.Application.Abstractions.Documents;
@@ -69,8 +70,8 @@ public interface IDocumentRepository
     Task<IReadOnlyList<CandidateDocument>> ListAsync(Guid candidateId, CancellationToken cancellationToken);
     Task ClearPrimaryAsync(Guid candidateId, DateTimeOffset now, CancellationToken cancellationToken);
     void Add(CandidateDocument document);
-    void AddAudit(string eventType, Guid candidateId, Guid documentId, string outcome, string correlationId, string? actorExternalKey);
-    Task<DocumentSaveOutcome> SetPrimaryAsync(Guid candidateId, Guid documentId, string correlationId, string? actorExternalKey, CancellationToken cancellationToken);
-    Task<CandidateDocument?> RemoveAsync(Guid candidateId, Guid documentId, string correlationId, string? actorExternalKey, CancellationToken cancellationToken);
+    void AddAudit(string eventType, Guid candidateId, Guid documentId, string outcome, string correlationId, AuditActor actor);
+    Task<DocumentSaveOutcome> SetPrimaryAsync(Guid candidateId, Guid documentId, string correlationId, AuditActor actor, CancellationToken cancellationToken);
+    Task<CandidateDocument?> RemoveAsync(Guid candidateId, Guid documentId, string correlationId, AuditActor actor, CancellationToken cancellationToken);
     Task SaveAsync(CancellationToken cancellationToken);
 }

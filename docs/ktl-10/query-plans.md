@@ -119,7 +119,7 @@ Limit  (cost=48783.78..50465.96 rows=100 width=109) (actual time=6.276..6.455 ro
                 Filter: "IsPrimary"
                 Buffers: shared hit=69
         SubPlan 3
-          ->  Limit  (cost=0.28..8.29 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=3000)
+          ->  Limit  (cost=0.28..8.29 rows=1 width=16) (actual time=0.002..0.002 rows=1 loops=3000)
                 Buffers: shared hit=8000
                 ->  Index Scan using "UX_CND_Documents_CandidateId_Primary" on "CND_Documents" c1  (cost=0.28..8.29 rows=1 width=16) (actual time=0.001..0.001 rows=1 loops=3000)
                       Index Cond: ("CandidateId" = c."Id")

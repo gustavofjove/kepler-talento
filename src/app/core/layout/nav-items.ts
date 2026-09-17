@@ -71,6 +71,12 @@ export const ADMIN_GROUP: NavGroup = {
       permission: 'candidates.import',
       testId: 'nav-import',
     },
+    {
+      label: 'Auditoría',
+      to: '/app/admin/audit',
+      permission: 'audit.read',
+      testId: 'nav-audit',
+    },
   ],
 };
 
@@ -86,6 +92,7 @@ export const NAV_PERMISSIONS: Permission[] = [
   'users.manage',
   'roles.manage',
   'candidates.import',
+  'audit.read',
 ];
 
 /** Single source for the active-state derivation of the group's parent. */

@@ -41,7 +41,8 @@ namespace KeplerTalento.Infrastructure.Import;
 /// <para>
 /// A candidate is built by <see cref="CandidateFactory"/> and audited with
 /// <see cref="CandidateAuditEvents.Created"/>, exactly as a direct create. The actor recorded on the
-/// audit event is the batch's uploader, since the worker has no request of its own.
+/// audit event is the internal user id of the batch's uploader, since the worker has no request of
+/// its own; a batch without one is failed rather than committed.
 /// </para>
 /// </remarks>
 public sealed class ImportCommitHandler(
@@ -76,6 +77,12 @@ public sealed class ImportCommitHandler(
             return new(true, "import.commit.already_decided");
         }
 
+        if (batch.CreatedByUserId is null)
+        {
+            // The candidate audit events name the uploader. A batch with no stored user behind
+            // it cannot name anyone, and loading it anyway would write actorless rows (KTL-19 D1).
+            return await FailAsync(batchId, ImportReasonCodes.ActorMissing, cancellationToken);
+        }
         if (!await storage.AvailableExistsAsync(batch.StorageKey, cancellationToken))
         {
             return await FailAsync(batchId, ImportReasonCodes.FileMissing, cancellationToken);
@@ -195,6 +202,8 @@ public sealed class ImportCommitHandler(
     private void StageRow(ImportBatch batch, string correlationId, RowEvaluation evaluation)
     {
         var now = DateTimeOffset.UtcNow;
+        // Checked before any row is staged in HandleAsync, so the batch fails whole instead.
+        var actor = AuditActor.User(batch.CreatedByUserId!.Value);
         if (evaluation.Outcome != RowOutcome.Loaded)
         {
             dbContext.ImportRowOutcomes.Add(ImportValidationHandler.ToOutcome(batch.Id, ImportPhases.Commit, evaluation, null, now));
@@ -212,7 +221,7 @@ public sealed class ImportCommitHandler(
             subjectId,
             correlationId,
             now,
-            batch.ActorExternalKey));
+            actor));
         if (evaluation.Languages.Count > 0)
         {
             var languages = evaluation.Languages
@@ -229,7 +238,7 @@ public sealed class ImportCommitHandler(
                 subjectId,
                 correlationId,
                 now,
-                batch.ActorExternalKey));
+                actor));
         }
         dbContext.ImportRowOutcomes.Add(ImportValidationHandler.ToOutcome(batch.Id, ImportPhases.Commit, evaluation, candidate.Id, now));
     }

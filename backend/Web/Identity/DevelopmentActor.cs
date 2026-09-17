@@ -25,6 +25,13 @@ public sealed class DevelopmentActorOptions
     /// </remarks>
     public string[] Permissions { get; init; } = DefaultPermissions;
 
+    /// <summary>
+    /// The internal user id this actor stands in for. Unset by default, and then every audited
+    /// operation refuses it (KTL-19 design D1): a synthetic caller does not get to write audit rows
+    /// in nobody's name. A test that performs audited operations sets it to a user it seeded.
+    /// </summary>
+    public Guid? UserId { get; init; }
+
     internal static readonly string[] DefaultPermissions =
     [
         Catalogue.CandidatesRead,
@@ -52,11 +59,11 @@ public sealed class DevelopmentActor(IOptions<DevelopmentActorOptions> options) 
     public bool IsAuthenticated => _options.Enabled;
 
     /// <summary>
-    /// Always null: there is no stored user behind a synthetic actor. Anything that needs a real
-    /// user id - the audit actor KTL-19 records, for one - therefore cannot be satisfied by
-    /// configuration pretending to be a person.
+    /// Null unless <see cref="DevelopmentActorOptions.UserId"/> names one. Without it, anything that
+    /// needs a real user id - the audit actor KTL-19 records, for one - is refused rather than
+    /// satisfied by configuration pretending to be a person.
     /// </summary>
-    public Guid? UserId => null;
+    public Guid? UserId => _options.Enabled ? _options.UserId : null;
 
     public bool HasPermission(string permission) =>
         _options.Enabled && _options.Permissions.Contains(permission, StringComparer.Ordinal);

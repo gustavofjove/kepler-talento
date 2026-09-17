@@ -1,3 +1,4 @@
+import { AuditService } from '../../features/admin/audit/audit.service';
 import { ImportService } from '../../features/admin/import/import.service';
 import { RoleService } from '../../features/admin/roles/role.service';
 import { ProfileService } from '../../features/admin/users/profile.service';
@@ -58,6 +59,7 @@ export const services = {
   searchPresetsService: new SearchPresetsService(apiTransport),
   exportService: new ExportService(),
   importService: new ImportService(apiTransport),
+  auditService: new AuditService(apiTransport),
   roleService,
   profileService,
   apiTransport,

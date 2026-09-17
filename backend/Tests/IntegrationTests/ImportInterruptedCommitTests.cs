@@ -57,6 +57,7 @@ public sealed class ImportInterruptedCommitTests(PostgreSqlFixture database, ITe
             await reset.Database.EnsureDeletedAsync();
             await DatabaseInitializer.MigrateAsync(reset, CancellationToken.None);
             await DatabaseInitializer.SeedCatalogsAsync(reset, CancellationToken.None);
+            await ImportTestActor.SeedUserAsync(reset);
         }
 
         // Every fiftieth row repeats an earlier person, so the resumed run also has to reproduce

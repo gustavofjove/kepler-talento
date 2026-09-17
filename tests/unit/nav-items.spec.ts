@@ -24,6 +24,7 @@ describe('nav-items table', () => {
       ['Usuarios', '/app/admin/users', 'users.manage'],
       ['Roles', '/app/admin/roles', 'roles.manage'],
       ['Importación', '/app/admin/import', 'candidates.import'],
+      ['Auditoría', '/app/admin/audit', 'audit.read'],
     ]);
   });
 
@@ -57,6 +58,7 @@ describe('isAdminRoute', () => {
     expect(isAdminRoute('/app/admin/presets')).toBe(true);
     expect(isAdminRoute('/app/admin/presets/new')).toBe(true);
     expect(isAdminRoute('/app/admin/presets/p-1/edit')).toBe(true);
+    expect(isAdminRoute('/app/admin/audit')).toBe(true);
   });
 
   it('does not match the day-to-day routes', () => {
