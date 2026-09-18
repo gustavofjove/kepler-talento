@@ -62,6 +62,8 @@ describe('CandidateSearchService', () => {
     programCriteria: [],
     programMode: 'ANY',
     hasCv: '',
+    tagCriteria: [],
+    tagMode: 'ANY',
     ...overrides,
   });
 

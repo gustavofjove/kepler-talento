@@ -16,6 +16,8 @@ public sealed class Candidate
     private readonly List<CandidateEducation> _education = [];
     private readonly List<CandidateExperience> _experience = [];
     private readonly List<CandidateSkill> _skills = [];
+    private readonly List<CandidateTag> _tags = [];
+    private readonly List<CandidateNote> _customNotes = [];
 
     private Candidate() { }
 
@@ -89,6 +91,8 @@ public sealed class Candidate
     public IReadOnlyList<CandidateEducation> Education => _education;
     public IReadOnlyList<CandidateExperience> Experience => _experience;
     public IReadOnlyList<CandidateSkill> Skills => _skills;
+    public IReadOnlyList<CandidateTag> Tags => _tags;
+    public IReadOnlyList<CandidateNote> CustomNotes => _customNotes;
 
     /// <summary>
     /// Replaces a collection wholesale and advances the update timestamp. The records
@@ -115,6 +119,10 @@ public sealed class Candidate
     public IReadOnlyList<CandidateSkill> ReplaceSkills(
         IEnumerable<CandidateSkill> skills,
         DateTimeOffset updatedAtUtc) => Replace(_skills, skills, updatedAtUtc);
+
+    public IReadOnlyList<CandidateTag> ReplaceTags(
+        IEnumerable<CandidateTag> tags,
+        DateTimeOffset updatedAtUtc) => Replace(_tags, tags, updatedAtUtc);
 
     private List<TRelation> Replace<TRelation>(
         List<TRelation> current,

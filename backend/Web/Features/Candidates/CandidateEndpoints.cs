@@ -1,6 +1,7 @@
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Candidates;
+using KeplerTalento.Application.Features.Candidates.Notes;
 using MediatR;
 
 namespace KeplerTalento.Web.Features.Candidates;
@@ -61,6 +62,14 @@ public static class CandidateEndpoints
     public sealed record SetExperienceRequest(IReadOnlyList<CandidateExperienceInput>? Experience, uint Version);
 
     public sealed record SetSkillsRequest(IReadOnlyList<CandidateSkillInput>? Skills, uint Version);
+
+    public sealed record SetTagsRequest(IReadOnlyList<CandidateTagInput>? Tags, uint Version);
+
+    public sealed record AddNoteRequest(string? Body);
+
+    public sealed record UpdateNoteRequest(string? Body, uint Version);
+
+    public sealed record SetNoteActiveRequest(bool IsActive, uint Version);
 
     public static IEndpointRouteBuilder MapCandidateEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -264,6 +273,98 @@ public static class CandidateEndpoints
             })
             .WithName("SetCandidateSkills")
             .WithCollectionResponses();
+
+        group.MapPut("/{id:guid}/tags", async (
+                Guid id,
+                SetTagsRequest request,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesUpdate);
+                return Results.Ok(await sender.Send(
+                    new SetCandidateTagsCommand(id, request.Tags ?? [], request.Version),
+                    cancellationToken));
+            })
+            .WithName("SetCandidateTags")
+            .WithCollectionResponses();
+
+        group.MapGet("/{id:guid}/notes", async (
+                Guid id,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesRead);
+                return Results.Ok(await sender.Send(new ListCandidateNotesQuery(id), cancellationToken));
+            })
+            .WithName("ListCandidateNotes")
+            .Produces<IReadOnlyList<CandidateNoteResponse>>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPost("/{id:guid}/notes", async (
+                Guid id,
+                AddNoteRequest request,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesUpdate);
+                var note = await sender.Send(
+                    new AddCandidateNoteCommand(id, request.Body),
+                    cancellationToken);
+                return Results.Created($"/api/candidates/{id}/notes/{note.Id}", note);
+            })
+            .WithName("AddCandidateNote")
+            .Produces<CandidateNoteResponse>(StatusCodes.Status201Created)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        group.MapPut("/{id:guid}/notes/{noteId:guid}", async (
+                Guid id,
+                Guid noteId,
+                UpdateNoteRequest request,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesUpdate);
+                return Results.Ok(await sender.Send(
+                    new UpdateCandidateNoteCommand(id, noteId, request.Body, request.Version),
+                    cancellationToken));
+            })
+            .WithName("UpdateCandidateNote")
+            .Produces<CandidateNoteResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        group.MapPut("/{id:guid}/notes/{noteId:guid}/active", async (
+                Guid id,
+                Guid noteId,
+                SetNoteActiveRequest request,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesUpdate);
+                return Results.Ok(await sender.Send(
+                    new SetCandidateNoteActiveCommand(
+                        id,
+                        noteId,
+                        request.IsActive,
+                        request.Version),
+                    cancellationToken));
+            })
+            .WithName("SetCandidateNoteActive")
+            .Produces<CandidateNoteResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         return endpoints;
     }

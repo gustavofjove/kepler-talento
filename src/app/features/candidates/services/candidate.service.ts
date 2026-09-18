@@ -11,6 +11,7 @@ import {
   CandidateLoadStatus,
   CandidateProgram,
   CandidateSkill,
+  CandidateTag,
 } from '../models/candidate.models';
 import type { CandidateGateway } from './candidate.api';
 
@@ -158,6 +159,10 @@ export class CandidateService {
 
   async setSkills(id: string, skills: CandidateSkill[]): Promise<Candidate> {
     return this.absorb(await this.api.setSkills(id, skills, this.versionOf(id)));
+  }
+
+  async setTags(id: string, tags: CandidateTag[]): Promise<Candidate> {
+    return this.absorb(await this.api.setTags(id, tags, this.versionOf(id)));
   }
 
   async refreshAggregate(id: string): Promise<Candidate> {

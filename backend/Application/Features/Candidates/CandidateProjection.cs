@@ -27,6 +27,7 @@ internal static class CandidateProjection
         CatalogFamilies.EducationType,
         CatalogFamilies.EducationStatus,
         CatalogFamilies.Sector,
+        CatalogFamilies.Tag,
     ];
 
     public static async Task<CandidateResponse> ToResponseAsync(
@@ -99,6 +100,20 @@ internal static class CandidateProjection
                 skill.Notes));
         }
 
+        var tags = new List<CandidateTagResponse>(candidate.Tags.Count);
+        foreach (var tag in candidate.Tags)
+        {
+            tags.Add(new CandidateTagResponse(
+                tag.Id,
+                await lookup.NameAsync(CatalogFamilies.Tag, tag.TagId, cancellationToken)));
+        }
+
+        var customNotes = candidate.CustomNotes
+            .Where(note => note.IsActive)
+            .OrderByDescending(note => note.CreatedAtUtc)
+            .Select(CandidateNoteResponse.From)
+            .ToArray();
+
         return new CandidateResponse(
             candidate.Id,
             candidate.FirstName,
@@ -126,6 +141,8 @@ internal static class CandidateProjection
             education,
             experience,
             skills,
+            tags,
+            customNotes,
             [.. documents.Select(CandidateDocumentResponse.From)]);
     }
 

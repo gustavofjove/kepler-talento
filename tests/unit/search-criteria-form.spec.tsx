@@ -50,6 +50,8 @@ describe('SearchCriteriaForm', () => {
     ).toEqual(ALL_CANDIDATE_STATUSES);
     expect(screen.getByTestId('filters-summary')).toBeInTheDocument();
     expect(screen.getByTestId('toggle-filters')).toBeInTheDocument();
+    expect(container.querySelector('[name="tagDraft"]')).not.toBeNull();
+    expect(container.querySelector('[name="tagLevelDraft"]')).toBeNull();
   });
 
   it('offers no collapse toggle when the host does not control collapsing', () => {

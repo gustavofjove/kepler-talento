@@ -94,6 +94,8 @@ export interface Candidate extends CandidateSummary {
   education: CandidateEducation[];
   experience: CandidateExperience[];
   skills: CandidateSkill[];
+  tags: CandidateTag[];
+  customNotes: CandidateNote[];
   documents: CandidateDocument[];
 }
 
@@ -144,6 +146,22 @@ export interface CandidateSkill {
   notes?: string;
 }
 
+export interface CandidateTag {
+  id: string;
+  tag: string;
+}
+
+export interface CandidateNote {
+  id: string;
+  body: string;
+  authorUserId?: string | null;
+  authorDisplayName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+  version: number;
+}
+
 export interface CandidateDocument {
   id: string;
   documentType: string;
@@ -170,6 +188,8 @@ export type CandidateDraft = Omit<
   | 'education'
   | 'experience'
   | 'skills'
+  | 'tags'
+  | 'customNotes'
   | 'documents'
 >;
 

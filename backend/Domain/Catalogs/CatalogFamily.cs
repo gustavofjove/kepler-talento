@@ -15,6 +15,7 @@ public static class CatalogFamilies
     public const string EducationType = "education_type";
     public const string EducationStatus = "education_status";
     public const string Sector = "sector";
+    public const string Tag = "tag";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -27,6 +28,7 @@ public static class CatalogFamilies
         EducationType,
         EducationStatus,
         Sector,
+        Tag,
     ];
 
     public static bool IsKnown(string? family) =>

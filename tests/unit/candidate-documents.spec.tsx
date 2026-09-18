@@ -50,6 +50,8 @@ const candidate: Candidate = {
   education: [],
   experience: [],
   skills: [],
+  tags: [],
+  customNotes: [],
   documents: [],
 };
 

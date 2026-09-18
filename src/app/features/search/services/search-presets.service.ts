@@ -192,6 +192,8 @@ export class SearchPresetsService {
       languageMode: input?.languageMode === 'ALL' ? 'ALL' : 'ANY',
       programCriteria: this.normalizeCriteria(input?.programCriteria, input?.programValues),
       programMode: input?.programMode === 'ALL' ? 'ALL' : 'ANY',
+      tagCriteria: this.normalizeCriteria(input?.tagCriteria),
+      tagMode: input?.tagMode === 'ALL' ? 'ALL' : 'ANY',
       hasCv: input?.hasCv === 'yes' || input?.hasCv === 'no' ? input.hasCv : '',
     };
   }

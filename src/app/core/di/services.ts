@@ -5,6 +5,7 @@ import { ProfileService } from '../../features/admin/users/profile.service';
 import { CandidateRelationsService } from '../../features/candidates/services/candidate-relations.service';
 import { CandidateApi } from '../../features/candidates/services/candidate.api';
 import { CandidateService } from '../../features/candidates/services/candidate.service';
+import { CandidateNotesService } from '../../features/candidates/services/candidate-notes.service';
 import { CatalogApi } from '../../features/catalogs/services/catalog.api';
 import { CatalogService } from '../../features/catalogs/services/catalog.service';
 import { DocumentService } from '../../features/documents/services/document.service';
@@ -41,7 +42,8 @@ const authService = new AuthService(tokenSource, apiTransport, appNavigator);
 authServiceRef.current = authService;
 const roleService = new RoleService(apiTransport);
 const profileService = new ProfileService(apiTransport);
-const candidateService = new CandidateService(new CandidateApi(apiTransport));
+const candidateApi = new CandidateApi(apiTransport);
+const candidateService = new CandidateService(candidateApi);
 
 export const services = {
   appNavigator,
@@ -50,6 +52,7 @@ export const services = {
   observabilityService: new ObservabilityService(),
   confirmDialogService: new ConfirmDialogService(),
   candidateService,
+  candidateNotesService: new CandidateNotesService(candidateApi),
   catalogService: new CatalogService(new CatalogApi(apiTransport)),
   candidateRelationsService: new CandidateRelationsService(candidateService),
   documentService: new DocumentService(candidateService, apiTransport),

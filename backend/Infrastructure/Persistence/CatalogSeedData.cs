@@ -101,5 +101,7 @@ public static class CatalogSeedData
                 "Alimentación", "Química", "Aeronáutica", "Naval",
                 "Administración pública", "Hostelería", "Banca y seguros",
             ],
+
+            [CatalogFamilies.Tag] = ["Recontratable", "No contactar", "Referido por plantilla"],
         };
 }

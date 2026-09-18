@@ -24,6 +24,8 @@ describe('toDraft', () => {
       education: [],
       experience: [],
       skills: [],
+      tags: [],
+      customNotes: [],
       documents: [],
     };
 

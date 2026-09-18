@@ -9,6 +9,8 @@ import type {
   CandidateListPage,
   CandidateListQuery,
   CandidateSkill,
+  CandidateTag,
+  CandidateNote,
 } from '../models/candidate.models';
 
 /**
@@ -34,6 +36,16 @@ export interface CandidateGateway {
   setEducation(id: string, education: CandidateEducation[], version: number): Promise<Candidate>;
   setExperience(id: string, experience: CandidateExperience[], version: number): Promise<Candidate>;
   setSkills(id: string, skills: CandidateSkill[], version: number): Promise<Candidate>;
+  setTags(id: string, tags: CandidateTag[], version: number): Promise<Candidate>;
+  listNotes(id: string): Promise<CandidateNote[]>;
+  addNote(id: string, body: string): Promise<CandidateNote>;
+  updateNote(id: string, noteId: string, body: string, version: number): Promise<CandidateNote>;
+  setNoteActive(
+    id: string,
+    noteId: string,
+    isActive: boolean,
+    version: number,
+  ): Promise<CandidateNote>;
 }
 
 /** The HTTP implementation, over the shared API transport. */
@@ -111,6 +123,40 @@ export class CandidateApi implements CandidateGateway {
 
   setSkills(id: string, skills: CandidateSkill[], version: number): Promise<Candidate> {
     return this.collection(id, 'skills', { skills, version });
+  }
+
+  setTags(id: string, tags: CandidateTag[], version: number): Promise<Candidate> {
+    return this.collection(id, 'tags', { tags, version });
+  }
+
+  listNotes(id: string): Promise<CandidateNote[]> {
+    return this.transport.request<CandidateNote[]>(`/candidates/${encodeURIComponent(id)}/notes`);
+  }
+
+  addNote(id: string, body: string): Promise<CandidateNote> {
+    return this.transport.request<CandidateNote>(`/candidates/${encodeURIComponent(id)}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    });
+  }
+
+  updateNote(id: string, noteId: string, body: string, version: number): Promise<CandidateNote> {
+    return this.transport.request<CandidateNote>(
+      `/candidates/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}`,
+      { method: 'PUT', body: JSON.stringify({ body, version }) },
+    );
+  }
+
+  setNoteActive(
+    id: string,
+    noteId: string,
+    isActive: boolean,
+    version: number,
+  ): Promise<CandidateNote> {
+    return this.transport.request<CandidateNote>(
+      `/candidates/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}/active`,
+      { method: 'PUT', body: JSON.stringify({ isActive, version }) },
+    );
   }
 
   /**

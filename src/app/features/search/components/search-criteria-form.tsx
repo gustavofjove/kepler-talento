@@ -164,7 +164,7 @@ export function SearchCriteriaForm({
                 mode={filters[`${group.kind}Mode`]}
                 draft={drafts[group.kind]}
                 valueOptions={catalogs.activeNames(group.valueFamily)}
-                levelOptions={catalogs.activeNames(group.levelFamily)}
+                levelOptions={group.levelFamily ? catalogs.activeNames(group.levelFamily) : []}
                 onDraftChange={(draft) =>
                   setDrafts((current) => ({ ...current, [group.kind]: draft }))
                 }

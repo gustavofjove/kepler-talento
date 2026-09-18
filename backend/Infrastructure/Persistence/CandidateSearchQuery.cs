@@ -96,6 +96,12 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
             filters.ProgramMode,
             criterion => Resolve(catalog, criterion, CatalogFamilies.Program, CatalogFamilies.ProgramLevel),
             ProgramPredicate);
+        query = ApplyFamily(
+            query,
+            filters.TagCriteria,
+            filters.TagMode,
+            criterion => Resolve(catalog, criterion, CatalogFamilies.Tag, CatalogFamilies.Tag),
+            TagPredicate);
 
         return query;
     }
@@ -205,6 +211,11 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
             && criterion.ValueIds.Contains(relation.ProgramId)
             && (criterion.MatchesAnyLevel || criterion.LevelIds.Contains(relation.LevelId)));
 
+    private Expression<Func<Candidate, bool>> TagPredicate(ResolvedCriterion criterion) =>
+        candidate => dbContext.CandidateTags.Any(relation =>
+            relation.CandidateId == candidate.Id
+            && criterion.ValueIds.Contains(relation.TagId));
+
     /// <summary>
     /// Resolves every criterion's catalog names to identifiers in one query.
     /// </summary>
@@ -227,6 +238,7 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         Collect(filters.SkillCriteria, CatalogFamilies.Skill, CatalogFamilies.SkillLevel);
         Collect(filters.LanguageCriteria, CatalogFamilies.Language, CatalogFamilies.LanguageLevel);
         Collect(filters.ProgramCriteria, CatalogFamilies.Program, CatalogFamilies.ProgramLevel);
+        Collect(filters.TagCriteria, CatalogFamilies.Tag, CatalogFamilies.Tag);
 
         void Collect(IReadOnlyList<SearchCriterion> criteria, string valueFamily, string levelFamily)
         {

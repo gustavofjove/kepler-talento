@@ -64,6 +64,16 @@ public sealed class CatalogHandlerTests
         Assert.Equal(CatalogErrors.FamilyInvalid, Assert.Single(result.Errors).ErrorCode);
     }
 
+    [Fact]
+    public async Task List_validator_accepts_the_tag_family()
+    {
+        IValidator<ListCatalogFamilyQuery> validator = new ListCatalogFamilyValidator();
+
+        var result = await validator.ValidateAsync(new(CatalogFamilies.Tag, false));
+
+        Assert.True(result.IsValid);
+    }
+
     // ---- create ----
 
     [Fact]

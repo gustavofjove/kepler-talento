@@ -6,6 +6,7 @@ import {
   CandidateLanguage,
   CandidateProgram,
   CandidateSkill,
+  CandidateTag,
 } from '../models/candidate.models';
 import { CandidateService } from './candidate.service';
 
@@ -124,6 +125,23 @@ export class CandidateRelationsService {
     await this.candidateService.setSkills(
       candidateId,
       candidate.skills.filter((item) => item.id !== skillId),
+    );
+  }
+
+  async addTag(candidateId: string, input: Omit<CandidateTag, 'id'>): Promise<void> {
+    const candidate = await this.require(candidateId);
+    if (candidate.tags.some((item) => sameText(item.tag, input.tag))) {
+      throw new TranslatableError('candidate.profile.tags.duplicate');
+    }
+    const tag: CandidateTag = { ...input, id: crypto.randomUUID() };
+    await this.candidateService.setTags(candidateId, [...candidate.tags, tag]);
+  }
+
+  async removeTag(candidateId: string, tagId: string): Promise<void> {
+    const candidate = await this.require(candidateId);
+    await this.candidateService.setTags(
+      candidateId,
+      candidate.tags.filter((item) => item.id !== tagId),
     );
   }
 

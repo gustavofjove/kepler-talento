@@ -3,6 +3,7 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Candidates;
+using KeplerTalento.Application.Features.Candidates.Notes;
 using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Candidates;
@@ -349,6 +350,118 @@ public sealed class CandidateHandlerTests
     }
 
     [Fact]
+    public async Task Tags_are_replaced_wholesale_and_a_duplicate_is_refused()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var handler = new SetCandidateTagsHandler(candidates, Catalogs(), Actor.Editor);
+        var request = new SetCandidateTagsCommand(
+            candidates.Single().Id,
+            [new CandidateTagInput(null, "Recontratable")],
+            candidates.Single().Version);
+
+        var response = await handler.Handle(request, CancellationToken.None);
+
+        Assert.Equal("Recontratable", Assert.Single(response.Tags).Tag);
+        Assert.Equal(CandidateAuditEvents.TagsChanged, candidates.LastAuditEventType);
+        var duplicate = request with
+        {
+            Tags =
+            [
+                new CandidateTagInput(null, "Recontratable"),
+                new CandidateTagInput(null, " recontratable "),
+            ],
+        };
+        var refusal = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            handler.Handle(duplicate, CancellationToken.None));
+        Assert.Contains(refusal.Issues, issue => issue.Code == CandidateErrors.TagDuplicate);
+    }
+
+    [Fact]
+    public async Task A_tag_from_another_family_and_a_stale_candidate_version_are_refused()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var handler = new SetCandidateTagsHandler(candidates, Catalogs(), Actor.Editor);
+
+        await Assert.ThrowsAsync<RequestValidationException>(() => handler.Handle(
+            new SetCandidateTagsCommand(
+                candidates.Single().Id,
+                [new CandidateTagInput(null, "Compras")],
+                candidates.Single().Version),
+            CancellationToken.None));
+
+        candidates.NextOutcome = CandidateSaveOutcome.ConcurrencyConflict;
+        await Assert.ThrowsAsync<ConflictException>(() => handler.Handle(
+            new SetCandidateTagsCommand(
+                candidates.Single().Id,
+                [new CandidateTagInput(null, "Recontratable")],
+                candidates.Single().Version),
+            CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Note_validation_edit_and_idempotent_retirement_keep_note_identity()
+    {
+        var required = await new AddCandidateNoteValidator().ValidateAsync(
+            new AddCandidateNoteCommand(Guid.NewGuid(), ""));
+        var tooLong = await new AddCandidateNoteValidator().ValidateAsync(
+            new AddCandidateNoteCommand(Guid.NewGuid(), new string('x', 4001)));
+        Assert.Contains(required.Errors, error => error.ErrorCode == CandidateErrors.NoteBodyRequired);
+        Assert.Contains(tooLong.Errors, error => error.ErrorCode == CandidateErrors.NoteBodyTooLong);
+
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidates.Seed(candidate);
+        var createdAt = DateTimeOffset.UtcNow.AddDays(-1);
+        var note = new CandidateNote(Guid.NewGuid(), candidate.Id, "Original", Actor.StoredUserId, createdAt);
+        candidates.SeedNote(note);
+        var edited = await new UpdateCandidateNoteHandler(candidates, Actor.Editor).Handle(
+            new UpdateCandidateNoteCommand(candidate.Id, note.Id, "Editada", 1),
+            CancellationToken.None);
+        Assert.Equal(note.Id, edited.Id);
+        Assert.Equal(Actor.StoredUserId, edited.AuthorUserId);
+        Assert.Equal(createdAt, edited.CreatedAt);
+
+        note.SetActive(false, DateTimeOffset.UtcNow);
+        var retired = await new SetCandidateNoteActiveHandler(candidates, Actor.Editor).Handle(
+            new SetCandidateNoteActiveCommand(candidate.Id, note.Id, false, 999),
+            CancellationToken.None);
+        Assert.False(retired.IsActive);
+    }
+
+    [Fact]
+    public async Task Note_writes_refuse_stale_wrong_candidate_and_removed_candidate_requests()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        var other = Candidate("Berta", "Sanz");
+        candidates.Seed(candidate);
+        candidates.Seed(other);
+        var note = new CandidateNote(
+            Guid.NewGuid(), candidate.Id, "Original", Actor.StoredUserId, DateTimeOffset.UtcNow);
+        candidates.SeedNote(note);
+
+        await Assert.ThrowsAsync<NotFoundException>(() =>
+            new UpdateCandidateNoteHandler(candidates, Actor.Editor).Handle(
+                new UpdateCandidateNoteCommand(other.Id, note.Id, "Cambio", 1),
+                CancellationToken.None));
+
+        candidates.NextOutcome = CandidateSaveOutcome.ConcurrencyConflict;
+        await Assert.ThrowsAsync<ConflictException>(() =>
+            new UpdateCandidateNoteHandler(candidates, Actor.Editor).Handle(
+                new UpdateCandidateNoteCommand(candidate.Id, note.Id, "Cambio", 1),
+                CancellationToken.None));
+
+        candidates.NextOutcome = CandidateSaveOutcome.Saved;
+        candidate.Deactivate(DateTimeOffset.UtcNow);
+        await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new AddCandidateNoteHandler(candidates, Actor.Editor).Handle(
+                new AddCandidateNoteCommand(candidate.Id, "No debe guardarse"),
+                CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Reading_returns_a_logically_removed_candidate_by_identifier()
     {
         var candidates = new StubCandidateRepository();
@@ -530,6 +643,7 @@ public sealed class CandidateHandlerTests
         Add(CatalogFamilies.ProgramLevel, "Avanzado");
         Add(CatalogFamilies.EducationType, "Universitaria");
         Add(CatalogFamilies.EducationStatus, "Completa");
+        Add(CatalogFamilies.Tag, "Recontratable", "No contactar");
         return new StubCatalogRepository(items);
     }
 
@@ -560,6 +674,7 @@ public sealed class CandidateHandlerTests
     private sealed class StubCandidateRepository : ICandidateRepository
     {
         private readonly List<Candidate> _candidates = [];
+        private readonly List<CandidateNote> _notes = [];
 
         public List<CandidateRelation> RemovedRelations { get; } = [];
         public string? LastAuditEventType { get; private set; }
@@ -567,6 +682,8 @@ public sealed class CandidateHandlerTests
         public CandidateSaveOutcome NextOutcome { get; set; } = CandidateSaveOutcome.Saved;
 
         public void Seed(Candidate candidate) => _candidates.Add(candidate);
+
+        public void SeedNote(CandidateNote note) => _notes.Add(note);
 
         public Candidate Single() => _candidates[0];
 
@@ -595,6 +712,22 @@ public sealed class CandidateHandlerTests
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<CandidateDocument>>([]);
 
+        public Task<IReadOnlyList<CandidateNote>> ListNotesAsync(
+            Guid candidateId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<CandidateNote>>(_notes
+                .Where(note => note.CandidateId == candidateId && note.IsActive)
+                .OrderByDescending(note => note.CreatedAtUtc)
+                .ToArray());
+
+        public Task<CandidateNote?> FindNoteAsync(
+            Guid candidateId,
+            Guid noteId,
+            bool includeInactive,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(_notes.SingleOrDefault(note => note.CandidateId == candidateId
+                && note.Id == noteId && (includeInactive || note.IsActive)));
+
         /// <summary>
         /// Records what the search handler asked for. The query semantics themselves are
         /// SQL, so they are proven against PostgreSQL rather than reimplemented here —
@@ -622,6 +755,8 @@ public sealed class CandidateHandlerTests
 
         public void AddRelation(CandidateRelation relation) => AddedRelations.Add(relation);
 
+        public void AddNote(CandidateNote note) => _notes.Add(note);
+
         public void RemoveRelations(IEnumerable<CandidateRelation> relations) =>
             RemovedRelations.AddRange(relations);
 
@@ -642,9 +777,24 @@ public sealed class CandidateHandlerTests
 
         public void ExpectVersion(Candidate candidate, uint version) => ExpectedVersion = version;
 
+        public void ExpectVersion(CandidateNote note, uint version) => ExpectedVersion = version;
+
         public Task<CandidateSaveOutcome> SaveAsync(
             string auditEventType,
             string subjectId,
+            CancellationToken cancellationToken)
+        {
+            if (NextOutcome == CandidateSaveOutcome.Saved)
+            {
+                LastAuditEventType = auditEventType;
+            }
+            return Task.FromResult(NextOutcome);
+        }
+
+        public Task<CandidateSaveOutcome> SaveNoteAsync(
+            string auditEventType,
+            Guid candidateId,
+            Guid noteId,
             CancellationToken cancellationToken)
         {
             if (NextOutcome == CandidateSaveOutcome.Saved)

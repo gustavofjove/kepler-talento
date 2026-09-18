@@ -19,6 +19,10 @@ public static class CandidateAuditEvents
     public const string Removed = "candidate.removed";
     public const string Restored = "candidate.restored";
     public const string RelationsChanged = "candidate.relations_changed";
+    public const string TagsChanged = "candidate.tags_changed";
+    public const string NoteAdded = "candidate.note_added";
+    public const string NoteUpdated = "candidate.note_updated";
+    public const string NoteRetired = "candidate.note_retired";
     public const string DocumentsChanged = "candidate.documents_changed";
     public const string Read = "candidate.read";
 }

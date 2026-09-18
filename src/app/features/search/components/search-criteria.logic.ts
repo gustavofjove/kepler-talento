@@ -23,6 +23,7 @@ export const EMPTY_DRAFTS: Record<CriteriaKind, CriteriaFilter> = {
   skill: { value: '', level: '' },
   language: { value: '', level: '' },
   program: { value: '', level: '' },
+  tag: { value: '', level: '' },
 };
 
 export function statusOptions(t: TFunction): StatusOption[] {
@@ -69,10 +70,10 @@ export function buildSummaryGroups(filters: SearchFilters, t: TFunction): Summar
       label:
         criteria.length > 1
           ? t('search.criteria.summary.groupWithMode', {
-              label: group.label,
+              label: t(group.labelKey),
               mode: modeLabel(filters[`${group.kind}Mode`], t),
             })
-          : group.label,
+          : t(group.labelKey),
       values: criteria.map((c) => `${c.value}${c.level ? ` · ${c.level}` : ''}`),
     });
   }

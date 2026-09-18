@@ -315,6 +315,45 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
             await dbContext.CatalogItems.AsNoTracking().Select(item => item.Family).Distinct().CountAsync());
     }
 
+    [Fact]
+    public async Task Seed_adds_tags_to_an_existing_nine_family_database_without_altering_it()
+    {
+        await ResetAsync();
+        await using var dbContext = NewDbContext();
+
+        await dbContext.CatalogItems
+            .Where(item => item.Family == CatalogFamilies.Tag)
+            .ExecuteDeleteAsync();
+        var before = await dbContext.CatalogItems
+            .AsNoTracking()
+            .Where(item => item.Family != CatalogFamilies.Tag)
+            .OrderBy(item => item.Family)
+            .ThenBy(item => item.SortOrder)
+            .Select(item => new { item.Id, item.Family, item.NameEs, item.SortOrder, item.IsActive })
+            .ToListAsync();
+
+        await DatabaseInitializer.SeedCatalogsAsync(dbContext, CancellationToken.None);
+
+        var after = await dbContext.CatalogItems
+            .AsNoTracking()
+            .Where(item => item.Family != CatalogFamilies.Tag)
+            .OrderBy(item => item.Family)
+            .ThenBy(item => item.SortOrder)
+            .Select(item => new { item.Id, item.Family, item.NameEs, item.SortOrder, item.IsActive })
+            .ToListAsync();
+        var tags = await dbContext.CatalogItems
+            .AsNoTracking()
+            .Where(item => item.Family == CatalogFamilies.Tag)
+            .OrderBy(item => item.SortOrder)
+            .Select(item => item.NameEs)
+            .ToListAsync();
+
+        Assert.Equal(before, after);
+        Assert.Equal(
+            CatalogSeedData.Families[CatalogFamilies.Tag].Select(value => value.NameEs),
+            tags);
+    }
+
     private async Task ResetAsync()
     {
         await using var dbContext = NewDbContext();

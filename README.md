@@ -41,12 +41,24 @@ se aplican en el servidor y se corresponden con el permiso `manage_catalogs` del
 ocultar la interfaz no es el control.
 
 No existe ningún endpoint de borrado físico: un valor se retira desactivándolo, de modo que
-los candidatos que lo referencian conservan su significado. Las nueve familias se cargan con
+los candidatos que lo referencian conservan su significado. Las diez familias se cargan con
 una semilla explícita de despliegue durante `--migrate`. La clave `rrhh-catalogs` del
 navegador queda abandonada; no se migra.
 
+La familia **Etiquetas** incluye inicialmente `Recontratable`, `No contactar` y
+`Referido por plantilla`. `No contactar` es una etiqueta informativa: la aplicación no aplica
+por sí sola una restricción de contacto.
+
 El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y auditoría está en
 [`docs/ktl-6/catalogs.md`](docs/ktl-6/catalogs.md).
+
+## Etiquetas y notas personalizadas KTL-21
+
+La ficha del candidato permite asignar etiquetas del catálogo y mantener un hilo independiente
+de notas personalizadas. Cada nota conserva autor y fecha, usa su propia versión para evitar
+sobrescrituras y se retira de forma lógica; no existe borrado físico. El campo histórico `notes`
+del candidato no cambia. Las notas sin un usuario interno resoluble muestran
+`Autor desconocido`. Consulta el [contrato KTL-21](docs/ktl-21/candidate-tags-and-notes.md).
 
 ## Migración de Access KTL-7
 
