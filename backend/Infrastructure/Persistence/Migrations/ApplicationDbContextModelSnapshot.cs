@@ -417,6 +417,58 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DeletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorUserId");
+
+                    b.HasIndex("CandidateId", "CreatedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_CND_CandidateNotes_CandidateId_CreatedAtUtc_Active")
+                        .HasFilter("\"IsActive\"");
+
+                    b.ToTable("CND_CandidateNotes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CND_CandidateNotes_Body", "char_length(btrim(\"Body\")) BETWEEN 1 AND 4000");
+
+                            t.HasCheckConstraint("CK_CND_CandidateNotes_Deleted", "(\"IsActive\" AND \"DeletedAtUtc\" IS NULL) OR (NOT \"IsActive\" AND \"DeletedAtUtc\" IS NOT NULL)");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateProgram", b =>
                 {
                     b.Property<Guid>("Id")
@@ -538,6 +590,52 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("TagFamily")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateId")
+                        .HasDatabaseName("IX_CND_CandidateTags_CandidateId");
+
+                    b.HasIndex("SourceKey")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CND_CandidateTags_SourceKey")
+                        .HasFilter("\"SourceKey\" IS NOT NULL");
+
+                    b.HasIndex("CandidateId", "TagId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CND_CandidateTags_CandidateId_TagId");
+
+                    b.HasIndex("TagId", "TagFamily");
+
+                    b.ToTable("CND_CandidateTags", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CND_CandidateTags_TagFamily", "\"TagFamily\" = 'tag'");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Catalogs.CatalogItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -603,7 +701,7 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.ToTable("CAT_CatalogItems", null, t =>
                         {
-                            t.HasCheckConstraint("CK_CAT_CatalogItems_Family", "\"Family\" IN ('language', 'program', 'skill', 'language_level', 'program_level', 'skill_level', 'education_type', 'education_status', 'sector')");
+                            t.HasCheckConstraint("CK_CAT_CatalogItems_Family", "\"Family\" IN ('language', 'program', 'skill', 'language_level', 'program_level', 'skill_level', 'education_type', 'education_status', 'sector', 'tag')");
 
                             t.HasCheckConstraint("CK_CAT_CatalogItems_Name", "char_length(\"NameEs\") > 0 AND char_length(\"NameNormalized\") > 0 AND char_length(\"Code\") > 0");
 
@@ -1272,6 +1370,22 @@ namespace Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateNote", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Identity.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
+                        .WithMany("CustomNotes")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateProgram", b =>
                 {
                     b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
@@ -1313,6 +1427,22 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasOne("KeplerTalento.Domain.Catalogs.CatalogItem", null)
                         .WithMany()
                         .HasForeignKey("SkillId", "SkillFamily")
+                        .HasPrincipalKey("Id", "Family")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateTag", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KeplerTalento.Domain.Catalogs.CatalogItem", null)
+                        .WithMany()
+                        .HasForeignKey("TagId", "TagFamily")
                         .HasPrincipalKey("Id", "Family")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -1361,6 +1491,8 @@ namespace Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>
                 {
+                    b.Navigation("CustomNotes");
+
                     b.Navigation("Education");
 
                     b.Navigation("Experience");
@@ -1370,6 +1502,8 @@ namespace Infrastructure.Persistence.Migrations
                     b.Navigation("Programs");
 
                     b.Navigation("Skills");
+
+                    b.Navigation("Tags");
                 });
 #pragma warning restore 612, 618
         }

@@ -18,6 +18,12 @@ test.describe('Advanced search', () => {
     await expect(page.getByText('KtlSearchSeed Candidate')).toBeVisible();
   });
 
+  test('offers tag criteria without a level control', async ({ page }) => {
+    await page.goto('/app/search');
+    await expect(page.locator('select[name="tagDraft"]')).toBeVisible();
+    await expect(page.locator('select[name="tagLevelDraft"]')).toHaveCount(0);
+  });
+
   test('shows no results for a text filter that matches nobody', async ({ page }) => {
     await page.goto('/app/search');
     await page.fill('input[name="text"]', 'nadie-existe-xyz');

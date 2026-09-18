@@ -1,0 +1,13 @@
+.candidate-note {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.candidate-note-body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.candidate-notes textarea {
+  width: 100%;
+}

@@ -25,6 +25,9 @@ public sealed class CandidateRepository(
             .Include(candidate => candidate.Education)
             .Include(candidate => candidate.Experience)
             .Include(candidate => candidate.Skills)
+            .Include(candidate => candidate.Tags)
+            .Include(candidate => candidate.CustomNotes.Where(note => note.IsActive))
+                .ThenInclude(note => note.Author)
             .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
 
     public Task<Candidate?> FindCoreAsync(Guid id, CancellationToken cancellationToken) =>
@@ -78,6 +81,29 @@ public sealed class CandidateRepository(
             .ThenBy(document => document.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<CandidateNote>> ListNotesAsync(
+        Guid candidateId,
+        CancellationToken cancellationToken) =>
+        await dbContext.CandidateNotes
+            .AsNoTracking()
+            .Include(note => note.Author)
+            .Where(note => note.CandidateId == candidateId && note.IsActive)
+            .OrderByDescending(note => note.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+    public Task<CandidateNote?> FindNoteAsync(
+        Guid candidateId,
+        Guid noteId,
+        bool includeInactive,
+        CancellationToken cancellationToken) =>
+        dbContext.CandidateNotes
+            .Include(note => note.Author)
+            .SingleOrDefaultAsync(
+                note => note.CandidateId == candidateId
+                    && note.Id == noteId
+                    && (includeInactive || note.IsActive),
+                cancellationToken);
+
     public async Task<SearchPage<CandidateSearchItem>> SearchAsync(
         SearchFiltersValue filters,
         SearchOptions options,
@@ -93,6 +119,8 @@ public sealed class CandidateRepository(
     public void Add(Candidate candidate) => dbContext.Candidates.Add(candidate);
 
     public void AddRelation(CandidateRelation relation) => dbContext.Add(relation);
+
+    public void AddNote(CandidateNote note) => dbContext.CandidateNotes.Add(note);
 
     public void RemoveRelations(IEnumerable<CandidateRelation> relations)
     {
@@ -195,6 +223,9 @@ public sealed class CandidateRepository(
     public void ExpectVersion(Candidate candidate, uint version) =>
         dbContext.Entry(candidate).Property(entity => entity.Version).OriginalValue = version;
 
+    public void ExpectVersion(CandidateNote note, uint version) =>
+        dbContext.Entry(note).Property(entity => entity.Version).OriginalValue = version;
+
     /// <summary>
     /// Re-reads the concurrency token of every candidate this unit of work wrote.
     /// </summary>
@@ -246,12 +277,48 @@ public sealed class CandidateRepository(
         }
     }
 
+    public async Task<CandidateSaveOutcome> SaveNoteAsync(
+        string auditEventType,
+        Guid candidateId,
+        Guid noteId,
+        CancellationToken cancellationToken)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent(
+            Guid.CreateVersion7(),
+            auditEventType,
+            $"{candidateId:N}/{noteId:N}",
+            correlation.CorrelationId,
+            DateTimeOffset.UtcNow,
+            actor.ToAuditActor()));
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+            foreach (var entry in dbContext.ChangeTracker.Entries<CandidateNote>().ToList())
+            {
+                await entry.ReloadAsync(cancellationToken);
+            }
+            return CandidateSaveOutcome.Saved;
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return CandidateSaveOutcome.ConcurrencyConflict;
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is PostgresException postgres
+            && postgres.SqlState is PostgresErrorCodes.UniqueViolation
+                or PostgresErrorCodes.CheckViolation
+                or PostgresErrorCodes.ForeignKeyViolation)
+        {
+            return ConstraintOutcome(postgres);
+        }
+    }
+
     private static CandidateSaveOutcome ConstraintOutcome(PostgresException exception) =>
         exception.ConstraintName switch
         {
             "UX_CND_CandidateLanguages_CandidateId_LanguageId" => CandidateSaveOutcome.LanguageDuplicate,
             "UX_CND_CandidatePrograms_CandidateId_ProgramId" => CandidateSaveOutcome.ProgramDuplicate,
             "UX_CND_CandidateSkills_CandidateId_SkillId" => CandidateSaveOutcome.SkillDuplicate,
+            "UX_CND_CandidateTags_CandidateId_TagId" => CandidateSaveOutcome.TagDuplicate,
             _ => CandidateSaveOutcome.ConstraintViolation,
         };
 }

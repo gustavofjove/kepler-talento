@@ -4,6 +4,7 @@ using System.Text.Json;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Candidates;
+using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -344,6 +345,58 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains(SearchErrors.StatusInvalid, body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Tag_search_supports_any_all_empty_unknown_and_level_validation_without_duplicates()
+    {
+        var seeded = await SeedAsync();
+        await using (var db = NewDbContext())
+        {
+            var tags = await db.CatalogItems
+                .Where(item => item.Family == CatalogFamilies.Tag)
+                .OrderBy(item => item.SortOrder)
+                .Take(2)
+                .ToListAsync();
+            db.CandidateTags.AddRange(
+                new CandidateTag(Guid.NewGuid(), seeded[0].Id, tags[0].Id),
+                new CandidateTag(Guid.NewGuid(), seeded[1].Id, tags[0].Id),
+                new CandidateTag(Guid.NewGuid(), seeded[1].Id, tags[1].Id),
+                new CandidateTag(Guid.NewGuid(), seeded[2].Id, tags[1].Id));
+            await db.SaveChangesAsync();
+        }
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        async Task<SearchPage<CandidateSearchItem>> Search(object filters) =>
+            await ReadPageAsync(await client.PostAsJsonAsync(
+                SearchRoute, new { filters, page = 1, pageSize = 25 }));
+
+        var any = await Search(new
+        {
+            tagCriteria = new[] { new { value = "Recontratable" }, new { value = "No contactar" } },
+            tagMode = "ANY",
+        });
+        Assert.Equal(3, any.TotalCount);
+        Assert.Equal(any.Items.Count, any.Items.Select(item => item.CandidateId).Distinct().Count());
+
+        var all = await Search(new
+        {
+            tagCriteria = new[] { new { value = "Recontratable" }, new { value = "No contactar" } },
+            tagMode = "ALL",
+        });
+        Assert.Equal(seeded[1].Id, Assert.Single(all.Items).CandidateId);
+        Assert.Equal(
+            seeded.Count(candidate => candidate.IsActive),
+            (await Search(new { tagCriteria = Array.Empty<object>() })).TotalCount);
+        Assert.Empty((await Search(new { tagCriteria = new[] { new { value = "Desconocida" } } })).Items);
+
+        var invalid = await client.PostAsJsonAsync(SearchRoute, new
+        {
+            filters = new { tagCriteria = new[] { new { value = "Recontratable", level = "Alto" } } },
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        Assert.Contains(SearchErrors.TagLevelInvalid, await invalid.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -853,9 +906,12 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     {
         await using var dbContext = NewDbContext();
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
+        await DatabaseInitializer.SeedCatalogsAsync(dbContext, CancellationToken.None);
         // Each test starts from the documented baseline rather than from whatever the
         // previous one left behind.
         await dbContext.SearchPresets.ExecuteDeleteAsync();
+        await dbContext.CandidateNotes.ExecuteDeleteAsync();
+        await dbContext.CandidateTags.ExecuteDeleteAsync();
         await dbContext.CandidateSkills.ExecuteDeleteAsync();
         await dbContext.CandidateLanguages.ExecuteDeleteAsync();
         await dbContext.CandidatePrograms.ExecuteDeleteAsync();

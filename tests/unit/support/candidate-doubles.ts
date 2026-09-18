@@ -11,6 +11,8 @@ import type {
   CandidateListPage,
   CandidateListQuery,
   CandidateSkill,
+  CandidateTag,
+  CandidateNote,
 } from '../../../src/app/features/candidates/models/candidate.models';
 
 const SORT_FIELDS = ['updatedAt', 'lastName', 'status'];
@@ -154,6 +156,74 @@ export class FakeCandidateApi implements CandidateGateway {
     return this.write(id, version, (candidate) => ({ ...candidate, skills }));
   }
 
+  setTags(id: string, tags: CandidateTag[], version: number): Promise<Candidate> {
+    return this.write(id, version, (candidate) => ({ ...candidate, tags }));
+  }
+
+  async listNotes(id: string): Promise<CandidateNote[]> {
+    this.reject();
+    return structuredClone(this.require(id).customNotes.filter((note) => note.isActive));
+  }
+
+  async addNote(id: string, body: string): Promise<CandidateNote> {
+    this.reject();
+    const candidate = this.require(id);
+    const now = new Date().toISOString();
+    const note: CandidateNote = {
+      id: crypto.randomUUID(),
+      body,
+      authorUserId: 'test-user',
+      authorDisplayName: 'Test User',
+      createdAt: now,
+      updatedAt: now,
+      isActive: true,
+      version: 1,
+    };
+    candidate.customNotes = [...candidate.customNotes, note];
+    return structuredClone(note);
+  }
+
+  async updateNote(
+    id: string,
+    noteId: string,
+    body: string,
+    version: number,
+  ): Promise<CandidateNote> {
+    return this.writeNote(id, noteId, version, (note) => ({ ...note, body }));
+  }
+
+  async setNoteActive(
+    id: string,
+    noteId: string,
+    isActive: boolean,
+    version: number,
+  ): Promise<CandidateNote> {
+    return this.writeNote(id, noteId, version, (note) => ({ ...note, isActive }));
+  }
+
+  private async writeNote(
+    id: string,
+    noteId: string,
+    version: number,
+    change: (note: CandidateNote) => CandidateNote,
+  ): Promise<CandidateNote> {
+    this.reject();
+    const candidate = this.require(id);
+    const index = candidate.customNotes.findIndex((note) => note.id === noteId);
+    if (index < 0) throw new NotFoundError('Nota no encontrada.');
+    const current = candidate.customNotes[index];
+    if (current.version !== version) throw new ConflictError('La nota ha cambiado.');
+    const next = {
+      ...change(current),
+      version: current.version + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    candidate.customNotes = candidate.customNotes.map((note, noteIndex) =>
+      noteIndex === index ? next : note,
+    );
+    return structuredClone(next);
+  }
+
   private async write(
     id: string,
     version: number,
@@ -248,6 +318,8 @@ function blank(id: string): Candidate {
     education: [],
     experience: [],
     skills: [],
+    tags: [],
+    customNotes: [],
     documents: [],
   };
 }

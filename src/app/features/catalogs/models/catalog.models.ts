@@ -20,9 +20,12 @@ export type CatalogFamily =
   | 'skill_level'
   | 'education_type'
   | 'education_status'
-  | 'sector';
+  | 'sector'
+  | 'tag';
 
-export const DEFAULT_CATALOGS: Record<CatalogFamily, string[]> = {
+type LegacyDefaultCatalogFamily = Exclude<CatalogFamily, 'tag'>;
+
+export const DEFAULT_CATALOGS: Record<LegacyDefaultCatalogFamily, string[]> = {
   language: ['Inglés', 'Francés', 'Alemán', 'Italiano', 'Portugués'],
   program: ['Excel', 'SAP', 'AutoCAD', 'Navision', 'Power BI'],
   skill: ['Gestión documental', 'Atención al cliente', 'Análisis', 'Compras'],
@@ -44,6 +47,7 @@ export const CATALOG_FAMILY_LABELS: Record<CatalogFamily, string> = {
   education_type: 'Tipos de formación',
   education_status: 'Estados de formación',
   sector: 'Sectores',
+  tag: 'Etiquetas',
 };
 
 export const DEFAULT_LANGUAGES = DEFAULT_CATALOGS.language;

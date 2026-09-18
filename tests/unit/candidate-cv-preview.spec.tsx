@@ -48,6 +48,8 @@ const candidate = (documents: CandidateDocument[]): Candidate => ({
   education: [],
   experience: [],
   skills: [],
+  tags: [],
+  customNotes: [],
   documents,
 });
 

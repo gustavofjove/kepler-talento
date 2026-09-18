@@ -37,7 +37,9 @@ public static class SearchFilterDocument
         string? LanguageMode,
         IReadOnlyList<StoredCriterion?>? ProgramCriteria,
         string? ProgramMode,
-        string? HasCv);
+        string? HasCv,
+        IReadOnlyList<StoredCriterion?>? TagCriteria,
+        string? TagMode);
 
     public static string Serialize(SearchFiltersValue filters)
     {
@@ -53,7 +55,9 @@ public static class SearchFilterDocument
                 input.LanguageMode,
                 [.. (input.ProgramCriteria ?? []).Select(ToStored)],
                 input.ProgramMode,
-                input.HasCv),
+                input.HasCv,
+                [.. (input.TagCriteria ?? []).Select(ToStored)],
+                input.TagMode),
             Options);
     }
 
@@ -88,7 +92,9 @@ public static class SearchFilterDocument
                 stored.LanguageMode,
                 [.. (stored.ProgramCriteria ?? []).Select(ToInput)],
                 stored.ProgramMode,
-                stored.HasCv),
+                stored.HasCv,
+                [.. (stored.TagCriteria ?? []).Select(ToInput)],
+                stored.TagMode),
             "Filters",
             issues);
         return issues.Count > 0 ? throw Invalid() : value;

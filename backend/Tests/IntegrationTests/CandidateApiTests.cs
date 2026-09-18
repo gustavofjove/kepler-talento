@@ -6,6 +6,8 @@ using KeplerTalento.Application.Features.Candidates;
 using DocumentResponse = KeplerTalento.Application.Features.Documents.CandidateDocumentResponse;
 using KeplerTalento.Domain.Auditing;
 using KeplerTalento.Domain.Candidates;
+using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Domain.Identity;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Infrastructure.Documents;
 using Microsoft.AspNetCore.Hosting;
@@ -374,6 +376,26 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             Assert.Equal(
                 HttpStatusCode.Forbidden,
                 (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/active", new { isActive = false, version = created.Version })).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/tags", new { tags = Array.Empty<object>(), version = 0 })).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PostAsJsonAsync($"/api/candidates/{created.Id}/notes", new { body = "" })).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.GetAsync($"/api/candidates/{created.Id}/notes")).StatusCode);
+            var noteId = Guid.NewGuid();
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsJsonAsync(
+                    $"/api/candidates/{created.Id}/notes/{noteId}",
+                    new { body = "", version = 0 })).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsJsonAsync(
+                    $"/api/candidates/{created.Id}/notes/{noteId}/active",
+                    new { isActive = false, version = 0 })).StatusCode);
         }
     }
 
@@ -398,7 +420,82 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/active", new { isActive = false, version = created.Version })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/tags", new { tags = Array.Empty<object>(), version = 0 })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PostAsJsonAsync($"/api/candidates/{created.Id}/notes", new { body = "" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/candidates/{created.Id}/notes")).StatusCode);
+        var noteId = Guid.NewGuid();
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PutAsJsonAsync(
+                $"/api/candidates/{created.Id}/notes/{noteId}",
+                new { body = "", version = 0 })).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.PutAsJsonAsync(
+                $"/api/candidates/{created.Id}/notes/{noteId}/active",
+                new { isActive = false, version = 0 })).StatusCode);
         Assert.Equal("Ana", (await ReadAsync(created.Id)).FirstName);
+        await using var db = NewDbContext();
+        Assert.Empty(await db.CandidateTags.Where(tag => tag.CandidateId == created.Id).ToListAsync());
+        Assert.Empty(await db.CandidateNotes.Where(note => note.CandidateId == created.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Adding_a_note_does_not_advance_the_candidate_version_or_block_its_edit()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+
+        var noteResponse = await client.PostAsJsonAsync(
+            $"/api/candidates/{created.Id}/notes",
+            new { body = "Seguimiento privado" });
+        Assert.Equal(HttpStatusCode.Created, noteResponse.StatusCode);
+        var note = (await noteResponse.Content.ReadFromJsonAsync<CandidateNoteResponse>())!;
+        Assert.Equal(TestActor.StoredUserId, note.AuthorUserId);
+        Assert.Equal("Integration Candidate Actor", note.AuthorDisplayName);
+
+        var update = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}",
+            UpdatePayload("Ana", "Lopez", "", created.Version));
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        await using var db = NewDbContext();
+        var stored = await db.CandidateNotes.AsNoTracking().SingleAsync(value => value.Id == note.Id);
+        Assert.Equal(TestActor.StoredUserId, stored.AuthorUserId);
+        Assert.Equal("Seguimiento privado", stored.Body);
+    }
+
+    [Fact]
+    public async Task Candidate_tags_can_be_resubmitted_after_the_catalog_value_is_deactivated()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var assignedResponse = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/tags",
+            new { tags = new[] { new { tag = "Recontratable" } }, version = created.Version });
+        Assert.Equal(HttpStatusCode.OK, assignedResponse.StatusCode);
+        var assigned = (await assignedResponse.Content.ReadFromJsonAsync<CandidateResponse>())!;
+
+        await using (var db = NewDbContext())
+        {
+            var tag = await db.CatalogItems.SingleAsync(item =>
+                item.Family == CatalogFamilies.Tag && item.NameEs == "Recontratable");
+            tag.SetActive(false, DateTimeOffset.UtcNow);
+            await db.SaveChangesAsync();
+        }
+
+        var resubmitted = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/tags",
+            new { tags = assigned.Tags, version = assigned.Version });
+        Assert.Equal(HttpStatusCode.OK, resubmitted.StatusCode);
+        Assert.Single((await resubmitted.Content.ReadFromJsonAsync<CandidateResponse>())!.Tags);
     }
 
     [Fact]
@@ -748,6 +845,8 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
         await dbContext.Documents.ExecuteDeleteAsync();
         await dbContext.Operations.ExecuteDeleteAsync();
+        await dbContext.CandidateNotes.ExecuteDeleteAsync();
+        await dbContext.CandidateTags.ExecuteDeleteAsync();
         await dbContext.CandidateLanguages.ExecuteDeleteAsync();
         await dbContext.CandidatePrograms.ExecuteDeleteAsync();
         await dbContext.CandidateEducation.ExecuteDeleteAsync();
@@ -756,6 +855,17 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await dbContext.Candidates.ExecuteDeleteAsync();
         await dbContext.AuditEvents.ExecuteDeleteAsync();
         await DatabaseInitializer.SeedCatalogsAsync(dbContext, CancellationToken.None);
+        if (!await dbContext.Users.AnyAsync(user => user.Id == TestActor.StoredUserId))
+        {
+            dbContext.Users.Add(new User(
+                TestActor.StoredUserId,
+                "candidate-integration-actor",
+                "Integration Candidate Actor",
+                "candidate-integration@example.test",
+                "rrhh_admin",
+                DateTimeOffset.UtcNow));
+            await dbContext.SaveChangesAsync();
+        }
     }
 
     private async Task<Candidate> ReadAsync(Guid id)

@@ -560,17 +560,40 @@ public sealed class SearchHandlerTests
             CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<CandidateDocument>>([]);
 
+        public Task<IReadOnlyList<CandidateNote>> ListNotesAsync(
+            Guid candidateId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<CandidateNote>>([]);
+
+        public Task<CandidateNote?> FindNoteAsync(
+            Guid candidateId,
+            Guid noteId,
+            bool includeInactive,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CandidateNote?>(null);
+
         public void Add(Candidate candidate) { }
 
         public void AddRelation(CandidateRelation relation) { }
+
+        public void AddNote(CandidateNote note) { }
 
         public void RemoveRelations(IEnumerable<CandidateRelation> relations) { }
 
         public void ExpectVersion(Candidate candidate, uint version) { }
 
+        public void ExpectVersion(CandidateNote note, uint version) { }
+
         public Task<CandidateSaveOutcome> SaveAsync(
             string auditEventType,
             string subjectId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(CandidateSaveOutcome.Saved);
+
+        public Task<CandidateSaveOutcome> SaveNoteAsync(
+            string auditEventType,
+            Guid candidateId,
+            Guid noteId,
             CancellationToken cancellationToken) =>
             Task.FromResult(CandidateSaveOutcome.Saved);
     }

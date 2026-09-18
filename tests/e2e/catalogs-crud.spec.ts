@@ -4,6 +4,14 @@ import { authFile } from './global-setup';
 test.use({ storageState: authFile('rrhh_admin') });
 
 test.describe('Catalog management CRUD', () => {
+  test('offers the tag family in the shared catalog editor', async ({ page }) => {
+    await page.goto('/app/catalogs');
+    await page.selectOption('select[name="family"]', 'tag');
+    await expect(page.locator('select[name="family"]')).toHaveValue('tag');
+    await expect(page.locator('tbody tr').first()).toBeVisible();
+    expect(await page.locator('tbody tr').count()).toBeGreaterThanOrEqual(3);
+  });
+
   test('creates, edits, reorders, deactivates, and reactivates a catalog value through the API', async ({
     page,
   }) => {

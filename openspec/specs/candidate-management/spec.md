@@ -52,7 +52,8 @@ creation timestamp.
 
 ### Requirement: Candidate read and list
 
-The system SHALL return a single candidate by identifier including its relation collections.
+The system SHALL return a single candidate by identifier including its relation collections and
+active custom notes.
 
 Listing candidates for the list screen SHALL be paged, SHALL be ordered and filtered by the server,
 and SHALL return the minimal list projection rather than candidate aggregates. Listing SHALL exclude
@@ -60,14 +61,14 @@ logically deleted candidates unless the caller explicitly asks for them and hold
 that governs them. The system SHALL NOT offer an operation that returns every candidate in one
 unbounded response.
 
-Reading one candidate remains the way to obtain that candidate's relation collections; a list
-SHALL NOT be a means of obtaining them in bulk.
+Reading one candidate remains the way to obtain that candidate's relation collections and active
+custom notes; a list SHALL NOT be a means of obtaining them in bulk.
 
 #### Scenario: Candidate is read by identifier
 
 - **WHEN** an authorized actor reads an existing candidate
 - **THEN** the response carries the candidate's field set and its language, program, education,
-  experience, skill and document collections
+  experience, skill, tag, note and document collections
 
 #### Scenario: Default listing excludes removed candidates
 
@@ -83,7 +84,7 @@ SHALL NOT be a means of obtaining them in bulk.
 
 - **WHEN** an authorized actor lists candidates
 - **THEN** each item carries the minimal list projection, and the response contains no relation
-  collections, notes, consent metadata or retention metadata
+  collections, tags, custom notes, legacy notes, consent metadata or retention metadata
 
 #### Scenario: Whole table is requested
 
@@ -188,9 +189,12 @@ part of the change.
 ### Requirement: Candidate relation collection writes
 
 The system SHALL allow an authorized actor to change a candidate's language, program, education,
-experience and skill collections. Each collection SHALL be written as a complete set against the
-owning candidate's concurrency token, so that a partially stale collection cannot be interleaved
-with another actor's change.
+experience, skill and tag collections. Each collection SHALL be written as a complete set against
+the owning candidate's concurrency token, so that a partially stale collection cannot be
+interleaved with another actor's change.
+
+A tag entry SHALL reference a value of the tags catalog family and SHALL carry no level and no
+further field. A tag entry referencing a value of any other family SHALL be rejected.
 
 #### Scenario: Relation collection is replaced
 
@@ -198,11 +202,23 @@ with another actor's change.
 - **THEN** the stored collection matches the submission exactly and the candidate's concurrency
   token advances
 
+#### Scenario: Tag collection is replaced
+
+- **WHEN** an authorized actor submits a candidate's complete tag collection
+- **THEN** the stored tags match the submission exactly, the candidate's concurrency token
+  advances, and the tags omitted from the submission are no longer assigned
+
 #### Scenario: Relation names an unknown catalog value
 
 - **WHEN** a relation record references a value that is not a known catalog entry in the
   required family
 - **THEN** the write is rejected with a stable validation code and the previous collection is
+  preserved
+
+#### Scenario: Tag names a value of another family
+
+- **WHEN** a tag entry references a catalog value belonging to a family other than tags
+- **THEN** the write is rejected with a stable validation code and the previous tags are
   preserved
 
 #### Scenario: Relation write targets a removed candidate
@@ -212,7 +228,7 @@ with another actor's change.
 
 ### Requirement: Relation collection uniqueness
 
-Within a candidate's language, program and skill collections, the referenced value SHALL be
+Within a candidate's language, program, skill and tag collections, the referenced value SHALL be
 unique. Two entries whose values differ only by surrounding whitespace or letter case SHALL be
 treated as the same value. A write introducing a duplicate SHALL be refused with a stable
 validation code and a Spanish message, and SHALL leave the stored collection unchanged. This
@@ -223,6 +239,12 @@ rule SHALL be enforced where the data is stored, not only in the interface that 
 - **WHEN** a language collection is submitted containing a language the collection already holds
 - **THEN** the write is refused with a stable validation code and a Spanish message, and the
   stored collection is unchanged
+
+#### Scenario: Duplicate tag is submitted
+
+- **WHEN** a tag collection is submitted containing the same tag twice
+- **THEN** the write is refused with a stable validation code and a Spanish message, and the
+  stored tags are unchanged
 
 #### Scenario: Duplicate differs only by case or spacing
 
@@ -404,3 +426,22 @@ the refusal is a field validation failure.
 - **WHEN** any candidate problem response is returned
 - **THEN** it exposes no stack trace, database detail, internal path, or candidate field value
   the caller did not submit
+
+### Requirement: Deactivated tags stay assigned but are not offered
+
+A tag that has been deactivated in the catalog SHALL remain assigned to the candidates that
+already hold it and SHALL still resolve when those candidates are read. It SHALL NOT be offered
+for a new assignment. Resubmitting a candidate's existing tags SHALL NOT be refused because one
+of them has since been deactivated.
+
+#### Scenario: Assigned tag is deactivated
+
+- **WHEN** an administrator deactivates a tag that candidates already hold
+- **THEN** those candidates keep the tag, it still resolves and displays on them, and it is no
+  longer offered when tags are assigned
+
+#### Scenario: Candidate with a deactivated tag is saved again
+
+- **WHEN** an authorized actor resubmits a candidate's tag collection that still contains a tag
+  deactivated since it was assigned
+- **THEN** the write succeeds and the tag remains assigned

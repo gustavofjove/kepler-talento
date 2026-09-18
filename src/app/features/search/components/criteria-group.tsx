@@ -1,5 +1,6 @@
 import type { CriteriaFilter, MultiValueMode } from '../models/search.models';
 import type { CriteriaGroupDefinition } from './criteria-group.model';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   group: CriteriaGroupDefinition;
@@ -26,18 +27,20 @@ export function CriteriaGroup({
   onRemove,
   onModeChange,
 }: Props) {
+  const { t } = useTranslation();
+  const label = t(group.labelKey);
   return (
-    <fieldset className="criteria-group" data-criteria={group.kind} aria-label={group.label}>
+    <fieldset className="criteria-group" data-criteria={group.kind} aria-label={label}>
       <div className="criteria-add">
         <div className="field">
-          <label htmlFor={`${group.kind}-value`}>{group.label}</label>
+          <label htmlFor={`${group.kind}-value`}>{label}</label>
           <select
             id={`${group.kind}-value`}
             name={`${group.kind}Draft`}
             value={draft.value}
             onChange={(e) => onDraftChange({ ...draft, value: e.target.value })}
           >
-            <option value="">Selecciona una opción</option>
+            <option value="">{t('search.criteria.option.select')}</option>
             {valueOptions.map((option) => (
               <option key={option} value={option}>
                 {option}
@@ -45,22 +48,24 @@ export function CriteriaGroup({
             ))}
           </select>
         </div>
-        <div className="field">
-          <label htmlFor={`${group.kind}-level`}>{group.levelLabel}</label>
-          <select
-            id={`${group.kind}-level`}
-            name={`${group.kind}LevelDraft`}
-            value={draft.level}
-            onChange={(e) => onDraftChange({ ...draft, level: e.target.value })}
-          >
-            <option value="">Cualquier nivel</option>
-            {levelOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
+        {group.levelFamily ? (
+          <div className="field">
+            <label htmlFor={`${group.kind}-level`}>{t(group.levelLabelKey!)}</label>
+            <select
+              id={`${group.kind}-level`}
+              name={`${group.kind}LevelDraft`}
+              value={draft.level}
+              onChange={(e) => onDraftChange({ ...draft, level: e.target.value })}
+            >
+              <option value="">{t('search.criteria.level.any')}</option>
+              {levelOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <button
           className="button secondary small"
           type="button"
@@ -68,22 +73,22 @@ export function CriteriaGroup({
           data-testid={`add-${group.kind}`}
           onClick={onAdd}
         >
-          {group.addLabel}
+          {t(group.addLabelKey)}
         </button>
       </div>
 
       {criteria.length ? (
         <>
           <div className="criteria-mode">
-            <label htmlFor={`${group.kind}-mode`}>Coincidencia</label>
+            <label htmlFor={`${group.kind}-mode`}>{t('search.criteria.match')}</label>
             <select
               id={`${group.kind}-mode`}
               name={`${group.kind}Mode`}
               value={mode}
               onChange={(e) => onModeChange(e.target.value === 'ALL' ? 'ALL' : 'ANY')}
             >
-              <option value="ANY">Cualquiera</option>
-              <option value="ALL">Todos</option>
+              <option value="ANY">{t('search.criteria.mode.any')}</option>
+              <option value="ALL">{t('search.criteria.mode.all')}</option>
             </select>
           </div>
           <ul className="criteria-list">
@@ -91,12 +96,12 @@ export function CriteriaGroup({
               <li key={`${criterion.value}-${index}`}>
                 <span>
                   <span className="badge">{criterion.value}</span>{' '}
-                  {criterion.level || 'Cualquier nivel'}
+                  {criterion.level || (group.levelFamily ? t('search.criteria.level.any') : '')}
                 </span>
                 <button
                   className="button ghost small"
                   type="button"
-                  aria-label={`Quitar ${criterion.value}`}
+                  aria-label={t('search.criteria.remove', { value: criterion.value })}
                   onClick={() => onRemove(index)}
                 >
                   ×
@@ -106,7 +111,9 @@ export function CriteriaGroup({
           </ul>
         </>
       ) : (
-        <p className="empty-state">Sin filtros de {group.label.toLowerCase()}.</p>
+        <p className="empty-state">
+          {t('search.criteria.group.empty', { label: label.toLowerCase() })}
+        </p>
       )}
     </fieldset>
   );

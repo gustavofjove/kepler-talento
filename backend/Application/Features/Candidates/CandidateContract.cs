@@ -125,6 +125,29 @@ public sealed record CandidateSkillResponse(
     string Level,
     string? Notes);
 
+public sealed record CandidateTagResponse(Guid Id, string Tag);
+
+public sealed record CandidateNoteResponse(
+    Guid Id,
+    string Body,
+    Guid? AuthorUserId,
+    string? AuthorDisplayName,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    bool IsActive,
+    uint Version)
+{
+    public static CandidateNoteResponse From(CandidateNote note) => new(
+        note.Id,
+        note.Body,
+        note.AuthorUserId,
+        note.Author?.DisplayName,
+        note.CreatedAtUtc,
+        note.UpdatedAtUtc,
+        note.IsActive,
+        note.Version);
+}
+
 /// <summary>
 /// Document metadata as a caller sees it. There is deliberately no storage key, path or
 /// scan-state field: the caller learns what the document is, never where it lives.
@@ -177,6 +200,8 @@ public sealed record CandidateResponse(
     IReadOnlyList<CandidateEducationResponse> Education,
     IReadOnlyList<CandidateExperienceResponse> Experience,
     IReadOnlyList<CandidateSkillResponse> Skills,
+    IReadOnlyList<CandidateTagResponse> Tags,
+    IReadOnlyList<CandidateNoteResponse> CustomNotes,
     IReadOnlyList<CandidateDocumentResponse> Documents);
 
 /// <summary>
@@ -218,6 +243,10 @@ public static class CandidateErrors
     public const string LanguageDuplicate = "candidate.language.duplicate";
     public const string ProgramDuplicate = "candidate.program.duplicate";
     public const string SkillDuplicate = "candidate.skill.duplicate";
+    public const string TagDuplicate = "candidate.tag.duplicate";
+    public const string NoteBodyRequired = "candidate.note.body.required";
+    public const string NoteBodyTooLong = "candidate.note.body.too_long";
+    public const string NoteConcurrencyConflict = "candidate.note.concurrency.conflict";
     public const string RemovedCandidate = "candidate.removed";
     public const string DocumentPrimaryAmbiguous = "candidate.document.primary_ambiguous";
     public const string ConstraintViolation = "candidate.constraint.violation";
@@ -237,6 +266,8 @@ public static class CandidateErrors
     public const string DocumentPrimaryAmbiguousMessage =
         "Solo puede haber un documento principal por candidato.";
     public const string ConstraintViolationMessage = "La solicitud contiene datos no válidos.";
+    public const string NoteConcurrencyConflictMessage =
+        "La nota ha cambiado desde que se cargó. Vuelva a cargarla e inténtelo de nuevo.";
 }
 
 internal static class CandidateGuards
@@ -263,6 +294,9 @@ internal static class CandidateGuards
 
     public static ConflictException Conflict() =>
         new(CandidateErrors.ConcurrencyConflict, CandidateErrors.ConcurrencyConflictMessage);
+
+    public static ConflictException NoteConflict() =>
+        new(CandidateErrors.NoteConcurrencyConflict, CandidateErrors.NoteConcurrencyConflictMessage);
 
     public static RequestValidationException Removed() =>
         new([new ValidationIssue("IsActive", CandidateErrors.RemovedCandidate, CandidateErrors.RemovedCandidateMessage)]);
@@ -299,6 +333,8 @@ internal static class CandidateGuards
             "Program", CandidateErrors.ProgramDuplicate, "El candidato ya tiene este programa registrado."),
         CandidateSaveOutcome.SkillDuplicate => Duplicate(
             "Skill", CandidateErrors.SkillDuplicate, "El candidato ya tiene esta habilidad registrada."),
+        CandidateSaveOutcome.TagDuplicate => Duplicate(
+            "Tag", CandidateErrors.TagDuplicate, "El candidato ya tiene esta etiqueta registrada."),
         _ => ConstraintViolation(),
     };
 }

@@ -45,7 +45,7 @@ test.describe('Security operational flows', () => {
     });
 
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Descargar' }).click();
+    await page.getByTestId('candidate-document').getByRole('button', { name: 'Descargar' }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBe('cv.pdf');
 

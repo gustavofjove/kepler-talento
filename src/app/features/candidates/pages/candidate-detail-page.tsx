@@ -9,6 +9,8 @@ import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateLanguages } from '../components/candidate-languages';
 import { CandidatePrograms } from '../components/candidate-programs';
 import { CandidateSkills } from '../components/candidate-skills';
+import { CandidateTags } from '../components/candidate-tags';
+import { CandidateNotes } from '../components/candidate-notes';
 import { useCandidate } from '../use-candidates';
 
 export function CandidateDetailPage() {
@@ -156,6 +158,12 @@ export function CandidateDetailPage() {
         </article>
         <article className="panel">
           <CandidateSkills candidateId={item.id} skills={item.skills} canEdit={canEdit} />
+        </article>
+        <article className="panel">
+          <CandidateTags candidateId={item.id} tags={item.tags} />
+        </article>
+        <article className="panel span-all">
+          <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} />
         </article>
         <article className="panel">
           <CandidateDocuments candidate={item} />

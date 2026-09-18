@@ -62,6 +62,8 @@ describe('SearchPresetsService', () => {
 
     expect(service.state().status).toBe('loaded');
     expect(service.listPresets()).toHaveLength(1);
+    expect(service.listPresets()[0].filters.tagCriteria).toEqual([]);
+    expect(service.listPresets()[0].filters.tagMode).toBe('ANY');
     expect(called(fetcher)).toEqual(['GET /api/search-presets']);
   });
 

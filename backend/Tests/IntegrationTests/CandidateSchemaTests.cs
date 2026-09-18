@@ -255,6 +255,65 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
     }
 
     [Fact]
+    public async Task Tag_family_fk_rejects_an_item_from_another_catalog_family()
+    {
+        var catalog = await PrepareAsync();
+        var candidateId = Guid.NewGuid();
+        await using var write = NewContext();
+        write.Candidates.Add(NewCandidate(candidateId, DateTimeOffset.UtcNow));
+        write.CandidateTags.Add(new CandidateTag(
+            Guid.NewGuid(), candidateId, catalog.First(CatalogFamilies.Sector)));
+
+        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => write.SaveChangesAsync());
+        Assert.Equal("23503", (failure.InnerException as PostgresException)?.SqlState);
+    }
+
+    [Fact]
+    public async Task Concurrent_duplicate_tag_assignments_are_rejected_by_the_unique_index()
+    {
+        var catalog = await PrepareAsync();
+        var candidateId = Guid.NewGuid();
+        var tagId = catalog.First(CatalogFamilies.Tag);
+        await using (var seed = NewContext())
+        {
+            seed.Candidates.Add(NewCandidate(candidateId, DateTimeOffset.UtcNow));
+            await seed.SaveChangesAsync();
+        }
+
+        await using var first = NewContext();
+        await using var second = NewContext();
+        first.CandidateTags.Add(new CandidateTag(Guid.NewGuid(), candidateId, tagId));
+        second.CandidateTags.Add(new CandidateTag(Guid.NewGuid(), candidateId, tagId));
+        await first.SaveChangesAsync();
+        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
+        Assert.Equal("23505", (failure.InnerException as PostgresException)?.SqlState);
+        Assert.Equal("UX_CND_CandidateTags_CandidateId_TagId", ConstraintOf(failure));
+    }
+
+    [Fact]
+    public async Task Logical_deletion_preserves_candidate_tags()
+    {
+        var catalog = await PrepareAsync();
+        var candidateId = Guid.NewGuid();
+        await using (var seed = NewContext())
+        {
+            seed.Candidates.Add(NewCandidate(candidateId, DateTimeOffset.UtcNow));
+            seed.CandidateTags.Add(new CandidateTag(
+                Guid.NewGuid(), candidateId, catalog.First(CatalogFamilies.Tag)));
+            await seed.SaveChangesAsync();
+        }
+        await using (var remove = NewContext())
+        {
+            var candidate = await remove.Candidates.SingleAsync(value => value.Id == candidateId);
+            candidate.Deactivate(DateTimeOffset.UtcNow);
+            await remove.SaveChangesAsync();
+        }
+        await using var read = NewContext();
+        Assert.Single(await read.CandidateTags.AsNoTracking()
+            .Where(value => value.CandidateId == candidateId).ToListAsync());
+    }
+
+    [Fact]
     public async Task An_inactive_candidate_must_carry_the_moment_it_was_removed()
     {
         await PrepareAsync();
@@ -440,6 +499,7 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
                      "CND_CandidateEducation",
                      "CND_CandidateExperience",
                      "CND_CandidateSkills",
+                     "CND_CandidateTags",
                  })
         {
             await using var privilegeCommand = new NpgsqlCommand(
@@ -459,5 +519,22 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
             Assert.True(reader.GetBoolean(3), $"{table} DELETE");
             Assert.False(reader.GetBoolean(4), $"{table} TRUNCATE");
         }
+
+        await using var notePrivilegeCommand = new NpgsqlCommand(
+            """
+            SELECT has_table_privilege('ktl_runtime', '"CND_CandidateNotes"', 'SELECT'),
+                   has_table_privilege('ktl_runtime', '"CND_CandidateNotes"', 'INSERT'),
+                   has_table_privilege('ktl_runtime', '"CND_CandidateNotes"', 'UPDATE'),
+                   has_table_privilege('ktl_runtime', '"CND_CandidateNotes"', 'DELETE'),
+                   has_table_privilege('ktl_runtime', '"CND_CandidateNotes"', 'TRUNCATE')
+            """,
+            connection);
+        await using var noteReader = await notePrivilegeCommand.ExecuteReaderAsync();
+        Assert.True(await noteReader.ReadAsync());
+        Assert.True(noteReader.GetBoolean(0));
+        Assert.True(noteReader.GetBoolean(1));
+        Assert.True(noteReader.GetBoolean(2));
+        Assert.False(noteReader.GetBoolean(3));
+        Assert.False(noteReader.GetBoolean(4));
     }
 }

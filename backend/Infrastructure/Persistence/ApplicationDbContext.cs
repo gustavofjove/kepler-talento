@@ -18,6 +18,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<CandidateEducation> CandidateEducation => Set<CandidateEducation>();
     public DbSet<CandidateExperience> CandidateExperience => Set<CandidateExperience>();
     public DbSet<CandidateSkill> CandidateSkills => Set<CandidateSkill>();
+    public DbSet<CandidateTag> CandidateTags => Set<CandidateTag>();
+    public DbSet<CandidateNote> CandidateNotes => Set<CandidateNote>();
     public DbSet<CandidateDocument> Documents => Set<CandidateDocument>();
     public DbSet<CatalogItem> CatalogItems => Set<CatalogItem>();
     public DbSet<Operation> Operations => Set<Operation>();

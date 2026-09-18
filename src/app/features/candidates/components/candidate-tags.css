@@ -1,0 +1,13 @@
+.candidate-tags-list,
+.candidate-tags-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.candidate-tags .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

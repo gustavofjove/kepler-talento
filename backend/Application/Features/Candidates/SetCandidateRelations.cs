@@ -44,6 +44,8 @@ public sealed record CandidateExperienceInput(
 
 public sealed record CandidateSkillInput(Guid? Id, string Skill, string Level, string? Notes);
 
+public sealed record CandidateTagInput(Guid? Id, string Tag);
+
 public sealed record SetCandidateLanguagesCommand(
     Guid Id,
     IReadOnlyList<CandidateLanguageInput> Languages,
@@ -69,6 +71,11 @@ public sealed record SetCandidateSkillsCommand(
     IReadOnlyList<CandidateSkillInput> Skills,
     uint Version) : IRequest<CandidateResponse>;
 
+public sealed record SetCandidateTagsCommand(
+    Guid Id,
+    IReadOnlyList<CandidateTagInput> Tags,
+    uint Version) : IRequest<CandidateResponse>;
+
 /// <summary>
 /// Shared execution for the five collection-replacement slices.
 /// </summary>
@@ -88,7 +95,8 @@ internal static class CandidateRelationWrite
         Guid candidateId,
         uint version,
         Func<Candidate, CandidateCatalogLookup, CancellationToken, Task<IReadOnlyList<CandidateRelation>>> apply,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string auditEventType = CandidateAuditEvents.RelationsChanged)
     {
         CandidateGuards.RequireUpdate(actor);
         var candidate = await candidates.FindAsync(candidateId, cancellationToken)
@@ -112,7 +120,7 @@ internal static class CandidateRelationWrite
         candidates.ExpectVersion(candidate, version);
 
         var outcome = await candidates.SaveAsync(
-            CandidateAuditEvents.RelationsChanged,
+            auditEventType,
             candidate.Id.ToString("N"),
             cancellationToken);
         if (outcome != CandidateSaveOutcome.Saved)
@@ -398,4 +406,49 @@ public sealed class SetCandidateSkillsHandler(
                 return candidate.ReplaceSkills(replacement, DateTimeOffset.UtcNow);
             },
             cancellationToken);
+}
+
+public sealed class SetCandidateTagsHandler(
+    ICandidateRepository candidates,
+    ICatalogRepository catalogs,
+    ICurrentActor actor)
+    : IRequestHandler<SetCandidateTagsCommand, CandidateResponse>
+{
+    public Task<CandidateResponse> Handle(
+        SetCandidateTagsCommand request,
+        CancellationToken cancellationToken) =>
+        CandidateRelationWrite.ExecuteAsync(
+            candidates,
+            catalogs,
+            actor,
+            request.Id,
+            request.Version,
+            async (candidate, lookup, token) =>
+            {
+                var replacement = new List<CandidateTag>(request.Tags.Count);
+                foreach (var input in request.Tags)
+                {
+                    var tagId = await lookup.ResolveAsync(
+                        CatalogFamilies.Tag, input.Tag, "Tag", token);
+                    var existing = CandidateRelationWrite.Existing(candidate.Tags, input.Id);
+                    if (existing is null)
+                    {
+                        existing = new CandidateTag(Guid.CreateVersion7(), candidate.Id, tagId);
+                        candidates.AddRelation(existing);
+                    }
+                    else
+                    {
+                        existing.SetValue(tagId);
+                    }
+                    replacement.Add(existing);
+                }
+                CandidateRelationWrite.RejectDuplicates(
+                    replacement.Select(item => item.TagId),
+                    "Tag",
+                    CandidateErrors.TagDuplicate,
+                    "El candidato ya tiene esta etiqueta registrada.");
+                return candidate.ReplaceTags(replacement, DateTimeOffset.UtcNow);
+            },
+            cancellationToken,
+            CandidateAuditEvents.TagsChanged);
 }

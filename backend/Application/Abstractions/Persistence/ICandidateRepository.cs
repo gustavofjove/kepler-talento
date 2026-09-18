@@ -18,6 +18,7 @@ public enum CandidateSaveOutcome
     LanguageDuplicate,
     ProgramDuplicate,
     SkillDuplicate,
+    TagDuplicate,
 }
 
 /// <summary>
@@ -97,6 +98,14 @@ public interface ICandidateRepository
 
     Task<IReadOnlyList<CandidateDocument>> ListDocumentsAsync(Guid candidateId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<CandidateNote>> ListNotesAsync(Guid candidateId, CancellationToken cancellationToken);
+
+    Task<CandidateNote?> FindNoteAsync(
+        Guid candidateId,
+        Guid noteId,
+        bool includeInactive,
+        CancellationToken cancellationToken);
+
     /// <summary>
     /// Counts the candidates matching a validated filter value and materializes one page of
     /// them, ordered by the validated sort with <c>Id</c> ascending as the final tie-breaker.
@@ -131,6 +140,8 @@ public interface ICandidateRepository
     /// </remarks>
     void AddRelation(CandidateRelation relation);
 
+    void AddNote(CandidateNote note);
+
     /// <summary>
     /// Deletes relation records that left a replaced collection. This is the one physical
     /// deletion in the aggregate, and it is of a relation the user removed — never of a
@@ -155,9 +166,17 @@ public interface ICandidateRepository
     /// </summary>
     void ExpectVersion(Candidate candidate, uint version);
 
+    void ExpectVersion(CandidateNote note, uint version);
+
     /// <summary>
     /// Persists the pending changes together with one audit event, in a single
     /// transaction, so a rejected change can never leave an applied-change event behind.
     /// </summary>
     Task<CandidateSaveOutcome> SaveAsync(string auditEventType, string subjectId, CancellationToken cancellationToken);
+
+    Task<CandidateSaveOutcome> SaveNoteAsync(
+        string auditEventType,
+        Guid candidateId,
+        Guid noteId,
+        CancellationToken cancellationToken);
 }

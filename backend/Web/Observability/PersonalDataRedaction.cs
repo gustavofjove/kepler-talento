@@ -35,6 +35,9 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         "location",
         "province",
         "notes",
+        "body",
+        "tags",
+        "authorDisplayName",
         "receivedAt",
         "consentAt",
         "reviewDueAt",
@@ -49,6 +52,7 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         // everywhere else in the application.
         "filters",
         "skillCriteria",
+        "tagCriteria",
         "languageCriteria",
         "programCriteria",
         // A saved search's name is its owner's free text and routinely describes a person

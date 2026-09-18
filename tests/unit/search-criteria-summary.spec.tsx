@@ -30,6 +30,7 @@ describe('SearchCriteriaSummary', () => {
           ],
           skillMode: 'ALL',
           languageCriteria: [{ value: 'Inglés', level: 'B2' }],
+          tagCriteria: [{ value: 'Recontratable', level: '' }],
         })}
       />,
     );
@@ -46,6 +47,7 @@ describe('SearchCriteriaSummary', () => {
     expect(group('Habilidad (Todos)')).toHaveTextContent('Java · Avanzado');
     expect(group('Habilidad (Todos)')).toHaveTextContent('SQL');
     expect(group('Idiomas')).toHaveTextContent('Inglés · B2');
+    expect(group('Etiquetas')).toHaveTextContent('Recontratable');
   });
 
   it('omits the status group when every status is selected, since that restricts nothing', () => {

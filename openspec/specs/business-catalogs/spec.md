@@ -29,11 +29,14 @@ fall back to a locally generated vocabulary when the API is unavailable.
 
 ### Requirement: Catalog families and item shape
 
-The system SHALL organize catalog values into the nine business families used by candidate
+The system SHALL organize catalog values into the ten business families used by candidate
 records and search: languages, programs, skills, language levels, program levels, skill
-levels, education types, education statuses, and sectors. Each catalog item SHALL carry a
+levels, education types, education statuses, sectors, and tags. Each catalog item SHALL carry a
 stable identifier, a code, a Spanish name, an optional English name, a position within its
 family, and an active flag.
+
+The tags family SHALL have the same item shape as every other family. A tag SHALL NOT carry a
+level, a status, or any attribute the other families do not have.
 
 #### Scenario: Family is listed
 
@@ -43,75 +46,15 @@ family, and an active flag.
 
 #### Scenario: Unknown family is requested
 
-- **WHEN** a caller requests a family that is not one of the nine business families
+- **WHEN** a caller requests a family that is not one of the ten business families
 - **THEN** the API rejects the request with a stable validation code and returns no items
 
-### Requirement: Inactive values are excluded by default
+#### Scenario: Tags family is administered like any other
 
-Listing a family SHALL return only active values unless the caller explicitly asks for
-inactive values to be included. Screens that offer catalog values for selection SHALL receive
-only active values.
-
-#### Scenario: Selection screen lists a family
-
-- **WHEN** a candidate or search screen loads a family's values
-- **THEN** only active values are returned
-
-#### Scenario: Administration screen lists a family
-
-- **WHEN** an authorized administrator lists a family asking for inactive values to be included
-- **THEN** both active and inactive values are returned, each marked with its active flag
-
-### Requirement: Catalog value creation
-
-An authorized administrator SHALL be able to add a value to a family by supplying a Spanish
-name, optionally with a code and an English name. The new value SHALL be created active and
-placed at the end of its family's order. A code SHALL be derived from the Spanish name when
-none is supplied, and SHALL be made unique within the family when the derived code is already
-taken.
-
-#### Scenario: Value is created
-
-- **WHEN** an authorized administrator submits a new Spanish name for a family
-- **THEN** the value is created active, at the end of the family's order, with a code that is
-  unique within the family
-
-#### Scenario: Name is blank
-
-- **WHEN** the submitted Spanish name is empty or only whitespace
-- **THEN** the request is rejected with a stable validation code and the Spanish message
-  "El nombre es obligatorio." and no value is created
-
-### Requirement: Names are unique within a family
-
-A family SHALL NOT contain two values whose Spanish names are equal once trimmed, case-folded,
-and compared without accents. Codes SHALL likewise be unique within a family. Uniqueness SHALL
-be enforced by the database, not only by the application, so that concurrent requests cannot
-produce a duplicate.
-
-#### Scenario: Duplicate name is created
-
-- **WHEN** an authorized administrator submits a Spanish name that matches an existing value in
-  the same family under trimmed, case-folded, accent-insensitive comparison
-- **THEN** the request is rejected with a stable validation code and the Spanish message
-  "Ya existe un valor con ese nombre." and no value is created
-
-#### Scenario: Rename collides with another value
-
-- **WHEN** an authorized administrator renames a value to a name already held by a different
-  value of the same family
-- **THEN** the request is rejected with the same stable validation code and Spanish message and
-  the value keeps its previous name
-
-#### Scenario: Same name exists in another family
-
-- **WHEN** a Spanish name already used in one family is created in a different family
-- **THEN** the value is created, because uniqueness is scoped to a family
-
-#### Scenario: Concurrent duplicate creation
-
-- **WHEN** two requests create the same Spanish name in the same family at the same time
-- **THEN** exactly one succeeds and the other is rejected with the duplicate-name code
+- **WHEN** an authorized administrator creates, renames, reorders, deactivates or reactivates a
+  value of the tags family
+- **THEN** the operation behaves exactly as it does for any other family, through the same
+  operations, with no additional field to supply
 
 ### Requirement: Catalog value update
 
@@ -277,7 +220,7 @@ system process rather than a person SHALL record the system actor.
 
 ### Requirement: Default families are seeded at deployment
 
-The nine families SHALL be populated with their default Spanish values by an explicit,
+The ten families SHALL be populated with their default Spanish values by an explicit,
 idempotent deployment action. The application SHALL NOT create catalog values implicitly at
 runtime when a family is found empty.
 
@@ -295,7 +238,7 @@ condition to be resolved automatically.
 #### Scenario: Seed runs on an empty deployment
 
 - **WHEN** the deployment seed runs against a database with no catalog values
-- **THEN** the nine families are created with their default Spanish values, accents intact, in
+- **THEN** the ten families are created with their default Spanish values, accents intact, in
   their documented order, all active
 
 #### Scenario: Seed runs again
@@ -303,6 +246,12 @@ condition to be resolved automatically.
 - **WHEN** the deployment seed runs against a database that already holds catalog values
 - **THEN** it makes no change, and administrator edits made since the previous seed are
   preserved
+
+#### Scenario: Tags family is seeded on an existing deployment
+
+- **WHEN** the deployment seed runs against a database that already holds the other families but
+  no tags
+- **THEN** the default tags are created and no value of any other family is altered
 
 #### Scenario: Family is emptied by deactivation
 

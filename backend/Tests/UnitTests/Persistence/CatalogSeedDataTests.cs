@@ -55,4 +55,12 @@ public sealed class CatalogSeedDataTests
             CatalogFamilies.All.Order(StringComparer.Ordinal),
             CatalogSeedData.Families.Keys.Order(StringComparer.Ordinal));
     }
+
+    [Fact]
+    public void Tag_defaults_are_the_governed_business_vocabulary()
+    {
+        Assert.Equal(
+            ["Recontratable", "No contactar", "Referido por plantilla"],
+            CatalogSeedData.Families[CatalogFamilies.Tag].Select(value => value.NameEs));
+    }
 }

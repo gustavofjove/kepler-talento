@@ -24,7 +24,9 @@ public sealed record SearchFiltersInput(
     string? LanguageMode,
     IReadOnlyList<SearchCriterionInput?>? ProgramCriteria,
     string? ProgramMode,
-    string? HasCv);
+    string? HasCv,
+    IReadOnlyList<SearchCriterionInput?>? TagCriteria = null,
+    string? TagMode = null);
 
 public enum MultiValueMode
 {
@@ -65,7 +67,9 @@ public sealed record SearchFiltersValue(
     MultiValueMode LanguageMode,
     IReadOnlyList<SearchCriterion> ProgramCriteria,
     MultiValueMode ProgramMode,
-    CvPresence HasCv)
+    CvPresence HasCv,
+    IReadOnlyList<SearchCriterion> TagCriteria,
+    MultiValueMode TagMode)
 {
     /// <summary>
     /// True when the status family restricts nothing. Selecting every status and selecting
@@ -83,7 +87,9 @@ public sealed record SearchFiltersValue(
         ToWire(LanguageMode),
         [.. ProgramCriteria.Select(ToInput)],
         ToWire(ProgramMode),
-        ToWire(HasCv));
+        ToWire(HasCv),
+        [.. TagCriteria.Select(ToInput)],
+        ToWire(TagMode));
 
     private static SearchCriterionInput ToInput(SearchCriterion criterion) =>
         new(criterion.Value, criterion.Level);
@@ -107,6 +113,7 @@ public static class SearchErrors
     public const string TextTooLong = "search.text.too_long";
     public const string CriterionTooLong = "search.criterion.too_long";
     public const string CriteriaTooMany = "search.criteria.too_many";
+    public const string TagLevelInvalid = "search.tag.level.invalid";
     public const string PageInvalid = "search.page.invalid";
     public const string PageSizeInvalid = "search.page_size.invalid";
     public const string SortFieldInvalid = "search.sort_field.invalid";
@@ -126,6 +133,7 @@ public static class SearchErrors
     public const string TextTooLongMessage = "El texto de búsqueda es demasiado largo.";
     public const string CriterionTooLongMessage = "Un criterio de búsqueda es demasiado largo.";
     public const string CriteriaTooManyMessage = "Se han indicado demasiados criterios de búsqueda.";
+    public const string TagLevelInvalidMessage = "Las etiquetas no admiten nivel.";
     public const string PageInvalidMessage = "El número de página debe ser 1 o superior.";
     public const string PageSizeInvalidMessage = "El tamaño de página debe estar entre 1 y 100.";
     public const string SortFieldInvalidMessage = "El campo de ordenación no es válido.";
@@ -209,7 +217,9 @@ public static class SearchFilterNormalization
             NormalizeMode(input.LanguageMode, $"{property}.LanguageMode", issues),
             NormalizeCriteria(input.ProgramCriteria, $"{property}.ProgramCriteria", issues),
             NormalizeMode(input.ProgramMode, $"{property}.ProgramMode", issues),
-            NormalizeCv(input.HasCv, $"{property}.HasCv", issues));
+            NormalizeCv(input.HasCv, $"{property}.HasCv", issues),
+            NormalizeTagCriteria(input.TagCriteria, $"{property}.TagCriteria", issues),
+            NormalizeMode(input.TagMode, $"{property}.TagMode", issues));
     }
 
     private static IReadOnlyList<string> NormalizeStatuses(
@@ -306,6 +316,23 @@ public static class SearchFilterNormalization
                 SearchErrors.CriterionTooLongMessage));
         }
         return accepted;
+    }
+
+    private static IReadOnlyList<SearchCriterion> NormalizeTagCriteria(
+        IReadOnlyList<SearchCriterionInput?>? criteria,
+        string property,
+        List<ValidationIssue> issues)
+    {
+        var normalized = NormalizeCriteria(criteria, property, issues);
+        if (normalized.Any(criterion => !criterion.MatchesAnyLevel))
+        {
+            issues.Add(new ValidationIssue(
+                property,
+                SearchErrors.TagLevelInvalid,
+                SearchErrors.TagLevelInvalidMessage));
+            return [];
+        }
+        return normalized;
     }
 
     private static MultiValueMode NormalizeMode(string? mode, string property, List<ValidationIssue> issues)

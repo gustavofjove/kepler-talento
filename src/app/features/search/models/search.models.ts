@@ -26,6 +26,8 @@ export interface SearchFilters {
   languageMode: MultiValueMode;
   programCriteria: CriteriaFilter[];
   programMode: MultiValueMode;
+  tagCriteria: CriteriaFilter[];
+  tagMode: MultiValueMode;
   hasCv: '' | 'yes' | 'no';
 }
 
@@ -85,6 +87,8 @@ export const EMPTY_SEARCH_FILTERS: SearchFilters = {
   languageMode: 'ANY',
   programCriteria: [],
   programMode: 'ANY',
+  tagCriteria: [],
+  tagMode: 'ANY',
   hasCv: '',
 };
 
@@ -98,6 +102,8 @@ export function cloneSearchFilters(filters: SearchFilters): SearchFilters {
     languageMode: filters.languageMode,
     programCriteria: filters.programCriteria.map((item) => ({ ...item })),
     programMode: filters.programMode,
+    tagCriteria: filters.tagCriteria.map((item) => ({ ...item })),
+    tagMode: filters.tagMode,
     hasCv: filters.hasCv,
   };
 }
