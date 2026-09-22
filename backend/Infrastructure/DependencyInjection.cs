@@ -6,6 +6,8 @@ using KeplerTalento.Application.Abstractions.Operations;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Import;
 using KeplerTalento.Infrastructure.Operations;
+using KeplerTalento.Application.Abstractions.Positions;
+using KeplerTalento.Infrastructure.Positions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +29,8 @@ public static class DependencyInjection
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IImportBatchRepository, ImportBatchRepository>();
         services.AddScoped<IAuditRepository, AuditRepository>();
+        services.AddScoped<IPositionRepository, PositionRepository>();
+        services.AddSingleton<IPositionDescriptionSanitizer, PositionDescriptionSanitizer>();
         var storageOptions = configuration.GetSection(DocumentStorageOptions.SectionName).Get<DocumentStorageOptions>()
             ?? throw new InvalidOperationException("DocumentStorage configuration is required.");
         FileSystemDocumentStorage.ValidateAndPrepare(storageOptions);

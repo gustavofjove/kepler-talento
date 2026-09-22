@@ -33,3 +33,11 @@ owner, superuser, role creator, or RLS-bypass identity.
 Authorization is enforced at the API/application actor boundary rather than by Supabase
 RLS. Production business routes stay unregistered until the real identity adapter is
 selected; a Development/Test actor cannot be enabled in Production.
+
+# Position workflow ownership (KTL-15)
+
+Recruitment workflow records use the registered `OPS_` prefix. `OPS_Positions` is owned by the
+application and uses `pg_trgm` GIN indexes named `IX_OPS_Positions_NormalizedTitle_Trgm` and
+`IX_OPS_Positions_NormalizedLocation_Trgm` for normalized contains filters. The runtime role has
+only `SELECT`, `INSERT`, and `UPDATE`; `DELETE` and `TRUNCATE` are explicitly revoked. The
+`pg_trgm` extension is shared infrastructure and is never removed by a feature rollback.

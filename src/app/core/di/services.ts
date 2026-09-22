@@ -12,6 +12,7 @@ import { DocumentService } from '../../features/documents/services/document.serv
 import { CandidateSearchService } from '../../features/search/services/candidate-search.service';
 import { ExportService } from '../../features/search/services/export.service';
 import { SearchPresetsService } from '../../features/search/services/search-presets.service';
+import { PositionService } from '../../features/positions/position.service';
 import { AuthService } from '../auth/auth.service';
 import { DataRouterNavigator } from '../routing/navigator';
 import { ObservabilityService } from '../services/observability.service';
@@ -63,6 +64,7 @@ export const services = {
   exportService: new ExportService(),
   importService: new ImportService(apiTransport),
   auditService: new AuditService(apiTransport),
+  positionService: new PositionService(apiTransport),
   roleService,
   profileService,
   apiTransport,

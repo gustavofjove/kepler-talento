@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
+import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { mailtoHref, telHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
 
 interface SearchResultsProps {
@@ -59,14 +61,26 @@ export function SearchResults({
                     <strong>
                       {result.firstName} {result.lastName}
                     </strong>
-                    <div className="muted">{result.email}</div>
+                    {result.email ? (
+                      <div className="muted contact-links">
+                        <a href={mailtoHref(result.email)}>{result.email}</a>
+                      </div>
+                    ) : null}
                   </td>
-                  <td>{result.phone}</td>
+                  <td className="contact-links">
+                    {result.phone ? <a href={telHref(result.phone)}>{result.phone}</a> : null}
+                  </td>
                   <td>
                     <span className="badge">{result.status}</span>
                   </td>
                   <td>{result.hasPrimaryCv ? 'Disponible' : 'Pendiente'}</td>
-                  <td>{result.updatedAt.slice(0, 10)}</td>
+                  <td>
+                    {formatDate(result.updatedAt, {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </td>
                   <td>
                     <div className="form-actions">
                       <Link

@@ -13,6 +13,13 @@ namespace KeplerTalento.Tests.UnitTests.Features;
 public sealed class SearchFilterNormalizationTests
 {
     [Fact]
+    public void Stored_position_filters_use_the_position_specific_failure_code()
+    {
+        var exception = Assert.Throws<RequestValidationException>(() =>
+            SearchFilterDocument.Parse("{\"version\":999}", "position.requirements.invalid", "Invalid position requirements."));
+        Assert.Contains(exception.Issues, issue => issue.Code == "position.requirements.invalid");
+    }
+    [Fact]
     public void Absent_filters_restrict_nothing()
     {
         var filters = SearchFilterNormalization.Normalize(null, "Filters");

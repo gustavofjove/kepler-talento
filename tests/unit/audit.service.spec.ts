@@ -144,6 +144,7 @@ describe('audit page logic', () => {
       'Candidates/CandidateAuditEvents.cs',
       'Catalogs/CatalogAuditEvents.cs',
       'Documents/DocumentAuditEvents.cs',
+      'Positions/PositionAuditEvents.cs',
     ].map((file) => readFileSync(join(domain, file), 'utf8'));
     const codes = sources.flatMap((source) =>
       [...source.matchAll(/public const string \w+ = "([^"]+)";/g)].map((match) => match[1]),

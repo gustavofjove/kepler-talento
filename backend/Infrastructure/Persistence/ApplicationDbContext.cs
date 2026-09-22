@@ -5,6 +5,7 @@ using KeplerTalento.Domain.Documents;
 using KeplerTalento.Domain.Identity;
 using KeplerTalento.Domain.Import;
 using KeplerTalento.Domain.Operations;
+using KeplerTalento.Domain.Positions;
 using KeplerTalento.Domain.Search;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportRowOutcome> ImportRowOutcomes => Set<ImportRowOutcome>();
+    public DbSet<Position> Positions => Set<Position>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

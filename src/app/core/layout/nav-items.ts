@@ -35,6 +35,12 @@ export const TOP_LEVEL_ITEMS: NavItem[] = [
     testId: 'nav-candidates',
   },
   { label: 'Búsqueda', to: '/app/search', permission: 'candidates.read', testId: 'nav-search' },
+  {
+    label: 'Posiciones',
+    to: '/app/positions',
+    permission: 'positions.read',
+    testId: 'nav-positions',
+  },
 ];
 
 /**
@@ -93,6 +99,7 @@ export const NAV_PERMISSIONS: Permission[] = [
   'roles.manage',
   'candidates.import',
   'audit.read',
+  'positions.read',
 ];
 
 /** Single source for the active-state derivation of the group's parent. */

@@ -35,6 +35,8 @@ public static class Permissions
     public const string DocumentsDownload = "documents.download";
     public const string CatalogsRead = "catalogs.read";
     public const string CatalogsManage = "catalogs.manage";
+    public const string PositionsRead = "positions.read";
+    public const string PositionsManage = "positions.manage";
 
     /// <summary>
     /// Creating, changing and deleting the shared saved-search library. Deliberately does not
@@ -83,6 +85,8 @@ public static class Permissions
         DocumentsDownload,
         CatalogsRead,
         CatalogsManage,
+        PositionsRead,
+        PositionsManage,
         PresetsManage,
         UsersManage,
         RolesManage,
