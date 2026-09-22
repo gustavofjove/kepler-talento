@@ -15,6 +15,9 @@ import { AdvancedSearchPage } from './features/search/pages/advanced-search-page
 import { CandidateEditPage } from './features/candidates/pages/candidate-edit-page';
 import { CandidateListPage } from './features/candidates/pages/candidate-list-page';
 import { DashboardPage } from './features/dashboard/dashboard-page';
+import { PositionListPage } from './features/positions/position-list-page';
+import { PositionDetailPage } from './features/positions/position-detail-page';
+import { PositionFormPage } from './features/positions/position-form-page';
 
 /**
  * Route table ported from app.routes.ts.
@@ -36,6 +39,20 @@ export function createAppRouter() {
           element: <AppLayout />,
           children: [
             { index: true, element: <DashboardPage /> },
+            {
+              element: <RequirePermission permission="positions.read" />,
+              children: [
+                { path: 'positions', element: <PositionListPage /> },
+                { path: 'positions/:id', element: <PositionDetailPage /> },
+              ],
+            },
+            {
+              element: <RequirePermission permission="positions.manage" />,
+              children: [
+                { path: 'positions/new', element: <PositionFormPage /> },
+                { path: 'positions/:id/edit', element: <PositionFormPage /> },
+              ],
+            },
             {
               element: <RequirePermission permission="candidates.create" />,
               children: [{ path: 'candidates/new', element: <CandidateEditPage /> }],

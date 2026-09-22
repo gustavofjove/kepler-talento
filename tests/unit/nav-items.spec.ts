@@ -19,6 +19,7 @@ describe('nav-items table', () => {
       ['Dashboard', '/app', null],
       ['Candidatos', '/app/candidates', 'candidates.read'],
       ['Búsqueda', '/app/search', 'candidates.read'],
+      ['Posiciones', '/app/positions', 'positions.read'],
       ['Catálogos', '/app/catalogs', 'catalogs.manage'],
       ['Presets', '/app/admin/presets', 'presets.manage'],
       ['Usuarios', '/app/admin/users', 'users.manage'],

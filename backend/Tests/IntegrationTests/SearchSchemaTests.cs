@@ -157,16 +157,21 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task No_full_text_extension_is_installed_by_this_slice()
+    public async Task Candidate_search_uses_no_trigram_index()
     {
         await MigrateAsync();
 
-        var extensions = await QueryAsync("SELECT extname FROM pg_extension WHERE extname = 'pg_trgm'");
+        var trigramTables = await QueryAsync(
+            """
+            SELECT DISTINCT tablename FROM pg_indexes
+            WHERE schemaname = 'public' AND indexdef LIKE '%gin_trgm_ops%' AND @table IS NOT NULL
+            ORDER BY tablename
+            """);
 
-        // KTL-10 deliberately ships no trigram index: at the documented scale a parameterized
-        // scan is cheaper than the extension's operational cost, and adding one would need
-        // the design amended first.
-        Assert.Empty(extensions);
+        // KTL-10 deliberately ships no trigram index for candidate search: at the documented
+        // scale a parameterized scan is cheaper. KTL-15 (design D6) installs pg_trgm for the
+        // position list only, so the extension may exist but only position columns use it.
+        Assert.Equal(["OPS_Positions"], trigramTables);
     }
 
     [Fact]

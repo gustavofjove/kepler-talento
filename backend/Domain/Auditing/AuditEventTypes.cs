@@ -1,6 +1,7 @@
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Documents;
+using KeplerTalento.Domain.Positions;
 
 namespace KeplerTalento.Domain.Auditing;
 
@@ -38,6 +39,9 @@ public static class AuditEventTypes
         DocumentAuditEvents.PrimaryChanged,
         DocumentAuditEvents.Removed,
         DocumentAuditEvents.Reconciliation,
+        PositionAuditEvents.Created,
+        PositionAuditEvents.Updated,
+        PositionAuditEvents.StatusChanged,
     ];
 
     private static readonly HashSet<string> Known = new(All, StringComparer.Ordinal);

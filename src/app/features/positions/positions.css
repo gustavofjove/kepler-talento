@@ -1,0 +1,269 @@
+.position-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.position-filters {
+  align-items: end;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(12rem, 1fr) auto auto;
+}
+
+.positions-table {
+  padding: 0;
+}
+
+.positions-table th:first-child,
+.positions-table td:first-child {
+  padding-left: 24px;
+}
+
+.positions-table th:last-child,
+.positions-table td:last-child {
+  padding-right: 24px;
+}
+
+.positions-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.position-main-fields {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr) minmax(9rem, auto);
+}
+
+.position-section {
+  display: grid;
+  gap: 14px;
+}
+
+.position-section h2,
+.position-section p {
+  margin: 0;
+}
+
+.position-presets {
+  display: grid;
+  gap: 14px;
+}
+
+.position-presets h2 {
+  margin: 0;
+}
+
+.position-presets .position-actions {
+  align-items: end;
+  justify-content: flex-start;
+}
+
+.position-presets .field {
+  min-width: 14rem;
+}
+
+.position-presets .button {
+  min-height: 34px;
+}
+
+.position-editor {
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  position: relative;
+}
+
+.position-editor-toolbar {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+}
+
+.position-editor-toolbar button {
+  align-items: center;
+  background: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  color: var(--fg-2);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+}
+
+.position-editor-toolbar svg {
+  flex: none;
+}
+
+.position-editor-toolbar button:hover {
+  border-color: var(--fj-navy);
+  color: var(--fj-navy);
+}
+
+.position-editor-toolbar button:focus-visible {
+  outline: 2px solid rgba(22, 33, 54, 0.15);
+  outline-offset: 1px;
+}
+
+.position-editor-input {
+  min-height: 12rem;
+  outline: none;
+  padding: 1rem;
+}
+
+.position-editor-input:focus {
+  box-shadow: inset 0 0 0 2px rgba(22, 33, 54, 0.15);
+}
+
+.position-editor-body {
+  position: relative;
+}
+
+.position-editor-placeholder {
+  color: var(--muted);
+  left: 1rem;
+  pointer-events: none;
+  position: absolute;
+  top: 1rem;
+}
+
+.position-description {
+  overflow-wrap: anywhere;
+  scroll-margin-top: 96px;
+}
+
+.position-description-shell:not(.is-expanded) .position-description {
+  max-height: 350px;
+  overflow: hidden;
+}
+
+.position-description-toggle {
+  align-items: end;
+  background: linear-gradient(to bottom, transparent, var(--bg-1) 55%);
+  display: flex;
+  justify-content: center;
+  margin-top: -48px;
+  min-height: 48px;
+  padding: 24px 12px 8px;
+  position: relative;
+}
+
+.position-description-shell.is-expanded .position-description-toggle {
+  background: none;
+  margin-top: 0;
+  min-height: auto;
+  padding-top: 8px;
+}
+
+.position-description-toggle button {
+  background: none;
+  border: 0;
+  color: var(--primary);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.position-description-toggle button:hover {
+  color: var(--primary-dark);
+}
+
+.position-description-toggle button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.position-description > :first-child {
+  margin-top: 0;
+}
+
+.position-description > :last-child {
+  margin-bottom: 0;
+}
+
+/* Keep the title and actions in reach while scrolling the matches. `top`
+ * matches the shell header's min-height (app-layout.css); z-index stays below
+ * the header's 10. The opaque background hides content scrolling beneath. */
+.position-detail-toolbar {
+  background: var(--bg);
+  padding-block: 10px;
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+}
+
+.position-detail-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.position-metadata {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding-bottom: 14px;
+}
+
+.position-metadata div {
+  display: grid;
+  gap: 4px;
+}
+
+.position-metadata dt {
+  color: var(--fg-3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.position-metadata dd {
+  color: var(--fg-1);
+  font-weight: 600;
+  margin: 0;
+}
+
+.position-form {
+  max-width: 1100px;
+}
+
+@media (max-width: 768px) {
+  .position-filters,
+  .position-main-fields,
+  .position-metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .position-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .position-actions > *,
+  .position-presets .field {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .positions-table th:first-child,
+  .positions-table td:first-child {
+    padding-left: 14px;
+  }
+
+  .positions-table th:last-child,
+  .positions-table td:last-child {
+    padding-right: 14px;
+  }
+}

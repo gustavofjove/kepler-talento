@@ -90,6 +90,14 @@ public sealed class PersonalDataRedactionEnricher : ILogEventEnricher
         "file_name",
         "importFileName",
         "storageKey",
+        // KTL-15. A position's title, description and location are free HR text that can name a
+        // person or an internal situation, and its requirements are a stored search, masked for
+        // the same reason as "filters". "location" is already covered above.
+        "title",
+        "normalizedTitle",
+        "normalizedLocation",
+        "description",
+        "requirements",
         // Credentials. A token in a log is a usable credential for as long as it lives, and
         // logs outlive tokens.
         "token",

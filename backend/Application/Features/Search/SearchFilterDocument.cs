@@ -66,7 +66,12 @@ public static class SearchFilterDocument
     /// never silently replaced by empty filters: that would quietly turn a saved search into
     /// "every candidate", which is the opposite of what its owner asked for.
     /// </summary>
-    public static SearchFiltersValue Parse(string json)
+    public static SearchFiltersValue Parse(string json) => Parse(
+        json,
+        SearchErrors.PresetFiltersInvalid,
+        SearchErrors.PresetFiltersInvalidMessage);
+
+    public static SearchFiltersValue Parse(string json, string errorCode, string errorMessage)
     {
         StoredDocument? stored;
         try
@@ -79,7 +84,7 @@ public static class SearchFilterDocument
         }
         if (stored is null || stored.Version != SearchFilterNormalization.FilterSchemaVersion)
         {
-            throw Invalid();
+            throw Invalid(errorCode, errorMessage);
         }
         var issues = new List<ValidationIssue>();
         var value = SearchFilterNormalization.TryNormalize(
@@ -97,7 +102,7 @@ public static class SearchFilterDocument
                 stored.TagMode),
             "Filters",
             issues);
-        return issues.Count > 0 ? throw Invalid() : value;
+        return issues.Count > 0 ? throw Invalid(errorCode, errorMessage) : value;
     }
 
     private static StoredCriterion? ToStored(SearchCriterionInput? criterion) =>
@@ -106,9 +111,9 @@ public static class SearchFilterDocument
     private static SearchCriterionInput? ToInput(StoredCriterion? criterion) =>
         criterion is null ? null : new SearchCriterionInput(criterion.Value, criterion.Level);
 
-    private static RequestValidationException Invalid() =>
+    private static RequestValidationException Invalid(string code, string message) =>
         new([new ValidationIssue(
             "Filters",
-            SearchErrors.PresetFiltersInvalid,
-            SearchErrors.PresetFiltersInvalidMessage)]);
+            code,
+            message)]);
 }

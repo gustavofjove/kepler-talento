@@ -17,6 +17,8 @@ export type Permission =
   | 'documents.download'
   | 'catalogs.read'
   | 'catalogs.manage'
+  | 'positions.read'
+  | 'positions.manage'
   | 'presets.manage'
   | 'users.manage'
   | 'roles.manage'
@@ -34,6 +36,8 @@ export const ALL_PERMISSIONS: Permission[] = [
   'documents.download',
   'catalogs.read',
   'catalogs.manage',
+  'positions.read',
+  'positions.manage',
   'presets.manage',
   'users.manage',
   'roles.manage',

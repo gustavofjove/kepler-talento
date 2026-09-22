@@ -63,9 +63,21 @@ html {
   order: 2;
 }
 
+/* A zero flex-basis keeps the brand from forcing the user block onto a second row: flex
+ * wrapping decides line breaks from the basis, so the brand takes only the space the nav
+ * and user block leave (never more than its natural width) and truncates its subtitle
+ * instead. Without it, adding a primary destination overflows the row near 1024px. */
 .shell .brand {
   display: grid;
+  flex: 1 1 0;
   gap: 2px;
+  max-width: max-content;
+  min-width: 0;
+}
+.shell .brand .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .shell .brand strong {
   color: var(--bg-1);

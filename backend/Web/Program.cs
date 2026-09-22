@@ -19,6 +19,7 @@ using KeplerTalento.Web.Observability;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Web.Features.Identity;
+using KeplerTalento.Web.Features.Positions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -218,6 +219,16 @@ builder.Services.AddAuthorization(options =>
         && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
         && actor.IsAuthenticated
         && actor.HasPermission(Permissions.AuditRead)));
+    options.AddPolicy(Permissions.PositionsRead, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.PositionsRead)));
+    options.AddPolicy(Permissions.PositionsManage, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.PositionsManage)));
 });
 builder.Services.AddScoped<CorrelationContext>();
 builder.Services.AddScoped<ICorrelationContext>(provider => provider.GetRequiredService<CorrelationContext>());
@@ -367,6 +378,7 @@ app.MapImportEndpoints();
 app.MapSearchEndpoints();
 app.MapAdminEndpoints();
 app.MapAuditEndpoints();
+app.MapPositionEndpoints();
 app.MapMeEndpoints();
 if (developmentIssuerEnabled)
 {

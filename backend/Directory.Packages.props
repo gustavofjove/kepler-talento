@@ -6,6 +6,7 @@
     <PackageVersion Include="FastEndpoints" Version="8.3.0" />
     <PackageVersion Include="FastEndpoints.Swagger" Version="8.3.0" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+    <PackageVersion Include="HtmlSanitizer" Version="9.2.1039" />
     <PackageVersion Include="MediatR" Version="12.5.0" />
     <!--
       KTL-16 (design D1). The framework's own package for validating OIDC bearer tokens,

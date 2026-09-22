@@ -10,6 +10,13 @@ namespace KeplerTalento.Tests.UnitTests.Features;
 public sealed class AdminInvariantTests
 {
     [Fact]
+    public void Position_permissions_are_part_of_the_closed_catalogue()
+    {
+        Assert.Contains(Permissions.PositionsRead, Permissions.All);
+        Assert.Contains(Permissions.PositionsManage, Permissions.All);
+        Assert.NotEqual(Permissions.PositionsRead, Permissions.PositionsManage);
+    }
+    [Fact]
     public async Task Deactivating_the_last_administrator_is_refused()
     {
         var users = new StubUserRepository { ActivePermissionHolders = 0 };

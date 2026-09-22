@@ -1252,6 +1252,96 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Positions.Position", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)");
+
+                    b.Property<int>("FilterSchemaVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NormalizedLocation")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NormalizedTitle")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Requirements")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedTitle")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OPS_Positions_NormalizedTitle");
+
+                    b.HasIndex("Status", "NormalizedLocation", "Id")
+                        .HasDatabaseName("IX_OPS_Positions_Status_NormalizedLocation_Id");
+
+                    b.HasIndex("Status", "NormalizedTitle", "Id")
+                        .HasDatabaseName("IX_OPS_Positions_Status_NormalizedTitle_Id");
+
+                    b.HasIndex("Status", "UpdatedAtUtc", "Id")
+                        .HasDatabaseName("IX_OPS_Positions_Status_UpdatedAtUtc_Id");
+
+                    b.ToTable("OPS_Positions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OPS_Positions_Description", "char_length(\"Description\") <= 20000");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_FilterSchemaVersion", "\"FilterSchemaVersion\" >= 1");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_Location", "char_length(\"Location\") <= 200");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_Requirements", "jsonb_typeof(\"Requirements\") = 'object'");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_RequirementsVersion", "\"Requirements\" @> jsonb_build_object('version', \"FilterSchemaVersion\")");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_Status", "\"Status\" IN ('open', 'closed')");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_Timestamps", "\"UpdatedAtUtc\" >= \"CreatedAtUtc\"");
+
+                            t.HasCheckConstraint("CK_OPS_Positions_Title", "char_length(btrim(\"Title\")) > 0 AND char_length(\"Title\") <= 200");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Search.SearchPreset", b =>
                 {
                     b.Property<Guid>("Id")
