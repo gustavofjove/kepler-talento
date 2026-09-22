@@ -13,7 +13,6 @@ const LEGACY_HARDCODED_COPY = [
   'src/app/features/candidates/components/candidate-documents.tsx',
   'src/app/features/candidates/components/candidate-form.tsx',
   'src/app/features/candidates/pages/candidate-edit-page.tsx',
-  'src/app/features/catalogs/pages/catalog-management-page.tsx',
   'src/app/features/search/components/criteria-group.tsx',
   'src/app/features/search/components/search-results.tsx',
 ];

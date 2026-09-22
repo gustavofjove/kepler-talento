@@ -63,7 +63,7 @@
   min-width: 48px;
 }
 /* The global .field rules do not reach here, so match their look explicitly. */
-.inline-field input,
+.inline-field input:not([type='checkbox'], [type='radio']),
 .inline-field select {
   background: var(--bg-1);
   border: 1px solid var(--border);

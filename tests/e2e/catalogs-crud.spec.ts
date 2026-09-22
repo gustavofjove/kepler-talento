@@ -74,6 +74,33 @@ test.describe('Catalog management CRUD', () => {
     ).toContainText('Activo');
   });
 
+  test('edit mode offers only save and cancel and locks the other rows', async ({ page }) => {
+    await page.goto('/app/catalogs');
+    await page.selectOption('select[name="family"]', 'language');
+
+    const rows = page.locator('tbody tr');
+    const firstRow = rows.nth(0);
+    const originalText = await firstRow.locator('td').nth(2).innerText();
+    const heightBefore = (await firstRow.boundingBox())?.height;
+
+    await firstRow.getByTestId('catalog-edit').click();
+
+    await expect(firstRow.getByRole('button')).toHaveCount(2);
+    await expect(firstRow.getByTestId('catalog-edit-save')).toBeVisible();
+    await expect(firstRow.getByTestId('catalog-edit-cancel')).toBeVisible();
+    for (const button of await rows.nth(1).getByRole('button').all()) {
+      await expect(button).toBeDisabled();
+    }
+    // Entering edit mode must not change the row height.
+    expect((await firstRow.boundingBox())?.height).toBe(heightBefore);
+
+    await firstRow.locator('input[name="editNameEs"]').fill('Descartado');
+    await firstRow.getByTestId('catalog-edit-cancel').click();
+
+    await expect(firstRow.locator('td').nth(2)).toHaveText(originalText);
+    await expect(rows.nth(1).getByRole('button').first()).toBeEnabled();
+  });
+
   test('rejects a duplicate name with the Spanish message', async ({ page }) => {
     await page.goto('/app/catalogs');
     await page.selectOption('select[name="family"]', 'language');

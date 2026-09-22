@@ -30,7 +30,7 @@ test.describe('Candidate CRUD', () => {
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();
 
-    await expect(page.locator('p:has-text("Activo:")')).toContainText('No');
+    await expect(page.getByTestId('candidate-active')).toHaveText('No');
 
     await page.goto('/app/candidates');
     await expect(page.locator(`text=${firstName} ${lastName} Editado`)).toHaveCount(0);
@@ -48,11 +48,11 @@ test.describe('Candidate CRUD', () => {
 
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();
-    await expect(page.locator('p:has-text("Activo:")')).toContainText('No');
+    await expect(page.getByTestId('candidate-active')).toHaveText('No');
 
     await page.click('button:has-text("Alta lógica")');
     await page.getByTestId('confirm-accept').click();
-    await expect(page.locator('p:has-text("Activo:")')).toContainText('Sí');
+    await expect(page.getByTestId('candidate-active')).toHaveText('Sí');
 
     await page.goto('/app/candidates');
     await page.fill('input[name="text"]', firstName);

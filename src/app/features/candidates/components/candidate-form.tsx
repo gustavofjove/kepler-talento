@@ -31,8 +31,6 @@ export function CandidateForm({ candidate, onSave }: CandidateFormProps) {
 
   return (
     <>
-      // noValidate: the original template-driven form did not let the browser // block submit, so
-      the custom Spanish message is what users (and the e2e // spec) see.
       <form className="section-block" onSubmit={submit} noValidate>
         <div className="grid two">
           <div className="field">

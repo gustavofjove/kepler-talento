@@ -117,7 +117,7 @@ h3 {
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   box-shadow: 0 1px 2px rgba(22, 33, 54, 0.06);
-  padding: 16px;
+  padding: 24px;
 }
 
 .button {
@@ -159,6 +159,10 @@ h3 {
   color: var(--text);
 }
 
+.button.ghost:hover:not(:disabled) {
+  color: white;
+}
+
 .button.danger {
   background: var(--danger);
   border-color: var(--danger);
@@ -175,6 +179,54 @@ h3 {
   opacity: 0.55;
 }
 
+/* Base look for every text-like control, including bare ones outside a
+ * `.field` (e.g. the inline edit inputs in catalog tables) that otherwise get
+ * the browser's dark inset border and near-zero padding. `:where()` keeps the
+ * specificity at zero so `.field`, `.inline-field` and page rules still win. */
+:where(
+  input:not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='file'],
+    [type='range'],
+    [type='color'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image'],
+    [type='hidden']
+  ),
+  select,
+  textarea
+) {
+  background-color: var(--bg-1);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-md);
+  color: var(--text);
+  min-height: 34px;
+  padding: 8px 10px;
+}
+
+:where(
+  input:not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='file'],
+    [type='range'],
+    [type='color'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='image'],
+    [type='hidden']
+  ),
+  textarea
+):focus {
+  border-color: var(--fg-3);
+  outline: 2px solid rgba(22, 33, 54, 0.08);
+  outline-offset: 0;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -186,7 +238,9 @@ h3 {
   font-weight: 600;
 }
 
-.field input,
+/* Checkboxes and radios are excluded: the text-box sizing below would stretch
+ * them into a huge full-width tick box. They are styled with `.inline-check`. */
+.field input:not([type='checkbox'], [type='radio']),
 .field select,
 .field textarea {
   background: var(--bg-1);
@@ -244,6 +298,28 @@ th {
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* Sortable header: a button for keyboard access that reads as a plain label. */
+.th-sort {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  text-align: inherit;
+  text-transform: inherit;
+}
+
+.th-sort:hover {
+  color: var(--text);
+}
+
+.th-sort:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 tbody tr:hover {
@@ -348,20 +424,157 @@ tbody tr:hover {
   margin: 0;
 }
 
+/* Label/value pairs: labels in their own column sized to the longest one,
+ * values aligned in a second column. */
+.prop-list {
+  display: grid;
+  gap: 8px 16px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  margin: 0;
+}
+
+.prop-list dt {
+  color: var(--fg-2);
+  font-weight: 600;
+}
+
+.prop-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Inline edit input inside a table cell. Exactly the height of a `.button`
+ * (32px), which already sets the row height through the actions column, and
+ * pulled up by the cell's text leading, so entering edit mode does not make
+ * the row taller or shift its text. */
+.cell-input {
+  height: 32px;
+  margin: -6px 0;
+  min-height: 0;
+  min-width: 8ch;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+/* mailto:/tel: links on the candidate header: keep the muted tone, signal
+ * the link on hover. */
+.contact-links a {
+  text-underline-offset: 2px;
+}
+
+.contact-links a:hover {
+  color: var(--fj-orange);
+}
+
 .form-actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
 }
 
-.inline-check {
+/* Standard checkbox/radio row: 16px control, body-sized label. The `.field`
+ * selector repeats so it beats `.field label` (the 11px field caption). */
+.inline-check,
+.field label.inline-check {
   align-items: center;
+  color: var(--text);
+  cursor: pointer;
   display: inline-flex;
+  font-size: 14px;
+  font-weight: 400;
   gap: 8px;
+  line-height: 1.3;
 }
 
-.inline-check input[type='checkbox'] {
+input[type='checkbox'],
+input[type='radio'] {
   accent-color: var(--fj-orange);
+  cursor: pointer;
+  flex: none;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+input[type='checkbox']:focus-visible,
+input[type='radio']:focus-visible {
+  outline: 2px solid var(--fj-orange-bright);
+  outline-offset: 2px;
+}
+
+input[type='checkbox']:disabled,
+input[type='radio']:disabled,
+.inline-check:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+/* Single-value dropdowns draw their own chevron: the native arrow sits flush
+ * against the right border and padding cannot move it. `:root` raises the
+ * specificity above the feature `background:`/`padding:` shorthands (e.g.
+ * `.field select`, `.page-size select`) so every dropdown gets the same inset.
+ * List boxes (`multiple`, `size`) keep the native rendering. */
+:root select:not([multiple], [size]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23162136' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 12px 8px;
+  cursor: pointer;
+  padding-right: 34px;
+}
+
+/* An open dropdown is focused, and the navy focus border of text fields looked
+ * heavy around the expanded list; use a softer grey edge and a fainter ring. */
+:root select:not([multiple], [size]):focus {
+  border-color: var(--border-2);
+  outline: 2px solid rgba(22, 33, 54, 0.05);
+  outline-offset: 0;
+}
+
+/* The options panel of a native select is drawn by the browser/OS and ignores
+ * CSS. Chromium's customizable select (`base-select`) exposes it as
+ * `::picker(select)`, so style it there with the same light edge. Browsers
+ * without support skip this block and keep the native list. The chevron is
+ * already the background image above, so the built-in picker icon is hidden. */
+@supports (appearance: base-select) {
+  :root select:not([multiple], [size]),
+  :root select:not([multiple], [size])::picker(select) {
+    appearance: base-select;
+  }
+
+  :root select:not([multiple], [size])::picker-icon {
+    display: none;
+  }
+
+  :root select:not([multiple], [size])::picker(select) {
+    background: var(--bg-1);
+    border: 1px solid var(--border-2);
+    border-radius: var(--r-md);
+    box-shadow: 0 6px 16px rgba(22, 33, 54, 0.08);
+    margin-top: 4px;
+    padding: 4px;
+  }
+
+  :root select:not([multiple], [size]) option {
+    border-radius: var(--r-sm, 4px);
+    padding: 6px 10px;
+  }
+
+  :root select:not([multiple], [size]) option:hover,
+  :root select:not([multiple], [size]) option:focus-visible {
+    background: var(--bg-2);
+    outline: none;
+  }
+
+  :root select:not([multiple], [size]) option:checked {
+    background: var(--fj-orange-pale);
+    color: var(--fj-orange-dark);
+  }
+}
+
+:root select:not([multiple], [size]):disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .field select[multiple] {
