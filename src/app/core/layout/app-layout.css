@@ -39,6 +39,19 @@
   justify-content: space-between;
   min-height: 64px;
   padding: 0 22px;
+  /* Sticky makes the header a stacking context, so the Admin dropdown's
+   * z-index: 15 now only competes inside it. 10 keeps the whole header above
+   * `main` and below the toast region (z-index: 20). */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Keep anchor jumps and focus scrolling (e.g. the skip link target) from
+ * landing underneath the sticky header. Global on purpose: it is the document
+ * that scrolls. */
+html {
+  scroll-padding-top: 72px;
 }
 .shell .brand {
   order: 1;

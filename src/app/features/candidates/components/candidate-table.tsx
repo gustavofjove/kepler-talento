@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { formatDate } from '../../../core/i18n/format';
+import { mailtoHref, telHref } from '../contact-links';
 import type { CandidateListItem } from '../models/candidate.models';
 import {
   type ListSort,
@@ -33,7 +34,7 @@ export function CandidateTable({
   const { t } = useTranslation();
   const sortButton = (field: SortField, label: string) => (
     <button
-      className="button ghost"
+      className="th-sort"
       type="button"
       name={`sort-${field}`}
       data-testid={`candidate-sort-${field}`}
@@ -96,9 +97,17 @@ export function CandidateTable({
                   <strong>
                     {candidate.firstName} {candidate.lastName}
                   </strong>
-                  <div className="muted">{candidate.email}</div>
+                  {candidate.email ? (
+                    <div className="muted contact-links">
+                      <a href={mailtoHref(candidate.email)}>{candidate.email}</a>
+                    </div>
+                  ) : null}
                 </td>
-                <td>{candidate.phone}</td>
+                <td className="contact-links">
+                  {candidate.phone ? (
+                    <a href={telHref(candidate.phone)}>{candidate.phone}</a>
+                  ) : null}
+                </td>
                 <td>
                   <span className="badge">{statusLabel(candidate.status, t)}</span>
                   {!candidate.isActive ? (

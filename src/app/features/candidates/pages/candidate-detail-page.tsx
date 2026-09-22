@@ -11,6 +11,7 @@ import { CandidatePrograms } from '../components/candidate-programs';
 import { CandidateSkills } from '../components/candidate-skills';
 import { CandidateTags } from '../components/candidate-tags';
 import { CandidateNotes } from '../components/candidate-notes';
+import { mailtoHref, telHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
 
 export function CandidateDetailPage() {
@@ -78,8 +79,10 @@ export function CandidateDetailPage() {
           <h1>
             {item.firstName} {item.lastName}
           </h1>
-          <p className="muted">
-            {item.email} · {item.phone}
+          <p className="muted contact-links">
+            {item.email ? <a href={mailtoHref(item.email)}>{item.email}</a> : null}
+            {item.email && item.phone ? ' · ' : null}
+            {item.phone ? <a href={telHref(item.phone)}>{item.phone}</a> : null}
           </p>
         </div>
         <div className="toolbar">
@@ -106,37 +109,34 @@ export function CandidateDetailPage() {
       <div className="grid two">
         <article className="panel">
           <h2>{t('candidate.detail.mainData')}</h2>
-          <p>
-            <strong>{t('candidate.detail.status')}:</strong> {item.status}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.availability')}:</strong> {item.availability}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.location')}:</strong> {item.location} {item.province}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.receivedAt')}:</strong>{' '}
-            {item.receivedAt || t('candidate.detail.pending')}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.reviewDueAt')}:</strong>{' '}
-            {item.reviewDueAt || t('candidate.detail.pending')}
-          </p>
-          <p>{item.notes}</p>
+          <dl className="prop-list">
+            <dt>{t('candidate.detail.status')}</dt>
+            <dd>{item.status}</dd>
+            <dt>{t('candidate.detail.availability')}</dt>
+            <dd>{item.availability}</dd>
+            <dt>{t('candidate.detail.location')}</dt>
+            <dd>
+              {item.location} {item.province}
+            </dd>
+            <dt>{t('candidate.detail.receivedAt')}</dt>
+            <dd>{item.receivedAt || t('candidate.detail.pending')}</dd>
+            <dt>{t('candidate.detail.reviewDueAt')}</dt>
+            <dd>{item.reviewDueAt || t('candidate.detail.pending')}</dd>
+          </dl>
+          {item.notes ? <p>{item.notes}</p> : null}
         </article>
         <article className="panel">
           <h2>{t('candidate.detail.audit')}</h2>
-          <p>
-            <strong>{t('candidate.detail.created')}:</strong> {item.createdAt.slice(0, 19)}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.updated')}:</strong> {item.updatedAt.slice(0, 19)}
-          </p>
-          <p>
-            <strong>{t('candidate.detail.active')}:</strong>{' '}
-            {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
-          </p>
+          <dl className="prop-list">
+            <dt>{t('candidate.detail.created')}</dt>
+            <dd>{item.createdAt.slice(0, 19)}</dd>
+            <dt>{t('candidate.detail.updated')}</dt>
+            <dd>{item.updatedAt.slice(0, 19)}</dd>
+            <dt>{t('candidate.detail.active')}</dt>
+            <dd data-testid="candidate-active">
+              {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
+            </dd>
+          </dl>
         </article>
       </div>
       <div className="grid two">

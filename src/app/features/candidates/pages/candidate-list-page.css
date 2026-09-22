@@ -5,7 +5,7 @@
   display: grid;
   gap: 10px 14px;
   grid-template-columns: minmax(200px, 2fr) 1fr 1fr 1fr auto;
-  padding: 12px 16px;
+  padding: 24px;
 }
 /* Checkbox and button sit on the same baseline as the inputs beside them. */
 .filters-bar .inline-check,

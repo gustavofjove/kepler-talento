@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { useCatalogs } from '../use-catalogs';
@@ -14,6 +15,7 @@ const FAMILY_OPTIONS = (Object.keys(CATALOG_FAMILY_LABELS) as CatalogFamily[]).m
 }));
 
 export function CatalogManagementPage() {
+  const { t } = useTranslation();
   const { toastService, confirmDialogService } = useServices();
   const notifyError = useErrorToast();
   const catalogService = useCatalogs();
@@ -42,9 +44,9 @@ export function CatalogManagementPage() {
       await catalogService.create(activeFamily, newNameEs, newCode);
       setNewNameEs('');
       setNewCode('');
-      toastService.show('Elemento creado.', 'success');
+      toastService.show(t('catalogs.management.toast.created'), 'success');
     } catch (error) {
-      notifyError(error, 'No se pudo crear el elemento.');
+      notifyError(error, t('catalogs.management.error.create'));
     }
   };
 
@@ -58,9 +60,20 @@ export function CatalogManagementPage() {
     try {
       await catalogService.update(activeFamily, item.id, { nameEs: editNameEs, code: editCode });
       cancelEdit();
-      toastService.show('Elemento actualizado.', 'success');
+      toastService.show(t('catalogs.management.toast.updated'), 'success');
     } catch (error) {
-      notifyError(error, 'No se pudo actualizar el elemento.');
+      notifyError(error, t('catalogs.management.error.update'));
+    }
+  };
+
+  /** Enter saves and Escape cancels, as in any inline editor. */
+  const onEditKeyDown = (event: KeyboardEvent<HTMLInputElement>, item: CatalogItem): void => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveEdit(item);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEdit();
     }
   };
 
@@ -71,10 +84,10 @@ export function CatalogManagementPage() {
   const toggle = async (item: CatalogItem): Promise<void> => {
     if (item.isActive) {
       const confirmDeactivate = await confirmDialogService.confirm({
-        title: 'Desactivar valor de catálogo',
-        message: `"${item.nameEs}" dejará de ofrecerse en los formularios. Podrás volver a activarlo cuando quieras.`,
-        confirmText: 'Desactivar',
-        cancelText: 'Cancelar',
+        title: t('catalogs.management.confirmDeactivate.title'),
+        message: t('catalogs.management.confirmDeactivate.message', { name: item.nameEs }),
+        confirmText: t('catalogs.management.action.deactivate'),
+        cancelText: t('catalogs.management.action.cancel'),
         danger: true,
       });
       if (!confirmDeactivate) {
@@ -83,15 +96,16 @@ export function CatalogManagementPage() {
     }
     try {
       const updated = await catalogService.toggleActive(activeFamily, item.id);
-      if (editingId === item.id) {
-        cancelEdit();
-      }
       toastService.show(
-        updated.isActive ? 'Elemento activado.' : 'Elemento desactivado.',
+        t(
+          updated.isActive
+            ? 'catalogs.management.toast.activated'
+            : 'catalogs.management.toast.deactivated',
+        ),
         'success',
       );
     } catch (error) {
-      notifyError(error, 'No se pudo actualizar el estado.');
+      notifyError(error, t('catalogs.management.error.toggle'));
     }
   };
 
@@ -99,33 +113,21 @@ export function CatalogManagementPage() {
     try {
       await catalogService.move(activeFamily, item.id, direction);
     } catch (error) {
-      notifyError(error, 'No se pudo cambiar el orden.');
+      notifyError(error, t('catalogs.management.error.move'));
     }
   };
 
   return (
     <section className="page">
-      <div className="toolbar">
-        <div className="page-header">
-          <h1>Catálogos</h1>
-          <p className="muted">
-            Gestiona idiomas, programas, habilidades y listas maestras usadas por toda la app.
-          </p>
-        </div>
-        <button
-          className="button secondary"
-          type="button"
-          disabled={!editingId}
-          onClick={cancelEdit}
-        >
-          Cancelar edición
-        </button>
+      <div className="page-header">
+        <h1>{t('catalogs.management.title')}</h1>
+        <p className="muted">{t('catalogs.management.subtitle')}</p>
       </div>
 
       <div className="panel stack">
         <div className="toolbar">
           <div className="field field--wide">
-            <label htmlFor="family">Familia de catálogo</label>
+            <label htmlFor="family">{t('catalogs.management.family')}</label>
             <select
               id="family"
               name="family"
@@ -144,22 +146,16 @@ export function CatalogManagementPage() {
           </div>
           <p className="muted">
             {isLoading
-              ? 'Cargando catálogos…'
+              ? t('catalogs.management.loading')
               : hasFailed
-                ? 'No se han podido cargar los catálogos.'
-                : `Activos: ${activeCount} · Total: ${items.length}`}
+                ? t('catalogs.management.loadFailed')
+                : t('catalogs.management.counts', { active: activeCount, total: items.length })}
           </p>
         </div>
 
-        {editingId ? (
-          <p className="empty-state">
-            Modo edición activo. Guarda cambios o cancela antes de cambiar de familia.
-          </p>
-        ) : null}
-
         <form className="grid two" onSubmit={(event) => void createItem(event)} noValidate>
           <div className="field">
-            <label htmlFor="newNameEs">Nombre (es)</label>
+            <label htmlFor="newNameEs">{t('catalogs.management.form.name')}</label>
             <input
               id="newNameEs"
               name="newNameEs"
@@ -169,12 +165,12 @@ export function CatalogManagementPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="newCode">Código (opcional)</label>
+            <label htmlFor="newCode">{t('catalogs.management.form.code')}</label>
             <input
               id="newCode"
               name="newCode"
               value={newCode}
-              placeholder="Se autogenera si lo dejas vacio"
+              placeholder={t('catalogs.management.form.codePlaceholder')}
               onChange={(e) => setNewCode(e.target.value)}
             />
           </div>
@@ -184,103 +180,151 @@ export function CatalogManagementPage() {
               type="submit"
               disabled={!!editingId || isLoading || hasFailed}
             >
-              Añadir
+              {t('catalogs.management.form.add')}
             </button>
           </div>
         </form>
 
         {isLoading ? (
-          <p className="empty-state">Cargando catálogos…</p>
+          <p className="empty-state">{t('catalogs.management.loading')}</p>
         ) : hasFailed ? (
           <p className="empty-state">
-            {catalogService.error?.message ?? 'No se han podido cargar los catálogos.'}
+            {catalogService.error?.message ?? t('catalogs.management.loadFailed')}
           </p>
         ) : !items.length ? (
-          <p className="empty-state">No hay elementos en este catálogo.</p>
+          <p className="empty-state">{t('catalogs.management.empty')}</p>
         ) : (
           <div className="table-wrap">
-            <table>
+            <table className="catalog-table">
               <thead>
                 <tr>
-                  <th>Orden</th>
-                  <th>Código</th>
-                  <th>Nombre</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
+                  <th>{t('catalogs.management.column.order')}</th>
+                  <th>{t('catalogs.management.column.code')}</th>
+                  <th>{t('catalogs.management.column.name')}</th>
+                  <th>{t('catalogs.management.column.status')}</th>
+                  <th>{t('catalogs.management.column.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.sortOrder}</td>
-                    <td>{item.code}</td>
-                    <td>
-                      {editingId === item.id ? (
-                        <div className="grid two">
+                {items.map((item) => {
+                  const isEditing = editingId === item.id;
+                  // While one row is edited, the other rows' actions are disabled
+                  // (not hidden, so the table does not reflow) until Save or Cancel.
+                  const isLocked = !!editingId && !isEditing;
+                  return (
+                    <tr key={item.id} className={isEditing ? 'is-editing' : undefined}>
+                      <td>{item.sortOrder}</td>
+                      <td>
+                        {isEditing ? (
                           <input
-                            name="editNameEs"
-                            value={editNameEs}
-                            onChange={(e) => setEditNameEs(e.target.value)}
-                            required
-                          />
-                          <input
+                            className="cell-input"
                             name="editCode"
+                            aria-label={t('catalogs.management.edit.code', {
+                              name: item.nameEs,
+                            })}
                             value={editCode}
                             onChange={(e) => setEditCode(e.target.value)}
+                            onKeyDown={(e) => onEditKeyDown(e, item)}
                             required
                           />
-                        </div>
-                      ) : (
-                        item.nameEs
-                      )}
-                    </td>
-                    <td>
-                      <span className="badge">{item.isActive ? 'Activo' : 'Inactivo'}</span>
-                    </td>
-                    <td>
-                      <div className="form-actions">
-                        <button
-                          className="button ghost"
-                          type="button"
-                          onClick={() => void move(item, -1)}
-                        >
-                          Subir
-                        </button>
-                        <button
-                          className="button ghost"
-                          type="button"
-                          onClick={() => void move(item, 1)}
-                        >
-                          Bajar
-                        </button>
-                        {editingId === item.id ? (
-                          <button
-                            className="button"
-                            type="button"
-                            onClick={() => void saveEdit(item)}
-                          >
-                            Guardar
-                          </button>
                         ) : (
-                          <button
-                            className="button secondary"
-                            type="button"
-                            onClick={() => startEdit(item)}
-                          >
-                            Editar
-                          </button>
+                          item.code
                         )}
-                        <button
-                          className={item.isActive ? 'button danger' : 'button secondary'}
-                          type="button"
-                          onClick={() => void toggle(item)}
-                        >
-                          {item.isActive ? 'Desactivar' : 'Activar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        {isEditing ? (
+                          <input
+                            className="cell-input"
+                            name="editNameEs"
+                            aria-label={t('catalogs.management.edit.name', {
+                              name: item.nameEs,
+                            })}
+                            value={editNameEs}
+                            onChange={(e) => setEditNameEs(e.target.value)}
+                            onKeyDown={(e) => onEditKeyDown(e, item)}
+                            autoFocus
+                            required
+                          />
+                        ) : (
+                          item.nameEs
+                        )}
+                      </td>
+                      <td>
+                        <span className="badge">
+                          {t(
+                            item.isActive
+                              ? 'catalogs.management.status.active'
+                              : 'catalogs.management.status.inactive',
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="form-actions">
+                          {isEditing ? (
+                            <>
+                              <button
+                                className="button"
+                                type="button"
+                                data-testid="catalog-edit-save"
+                                onClick={() => void saveEdit(item)}
+                              >
+                                {t('catalogs.management.action.save')}
+                              </button>
+                              <button
+                                className="button ghost"
+                                type="button"
+                                data-testid="catalog-edit-cancel"
+                                onClick={cancelEdit}
+                              >
+                                {t('catalogs.management.action.cancel')}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="button ghost"
+                                type="button"
+                                disabled={isLocked}
+                                onClick={() => void move(item, -1)}
+                              >
+                                {t('catalogs.management.action.moveUp')}
+                              </button>
+                              <button
+                                className="button ghost"
+                                type="button"
+                                disabled={isLocked}
+                                onClick={() => void move(item, 1)}
+                              >
+                                {t('catalogs.management.action.moveDown')}
+                              </button>
+                              <button
+                                className="button secondary"
+                                type="button"
+                                data-testid="catalog-edit"
+                                disabled={isLocked}
+                                onClick={() => startEdit(item)}
+                              >
+                                {t('catalogs.management.action.edit')}
+                              </button>
+                              <button
+                                className={item.isActive ? 'button danger' : 'button secondary'}
+                                type="button"
+                                disabled={isLocked}
+                                onClick={() => void toggle(item)}
+                              >
+                                {t(
+                                  item.isActive
+                                    ? 'catalogs.management.action.deactivate'
+                                    : 'catalogs.management.action.activate',
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -123,6 +123,10 @@
   }
   .shell .primary-nav.open {
     display: flex;
+    /* The header is sticky, so an open panel taller than the viewport would
+     * never scroll into reach; let it scroll on its own instead. */
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
   }
   .shell .nav-link {
     min-height: 44px;
