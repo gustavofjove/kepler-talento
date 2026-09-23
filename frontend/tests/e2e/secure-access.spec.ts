@@ -67,9 +67,9 @@ test.describe('Secure access', () => {
     await adminPage.fill('input[name="lastName"]', 'Security');
     await adminPage.click('button[type="submit"]');
     await expect(adminPage).toHaveURL(
-      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
     );
-    const candidateId = adminPage.url().split('/').pop()!;
+    const candidateId = adminPage.url().split('/').at(-2)!;
     const documents = adminPage.getByTestId('candidate-documents');
     await documents.getByTestId('document-file').setInputFiles({
       name: 'secure-preview.pdf',
@@ -93,6 +93,13 @@ test.describe('Secure access', () => {
     await signInAs(readonlyPage, 'readonly');
     await readonlyPage.goto(`/app/candidates/${candidateId}`);
     await expect(readonlyPage.getByTestId('candidate-cv-preview')).toHaveCount(0);
+    // KTL-22: the detail page offers no editing control, and the edit route is refused.
+    await expect(readonlyPage.getByTestId('candidate-documents')).toBeVisible();
+    await expect(readonlyPage.getByTestId('candidate-edit-view')).toHaveCount(0);
+    await expect(readonlyPage.locator('[data-testid^="candidate-"] form')).toHaveCount(0);
+    await expect(readonlyPage.getByTestId('document-file')).toHaveCount(0);
+    await readonlyPage.goto(`/app/candidates/${candidateId}/edit`);
+    await expect(readonlyPage).toHaveURL(/\/app$/);
     const unauthorized = await readonlyPage.request.get(
       `/api/candidates/${candidateId}/documents/${documentId}/content`,
       { headers: authorizationHeaders(readonlyPage) },
@@ -103,6 +110,20 @@ test.describe('Secure access', () => {
       `/api/candidates/${candidateId}/documents/${documentId}/content`,
     );
     expect(unauthenticated.status()).toBe(401);
+
+    // Hiding the controls is not the control: direct writes still fail closed.
+    const readonlyHeaders = authorizationHeaders(readonlyPage);
+    const writes = [
+      ['put', `/api/candidates/${candidateId}/skills`, { skills: [], version: 1 }],
+      ['post', `/api/candidates/${candidateId}/notes`, { body: 'Nota no autorizada' }],
+      ['post', `/api/candidates/${candidateId}/documents`, undefined],
+    ] as const;
+    for (const [method, url, data] of writes) {
+      const refused = await readonlyPage.request[method](url, { headers: readonlyHeaders, data });
+      expect(refused.status(), `${method} ${url} as readonly`).toBe(403);
+      const anonymous = await readonlyPage.request[method](url, { data });
+      expect(anonymous.status(), `${method} ${url} unauthenticated`).toBe(401);
+    }
     await readonly.close();
   });
 });

@@ -54,11 +54,28 @@ El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y audi
 
 ## Etiquetas y notas personalizadas KTL-21
 
-La ficha del candidato permite asignar etiquetas del catálogo y mantener un hilo independiente
-de notas personalizadas. Cada nota conserva autor y fecha, usa su propia versión para evitar
+La página de edición del candidato permite asignar etiquetas del catálogo y mantener un hilo
+independiente de notas personalizadas; la ficha las muestra en modo de solo lectura. Cada nota conserva autor y fecha, usa su propia versión para evitar
 sobrescrituras y se retira de forma lógica; no existe borrado físico. El campo histórico `notes`
 del candidato no cambia. Las notas sin un usuario interno resoluble muestran
 `Autor desconocido`. Consulta el [contrato KTL-21](docs/ktl-21/candidate-tags-and-notes.md).
+
+## Consulta y edición de candidatos KTL-22
+
+La ficha del candidato (`/app/candidates/:id`) es de solo lectura para todos los usuarios:
+muestra los datos principales, idiomas, programas, formación, experiencia, habilidades,
+etiquetas, notas personalizadas y documentos, con la descarga y la vista previa del CV, pero sin
+controles para añadir, quitar, editar, subir ni retirar. Conserva el enlace «Editar» y la baja o
+el alta lógica para quien tiene `candidates.update`.
+
+Toda la edición se hace en la página de edición (`/app/candidates/:id/edit`). Los datos
+principales se guardan con «Guardar» y la página permanece abierta; el resto de secciones se
+guardan al instante, como hasta ahora. Al dar de alta un candidato, el primer guardado lleva a
+su página de edición para continuar con idiomas, experiencia, documentos, etc.
+
+La subida de documentos solo se ofrece en la página de edición, así que en la interfaz requiere
+`documents.upload` y también `candidates.update`. Consulta la
+[nota de versión KTL-22](docs/ktl-22/release-notes.md).
 
 ## Migración de Access KTL-7
 

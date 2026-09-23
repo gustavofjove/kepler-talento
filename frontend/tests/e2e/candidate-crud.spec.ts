@@ -14,13 +14,14 @@ test.describe('Candidate CRUD', () => {
     await page.fill('input[name="lastName"]', lastName);
     await page.click('button[type="submit"]');
 
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
-    await expect(page.locator('h1')).toContainText(`${firstName} ${lastName}`);
-
-    await page.click('a:has-text("Editar")');
+    // KTL-22: creating continues on the edit page, and saving the core record stays there.
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
     await page.fill('input[name="lastName"]', `${lastName} Editado`);
     await page.click('button[type="submit"]');
+    await expect(page.locator('.toast')).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
 
+    await page.getByTestId('candidate-edit-view').click();
     await expect(page.locator('h1')).toContainText(`${firstName} ${lastName} Editado`);
 
     await page.goto('/app/candidates');
@@ -44,6 +45,8 @@ test.describe('Candidate CRUD', () => {
     await page.fill('input[name="firstName"]', firstName);
     await page.fill('input[name="lastName"]', 'Candidato');
     await page.click('button[type="submit"]');
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
+    await page.getByTestId('candidate-edit-view').click();
     await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
 
     await page.click('button:has-text("Baja lógica")');

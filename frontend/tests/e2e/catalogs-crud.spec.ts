@@ -55,7 +55,7 @@ test.describe('Catalog management CRUD', () => {
     await page.fill('input[name="firstName"]', `Cat${suffix}`);
     await page.fill('input[name="lastName"]', 'Test');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
     const languageSelect = page
       .getByTestId('candidate-languages')
       .locator('select[name="language"]');

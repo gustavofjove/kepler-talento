@@ -13,7 +13,7 @@ test.describe('Candidate list operations', () => {
       await page.fill('input[name="lastName"]', lastName);
       await page.click('button[type="submit"]');
       await expect(page).toHaveURL(
-        /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
       );
     };
 

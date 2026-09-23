@@ -9,12 +9,15 @@ import './candidate-tags.css';
 interface Props {
   candidateId: string;
   tags: CandidateTag[];
+  /** See candidate-languages. */
+  readOnly?: boolean;
 }
 
-export function CandidateTags({ candidateId, tags }: Props) {
+export function CandidateTags({ candidateId, tags, readOnly = false }: Props) {
   const { t } = useTranslation();
   const { candidateRelationsService } = useServices();
-  const canEdit = usePermission('candidates.update');
+  const canUpdate = usePermission('candidates.update');
+  const canEdit = !readOnly && canUpdate;
   const catalogs = useCatalogs();
   const [tag, setTag] = useState('');
   const [error, setError] = useState('');

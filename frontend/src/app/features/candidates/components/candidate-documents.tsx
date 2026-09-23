@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import type { Candidate, CandidateDocument } from '../models/candidate.models';
 
 const ACCEPTED_FILES = '.pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png,.tif,.tiff,.bmp';
 
+/** i18n keys under `candidate.profile.documents.` for a document's availability state. */
 function availability(document: CandidateDocument): {
   label: string;
   explanation?: string;
@@ -12,31 +14,30 @@ function availability(document: CandidateDocument): {
 } {
   switch (document.availabilityState) {
     case 'Pending':
-      return { label: 'En análisis', downloadable: false };
+      return { label: 'state.pending', downloadable: false };
     case 'Available':
-      return { label: 'Disponible', downloadable: true };
+      return { label: 'state.available', downloadable: true };
     case 'Error':
-      return {
-        label: 'Error de análisis',
-        explanation: 'No se ha podido analizar el archivo. Inténtalo de nuevo.',
-        downloadable: false,
-      };
+      return { label: 'state.error', explanation: 'explanation.error', downloadable: false };
     case 'Refused':
       return {
-        label: 'No disponible',
-        explanation: 'El archivo no ha superado el análisis de seguridad.',
+        label: 'state.unavailable',
+        explanation: 'explanation.refused',
         downloadable: false,
       };
     default:
-      return {
-        label: 'No disponible',
-        explanation: 'Documento heredado sin archivo asociado.',
-        downloadable: false,
-      };
+      return { label: 'state.unavailable', explanation: 'explanation.legacy', downloadable: false };
   }
 }
 
-export function CandidateDocuments({ candidate }: { candidate: Candidate | undefined }) {
+interface Props {
+  candidate: Candidate | undefined;
+  /** Hides upload, primary and removal; the list and download stay. See candidate-languages. */
+  readOnly?: boolean;
+}
+
+export function CandidateDocuments({ candidate, readOnly = false }: Props) {
+  const { t } = useTranslation();
   const { documentService, toastService, confirmDialogService } = useServices();
   const notifyError = useErrorToast();
   const [documents, setDocuments] = useState<CandidateDocument[]>(candidate?.documents ?? []);
@@ -48,7 +49,8 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
   const polling = useRef(new Map<string, AbortController>());
 
   const canDownload = usePermission('documents.download');
-  const canUpload = usePermission('documents.upload');
+  const mayUpload = usePermission('documents.upload');
+  const canUpload = !readOnly && mayUpload;
 
   const replaceDocument = useCallback((next: CandidateDocument) => {
     setDocuments((current) => current.map((item) => (item.id === next.id ? next : item)));
@@ -71,11 +73,11 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
         })
         .catch((error) => {
           if (!controller.signal.aborted)
-            notifyError(error, 'No se pudo consultar el estado del análisis.');
+            notifyError(error, t('candidate.profile.documents.pollFailure'));
         })
         .finally(() => polling.current.delete(document.id));
     },
-    [candidate, documentService, notifyError, replaceDocument],
+    [candidate, documentService, notifyError, replaceDocument, t],
   );
 
   const refresh = useCallback(async () => {
@@ -86,9 +88,9 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       setPollingExhausted(false);
       current.forEach(observe);
     } catch (error) {
-      notifyError(error, 'No se pudieron cargar los documentos.');
+      notifyError(error, t('candidate.profile.documents.loadFailure'));
     }
-  }, [candidate, documentService, notifyError, observe]);
+  }, [candidate, documentService, notifyError, observe, t]);
 
   useEffect(() => {
     void refresh();
@@ -120,10 +122,10 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       setSelectedFile(undefined);
       setIsPrimary(true);
       if (fileInput.current) fileInput.current.value = '';
-      toastService.show('Archivo aceptado. El análisis de seguridad está en curso.', 'success');
+      toastService.show(t('candidate.profile.documents.uploaded'), 'success');
       observe(uploaded);
     } catch (error) {
-      setUploadError(notifyError(error, 'No se pudo subir el documento.'));
+      setUploadError(notifyError(error, t('candidate.profile.documents.uploadFailure')));
     }
   };
 
@@ -132,7 +134,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
     try {
       await documentService.download(candidate.id, document.id, document.originalFilename);
     } catch (error) {
-      notifyError(error, 'No se pudo descargar el documento.');
+      notifyError(error, t('candidate.profile.documents.downloadFailure'));
     }
   };
 
@@ -141,19 +143,19 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
     try {
       await documentService.setPrimary(candidate.id, documentId);
       await refresh();
-      toastService.show('CV principal actualizado.', 'success');
+      toastService.show(t('candidate.profile.documents.primaryUpdated'), 'success');
     } catch (error) {
-      notifyError(error, 'No se pudo actualizar el CV.');
+      notifyError(error, t('candidate.profile.documents.primaryFailure'));
     }
   };
 
   const remove = async (document: CandidateDocument): Promise<void> => {
     if (!candidate) return;
     const confirmed = await confirmDialogService.confirm({
-      title: 'Eliminar documento',
-      message: 'Se eliminará el documento seleccionado del candidato.',
-      confirmText: 'Eliminar documento',
-      cancelText: 'Cancelar',
+      title: t('candidate.profile.documents.removeTitle'),
+      message: t('candidate.profile.documents.removeMessage'),
+      confirmText: t('candidate.profile.documents.removeTitle'),
+      cancelText: t('candidate.detail.cancel'),
       danger: true,
     });
     if (!confirmed) return;
@@ -162,20 +164,24 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       polling.current.get(document.id)?.abort();
       setDocuments((current) => current.filter((item) => item.id !== document.id));
       toastService.show(
-        document.isPrimary
-          ? 'Documento eliminado. Elija explícitamente un nuevo CV principal.'
-          : 'Documento eliminado.',
+        t(
+          document.isPrimary
+            ? 'candidate.profile.documents.removedPrimary'
+            : 'candidate.profile.documents.removed',
+        ),
         'success',
       );
     } catch (error) {
-      notifyError(error, 'No se pudo eliminar el documento.');
+      notifyError(error, t('candidate.profile.documents.removeFailure'));
     }
   };
 
   return (
     <section className="section-block" data-testid="candidate-documents">
-      <h3 className="section-title">Documentos</h3>
-      {!documents.length ? <p className="empty-state">Sin CV adjunto.</p> : null}
+      <h3 className="section-title">{t('candidate.profile.documents.title')}</h3>
+      {!documents.length ? (
+        <p className="empty-state">{t('candidate.profile.documents.empty')}</p>
+      ) : null}
       <div className="item-list">
         {documents.map((document) => {
           const state = availability(document);
@@ -184,12 +190,16 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
               <p className="item-main">
                 <strong>{document.originalFilename}</strong>
                 <span className="badge">
-                  {document.isPrimary ? 'Principal' : document.documentType}
+                  {document.isPrimary
+                    ? t('candidate.profile.documents.primary')
+                    : document.documentType}
                 </span>
                 <span className="badge" data-testid="document-availability">
-                  {state.label}
+                  {t(`candidate.profile.documents.${state.label}`)}
                 </span>
-                {state.explanation ? <span>{state.explanation}</span> : null}
+                {state.explanation ? (
+                  <span>{t(`candidate.profile.documents.${state.explanation}`)}</span>
+                ) : null}
               </p>
               {canDownload && state.downloadable ? (
                 <button
@@ -197,7 +207,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
                   type="button"
                   onClick={() => void download(document)}
                 >
-                  Descargar
+                  {t('candidate.profile.documents.download')}
                 </button>
               ) : null}
               {canUpload && !document.isPrimary ? (
@@ -206,7 +216,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
                   type="button"
                   onClick={() => void markPrimary(document.id)}
                 >
-                  Marcar principal
+                  {t('candidate.profile.documents.markPrimary')}
                 </button>
               ) : null}
               {canUpload ? (
@@ -215,7 +225,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
                   type="button"
                   onClick={() => void remove(document)}
                 >
-                  Eliminar
+                  {t('candidate.profile.documents.remove')}
                 </button>
               ) : null}
             </div>
@@ -224,9 +234,9 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
       </div>
       {pollingExhausted ? (
         <p className="empty-state">
-          El análisis sigue en curso.{' '}
+          {t('candidate.profile.documents.stillScanning')}{' '}
           <button className="button ghost" type="button" onClick={() => void refresh()}>
-            Actualizar
+            {t('candidate.profile.documents.refresh')}
           </button>
         </p>
       ) : null}
@@ -234,7 +244,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
         <form className="section-block" onSubmit={upload} noValidate>
           <div className="grid two">
             <div className="field">
-              <label htmlFor="file">Archivo CV</label>
+              <label htmlFor="file">{t('candidate.profile.documents.file')}</label>
               <input
                 id="file"
                 ref={fileInput}
@@ -254,7 +264,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
                   checked={isPrimary}
                   onChange={(event) => setIsPrimary(event.target.checked)}
                 />
-                Marcar como CV principal
+                {t('candidate.profile.documents.isPrimary')}
               </label>
             </div>
           </div>
@@ -270,7 +280,7 @@ export function CandidateDocuments({ candidate }: { candidate: Candidate | undef
               data-testid="document-upload"
               disabled={!selectedFile}
             >
-              Subir CV
+              {t('candidate.profile.documents.upload')}
             </button>
           </div>
         </form>

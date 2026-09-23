@@ -35,4 +35,11 @@ Every business endpoint requires authentication. Administration endpoint groups 
 | `candidates.export`  | Browser guard on the current client-side CSV export; a server export ticket must add the API boundary |
 | `audit.read`         | API policy and handler guard on `GET /api/audit/events`; seeded on `system_admin` only (KTL-19)       |
 
+**Permission pairing in the SPA (KTL-22).** Document upload, set-primary and removal are offered
+only on the candidate edit page, whose route requires `candidates.update`. A role that holds
+`documents.upload` without `candidates.update` therefore sees no upload control, although the API
+would still accept its upload. Grant both when a role should upload CVs. None of the seeded roles
+is affected. `documents.download` is unaffected: download and the CV preview stay on the read-only
+detail page.
+
 `view_all_candidates` was removed because KTL-10 has no ownership scope. The old underscore-style frontend vocabulary was replaced by the API's `<resource>.<action>` strings.

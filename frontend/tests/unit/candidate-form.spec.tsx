@@ -68,4 +68,19 @@ describe('CandidateForm', () => {
     );
     expect(screen.queryByText(/obligatorios/i)).not.toBeInTheDocument();
   });
+
+  it('holds only the core record: tags are a section of the edit page (KTL-22)', () => {
+    const candidate = {
+      ...EMPTY_CANDIDATE_DRAFT,
+      id: 'c1',
+      firstName: 'Ona',
+      lastName: 'Marti',
+      tags: [{ id: 't1', tag: 'Recontratable' }],
+    } as unknown as Candidate;
+    render(<CandidateForm candidate={candidate} onSave={vi.fn()} />);
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Ona');
+    expect(screen.queryByTestId('candidate-tags')).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'En proceso' })).toBeInTheDocument();
+  });
 });

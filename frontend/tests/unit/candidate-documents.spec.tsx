@@ -59,6 +59,7 @@ describe('CandidateDocuments', () => {
   const renderDocuments = (
     listed: CandidateDocument[],
     observe = vi.fn().mockResolvedValue(undefined),
+    readOnly = false,
   ) => {
     const documentService = {
       list: vi.fn().mockResolvedValue(listed),
@@ -76,7 +77,7 @@ describe('CandidateDocuments', () => {
       <ServicesProvider
         value={{ ...services, documentService, authService } as unknown as Services}
       >
-        <CandidateDocuments candidate={candidate} />
+        <CandidateDocuments candidate={candidate} readOnly={readOnly} />
       </ServicesProvider>,
     );
     return { ...view, documentService };
@@ -113,6 +114,28 @@ describe('CandidateDocuments', () => {
     fireEvent.click(screen.getByTestId('document-upload'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo subir el documento.');
+  });
+
+  it('keeps download but offers no upload, primary or removal when read-only', async () => {
+    renderDocuments(
+      [{ ...document('Available'), id: 'available' }],
+      vi.fn().mockResolvedValue(undefined),
+      true,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Descargar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Marcar principal' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('document-file')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('document-upload')).not.toBeInTheDocument();
+  });
+
+  it('offers upload, primary and removal when editable with the upload permission', async () => {
+    renderDocuments([{ ...document('Available'), id: 'available' }]);
+
+    expect(await screen.findByRole('button', { name: 'Marcar principal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
+    expect(screen.getByTestId('document-file')).toBeInTheDocument();
   });
 
   it('aborts pending observation when the view unmounts', async () => {
