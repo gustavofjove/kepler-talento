@@ -3,7 +3,8 @@ import * as path from 'node:path';
 import {
   canDeactivateAdmin,
   isCatalogValueInUse,
-} from '../../supabase/functions/_shared/guardrails';
+} from '../../../supabase/functions/_shared/guardrails';
+import { repoRoot } from '../repo-root';
 
 describe('Guardrails integration', () => {
   it('blocks deactivating self or last active admin', () => {
@@ -29,7 +30,7 @@ describe('Guardrails integration', () => {
 
   it('contains SQL guardrail triggers in latest migration', () => {
     const migrationPath = path.join(
-      process.cwd(),
+      repoRoot,
       'supabase/migrations/009_admin_catalog_guardrails.sql',
     );
     const sql = readFileSync(migrationPath, 'utf-8');

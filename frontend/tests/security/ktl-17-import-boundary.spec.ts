@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string): string => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
 
 /** Source without comments, so an explanatory remark naming a forbidden construct is not a hit. */
 const code = (relative: string): string =>
@@ -68,9 +69,7 @@ describe('KTL-17 candidate import security boundary', () => {
   });
 
   it('keeps row outcomes free of a value column and write-once at the database', () => {
-    const migrations = readdirSync(
-      join(process.cwd(), 'backend/Infrastructure/Persistence/Migrations'),
-    )
+    const migrations = readdirSync(join(repoRoot, 'backend/Infrastructure/Persistence/Migrations'))
       .filter((name) => name.endsWith('_AddImportBatches.cs'))
       .map((name) => read(`backend/Infrastructure/Persistence/Migrations/${name}`));
     expect(migrations).toHaveLength(1);
@@ -100,8 +99,8 @@ describe('KTL-17 candidate import security boundary', () => {
   });
 
   it('keeps no import data in browser storage and evicts the stub history', () => {
-    const service = code('src/app/features/admin/import/import.service.ts');
-    const eviction = read('src/app/core/storage/evict-legacy-storage.ts');
+    const service = code('frontend/src/app/features/admin/import/import.service.ts');
+    const eviction = read('frontend/src/app/core/storage/evict-legacy-storage.ts');
 
     expect(service).not.toMatch(/localStorage|sessionStorage|indexedDB|supabase/i);
     expect(service).not.toMatch(/parseCsv|Math\.random|MAX_IMPORT_ROWS/);

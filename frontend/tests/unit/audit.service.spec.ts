@@ -13,6 +13,7 @@ import {
 import { AuditService } from '../../src/app/features/admin/audit/audit.service';
 import { AppError } from '../../src/app/shared/models/error.models';
 import { auditEvent, auditPage } from './support/audit-doubles';
+import { repoRoot } from '../repo-root';
 
 const t = i18n.t.bind(i18n);
 
@@ -139,7 +140,7 @@ describe('audit page logic', () => {
   });
 
   it('offers exactly the event-type catalogue the API defines, each with Spanish copy', () => {
-    const domain = join(process.cwd(), 'backend/Domain');
+    const domain = join(repoRoot, 'backend/Domain');
     const sources = [
       'Candidates/CandidateAuditEvents.cs',
       'Catalogs/CatalogAuditEvents.cs',

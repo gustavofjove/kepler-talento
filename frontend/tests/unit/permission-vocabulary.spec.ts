@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ALL_PERMISSIONS } from '../../src/app/shared/models/auth.models';
+import { repoRoot } from '../repo-root';
 
 /**
  * KTL-16 chose one permission vocabulary over a mapping layer (design D10), which only holds
@@ -10,7 +11,7 @@ import { ALL_PERMISSIONS } from '../../src/app/shared/models/auth.models';
  * without the other fails here rather than at runtime as a silently ungated control.
  */
 const CATALOGUE_SOURCE = resolve(
-  process.cwd(),
+  repoRoot,
   'backend/Application/Abstractions/Identity/ICurrentActor.cs',
 );
 

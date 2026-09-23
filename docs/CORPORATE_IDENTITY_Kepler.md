@@ -168,8 +168,8 @@ Ejemplos:
 
 ## Iconografia y assets
 
-- Asset principal actual: `src/assets/brand/jove-isotipo.svg`.
-- Logo completo actual: `src/assets/brand/jove-logo.svg`.
+- Asset principal actual: `frontend/src/assets/brand/jove-isotipo.svg`.
+- Logo completo actual: `frontend/src/assets/brand/jove-logo.svg`.
 - Los iconos de interfaz deben ser lineales, simples y consistentes.
 - El isotipo JOVE puede usarse como marca de cabecera, favicon, pantalla de login y sello de
   producto.

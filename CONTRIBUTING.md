@@ -29,6 +29,7 @@ Changes that affect behavior, security, the data model or user flows must update
 relevant OpenSpec artifact before implementation. Before a pull request:
 
 ```sh
+cd frontend            # the npm project lives here
 npm test               # frontend unit, integration and security specs
 npm run test:backend   # xUnit (requires Docker for Testcontainers)
 npm run e2e            # Playwright journeys affected by the change

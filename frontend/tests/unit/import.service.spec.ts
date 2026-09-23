@@ -12,6 +12,7 @@ import {
 import { ImportService } from '../../src/app/features/admin/import/import.service';
 import { AppError } from '../../src/app/shared/models/error.models';
 import { batch } from './support/import-doubles';
+import { repoRoot } from '../repo-root';
 
 describe('ImportService', () => {
   it('uploads the file as multipart form data and returns the server batch', async () => {
@@ -184,7 +185,7 @@ describe('import page logic', () => {
 
   it('has Spanish copy for every reason code and refusal the API defines', () => {
     const source = readFileSync(
-      join(process.cwd(), 'backend/Domain/Import/ImportReasonCodes.cs'),
+      join(repoRoot, 'backend/Domain/Import/ImportReasonCodes.cs'),
       'utf8',
     );
     const codes = [...source.matchAll(/public const string \w+ = "([^"]+)";/g)].map(
@@ -201,10 +202,7 @@ describe('import page logic', () => {
   });
 
   it('has Spanish copy for every batch state the API defines', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'backend/Domain/Import/ImportBatch.cs'),
-      'utf8',
-    );
+    const source = readFileSync(join(repoRoot, 'backend/Domain/Import/ImportBatch.cs'), 'utf8');
     const block = source.slice(
       source.indexOf('class ImportBatchStates'),
       source.indexOf('public static readonly'),

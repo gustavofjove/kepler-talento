@@ -71,7 +71,7 @@ module.exports = [
     ? [{ files: LEGACY_HARDCODED_COPY, rules: { 'i18next/no-literal-string': 'off' } }]
     : []),
   {
-    files: ['*.js', 'scripts/**/*.js'],
+    files: ['*.js'],
     languageOptions: {
       globals: { ...globals.node },
     },
@@ -83,18 +83,6 @@ module.exports = [
     files: ['public/*.js'],
     languageOptions: {
       globals: globals.browser,
-    },
-  },
-  {
-    files: ['supabase/functions/**/*.ts'],
-    languageOptions: {
-      globals: {
-        ...globals.es2022,
-        Deno: 'readonly',
-        Request: 'readonly',
-        Response: 'readonly',
-        crypto: 'readonly',
-      },
     },
   },
 ];

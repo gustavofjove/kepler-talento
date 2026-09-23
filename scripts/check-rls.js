@@ -2,15 +2,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (relative) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
+const root = path.resolve(__dirname, '..');
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const compose = read('docker-compose.yml');
 const migration = fs
-  .readdirSync(path.join(process.cwd(), 'backend/Infrastructure/Persistence/Migrations'))
+  .readdirSync(path.join(root, 'backend/Infrastructure/Persistence/Migrations'))
   .filter((name) => name.endsWith('_InitialInfrastructure.cs'))
   .map((name) => read(`backend/Infrastructure/Persistence/Migrations/${name}`))
   .join('\n');
 const program = read('backend/Web/Program.cs');
-const frontendConfig = read('public/env.template.js');
+const frontendConfig = read('frontend/public/env.template.js');
 const searchEndpoints = read('backend/Web/Features/Search/SearchEndpoints.cs');
 
 const serviceBlock = (name) => {

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
-import { requestContext, requireBearerAuth } from '../../supabase/functions/_shared/http';
-import { EDGE_LIMITS, parsePositiveInt } from '../../supabase/functions/_shared/limits';
+import { requestContext, requireBearerAuth } from '../../../supabase/functions/_shared/http';
+import { EDGE_LIMITS, parsePositiveInt } from '../../../supabase/functions/_shared/limits';
+import { repoRoot } from '../repo-root';
 
 describe('Edge function contracts', () => {
   it('builds request context with request_id and idempotency key', () => {
@@ -23,7 +24,7 @@ describe('Edge function contracts', () => {
   });
 
   it('defines standardized error envelope fields in shared http module', () => {
-    const filePath = path.join(process.cwd(), 'supabase/functions/_shared/http.ts');
+    const filePath = path.join(repoRoot, 'supabase/functions/_shared/http.ts');
     const source = readFileSync(filePath, 'utf-8');
 
     expect(source).toMatch(/jsonError\(/);
@@ -55,10 +56,7 @@ describe('Edge function contracts', () => {
   });
 
   it('uses standardized error and request_id patterns in edge functions', () => {
-    const filePath = path.join(
-      process.cwd(),
-      'supabase/functions/candidate-export-results/index.ts',
-    );
+    const filePath = path.join(repoRoot, 'supabase/functions/candidate-export-results/index.ts');
     const source = readFileSync(filePath, 'utf-8');
 
     expect(source).toMatch(/jsonError\(/);

@@ -27,20 +27,27 @@ Read these before non-trivial work instead of guessing:
 
 Requirements: Node 22 / npm 10, .NET SDK 10.0.102 (`global.json`), Docker Desktop.
 
+The SPA is a self-contained npm project in `frontend/` (its `package.json`, `node_modules/`,
+configs, `src/` and `tests/`). **Run every `npm`/`npx` command from `frontend/`**; the
+`dotnet` and `docker compose` commands run from the repository root. `backend/`, `docs/`,
+`openspec/`, `scripts/` and `supabase/` stay at the root, and frontend specs that read them
+resolve paths through `frontend/tests/repo-root.ts` rather than `process.cwd()`.
+
 ```sh
-npm ci && dotnet tool restore && dotnet restore backend/KeplerTalento.slnx   # setup
+dotnet tool restore && dotnet restore backend/KeplerTalento.slnx   # setup (root)
+cd frontend && npm ci         # setup (frontend/); every npm/npx line below runs here
 npm start                     # Vite dev server on :4300 (strict port), proxies /api to the stack on :4200
-docker compose up --build     # full stack behind Nginx on http://localhost:4200 (copy .env.example to .env first)
+docker compose up --build     # (root) full stack behind Nginx on http://localhost:4200 (copy .env.example to .env first)
 
 npm test                      # Vitest: unit + integration + security projects
 npx vitest run tests/unit/candidate.service.spec.ts   # single frontend spec
 npm run test:backend          # xUnit; needs Docker running (Testcontainers PostgreSQL) and a prior restore
-dotnet test backend/KeplerTalento.slnx --no-restore --filter "FullyQualifiedName~CatalogHandlerTests"
+dotnet test backend/KeplerTalento.slnx --no-restore --filter "FullyQualifiedName~CatalogHandlerTests"   # (root)
 npm run e2e                   # Playwright against the dev server on :4300 (starts it itself); needs `docker compose up`
 npx playwright test tests/e2e/candidate-crud.spec.ts
 
 npm run build:all             # tsc + vite build + dotnet build (warnings are errors)
-npm run lint && npm run format:check                 # required before any change is done
+npm run lint && npm run format:check                 # required before any change is done; format:check covers the whole repo
 npm run security:rls && npm run security:storage     # security gates
 ```
 
@@ -130,7 +137,9 @@ These come from `openspec/config.yaml`. Breaking one is a defect even if tests p
   (`List_excludes_inactive_values_by_default`). Unit tests use hand-written doubles;
   integration tests use the Testcontainers `PostgreSqlFixture` against a real database.
 
-## Frontend conventions (`src/`)
+## Frontend conventions (`frontend/`)
+
+Paths in this section are relative to `frontend/`.
 
 Since KTL-3 (Angular → React migration):
 
@@ -190,10 +199,10 @@ Since KTL-3 (Angular → React migration):
 ## Language
 
 - **UI copy is Spanish**, with correct accents and wording. It lives in
-  `src/assets/i18n/es.json` under flat `feature.section.element` keys and is rendered with
+  `frontend/src/assets/i18n/es.json` under flat `feature.section.element` keys and is rendered with
   `t()` from `react-i18next`. Spanish is the only active language; there is no switch.
   - New or changed JSX copy is never hardcoded. `npm run lint` enforces this for every
-    `.tsx` outside `LEGACY_HARDCODED_COPY` in `eslint.config.js`. Attribute copy
+    `.tsx` outside `LEGACY_HARDCODED_COPY` in `frontend/eslint.config.js`. Attribute copy
     (`placeholder`, `aria-label`, `title`) is not caught by lint but follows the same rule.
   - That list only shrinks. When you change copy in a listed file, move the file's copy to
     keys and remove it from the list in the same change. Never add a file to it.
