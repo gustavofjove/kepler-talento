@@ -91,6 +91,31 @@ test.describe('Positions - manager', () => {
     await expect(page).toHaveURL(new RegExp(`/app/positions/${id}$`));
   });
 
+  test('the breadcrumb leads from the edit form to the position and the list', async ({ page }) => {
+    const title = `E2E Migas ${Date.now()}`;
+    const id = await createPosition(page, title, 'Sevilla');
+    const breadcrumb = page.getByTestId('breadcrumb');
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(title);
+
+    await page.locator(`a[href="/app/positions/${id}/edit"]`).click();
+    await page.getByTestId('position-title').fill(`${title} sin guardar`);
+    // The trail keeps the stored title while the draft changes.
+    await expect(breadcrumb.getByTestId('breadcrumb-position')).toHaveText(title);
+    await breadcrumb.getByTestId('breadcrumb-position').click();
+    await expect(page).toHaveURL(new RegExp(`/app/positions/${id}$`));
+    await expect(page.locator('h1')).toHaveText(title);
+
+    await breadcrumb.getByTestId('breadcrumb-positions').click();
+    await expect(page).toHaveURL(/\/app\/positions$/);
+    await expect(page.getByTestId('breadcrumb')).toHaveCount(0);
+
+    // Leave the data as found: positions cannot be deleted, so close it.
+    await page.goto(`/app/positions/${id}/edit`);
+    await page.getByTestId('position-status').selectOption('closed');
+    await page.locator('button[type="submit"]').click();
+    await expect(page).toHaveURL(new RegExp(`/app/positions/${id}$`));
+  });
+
   test('the description editor is reachable and usable from the keyboard', async ({ page }) => {
     await page.goto('/app/positions/new');
     await page.locator('button[name="descriptionBold"]').focus();

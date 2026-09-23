@@ -37,7 +37,12 @@ describe('CandidateEditPage (KTL-22)', () => {
     bed = createCandidateTestBed();
     bed.api.seed({ id: 'c1', firstName: 'Ona', lastName: 'Marti' });
     relations = new CandidateRelationsService(bed.service);
-    granted = new Set(['candidates.create', 'candidates.update', 'documents.upload']);
+    granted = new Set([
+      'candidates.read',
+      'candidates.create',
+      'candidates.update',
+      'documents.upload',
+    ]);
   });
 
   const renderAt = async (path: string) => {
@@ -154,6 +159,68 @@ describe('CandidateEditPage (KTL-22)', () => {
       expect(screen.getByTestId('location').textContent).toMatch(/^\/app\/candidates\/.+\/edit$/),
     );
     expect(await screen.findByTestId('candidate-skills')).toBeInTheDocument();
+  });
+
+  describe('breadcrumb (KTL-23)', () => {
+    const trailText = () =>
+      within(screen.getByTestId('breadcrumb'))
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+
+    it('leads back to the list and the profile, and replaces the «Ver candidato» button', async () => {
+      await renderAt('/app/candidates/c1/edit');
+      await screen.findByLabelText('Nombre');
+
+      expect(trailText()).toEqual(['Candidatos', 'Ona Marti', 'Editar']);
+      const trail = within(screen.getByTestId('breadcrumb'));
+      expect(trail.getByRole('link', { name: 'Candidatos' })).toHaveAttribute(
+        'href',
+        '/app/candidates',
+      );
+      expect(trail.getByRole('link', { name: 'Ona Marti' })).toHaveAttribute(
+        'data-testid',
+        'candidate-edit-view',
+      );
+      expect(trail.getByText('Editar')).toHaveAttribute('aria-current', 'page');
+      expect(screen.queryByRole('link', { name: 'Ver candidato' })).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('candidate-edit-view')).toHaveLength(1);
+    });
+
+    it('shows the stored name, not the unsaved draft', async () => {
+      await renderAt('/app/candidates/c1/edit');
+      const firstName = await screen.findByLabelText('Nombre');
+
+      await userEvent.clear(firstName);
+      await userEvent.type(firstName, 'Borrador');
+
+      expect(trailText()).toEqual(['Candidatos', 'Ona Marti', 'Editar']);
+    });
+
+    it('reads «Nuevo candidato» when creating', async () => {
+      await renderAt('/app/candidates/new');
+      await screen.findByLabelText('Nombre');
+
+      expect(trailText()).toEqual(['Candidatos', 'Nuevo candidato']);
+      expect(screen.getByText('Nuevo candidato')).toHaveAttribute('aria-current', 'page');
+      expect(screen.queryByTestId('candidate-edit-view')).not.toBeInTheDocument();
+    });
+
+    it('offers only the list, still a link, while the candidate loads', async () => {
+      await renderAt('/app/candidates/c1/edit');
+
+      expect(trailText()).toEqual(['Candidatos']);
+      expect(screen.getByRole('link', { name: 'Candidatos' })).not.toHaveAttribute('aria-current');
+      await screen.findByLabelText('Nombre');
+    });
+
+    it('renders segments as text for an editor who may not read candidates', async () => {
+      granted.delete('candidates.read');
+      await renderAt('/app/candidates/c1/edit');
+      await screen.findByLabelText('Nombre');
+
+      expect(trailText()).toEqual(['Candidatos', 'Ona Marti', 'Editar']);
+      expect(within(screen.getByTestId('breadcrumb')).queryByRole('link')).not.toBeInTheDocument();
+    });
   });
 
   it('opens the detail page after creating when the user may not update', async () => {

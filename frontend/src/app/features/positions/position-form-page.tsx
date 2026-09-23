@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { usePermission, useSearchPresets, useServices } from '../../core/di/services-context';
 import { useErrorToast } from '../../core/services/use-error-toast';
+import { Breadcrumb, type BreadcrumbItem } from '../../shared/components/breadcrumb';
 import { SearchCriteriaForm } from '../search/components/search-criteria-form';
 import {
   cloneSearchFilters,
@@ -25,7 +26,10 @@ export function PositionFormPage() {
   const canApplyPresets = usePermission('candidates.read');
   const canManagePresets = usePermission('presets.manage');
   const presets = useSearchPresets();
+  const canReadPositions = usePermission('positions.read');
   const [title, setTitle] = useState('');
+  // The saved title, for the breadcrumb: `title` is the draft and changes as the user types.
+  const [storedTitle, setStoredTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [status, setStatus] = useState<PositionStatus>('open');
@@ -49,6 +53,7 @@ export function PositionFormPage() {
       .get(id)
       .then((position) => {
         setTitle(position.title);
+        setStoredTitle(position.title);
         setDescription(position.description);
         setLocation(position.location);
         setStatus(position.status);
@@ -72,9 +77,33 @@ export function PositionFormPage() {
       setSaving(false);
     }
   };
-  if (!ready) return <p role="status">{t('positions.detail.loading')}</p>;
+  const trail: BreadcrumbItem[] = [
+    {
+      label: t('breadcrumb.positions'),
+      to: canReadPositions ? '/app/positions' : undefined,
+      testId: 'breadcrumb-positions',
+    },
+  ];
+  if (!editing) trail.push({ label: t('breadcrumb.newPosition'), current: true });
+  else if (ready)
+    trail.push(
+      {
+        label: storedTitle,
+        to: canReadPositions ? `/app/positions/${id}` : undefined,
+        testId: 'breadcrumb-position',
+      },
+      { label: t('breadcrumb.edit'), current: true },
+    );
+  if (!ready)
+    return (
+      <>
+        <Breadcrumb items={trail} />
+        <p role="status">{t('positions.detail.loading')}</p>
+      </>
+    );
   return (
     <section className="page position-form">
+      <Breadcrumb items={trail} />
       <div className="page-header">
         <h1>{t(editing ? 'positions.form.editTitle' : 'positions.form.createTitle')}</h1>
       </div>

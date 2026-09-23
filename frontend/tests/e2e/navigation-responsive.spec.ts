@@ -1,6 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
-import { signInAs } from './support/auth';
+import { authorizationHeaders, signInAs } from './support/auth';
 
 /**
  * The counterpart to tests/unit/primary-nav.spec.tsx. Everything that depends
@@ -158,6 +158,53 @@ test.describe('Primary navigation - narrow viewport', () => {
     await expect(page.getByTestId('nav-dashboard')).toBeHidden();
     await expect(page.getByTestId('nav-admin-trigger')).toBeHidden();
     await headerIsOneRow(page);
+  });
+
+  test('a long candidate name in the breadcrumb causes no horizontal scroll', async ({ page }) => {
+    // KTL-23: the trail wraps and truncates long labels instead of widening the page.
+    const firstName = `Maximiliana${Date.now()}`;
+    const lastName = 'Fernández-Villaverde de las Heras y Pérez de Guzmán Ortiz-Castellanos';
+    const created = await page.request.post('/api/candidates', {
+      headers: authorizationHeaders(page),
+      data: {
+        firstName,
+        lastName,
+        phone: '',
+        email: '',
+        location: '',
+        province: '',
+        country: 'España',
+        availability: 'Inmediata',
+        status: 'new',
+        source: 'Email',
+        notes: '',
+        receivedAt: '2026-09-23',
+        consentAt: '',
+        reviewDueAt: '',
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const candidate = (await created.json()) as { id: string; version: number };
+
+    try {
+      await page.goto(`/app/candidates/${candidate.id}`);
+      const current = page.getByTestId('breadcrumb').locator('[aria-current="page"]');
+      await expect(current).toBeVisible();
+      await expect(current).toHaveAttribute('title', `${firstName} ${lastName}`);
+      await expect(page.getByTestId('breadcrumb-candidates')).toBeVisible();
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+      const box = await page.getByTestId('breadcrumb').boundingBox();
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390 + 1);
+    } finally {
+      await page.request.put(`/api/candidates/${candidate.id}/active`, {
+        headers: authorizationHeaders(page),
+        data: { isActive: false, version: candidate.version },
+      });
+    }
   });
 
   test('the hamburger meets the 44px touch target and announces its state', async ({ page }) => {

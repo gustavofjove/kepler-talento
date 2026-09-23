@@ -77,6 +77,15 @@ La subida de documentos solo se ofrece en la página de edición, así que en la
 `documents.upload` y también `candidates.update`. Consulta la
 [nota de versión KTL-22](docs/ktl-22/release-notes.md).
 
+## Ruta de navegación KTL-23
+
+Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de
+navegación sobre el título, por ejemplo «Candidatos › Nombre Apellido › Editar» o
+«Admin › Presets › Nombre del preset». Cada tramo lleva a su página, salvo la página actual y
+«Admin», que no tiene destino propio. En la edición de un candidato, el nombre lleva a su ficha y
+sustituye al antiguo botón «Ver candidato». Los listados y el resto de páginas principales no
+muestran ruta. Consulta la [nota de versión KTL-23](docs/ktl-23/release-notes.md).
+
 ## Migración de Access KTL-7
 
 El esquema de candidatos (`CND_Candidates` y sus tablas de relación de idiomas, programas,

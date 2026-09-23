@@ -228,6 +228,13 @@ describe('Position pages', () => {
       );
     });
 
+    it('renders no breadcrumb, being a top-level destination (KTL-23)', async () => {
+      renderAt('/app/positions');
+
+      await screen.findByRole('link', { name: stored.title });
+      expect(screen.queryByTestId('breadcrumb')).not.toBeInTheDocument();
+    });
+
     it('reports a failed load', async () => {
       positionService.list.mockRejectedValue(new Error(''));
       renderAt('/app/positions');
@@ -412,6 +419,68 @@ describe('Position pages', () => {
         'name',
         'description',
       );
+    });
+  });
+
+  // ---- breadcrumb (KTL-23) ----
+
+  describe('breadcrumb', () => {
+    const trail = () => within(screen.getByTestId('breadcrumb'));
+    const trailText = () =>
+      trail()
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+
+    it('leads from a position back to the list', async () => {
+      renderAt('/app/positions/pos-1');
+      await screen.findByRole('heading', { level: 1, name: stored.title });
+
+      expect(trailText()).toEqual(['Posiciones', stored.title]);
+      expect(trail().getByRole('link', { name: 'Posiciones' })).toHaveAttribute(
+        'href',
+        '/app/positions',
+      );
+      expect(trail().getByText(stored.title)).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('offers the list while the position loads', () => {
+      positionService.get.mockReturnValue(new Promise(() => {}));
+      renderAt('/app/positions/pos-1');
+
+      expect(trailText()).toEqual(['Posiciones']);
+      expect(trail().getByRole('link', { name: 'Posiciones' })).toBeInTheDocument();
+    });
+
+    it('leads from the edit form to the position and the list, keeping the stored title', async () => {
+      renderAt('/app/positions/pos-1/edit');
+      await waitFor(() => expect(screen.getByTestId('position-title')).toHaveValue(stored.title));
+
+      await userEvent.type(screen.getByTestId('position-title'), ' cambiado');
+
+      expect(trailText()).toEqual(['Posiciones', stored.title, 'Editar']);
+      expect(trail().getByRole('link', { name: stored.title })).toHaveAttribute(
+        'href',
+        '/app/positions/pos-1',
+      );
+      expect(trail().getByText('Editar')).toHaveAttribute('aria-current', 'page');
+      // The breadcrumb is an extra way back, not a replacement for «Cancelar».
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    });
+
+    it('reads «Nueva posición» when creating', () => {
+      renderAt('/app/positions/new');
+
+      expect(trailText()).toEqual(['Posiciones', 'Nueva posición']);
+      expect(trail().getByText('Nueva posición')).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('renders segments as text for a manager who may not read positions', async () => {
+      granted = ALL.filter((value) => value !== 'positions.read');
+      renderAt('/app/positions/pos-1/edit');
+      await waitFor(() => expect(screen.getByTestId('position-title')).toHaveValue(stored.title));
+
+      expect(trailText()).toEqual(['Posiciones', stored.title, 'Editar']);
+      expect(trail().queryByRole('link')).not.toBeInTheDocument();
     });
   });
 

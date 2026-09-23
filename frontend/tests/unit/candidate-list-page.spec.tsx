@@ -89,6 +89,14 @@ describe('CandidateListPage', () => {
     expect(currentSearch).toBe('');
   });
 
+  it('renders no breadcrumb, being a top-level destination (KTL-23)', async () => {
+    seedCandidates(api, 1);
+    renderPage();
+
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    expect(screen.queryByTestId('breadcrumb')).not.toBeInTheDocument();
+  });
+
   it('pages through the server and writes the page to the URL', async () => {
     seedCandidates(api, 30);
     renderPage();

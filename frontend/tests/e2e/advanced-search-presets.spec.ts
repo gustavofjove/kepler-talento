@@ -79,9 +79,19 @@ test.describe('Shared search presets', () => {
     await expect(page.locator('input[name="text"]')).toHaveValue('Laura');
     const renamed = `${name} editado`;
     await page.getByTestId('preset-name').fill(renamed);
+    // KTL-23: the trail shows the stored name, not the draft.
+    const breadcrumb = page.getByTestId('breadcrumb');
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(name);
     await page.getByTestId('preset-save').click();
     await expect(page).toHaveURL(/\/app\/admin\/presets$/);
-    await findRow(page, renamed);
+    const renamedRow = await findRow(page, renamed);
+
+    // The breadcrumb leads back to the library without saving.
+    await renamedRow.getByTestId('preset-edit').click();
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(renamed);
+    await breadcrumb.getByTestId('breadcrumb-presets').click();
+    await expect(page).toHaveURL(/\/app\/admin\/presets$/);
+    await expect(page.getByTestId('breadcrumb')).toHaveCount(0);
 
     await deletePreset(page, renamed);
   });

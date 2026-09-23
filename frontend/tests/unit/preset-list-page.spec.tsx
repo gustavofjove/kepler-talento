@@ -82,6 +82,13 @@ describe('PresetListPage', () => {
     expect(screen.queryByTestId('filters-summary')).toBeNull();
   });
 
+  it('renders no breadcrumb, being the top of its section (KTL-23)', () => {
+    renderPage({ status: 'loaded', presets: [preset()] });
+
+    expect(screen.getAllByTestId('preset-row')).toHaveLength(1);
+    expect(screen.queryByTestId('breadcrumb')).not.toBeInTheDocument();
+  });
+
   it('opens the criteria of a preset from the eye button beside its name', async () => {
     renderPage({ status: 'loaded', presets: [preset()] });
     const view = screen.getByRole('button', { name: 'Ver criterios de Java senior' });

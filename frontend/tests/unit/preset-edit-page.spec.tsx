@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
@@ -160,6 +160,59 @@ describe('PresetEditPage', () => {
       expect(screen.getByTestId('location')).toHaveTextContent(/^\/app\/admin\/presets$/),
     );
     expect(toastService.show).toHaveBeenCalledWith('El preset ya no existe.', 'warning');
+  });
+
+  describe('breadcrumb (KTL-23)', () => {
+    const trail = () => within(screen.getByTestId('breadcrumb'));
+    const trailText = () =>
+      trail()
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+
+    it('starts with a plain «Admin» and leads back to the preset list', async () => {
+      renderAt('/app/admin/presets/p-1/edit');
+      await waitFor(() => expect(nameInput()).toHaveValue('Java senior'));
+
+      expect(trailText()).toEqual(['Admin', 'Presets', 'Java senior']);
+      expect(trail().queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument();
+      expect(trail().getByRole('link', { name: 'Presets' })).toHaveAttribute(
+        'href',
+        '/app/admin/presets',
+      );
+      expect(trail().getByText('Java senior')).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('keeps the stored name while the name is being edited', async () => {
+      renderAt('/app/admin/presets/p-1/edit');
+      await waitFor(() => expect(nameInput()).toHaveValue('Java senior'));
+
+      await userEvent.type(nameInput(), ' 2');
+
+      expect(trailText()).toEqual(['Admin', 'Presets', 'Java senior']);
+    });
+
+    it('reads «Nuevo preset» when creating', () => {
+      renderAt('/app/admin/presets/new');
+
+      expect(trailText()).toEqual(['Admin', 'Presets', 'Nuevo preset']);
+      expect(trail().getByText('Nuevo preset')).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('offers the list without a record segment after a failed load', async () => {
+      (searchPresetsService.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('boom'));
+      renderAt('/app/admin/presets/p-1/edit');
+
+      expect(await screen.findByTestId('preset-load-error')).toBeInTheDocument();
+      expect(trailText()).toEqual(['Admin', 'Presets']);
+      expect(trail().getByRole('link', { name: 'Presets' })).toBeInTheDocument();
+    });
+
+    it('is not rendered on the top-level search page', async () => {
+      renderAt('/app/search');
+      await waitFor(() => expect(searchPresetsService.load).toHaveBeenCalled());
+
+      expect(screen.queryByTestId('breadcrumb')).not.toBeInTheDocument();
+    });
   });
 
   it('edits criteria with exactly the controls the search page uses', async () => {
