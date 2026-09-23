@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
+import { candidateFullName } from '../candidate-name';
 import { useCandidate } from '../use-candidates';
 import { CandidateForm } from '../components/candidate-form';
 import { CandidateDocuments } from '../components/candidate-documents';
@@ -22,6 +24,7 @@ export function CandidateEditPage() {
   const { toastService } = useServices();
   const candidateService = useCandidate(candidateId);
   const canUpdate = usePermission('candidates.update');
+  const canRead = usePermission('candidates.read');
   const notifyError = useErrorToast();
   const navigate = useNavigate();
 
@@ -33,6 +36,26 @@ export function CandidateEditPage() {
   const isLoading = aggregate === 'loading';
   const hasFailed = aggregate === 'error';
   const isMissing = aggregate === 'missing';
+
+  // The name segment replaces the old «Ver candidato» button and keeps its test id. It reads
+  // the aggregate, which only moves once a save is absorbed, so unsaved typing never shows.
+  const trail: BreadcrumbItem[] = [
+    {
+      label: t('breadcrumb.candidates'),
+      to: canRead ? '/app/candidates' : undefined,
+      testId: 'breadcrumb-candidates',
+    },
+  ];
+  if (!candidateId) trail.push({ label: t('breadcrumb.newCandidate'), current: true });
+  else if (!isLoading && candidate)
+    trail.push(
+      {
+        label: candidateFullName(candidate),
+        to: canRead ? `/app/candidates/${candidateId}` : undefined,
+        testId: 'candidate-edit-view',
+      },
+      { label: t('breadcrumb.edit'), current: true },
+    );
 
   const save = async (draft: CandidateDraft): Promise<void> => {
     try {
@@ -109,6 +132,7 @@ export function CandidateEditPage() {
 
   return (
     <section className="page">
+      <Breadcrumb items={trail} />
       <div className="toolbar">
         <div className="page-header">
           <h1>{t(candidateId ? 'candidate.edit.titleEdit' : 'candidate.edit.titleNew')}</h1>
@@ -116,17 +140,6 @@ export function CandidateEditPage() {
             {t(candidateId ? 'candidate.edit.saveHint' : 'candidate.edit.newHint')}
           </p>
         </div>
-        {candidateId ? (
-          <div className="toolbar">
-            <Link
-              className="button secondary"
-              to={`/app/candidates/${candidateId}`}
-              data-testid="candidate-edit-view"
-            >
-              {t('candidate.edit.backToDetail')}
-            </Link>
-          </div>
-        ) : null}
       </div>
       {body}
     </section>

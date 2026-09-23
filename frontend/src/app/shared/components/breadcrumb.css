@@ -1,0 +1,74 @@
+/* `min-width: 0` stops a long unwrapped label from widening the `.page` grid track to its full
+ * length; without it the ellipsis never applies and the page scrolls sideways. */
+.breadcrumb {
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+/* Inside `.page` it sits directly above the header, so it takes back part of the grid gap. */
+.page > .breadcrumb {
+  margin-bottom: -12px;
+}
+
+.breadcrumb ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  color: var(--fg-2);
+}
+
+.breadcrumb li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A drawn chevron, not text content, so screen readers do not announce the separator. */
+.breadcrumb li + li::before {
+  content: '';
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 10px 0 6px;
+  border-top: 1.5px solid var(--fg-3);
+  border-right: 1.5px solid var(--fg-3);
+  transform: rotate(45deg);
+}
+
+/* Long names are cut visually only; the accessible name and `title` keep the full label. */
+.breadcrumb li > a,
+.breadcrumb li > span {
+  display: inline-block;
+  max-width: min(40ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.breadcrumb a {
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.breadcrumb a:hover {
+  color: var(--primary-dark);
+}
+
+.breadcrumb a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.breadcrumb [aria-current='page'] {
+  color: var(--fg-1);
+  font-weight: 600;
+}

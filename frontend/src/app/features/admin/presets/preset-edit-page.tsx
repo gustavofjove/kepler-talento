@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { SearchCriteriaForm } from '../../search/components/search-criteria-form';
 import type { SearchFilters } from '../../search/models/search.models';
 import { isPresetNotFound, presetErrorKey } from './preset-errors';
@@ -20,6 +21,8 @@ export function PresetEditPage() {
   const { t } = useTranslation();
 
   const [name, setName] = useState('');
+  // The saved name, for the breadcrumb: `name` is the draft and changes as the user types.
+  const [storedName, setStoredName] = useState('');
   const [filters, setFilters] = useState<SearchFilters>(() => searchPresetsService.emptyFilters());
   const [version, setVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(isEdit);
@@ -39,6 +42,7 @@ export function PresetEditPage() {
           return;
         }
         setName(preset.name);
+        setStoredName(preset.name);
         setFilters(preset.filters);
         setVersion(preset.version);
         setLoading(false);
@@ -90,8 +94,18 @@ export function PresetEditPage() {
 
   const describedBy = error ? 'preset-privacy-hint preset-form-error' : 'preset-privacy-hint';
 
+  // «Admin» is text: the navigation's Admin parent has no destination. The route already
+  // requires `presets.manage`, the list's own permission, so «Presets» is always a link.
+  const trail: BreadcrumbItem[] = [
+    { label: t('breadcrumb.admin') },
+    { label: t('breadcrumb.presets'), to: PRESETS_ROUTE, testId: 'breadcrumb-presets' },
+  ];
+  if (!isEdit) trail.push({ label: t('breadcrumb.newPreset'), current: true });
+  else if (!loading && !loadFailed) trail.push({ label: storedName, current: true });
+
   return (
     <section className="page">
+      <Breadcrumb items={trail} />
       <div className="toolbar">
         <div className="page-header">
           <h1>{t(isEdit ? 'presets.form.editTitle' : 'presets.form.newTitle')}</h1>

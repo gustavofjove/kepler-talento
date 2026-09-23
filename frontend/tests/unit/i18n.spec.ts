@@ -55,8 +55,21 @@ describe('i18n foundation', () => {
     for (const status of ['new', 'available', 'in_process', 'hired', 'rejected']) {
       expect(i18n.t(`candidate.form.statusOption.${status}`)).not.toContain('candidate.form');
     }
-    for (const key of ['titleEdit', 'titleNew', 'saveHint', 'newHint', 'saved', 'backToDetail']) {
+    for (const key of ['titleEdit', 'titleNew', 'saveHint', 'newHint', 'saved']) {
       expect(i18n.t(`candidate.edit.${key}`)).not.toContain('candidate.edit');
+    }
+    for (const key of [
+      'ariaLabel',
+      'candidates',
+      'positions',
+      'admin',
+      'presets',
+      'edit',
+      'newCandidate',
+      'newPosition',
+      'newPreset',
+    ]) {
+      expect(i18n.t(`breadcrumb.${key}`)).not.toContain('breadcrumb.');
     }
   });
 

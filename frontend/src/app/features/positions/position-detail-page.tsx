@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePermission, useServices } from '../../core/di/services-context';
 import { formatDate } from '../../core/i18n/format';
 import { useErrorToast } from '../../core/services/use-error-toast';
+import { Breadcrumb, type BreadcrumbItem } from '../../shared/components/breadcrumb';
 import { SearchCriteriaSummary } from '../search/components/search-criteria-summary';
 import { SearchResults } from '../search/components/search-results';
 import type { SearchResultPage } from '../search/models/search.models';
@@ -61,9 +62,23 @@ export function PositionDetailPage() {
   );
   useEffect(() => search(1), [search]);
   useEffect(() => () => inFlight.current?.abort(), []);
-  if (!position) return <p role="status">{t('positions.detail.loading')}</p>;
+  // The route already requires `positions.read`, so the list link needs no further check.
+  const listCrumb: BreadcrumbItem = {
+    label: t('breadcrumb.positions'),
+    to: '/app/positions',
+    testId: 'breadcrumb-positions',
+  };
+  // A failed load only raises a toast and stays here, so this is also the way back from one.
+  if (!position)
+    return (
+      <>
+        <Breadcrumb items={[listCrumb]} />
+        <p role="status">{t('positions.detail.loading')}</p>
+      </>
+    );
   return (
     <section className="page position-detail">
+      <Breadcrumb items={[listCrumb, { label: position.title, current: true }]} />
       <div className="toolbar position-detail-toolbar">
         <div className="page-header position-detail-title">
           <h1>{position.title}</h1>

@@ -21,10 +21,21 @@ test.describe('Candidate CRUD', () => {
     await expect(page.locator('.toast')).toBeVisible();
     await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
 
+    // KTL-23: the breadcrumb leads back to the profile, then to the list.
+    const breadcrumb = page.getByTestId('breadcrumb');
+    await expect(breadcrumb.getByTestId('candidate-edit-view')).toHaveText(
+      `${firstName} ${lastName} Editado`,
+    );
     await page.getByTestId('candidate-edit-view').click();
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
     await expect(page.locator('h1')).toContainText(`${firstName} ${lastName} Editado`);
+    await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
+      `${firstName} ${lastName} Editado`,
+    );
 
-    await page.goto('/app/candidates');
+    await breadcrumb.getByTestId('breadcrumb-candidates').click();
+    await expect(page).toHaveURL(/\/app\/candidates$/);
+    await expect(page.getByTestId('breadcrumb')).toHaveCount(0);
     await expect(page.locator(`text=${firstName} ${lastName} Editado`)).toBeVisible();
 
     await page.click(`tr:has-text("${firstName}") >> text=Abrir`);

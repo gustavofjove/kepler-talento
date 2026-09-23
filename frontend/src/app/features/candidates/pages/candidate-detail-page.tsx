@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
+import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { CandidateCvPreview } from '../components/candidate-cv-preview';
 import { CandidateDocuments } from '../components/candidate-documents';
@@ -11,6 +12,7 @@ import { CandidatePrograms } from '../components/candidate-programs';
 import { CandidateSkills } from '../components/candidate-skills';
 import { CandidateTags } from '../components/candidate-tags';
 import { CandidateNotes } from '../components/candidate-notes';
+import { candidateFullName } from '../candidate-name';
 import { mailtoHref, telHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
 
@@ -23,6 +25,18 @@ export function CandidateDetailPage() {
   const item = candidateService.find(candidateId);
   const canEdit = usePermission('candidates.update');
   const aggregate = candidateService.aggregateStatus(candidateId);
+  const canReadList = usePermission('candidates.read');
+  // The list is offered in every state, even while loading or after a failure; the name only
+  // once the candidate has loaded.
+  const trail: BreadcrumbItem[] = [
+    {
+      label: t('breadcrumb.candidates'),
+      to: canReadList ? '/app/candidates' : undefined,
+      testId: 'breadcrumb-candidates',
+    },
+  ];
+  if (aggregate !== 'loading' && item)
+    trail.push({ label: candidateFullName(item), current: true });
 
   const setActive = async (active: boolean): Promise<void> => {
     if (!item) return;
@@ -46,34 +60,44 @@ export function CandidateDetailPage() {
 
   if (aggregate === 'loading')
     return (
-      <section className="panel">
-        <p className="empty-state">{t('candidate.detail.loading')}</p>
-      </section>
+      <>
+        <Breadcrumb items={trail} />
+        <section className="panel">
+          <p className="empty-state">{t('candidate.detail.loading')}</p>
+        </section>
+      </>
     );
   if (aggregate === 'error')
     return (
-      <section className="panel" data-testid="candidate-detail-error">
-        <h1>{t('candidate.detail.loadFailure')}</h1>
-        <p className="empty-state">
-          {candidateService.error?.message ?? t('candidate.detail.tryLater')}
-        </p>
-        <Link className="button" to="/app/candidates">
-          {t('candidate.detail.back')}
-        </Link>
-      </section>
+      <>
+        <Breadcrumb items={trail} />
+        <section className="panel" data-testid="candidate-detail-error">
+          <h1>{t('candidate.detail.loadFailure')}</h1>
+          <p className="empty-state">
+            {candidateService.error?.message ?? t('candidate.detail.tryLater')}
+          </p>
+          <Link className="button" to="/app/candidates">
+            {t('candidate.detail.back')}
+          </Link>
+        </section>
+      </>
     );
   if (!item)
     return (
-      <section className="panel">
-        <h1>{t('candidate.detail.notFound')}</h1>
-        <Link className="button" to="/app/candidates">
-          {t('candidate.detail.back')}
-        </Link>
-      </section>
+      <>
+        <Breadcrumb items={trail} />
+        <section className="panel">
+          <h1>{t('candidate.detail.notFound')}</h1>
+          <Link className="button" to="/app/candidates">
+            {t('candidate.detail.back')}
+          </Link>
+        </section>
+      </>
     );
 
   return (
     <section className="page">
+      <Breadcrumb items={trail} />
       <div className="toolbar">
         <div className="page-header">
           <h1>
