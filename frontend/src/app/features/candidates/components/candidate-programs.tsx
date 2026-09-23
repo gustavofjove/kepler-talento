@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useServices } from '../../../core/di/services-context';
+import { usePermission, useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
@@ -18,11 +18,14 @@ const EMPTY: Draft = { program: '', level: '', yearsExperience: undefined };
 interface Props {
   candidateId: string;
   programs: CandidateProgram[];
-  canEdit: boolean;
+  /** See candidate-languages. */
+  readOnly?: boolean;
 }
 
-export function CandidatePrograms({ candidateId, programs, canEdit }: Props) {
+export function CandidatePrograms({ candidateId, programs, readOnly = false }: Props) {
   const { t } = useTranslation();
+  const canUpdate = usePermission('candidates.update');
+  const canEdit = !readOnly && canUpdate;
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState<Draft>(EMPTY);

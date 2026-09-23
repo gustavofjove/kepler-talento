@@ -26,7 +26,8 @@ test.describe('Security operational flows', () => {
     await page.fill('input[name="firstName"]', `Doc${suffix}`);
     await page.fill('input[name="lastName"]', 'Secure');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    // KTL-22: documents are uploaded on the edit page, where creation continues.
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
 
     const pdfBuffer = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF', 'utf-8');
     await page.setInputFiles('input[name="file"]', {

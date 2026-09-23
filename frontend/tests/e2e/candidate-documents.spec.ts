@@ -14,10 +14,19 @@ async function createCandidate(page: Page, prefix: string): Promise<string> {
   await page.fill('input[name="firstName"]', `${prefix}${Date.now()}`);
   await page.fill('input[name="lastName"]', 'Documentos');
   await page.click('button[type="submit"]');
+  // KTL-22: documents are uploaded on the edit page, where creation continues.
   await expect(page).toHaveURL(
-    /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
   );
-  return page.url().split('/').pop()!;
+  return page.url().split('/').at(-2)!;
+}
+
+async function expectNoHorizontalScroll(page: Page): Promise<void> {
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
 }
 
 test.describe('Candidate documents flow', () => {
@@ -29,7 +38,7 @@ test.describe('Candidate documents flow', () => {
         cspViolations.push(message.text());
       }
     });
-    await createCandidate(page, 'CV');
+    const candidateId = await createCandidate(page, 'CV');
     const documents = page.getByTestId('candidate-documents');
 
     await documents.getByTestId('document-file').setInputFiles({
@@ -57,19 +66,26 @@ test.describe('Candidate documents flow', () => {
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
     expect(Buffer.concat(chunks)).toEqual(PDF_BYTES);
 
-    await page.reload();
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoHorizontalScroll(page);
+    }
+
+    // The preview lives on the read-only detail page, which keeps download but not upload.
+    await page.goto(`/app/candidates/${candidateId}`);
     await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/);
     expect(cspViolations).toEqual([]);
     for (const width of [1280, 390]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(page.getByTestId('candidate-cv-preview')).toBeVisible();
-      expect(
-        await page.evaluate(
-          () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-        ),
-      ).toBe(false);
+      await expectNoHorizontalScroll(page);
     }
+    const detailDocuments = page.getByTestId('candidate-documents');
+    await expect(detailDocuments.getByTestId('candidate-document')).toHaveCount(1);
+    await expect(detailDocuments.getByTestId('document-file')).toHaveCount(0);
+    await expect(detailDocuments.getByTestId('document-upload')).toHaveCount(0);
 
+    await page.goto(`/app/candidates/${candidateId}/edit`);
     const refreshedDocuments = page.getByTestId('candidate-documents');
     await refreshedDocuments.getByTestId('document-file').setInputFiles({
       name: 'candidate-cv.txt',
@@ -82,7 +98,7 @@ test.describe('Candidate documents flow', () => {
       'Disponible',
       { timeout: 25_000 },
     );
-    await page.reload();
+    await page.goto(`/app/candidates/${candidateId}`);
     await page.getByTestId('preview-document-select').selectOption({ label: 'candidate-cv.txt' });
     await expect(page.getByTestId('cv-preview-unsupported')).toBeVisible();
   });

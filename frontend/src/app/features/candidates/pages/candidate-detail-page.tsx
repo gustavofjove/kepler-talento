@@ -139,34 +139,31 @@ export function CandidateDetailPage() {
           </dl>
         </article>
       </div>
+      {/* Viewing only: every change is made on the edit page, whatever the viewer may do. */}
       <div className="grid two">
         <article className="panel">
-          <CandidateLanguages candidateId={item.id} languages={item.languages} canEdit={canEdit} />
+          <CandidateLanguages candidateId={item.id} languages={item.languages} readOnly />
         </article>
         <article className="panel">
-          <CandidatePrograms candidateId={item.id} programs={item.programs} canEdit={canEdit} />
+          <CandidatePrograms candidateId={item.id} programs={item.programs} readOnly />
         </article>
         <article className="panel">
-          <CandidateEducation candidateId={item.id} education={item.education} canEdit={canEdit} />
+          <CandidateEducation candidateId={item.id} education={item.education} readOnly />
         </article>
         <article className="panel">
-          <CandidateExperience
-            candidateId={item.id}
-            experience={item.experience}
-            canEdit={canEdit}
-          />
+          <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
         </article>
         <article className="panel">
-          <CandidateSkills candidateId={item.id} skills={item.skills} canEdit={canEdit} />
+          <CandidateSkills candidateId={item.id} skills={item.skills} readOnly />
         </article>
         <article className="panel">
-          <CandidateTags candidateId={item.id} tags={item.tags} />
+          <CandidateTags candidateId={item.id} tags={item.tags} readOnly />
         </article>
         <article className="panel span-all">
-          <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} />
+          <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />
         </article>
         <article className="panel">
-          <CandidateDocuments candidate={item} />
+          <CandidateDocuments candidate={item} readOnly />
         </article>
       </div>
       <CandidateCvPreview candidate={item} />

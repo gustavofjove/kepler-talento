@@ -21,11 +21,12 @@ test.describe('Candidate API cutover', () => {
     await page.click('button[type="submit"]');
     // Deliberately stricter than `[\w-]+`, which also matches the `/new` the form was
     // just on — so the wait would pass without the navigation having happened, and the
-    // identifier read back would be the literal "new".
+    // identifier read back would be the literal "new". Since KTL-22 creation continues on
+    // the edit page, where the relation and document sections below are edited.
     await expect(page).toHaveURL(
-      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
     );
-    return page.url().split('/').pop()!;
+    return page.url().split('/').at(-2)!;
   };
 
   test('adds a relation that survives a reload', async ({ page }) => {

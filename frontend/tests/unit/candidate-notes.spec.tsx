@@ -37,6 +37,21 @@ describe('CandidateNotes', () => {
     expect(screen.getByText(/Autor desconocido/)).toBeInTheDocument();
   });
 
+  it('shows notes without add, edit or retire controls when read-only, even with update permission', () => {
+    const candidateNotesService = new CandidateNotesService({} as CandidateGateway);
+    const authService = { profile: signal(null), hasPermission: vi.fn(() => true) };
+    render(
+      <ServicesProvider
+        value={{ ...services, candidateNotesService, authService } as unknown as Services}
+      >
+        <CandidateNotes candidateId="candidate-1" initialNotes={[note()]} readOnly />
+      </ServicesProvider>,
+    );
+    expect(screen.getByText('Seguimiento inicial')).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('candidate-note-body')).not.toBeInTheDocument();
+  });
+
   it('adds, edits and retires notes through their independent versions', async () => {
     const added = note({ body: 'Nueva', authorDisplayName: 'Ana' });
     const updated = note({ body: 'Editada', authorDisplayName: 'Ana', version: 2 });

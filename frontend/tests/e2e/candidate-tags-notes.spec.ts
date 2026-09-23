@@ -29,8 +29,9 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
     .filter({ has: page.locator('input[name="firstName"]') })
     .locator('button[type="submit"]')
     .click();
-  await expect(page).toHaveURL(/\/app\/candidates\/[0-9a-f-]+$/);
-  const candidateUrl = page.url();
+  // KTL-22: tags and notes are edited on the edit page, where creation continues.
+  await expect(page).toHaveURL(/\/app\/candidates\/[0-9a-f-]+\/edit$/);
+  const candidateUrl = page.url().replace(/\/edit$/, '');
   await page.getByTestId('candidate-tag-select').selectOption({ label: tag });
   await page.getByTestId('candidate-tags').locator('button[type="submit"]').click();
   await expect(page.getByTestId('candidate-tags')).toContainText(tag);
@@ -46,6 +47,13 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
   await noteRow.locator('button').last().click();
   await page.getByTestId('confirm-accept').click();
   await expect(noteRow).toHaveCount(0);
+
+  // The detail page shows the tag but offers no way to change tags or notes.
+  await page.goto(candidateUrl);
+  await expect(page.getByTestId('candidate-tags')).toContainText(tag);
+  await expect(page.getByTestId('candidate-tag-select')).toHaveCount(0);
+  await expect(page.getByTestId('candidate-note-body')).toHaveCount(0);
+  await expect(page.getByTestId('candidate-tags').locator('button')).toHaveCount(0);
 
   await page.goto('/app/search');
   await page.selectOption('select[name="tagDraft"]', { label: tag });

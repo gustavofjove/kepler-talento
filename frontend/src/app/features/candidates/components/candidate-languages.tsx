@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useServices } from '../../../core/di/services-context';
+import { usePermission, useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
@@ -12,11 +12,14 @@ const EMPTY = { language: '', level: '', certification: '' };
 interface Props {
   candidateId: string;
   languages: CandidateLanguage[];
-  canEdit: boolean;
+  /** The detail page renders every section read-only, whatever the viewer may do. */
+  readOnly?: boolean;
 }
 
-export function CandidateLanguages({ candidateId, languages, canEdit }: Props) {
+export function CandidateLanguages({ candidateId, languages, readOnly = false }: Props) {
   const { t } = useTranslation();
+  const canUpdate = usePermission('candidates.update');
+  const canEdit = !readOnly && canUpdate;
   const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const [draft, setDraft] = useState(EMPTY);

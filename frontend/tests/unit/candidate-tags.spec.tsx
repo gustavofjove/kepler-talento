@@ -8,7 +8,11 @@ import { CatalogService } from '../../src/app/features/catalogs/services/catalog
 import { FakeCatalogApi } from './support/catalog-doubles';
 
 describe('CandidateTags', () => {
-  const setup = async (canEdit = true, assigned = [{ id: 'old', tag: 'Antigua' }]) => {
+  const setup = async (
+    canEdit = true,
+    assigned = [{ id: 'old', tag: 'Antigua' }],
+    readOnly = false,
+  ) => {
     const api = new FakeCatalogApi({ tag: ['Activa', 'Antigua'] });
     api.families.get('tag')![1].isActive = false;
     const catalogService = new CatalogService(api);
@@ -26,7 +30,7 @@ describe('CandidateTags', () => {
           } as unknown as Services
         }
       >
-        <CandidateTags candidateId="candidate-1" tags={assigned} />
+        <CandidateTags candidateId="candidate-1" tags={assigned} readOnly={readOnly} />
       </ServicesProvider>,
     );
     return candidateRelationsService;
@@ -51,6 +55,13 @@ describe('CandidateTags', () => {
 
   it('hides assignment controls without update permission', async () => {
     await setup(false);
+    expect(screen.queryByTestId('candidate-tag-select')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('shows tags without assignment controls when read-only, even with update permission', async () => {
+    await setup(true, undefined, true);
+    expect(screen.getByText('Antigua')).toBeInTheDocument();
     expect(screen.queryByTestId('candidate-tag-select')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });

@@ -11,12 +11,15 @@ import './candidate-notes.css';
 interface Props {
   candidateId: string;
   initialNotes: CandidateNote[];
+  /** See candidate-languages. */
+  readOnly?: boolean;
 }
 
-export function CandidateNotes({ candidateId, initialNotes }: Props) {
+export function CandidateNotes({ candidateId, initialNotes, readOnly = false }: Props) {
   const { t } = useTranslation();
   const { confirmDialogService } = useServices();
-  const canEdit = usePermission('candidates.update');
+  const canUpdate = usePermission('candidates.update');
+  const canEdit = !readOnly && canUpdate;
   const notesService = useCandidateNotes();
   const notifyError = useErrorToast();
   const notes = notesService.list(candidateId);

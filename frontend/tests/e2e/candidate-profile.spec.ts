@@ -12,7 +12,8 @@ async function createCandidate(
   await page.fill('input[name="firstName"]', firstName);
   await page.fill('input[name="lastName"]', lastName);
   await page.click('button[type="submit"]');
-  await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+  // KTL-22: the sections are edited on the edit page, where creation continues.
+  await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
 }
 
 test.describe('Candidate profile enrichment', () => {
@@ -36,6 +37,33 @@ test.describe('Candidate profile enrichment', () => {
     await skillsPanel.locator('select[name="level"]').selectOption('Medio');
     await skillsPanel.locator('button:has-text("Añadir habilidad")').click();
     await expect(skillsPanel.locator('span.badge:has-text("Compras")')).toBeVisible();
+
+    // A section change followed by a core save on the same page must not conflict.
+    await page.fill('input[name="lastName"]', 'Test Editado');
+    await page.click('form:has(input[name="firstName"]) button[type="submit"]');
+    await expect(page.locator('.toast')).toBeVisible();
+    await expect(page).toHaveURL(/\/edit$/);
+
+    // The detail page shows what was added, read-only, even for an administrator.
+    await page.getByTestId('candidate-edit-view').click();
+    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    const detailSkills = page.getByTestId('candidate-skills');
+    await expect(detailSkills.locator('span.badge')).toHaveCount(1);
+    for (const testId of [
+      'candidate-languages',
+      'candidate-programs',
+      'candidate-education',
+      'candidate-experience',
+      'candidate-skills',
+      'candidate-tags',
+      'candidate-notes',
+      'candidate-documents',
+    ]) {
+      const section = page.getByTestId(testId);
+      await expect(section.locator('form')).toHaveCount(0);
+      await expect(section.locator('button')).toHaveCount(0);
+    }
+    await expect(page.getByTestId('document-file')).toHaveCount(0);
   });
 
   test('rejects experience with an end date before the start date', async ({ page }) => {
