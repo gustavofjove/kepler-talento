@@ -22,7 +22,7 @@ intenta habilitarlos en Production.
 
 ## Identidad y acceso KTL-16
 
-Con `docker compose up --build`, ejecuta `npm start`, abre `http://localhost:4300/login` y
+Con `docker compose up --build`, ejecuta `npm start` desde `frontend/`, abre `http://localhost:4300/login` y
 pulsa **Iniciar sesión**. En `APP_ENV=local`, la SPA obtiene un token firmado de
 `POST /api/dev/token` para `admin@kepler-talento.local`; el backend lo valida por el mismo
 pipeline JWT que las peticiones normales. El token no se guarda en `localStorage`.
@@ -203,7 +203,7 @@ basta. Para probarlo en local con el stack completo:
 
 ```powershell
 docker compose up --build        # aplica la migración AddImportBatches con el migrator
-npm start                        # http://localhost:4300/app/admin/import
+cd frontend; npm start           # http://localhost:4300/app/admin/import
 ```
 
 Un archivo mínimo válido:
@@ -248,6 +248,10 @@ Consulta el [contrato de auditoría](docs/ktl-19/audit-contract.md) y el
   recomiendan 4 GiB disponibles para Docker.
 - .NET SDK 10.0.102 para trabajar fuera de contenedores.
 - Node.js 22 y npm 10 para trabajar fuera de contenedores.
+
+La SPA React es un proyecto npm independiente en `frontend/` (código en `frontend/src/`, tests
+en `frontend/tests/`, `package.json` y `node_modules/`). Todos los comandos `npm` se ejecutan
+desde esa carpeta; el backend, `docs/`, `openspec/` y `scripts/` permanecen en la raíz.
 
 Los paquetes NuGet se fijan centralmente en `backend/Directory.Packages.props`. La
 herramienta `dotnet-ef` queda fijada mediante `.config/dotnet-tools.json`.
@@ -296,9 +300,10 @@ desarrollo.
 ## Trabajo local sin Compose
 
 ```powershell
-npm ci
 dotnet tool restore
 dotnet restore backend/KeplerTalento.slnx
+cd frontend
+npm ci
 npm run build:all
 npm test
 npm run test:backend
@@ -317,7 +322,7 @@ aprobadas.
 ## Imágenes, configuración y almacenamiento
 
 Las imágenes son reproducibles y multi-stage: `backend/Dockerfile` y
-`Dockerfile.frontend`. Los valores de desarrollo están documentados en `.env.example`;
+`frontend/Dockerfile`. Los valores de desarrollo están documentados en `.env.example`;
 los secretos reales no deben versionarse. Dentro del volumen de documentos existen raíces
 separadas `quarantine` y `available`; PostgreSQL almacena únicamente claves opacas, nunca
 rutas de host, UNC ni nombres físicos derivados de candidatos.
@@ -346,6 +351,7 @@ de retención.
 ## Calidad y seguridad
 
 ```powershell
+cd frontend
 npm run lint
 npm run format:check
 npm run security:rls
@@ -360,7 +366,7 @@ aplicándose solo a rutas heredadas no migradas.
 
 ## Textos de interfaz (i18n)
 
-Los textos visibles se sirven con i18next desde `src/assets/i18n/es.json`. El español es el
+Los textos visibles se sirven con i18next desde `frontend/src/assets/i18n/es.json`. El español es el
 único idioma activo y no hay selector de idioma; `en.json` se mantiene pero no se carga.
 
 - Para añadir un texto, crea una clave con el esquema `funcionalidad.seccion.elemento` en
@@ -369,7 +375,7 @@ Los textos visibles se sirven con i18next desde `src/assets/i18n/es.json`. El es
 - Las validaciones nuevas lanzan `TranslatableError(clave, valores)` y el componente las
   muestra con `errorText(err, t)`.
 - `npm run lint` falla si un `.tsx` contiene texto JSX literal, salvo los archivos de la
-  lista `LEGACY_HARDCODED_COPY` de `eslint.config.js`. Esa lista solo puede reducirse: al
+  lista `LEGACY_HARDCODED_COPY` de `frontend/eslint.config.js`. Esa lista solo puede reducirse: al
   cambiar los textos de uno de esos archivos, se migran a claves y se quita de la lista.
 - En tests, una clave inexistente hace fallar la ejecución.
 

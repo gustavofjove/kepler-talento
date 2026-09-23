@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const root = process.cwd();
+const root = repoRoot;
 const read = (relative: string) => readFileSync(join(root, relative), 'utf8');
 
 /** Every TypeScript source file under a directory, recursively. */
@@ -48,7 +49,7 @@ describe('KTL-5 fail-closed security boundary', () => {
       'backend/Application/Features/Candidates/GetReferenceCandidate.cs',
       'backend/Application/Abstractions/Persistence/ICandidateReader.cs',
       'backend/Infrastructure/Persistence/CandidateReader.cs',
-      'src/app/features/reference/reference-candidate.service.ts',
+      'frontend/src/app/features/reference/reference-candidate.service.ts',
     ]) {
       expect(existsSync(join(root, path))).toBe(false);
     }
@@ -59,7 +60,7 @@ describe('KTL-5 fail-closed security boundary', () => {
   // read or write that key again; the only permitted mention is the eviction that removes
   // it from browsers that still hold it.
   it('never touches the superseded candidate storage key outside the eviction', () => {
-    const offenders = sourceFiles(join(root, 'src')).filter(
+    const offenders = sourceFiles(join(root, 'frontend/src')).filter(
       (file) =>
         readFileSync(file, 'utf8').includes('rrhh-candidates') &&
         !file.endsWith('evict-legacy-storage.ts'),
@@ -102,7 +103,7 @@ describe('KTL-5 fail-closed security boundary', () => {
 
   it('does not expose PostgreSQL, ClamAV, or document storage through Nginx', () => {
     const compose = read('docker-compose.yml');
-    const nginx = read('nginx.conf');
+    const nginx = read('frontend/nginx.conf');
     expect(compose).toContain('internal: true');
     expect(serviceBlock(compose, 'clamav')).not.toContain('\n    ports:');
     expect(serviceBlock(compose, 'postgres')).not.toContain('\n    ports:');

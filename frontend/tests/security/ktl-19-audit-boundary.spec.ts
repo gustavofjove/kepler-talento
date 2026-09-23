@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string): string => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
 
 /** Source without comments, so an explanatory remark naming a forbidden construct is not a hit. */
 const code = (relative: string): string =>
@@ -10,9 +11,9 @@ const code = (relative: string): string =>
     .replace(/^\s*\/\/\/?.*$/gm, '');
 
 const migration = (): string => {
-  const names = readdirSync(
-    join(process.cwd(), 'backend/Infrastructure/Persistence/Migrations'),
-  ).filter((name) => name.endsWith('_AddAuditActor.cs'));
+  const names = readdirSync(join(repoRoot, 'backend/Infrastructure/Persistence/Migrations')).filter(
+    (name) => name.endsWith('_AddAuditActor.cs'),
+  );
   expect(names).toHaveLength(1);
   return read(`backend/Infrastructure/Persistence/Migrations/${names[0]}`);
 };
@@ -109,11 +110,11 @@ describe('KTL-19 audit trail security boundary', () => {
   });
 
   it('keeps the Auditoría screen behind its permission and out of browser storage', () => {
-    const app = code('src/app/app.tsx');
+    const app = code('frontend/src/app/app.tsx');
     expect(app).toMatch(/permission="audit\.read"[\s\S]{0,80}path: 'admin\/audit'/);
-    const service = code('src/app/features/admin/audit/audit.service.ts');
+    const service = code('frontend/src/app/features/admin/audit/audit.service.ts');
     expect(service).not.toMatch(/localStorage|sessionStorage|indexedDB/);
-    const page = code('src/app/features/admin/audit/audit-page.tsx');
+    const page = code('frontend/src/app/features/admin/audit/audit-page.tsx');
     expect(page).toContain("usePermission('users.manage')");
   });
 });

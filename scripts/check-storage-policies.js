@@ -2,10 +2,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = (relative) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
+const root = path.resolve(__dirname, '..');
+const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const storage = read('backend/Infrastructure/Documents/FileSystemDocumentStorage.cs');
 const download = read('backend/Infrastructure/Documents/DocumentDownloadService.cs');
-const nginx = read('nginx.conf');
+const nginx = read('frontend/nginx.conf');
 const compose = read('docker-compose.yml');
 
 const serviceBlock = (name) => {

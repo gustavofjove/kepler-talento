@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string): string => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
 const code = (relative: string): string =>
   read(relative)
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -10,7 +11,7 @@ const code = (relative: string): string =>
 describe('KTL-15 position security boundary', () => {
   it('has independent shared permissions', () => {
     const backend = read('backend/Application/Abstractions/Identity/ICurrentActor.cs');
-    const frontend = read('src/app/shared/models/auth.models.ts');
+    const frontend = read('frontend/src/app/shared/models/auth.models.ts');
     for (const permission of ['positions.read', 'positions.manage']) {
       expect(backend).toContain(`"${permission}"`);
       expect(frontend).toContain(`'${permission}'`);
@@ -39,22 +40,22 @@ describe('KTL-15 position security boundary', () => {
   });
 
   it('uses API-only position persistence and candidate permission before live search', () => {
-    const files = readdirSync(join(process.cwd(), 'src/app/features/positions'), {
+    const files = readdirSync(join(repoRoot, 'frontend/src/app/features/positions'), {
       recursive: true,
     }).filter((name) => String(name).endsWith('.ts') || String(name).endsWith('.tsx'));
     const source = files
-      .map((name) => read(join('src/app/features/positions', String(name))))
+      .map((name) => read(join('frontend/src/app/features/positions', String(name))))
       .join('\n');
     expect(source).not.toMatch(/localStorage|sessionStorage|supabase/i);
-    const detail = read('src/app/features/positions/position-detail-page.tsx');
+    const detail = read('frontend/src/app/features/positions/position-detail-page.tsx');
     expect(detail).toContain("usePermission('candidates.read')");
     expect(detail).toContain('if (!position || !canReadCandidates)');
   });
 
   it('grants bounded DML and explicitly revokes deletion', () => {
-    const name = readdirSync(
-      join(process.cwd(), 'backend/Infrastructure/Persistence/Migrations'),
-    ).find((item) => item.endsWith('_AddPositionManagement.cs'));
+    const name = readdirSync(join(repoRoot, 'backend/Infrastructure/Persistence/Migrations')).find(
+      (item) => item.endsWith('_AddPositionManagement.cs'),
+    );
     expect(name).toBeTruthy();
     const migration = read(`backend/Infrastructure/Persistence/Migrations/${name}`);
     expect(migration).toContain('GRANT SELECT, INSERT, UPDATE ON "OPS_Positions" TO ktl_runtime');

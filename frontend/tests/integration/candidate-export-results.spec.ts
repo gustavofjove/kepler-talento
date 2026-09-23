@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { repoRoot } from '../repo-root';
 
 describe('candidate-export-results contract', () => {
-  const filePath = path.join(process.cwd(), 'supabase/functions/candidate-export-results/index.ts');
+  const filePath = path.join(repoRoot, 'supabase/functions/candidate-export-results/index.ts');
   const source = readFileSync(filePath, 'utf-8');
 
   it('enforces bearer auth and max row limits', () => {

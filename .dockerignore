@@ -1,5 +1,5 @@
-node_modules/
-dist/
+**/node_modules/
+**/dist/
 backend/**/bin/
 backend/**/obj/
 .git/
@@ -12,3 +12,4 @@ test-results/
 .env.*
 *.accdb
 *.mdb
+frontend/

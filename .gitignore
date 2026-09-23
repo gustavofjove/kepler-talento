@@ -9,7 +9,7 @@ node_modules/
 .pnp.js
 .pnpm-store/
 .yarn/
-tests/e2e/.auth/
+frontend/tests/e2e/.auth/
 
 # Build outputs
 dist/

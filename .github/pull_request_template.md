@@ -5,6 +5,8 @@
 
 ## Validation
 
+npm scripts run from `frontend/`.
+
 - [ ] OpenSpec proposal/specs/design/tasks updated if behavior changed
 - [ ] Frontend tests (`npm test`)
 - [ ] Backend tests (`npm run test:backend`)

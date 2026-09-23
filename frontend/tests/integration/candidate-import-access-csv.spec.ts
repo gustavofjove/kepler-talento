@@ -1,11 +1,9 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { repoRoot } from '../repo-root';
 
 describe('candidate-import-access-csv contract', () => {
-  const filePath = path.join(
-    process.cwd(),
-    'supabase/functions/candidate-import-access-csv/index.ts',
-  );
+  const filePath = path.join(repoRoot, 'supabase/functions/candidate-import-access-csv/index.ts');
   const source = readFileSync(filePath, 'utf-8');
 
   it('requires auth and validates source_name plus max file count', () => {

@@ -19,8 +19,8 @@ context: |
   `2026-08-25-ktl-6-catalog-write-slice-api-cutover` — never drop the ticket
   prefix in favor of the date-only default.
   User-facing copy is Spanish — keep accents and Spanish wording correct. It is
-  sourced from src/assets/i18n/es.json through i18next (`t()`); no hardcoded JSX
-  copy outside the lint legacy list (LEGACY_HARDCODED_COPY in eslint.config.js),
+  sourced from frontend/src/assets/i18n/es.json through i18next (`t()`); no hardcoded JSX
+  copy outside the lint legacy list (LEGACY_HARDCODED_COPY in frontend/eslint.config.js),
   and new tests do not select elements by literal Spanish text.
 
   Design documentation for the shipped system lives in
@@ -77,9 +77,9 @@ rules:
     - "Step 0 MUST be 'Create Feature Branch'. If the change was described by a file, name the branch feat/<filename-without-extension>; otherwise feat/<change-name>."
     - 'MANDATORY step: review and update existing unit tests affected by the change.'
     - 'MANDATORY step: run the affected frontend/backend unit and integration suites and verify the resulting PostgreSQL and storage state; retain legacy Supabase integration checks for unchanged legacy paths.'
-    - "MANDATORY step: exercise the change end to end (`npm run e2e`, or a targeted Playwright spec). Write these as sub-tasks that make it explicit the agent must actually execute them, not just describe them — e.g. 'Run the candidate-search spec', 'Restore seed data afterwards'."
-    - 'MANDATORY step: when the slice touches personal data, permissions, database grants, or storage, include API authorization, least-privilege database, private-storage, and tests/security checks. These must fail closed for unauthenticated and unauthorized users.'
-    - 'MANDATORY step: run `npm run lint` and `npm run format:check` before considering the change done.'
+    - "MANDATORY step: exercise the change end to end (`npm run e2e` from frontend/, or a targeted Playwright spec). Write these as sub-tasks that make it explicit the agent must actually execute them, not just describe them — e.g. 'Run the candidate-search spec', 'Restore seed data afterwards'."
+    - 'MANDATORY step: when the slice touches personal data, permissions, database grants, or storage, include API authorization, least-privilege database, private-storage, and frontend/tests/security checks. These must fail closed for unauthenticated and unauthorized users.'
+    - 'MANDATORY step: run `npm run lint` and `npm run format:check` (from frontend/) before considering the change done.'
     - 'MANDATORY step: update technical documentation (docs/, README.md, or the relevant spec) for anything user-visible or contract-changing.'
     - Break tasks into chunks of at most 2 hours.
     - Every task maps back to a requirement or user story in the proposal.

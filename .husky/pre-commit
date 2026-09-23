@@ -1,3 +1,5 @@
 #!/bin/sh
 
-npx lint-staged
+# The npm project lives in frontend/, but lint-staged runs from the root so the root
+# .lintstagedrc.json applies to staged files anywhere in the repo.
+PATH="$(pwd)/frontend/node_modules/.bin:$PATH" lint-staged

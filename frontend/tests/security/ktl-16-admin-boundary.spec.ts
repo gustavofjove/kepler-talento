@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string): string => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
 
 describe('KTL-16 administration security boundary', () => {
   it('requires authentication and explicit administration permissions at the route boundary', () => {

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string) => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string) => readFileSync(join(repoRoot, relative), 'utf8');
 const migration = read(
   'backend/Infrastructure/Persistence/Migrations/20260917115642_AddCandidateTagsAndNotes.cs',
 );

@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { repoRoot } from '../repo-root';
 
-const read = (relative: string): string => readFileSync(join(process.cwd(), relative), 'utf8');
+const read = (relative: string): string => readFileSync(join(repoRoot, relative), 'utf8');
 
 /** Source without comments, so an explanatory remark naming a forbidden construct is not a hit. */
 const code = (relative: string): string =>
@@ -80,9 +81,7 @@ describe('KTL-18 server-side candidate list security boundary', () => {
   });
 
   it('ships the sort indexes without touching runtime grants', () => {
-    const migrations = readdirSync(
-      join(process.cwd(), 'backend/Infrastructure/Persistence/Migrations'),
-    )
+    const migrations = readdirSync(join(repoRoot, 'backend/Infrastructure/Persistence/Migrations'))
       .filter((name) => name.endsWith('_Ktl18CandidateSortIndexes.cs'))
       .map((name) => read(`backend/Infrastructure/Persistence/Migrations/${name}`));
     expect(migrations).toHaveLength(1);
@@ -90,10 +89,10 @@ describe('KTL-18 server-side candidate list security boundary', () => {
   });
 
   it('holds no whole-table candidate list in the browser', () => {
-    const service = code('src/app/features/candidates/services/candidate.service.ts');
-    const api = code('src/app/features/candidates/services/candidate.api.ts');
-    const page = code('src/app/features/candidates/pages/candidate-list-page.tsx');
-    const logic = code('src/app/features/candidates/pages/candidate-list.logic.ts');
+    const service = code('frontend/src/app/features/candidates/services/candidate.service.ts');
+    const api = code('frontend/src/app/features/candidates/services/candidate.api.ts');
+    const page = code('frontend/src/app/features/candidates/pages/candidate-list-page.tsx');
+    const logic = code('frontend/src/app/features/candidates/pages/candidate-list.logic.ts');
 
     expect(service).not.toMatch(/summaries|ensureAllAggregates|\blist\(/);
     expect(service).not.toMatch(/localStorage|sessionStorage|indexedDB/);
@@ -103,16 +102,16 @@ describe('KTL-18 server-side candidate list security boundary', () => {
   });
 
   it('keeps the free-text term out of the URL and hides include-inactive without permission', () => {
-    const logic = code('src/app/features/candidates/pages/candidate-list.logic.ts');
+    const logic = code('frontend/src/app/features/candidates/pages/candidate-list.logic.ts');
     const params = logic.slice(
       logic.indexOf('export const LIST_PARAMS'),
       logic.indexOf('} as const;', logic.indexOf('export const LIST_PARAMS')),
     );
     expect(params).not.toMatch(/text|\bq\b/);
 
-    const bar = code('src/app/features/candidates/components/candidate-filters-bar.tsx');
+    const bar = code('frontend/src/app/features/candidates/components/candidate-filters-bar.tsx');
     expect(bar).toMatch(/canIncludeInactive \? \(\s*<label/);
-    expect(code('src/app/features/candidates/pages/candidate-list-page.tsx')).toContain(
+    expect(code('frontend/src/app/features/candidates/pages/candidate-list-page.tsx')).toContain(
       "usePermission('candidates.delete')",
     );
   });

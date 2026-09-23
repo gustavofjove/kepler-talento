@@ -4,7 +4,7 @@
 # platform: a CRLF shebang makes the interpreter unresolvable and the container
 # exits 127.
 *.sh text eol=lf
-docker-entrypoint.d/* text eol=lf
+frontend/docker-entrypoint.d/* text eol=lf
 Dockerfile* text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf

@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { repoRoot } from '../repo-root';
 
 describe('candidate-create-signed-cv-url contract', () => {
   const filePath = path.join(
-    process.cwd(),
+    repoRoot,
     'supabase/functions/candidate-create-signed-cv-url/index.ts',
   );
   const source = readFileSync(filePath, 'utf-8');

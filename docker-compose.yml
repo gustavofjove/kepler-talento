@@ -99,8 +99,8 @@ services:
 
   nginx:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
     environment:
       API_BASE_URL: /api
       SUPABASE_URL: ${SUPABASE_URL:-}
