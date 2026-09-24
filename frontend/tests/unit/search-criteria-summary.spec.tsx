@@ -55,4 +55,10 @@ describe('SearchCriteriaSummary', () => {
 
     expect(screen.queryByRole('heading', { name: 'Estados' })).toBeNull();
   });
+
+  it('treats a legacy empty status array as unrestricted', () => {
+    render(<SearchCriteriaSummary filters={filters({ statusValues: [] })} />);
+    expect(screen.getByTestId('filters-summary')).toHaveTextContent('Sin filtros aplicados.');
+    expect(screen.queryByRole('heading', { name: 'Estados' })).toBeNull();
+  });
 });

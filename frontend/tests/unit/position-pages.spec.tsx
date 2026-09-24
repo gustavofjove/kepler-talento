@@ -251,6 +251,17 @@ describe('Position pages', () => {
   // ---- form ----
 
   describe('form', () => {
+    it('uses the shared CV and status controls for position requirements', async () => {
+      renderAt('/app/positions/new');
+      expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
+      expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
+      await userEvent.click(screen.getByTestId('status-disclosure'));
+      expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
+      expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+      expect(positionService.create).not.toHaveBeenCalled();
+    });
+
     it('creates a position and opens its detail page', async () => {
       renderAt('/app/positions/new');
 

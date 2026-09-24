@@ -202,6 +202,8 @@ La migración `ShareSearchPresets` elimina las búsquedas guardadas privadas de 
 volver a crear. Los presets se borran físicamente, con confirmación y contra la versión leída;
 la regla de no borrar físicamente sigue aplicándose a candidatos y catálogos. Búsqueda y los
 presets comparten un único formulario de criterios y un único resumen de solo lectura.
+Al abrir **Búsqueda**, el formulario empieza con los filtros predeterminados. Los filtros de una
+búsqueda guardada se aplican solo cuando se selecciona su preset.
 
 El detalle de rutas, códigos de error, concurrencia, modelo de datos y rollback está en
 [`docs/ktl-14/presets.md`](docs/ktl-14/presets.md), y la nota para usuarios en

@@ -9,27 +9,6 @@ import {
   SearchPreset,
 } from '../models/search.models';
 
-/**
- * The last filter set the user ran, remembered per browser.
- *
- * This is the one thing about search that is still local, and deliberately so: it is a
- * convenience for returning to the same screen on the same machine, not shared or
- * authoritative state. Saved searches themselves are a shared library in PostgreSQL.
- *
- * Saved searches used to live under a browser key of their own. That key is gone from this
- * source - not merely unused but unwritten, so it cannot be resurrected by a careless call -
- * along with everything that read it. Browser data has no trustworthy owner identity, and
- * publishing it to the shared library could disclose someone's private search terms.
- * Retained browser values are ignored: never read, never uploaded, never deleted.
- */
-const STORAGE_LAST_FILTERS_KEY = 'rrhh.search.last-filters.v1';
-
-/** Shape of filters persisted before skill/level criteria replaced the plain value arrays. */
-interface LegacyFilters {
-  languageValues?: unknown;
-  programValues?: unknown;
-}
-
 export type PresetsStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 export interface PresetsState {
@@ -128,29 +107,6 @@ export class SearchPresetsService {
     await this.load();
   }
 
-  rememberLastFilters(filters: SearchFilters): void {
-    try {
-      localStorage.setItem(
-        STORAGE_LAST_FILTERS_KEY,
-        JSON.stringify(this.normalizeFilters(filters)),
-      );
-    } catch {
-      // A browser that refuses storage loses a convenience, not a feature.
-    }
-  }
-
-  loadLastFilters(): SearchFilters {
-    try {
-      const raw = localStorage.getItem(STORAGE_LAST_FILTERS_KEY);
-      if (!raw) {
-        return this.emptyFilters();
-      }
-      return this.normalizeFilters(JSON.parse(raw));
-    } catch {
-      return this.emptyFilters();
-    }
-  }
-
   emptyFilters(): SearchFilters {
     return structuredClone(EMPTY_SEARCH_FILTERS);
   }
@@ -172,25 +128,23 @@ export class SearchPresetsService {
   }
 
   /**
-   * Defensive normalization of a filter value from outside this module - a stored last-filter
-   * value or an API response. The server validates what it stores, so this is not a second
-   * authority; it is what keeps a hand-edited or half-written browser value from reaching
-   * the form as `undefined`.
+   * Defensive normalization of a filter value from an API response. The server validates
+   * what it stores, so this is not a second authority; it keeps an unexpected value from
+   * reaching the form as `undefined`.
    */
-  private normalizeFilters(input: Partial<SearchFilters> & LegacyFilters): SearchFilters {
+  private normalizeFilters(input: Partial<SearchFilters>): SearchFilters {
     return {
       text: typeof input?.text === 'string' ? input.text : '',
-      // No status selection and every status selected mean the same query, so an empty
-      // stored value restores as the default: all statuses checked.
+      // No status selection and every status selected mean the same query.
       statusValues:
         Array.isArray(input?.statusValues) && input.statusValues.length
           ? input.statusValues
           : [...ALL_CANDIDATE_STATUSES],
       skillCriteria: this.normalizeCriteria(input?.skillCriteria),
       skillMode: input?.skillMode === 'ALL' ? 'ALL' : 'ANY',
-      languageCriteria: this.normalizeCriteria(input?.languageCriteria, input?.languageValues),
+      languageCriteria: this.normalizeCriteria(input?.languageCriteria),
       languageMode: input?.languageMode === 'ALL' ? 'ALL' : 'ANY',
-      programCriteria: this.normalizeCriteria(input?.programCriteria, input?.programValues),
+      programCriteria: this.normalizeCriteria(input?.programCriteria),
       programMode: input?.programMode === 'ALL' ? 'ALL' : 'ANY',
       tagCriteria: this.normalizeCriteria(input?.tagCriteria),
       tagMode: input?.tagMode === 'ALL' ? 'ALL' : 'ANY',
@@ -199,11 +153,9 @@ export class SearchPresetsService {
   }
 
   /**
-   * Accepts the current shape and the older last-filter shape that stored plain value
-   * arrays. This conversion applies to the local last-filter value only; it is not a preset
-   * migration, and nothing here can turn browser data into a saved search.
+   * Accepts only the current API shape of criteria.
    */
-  private normalizeCriteria(input: unknown, legacyValues?: unknown): CriteriaFilter[] {
+  private normalizeCriteria(input: unknown): CriteriaFilter[] {
     if (Array.isArray(input)) {
       return input
         .map((item) => ({
@@ -211,11 +163,6 @@ export class SearchPresetsService {
           level: typeof item?.level === 'string' ? item.level : '',
         }))
         .filter((item) => item.value.trim().length > 0);
-    }
-    if (Array.isArray(legacyValues)) {
-      return legacyValues
-        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        .map((value) => ({ value, level: '' }));
     }
     return [];
   }

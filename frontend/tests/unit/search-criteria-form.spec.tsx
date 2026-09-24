@@ -9,7 +9,7 @@ import {
   type SearchFilters,
 } from '../../src/app/features/search/models/search.models';
 import { AppError } from '../../src/app/shared/models/error.models';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   createCatalogTestBed,
   FakeCatalogApi,
@@ -17,8 +17,7 @@ import {
 } from './support/catalog-doubles';
 
 /**
- * The shared criteria editor on its own. Its hosts - the search page and the preset editor -
- * are covered by their own specs; what is proven here is what both of them get.
+ * The shared criteria editor on its own. Search, preset and position hosts have their own specs.
  */
 describe('SearchCriteriaForm', () => {
   const filters = () => structuredClone(EMPTY_SEARCH_FILTERS);
@@ -49,7 +48,7 @@ describe('SearchCriteriaForm', () => {
     expect(form).toContainElement(container.querySelector('[name="presetName"]') as HTMLElement);
   });
 
-  it('keeps the field names, status markers and test ids the e2e suite binds to', () => {
+  it('keeps the field names, status markers and test ids the e2e suite binds to', async () => {
     const { container } = render(
       <SearchCriteriaForm
         filters={filters()}
@@ -62,7 +61,12 @@ describe('SearchCriteriaForm', () => {
     );
 
     expect(container.querySelector('[name="text"]')).not.toBeNull();
-    expect(container.querySelector('[name="hasCv"]')).not.toBeNull();
+    expect(container.querySelectorAll('[name="hasCv"]')).toHaveLength(2);
+    expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
+    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
+    await userEvent.click(screen.getByTestId('status-disclosure'));
     expect(
       Array.from(container.querySelectorAll('[data-status]')).map((input) =>
         input.getAttribute('data-status'),
@@ -75,6 +79,141 @@ describe('SearchCriteriaForm', () => {
       // No criterion yet: nothing to combine, so no ANY/ALL control either.
       expect(screen.queryByTestId(`search-${kind}-mode`)).toBeNull();
     }
+  });
+
+  it('maps the CV checkboxes and status actions without submitting the form', async () => {
+    const onSubmit = vi.fn();
+    function Controlled() {
+      const [current, setCurrent] = useState(filters);
+      return (
+        <SearchCriteriaForm
+          filters={current}
+          onFiltersChange={setCurrent}
+          onSubmit={onSubmit}
+          actions={<button type="submit">Buscar</button>}
+        />
+      );
+    }
+    render(<Controlled />);
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Sin CV' }));
+    expect(screen.getByRole('checkbox', { name: 'Sin CV' })).not.toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Con CV' }));
+    expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Sin CV' }));
+    expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
+
+    await userEvent.click(screen.getByTestId('status-disclosure'));
+    expect(onSubmit).not.toHaveBeenCalled();
+    for (const name of ['Nuevo', 'En proceso', 'Contratado', 'Descartado']) {
+      await userEvent.click(screen.getByRole('checkbox', { name }));
+    }
+    expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Disponible' }));
+    expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Seleccionar todos' }));
+    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('lets a keyboard user change statuses and restore all', async () => {
+    function Controlled() {
+      const [current, setCurrent] = useState(filters);
+      return (
+        <SearchCriteriaForm
+          filters={current}
+          onFiltersChange={setCurrent}
+          onSubmit={vi.fn()}
+          actions={null}
+        />
+      );
+    }
+    render(<Controlled />);
+    screen.getByTestId('status-disclosure').focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'true');
+    screen.getByRole('checkbox', { name: 'Nuevo' }).focus();
+    await userEvent.keyboard(' ');
+    expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    screen.getByTestId('status-select-all').focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).toBeChecked();
+  });
+
+  it('selects only one status with the radio-shaped button and still permits multiple choices', async () => {
+    const onSubmit = vi.fn();
+    function Controlled() {
+      const [current, setCurrent] = useState(filters);
+      return (
+        <SearchCriteriaForm
+          filters={current}
+          onFiltersChange={setCurrent}
+          onSubmit={onSubmit}
+          actions={null}
+        />
+      );
+    }
+    render(<Controlled />);
+    await userEvent.click(screen.getByTestId('status-disclosure'));
+
+    const only = screen.getByRole('button', { name: 'Seleccionar solo Disponible' });
+    expect(screen.queryByRole('radio')).toBeNull();
+    only.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Disponible');
+    expect(only).toHaveAttribute('data-selected', 'true');
+    expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).toBeChecked();
+    expect(only).toHaveAttribute('data-selected', 'false');
+    await userEvent.click(screen.getByTestId('status-select-all'));
+    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('closes status options on an outside click or Escape without changing the selection', async () => {
+    const onFiltersChange = vi.fn();
+    function Controlled() {
+      const [current, setCurrent] = useState(filters);
+      return (
+        <>
+          <SearchCriteriaForm
+            filters={current}
+            onFiltersChange={(next) => {
+              onFiltersChange(next);
+              setCurrent(next);
+            }}
+            onSubmit={vi.fn()}
+            actions={null}
+          />
+          <button type="button">Outside</button>
+        </>
+      );
+    }
+    render(<Controlled />);
+    const disclosure = screen.getByTestId('status-disclosure');
+
+    await userEvent.click(disclosure);
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Outside' }));
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('checkbox', { name: 'Disponible' })).toBeNull();
+    expect(onFiltersChange).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(disclosure);
+    expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    disclosure.focus();
+    await userEvent.keyboard('{Escape}');
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(disclosure).toHaveFocus();
   });
 
   it('adds a criterion with any level, sets its level on the chip and never re-adds it', async () => {
@@ -265,6 +404,7 @@ describe('SearchCriteriaForm', () => {
     );
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Texto' }), 'a');
+    await userEvent.click(screen.getByTestId('status-disclosure'));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Contratado' }));
 
     expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ text: 'a' }));

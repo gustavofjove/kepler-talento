@@ -34,7 +34,7 @@ async function createPreset(page: Page, name: string): Promise<void> {
 
   await page.getByTestId('preset-name').fill(name);
   await page.fill('input[name="text"]', 'Laura');
-  await page.selectOption('select[name="hasCv"]', 'yes');
+  await page.locator('input[name="hasCv"][value="no"]').uncheck();
   await page.getByTestId('preset-save').click();
 
   await expect(page).toHaveURL(/\/app\/admin\/presets$/);
@@ -119,7 +119,8 @@ test.describe('Shared search presets', () => {
     await expect(page.getByText('Laura Garcia')).toBeVisible();
     await page.getByTestId('toggle-filters').click();
     await expect(page.locator('input[name="text"]')).toHaveValue('Laura');
-    await expect(page.locator('select[name="hasCv"]')).toHaveValue('yes');
+    await expect(page.locator('input[name="hasCv"][value="yes"]')).toBeChecked();
+    await expect(page.locator('input[name="hasCv"][value="no"]')).not.toBeChecked();
 
     await page.getByTestId('manage-presets-link').click();
     await expect(page).toHaveURL(/\/app\/admin\/presets$/);

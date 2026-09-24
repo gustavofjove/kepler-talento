@@ -6,6 +6,7 @@ import {
   type SearchFilters,
 } from '../models/search.models';
 import { CRITERIA_GROUPS } from './criteria-group.model';
+import { selectedStatuses } from './search-basic-filters.logic';
 
 export interface StatusOption {
   value: CandidateStatus;
@@ -34,16 +35,20 @@ const modeLabel = (mode: MultiValueMode, t: TFunction): string =>
 export function buildSummaryGroups(filters: SearchFilters, t: TFunction): SummaryGroup[] {
   const options = statusOptions(t);
   const groups: SummaryGroup[] = [];
+  const selected = selectedStatuses(
+    filters.statusValues,
+    options.map((option) => option.value),
+  );
   const statusLabel = (status: string): string =>
     options.find((option) => option.value === status)?.label ?? status;
 
   if (filters.text.trim()) {
     groups.push({ label: t('search.criteria.text'), values: [filters.text.trim()] });
   }
-  if (filters.statusValues.length < options.length) {
+  if (selected.length < options.length) {
     groups.push({
       label: t('search.criteria.statuses'),
-      values: filters.statusValues.map((status) => statusLabel(status)),
+      values: selected.map((status) => statusLabel(status)),
     });
   }
   if (filters.hasCv) {
