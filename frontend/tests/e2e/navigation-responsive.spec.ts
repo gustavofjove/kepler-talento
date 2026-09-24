@@ -1,6 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders, signInAs } from './support/auth';
+import { addValue, chip, chips } from './support/catalog-picker';
 
 /**
  * The counterpart to tests/unit/primary-nav.spec.tsx. Everything that depends
@@ -203,6 +204,67 @@ test.describe('Primary navigation - narrow viewport', () => {
       await page.request.put(`/api/candidates/${candidate.id}/active`, {
         headers: authorizationHeaders(page),
         data: { isActive: false, version: candidate.version },
+      });
+    }
+  });
+
+  test('picker chips wrap and an open chip editor stays on screen', async ({ page }) => {
+    // KTL-24: several chips and an open level editor at 390px, without horizontal scroll.
+    const created = await page.request.post('/api/candidates', {
+      headers: authorizationHeaders(page),
+      data: {
+        firstName: `Chips${Date.now()}`,
+        lastName: 'Estrecho',
+        phone: '',
+        email: '',
+        location: '',
+        province: '',
+        country: 'España',
+        availability: 'Inmediata',
+        status: 'new',
+        source: 'Email',
+        notes: '',
+        receivedAt: '2026-09-24',
+        consentAt: '',
+        reviewDueAt: '',
+      },
+    });
+    expect(created.ok()).toBe(true);
+    const candidate = (await created.json()) as { id: string };
+
+    try {
+      await page.goto(`/app/candidates/${candidate.id}/edit`);
+      for (const language of ['Inglés', 'Francés', 'Alemán', 'Italiano', 'Portugués']) {
+        await addValue(page, 'candidate-language', language, 'C1');
+      }
+      const all = chips(page, 'candidate-language');
+      await expect(all).toHaveCount(5);
+      // Wrapped onto more than one row rather than widening the section.
+      const first = await all.first().boundingBox();
+      const last = await all.last().boundingBox();
+      expect(last!.y).toBeGreaterThan(first!.y);
+
+      await chip(page, 'candidate-language', 'Portugués').click();
+      const editor = page.getByTestId('candidate-language-editor');
+      await expect(editor).toBeVisible();
+      const box = await editor.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390 + 1);
+      await expect(editor.getByRole('radio').last()).toBeInViewport();
+
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+    } finally {
+      const current = await (
+        await page.request.get(`/api/candidates/${candidate.id}`, {
+          headers: authorizationHeaders(page),
+        })
+      ).json();
+      await page.request.put(`/api/candidates/${candidate.id}/active`, {
+        headers: authorizationHeaders(page),
+        data: { isActive: false, version: current.version },
       });
     }
   });

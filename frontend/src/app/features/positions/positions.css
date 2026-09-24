@@ -235,10 +235,6 @@
   margin: 0;
 }
 
-.position-form {
-  max-width: 1100px;
-}
-
 @media (max-width: 768px) {
   .position-filters,
   .position-main-fields,

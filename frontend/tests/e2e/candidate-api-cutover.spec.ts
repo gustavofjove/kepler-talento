@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders } from './support/auth';
+import { addValue, chip, chips, removeValue } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -33,34 +34,28 @@ test.describe('Candidate API cutover', () => {
     const firstName = `Rel${Date.now()}`;
     await create(page, firstName);
 
-    const languages = page.getByTestId('candidate-languages');
-    await languages.locator('select[name="language"]').selectOption({ index: 1 });
-    await languages.locator('select[name="level"]').selectOption({ index: 1 });
-    await languages.locator('button:has-text("Añadir idioma")').click();
-
-    await expect(languages.locator('.item-row')).toHaveCount(1);
+    await addValue(page, 'candidate-language', 'Inglés', 'B1');
+    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
 
     // A full reload proves the relation is stored server-side: nothing about this
     // candidate survives in the browser.
     await page.reload();
-    await expect(page.getByTestId('candidate-languages').locator('.item-row')).toHaveCount(1);
+    await expect(chips(page, 'candidate-language')).toHaveCount(1);
+    await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('B1');
   });
 
   test('removes a relation', async ({ page }) => {
     const firstName = `Del${Date.now()}`;
     await create(page, firstName);
 
-    const languages = page.getByTestId('candidate-languages');
-    await languages.locator('select[name="language"]').selectOption({ index: 1 });
-    await languages.locator('select[name="level"]').selectOption({ index: 1 });
-    await languages.locator('button:has-text("Añadir idioma")').click();
-    await expect(languages.locator('.item-row')).toHaveCount(1);
+    await addValue(page, 'candidate-language', 'Inglés', 'B1');
+    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
 
-    await languages.locator('button:has-text("Quitar")').click();
-    await expect(languages.locator('.item-row')).toHaveCount(0);
+    await removeValue(page, 'candidate-language', 'Inglés');
 
     await page.reload();
-    await expect(page.getByTestId('candidate-languages').locator('.item-row')).toHaveCount(0);
+    await expect(page.getByTestId('candidate-languages')).toBeVisible();
+    await expect(chips(page, 'candidate-language')).toHaveCount(0);
   });
 
   test('records document metadata that survives a reload', async ({ page }) => {

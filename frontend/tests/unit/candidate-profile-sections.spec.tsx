@@ -7,9 +7,6 @@ import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
 import { CandidateEducation } from '../../src/app/features/candidates/components/candidate-education';
 import { CandidateExperience } from '../../src/app/features/candidates/components/candidate-experience';
-import { CandidateLanguages } from '../../src/app/features/candidates/components/candidate-languages';
-import { CandidatePrograms } from '../../src/app/features/candidates/components/candidate-programs';
-import { CandidateSkills } from '../../src/app/features/candidates/components/candidate-skills';
 import { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
 import type { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
 import { loadedCatalogService } from './support/catalog-doubles';
@@ -59,8 +56,6 @@ describe('Candidate profile section components', () => {
       removeEducation: vi.fn(),
       addExperience: vi.fn(),
       removeExperience: vi.fn(),
-      addSkill: vi.fn(),
-      removeSkill: vi.fn(),
     } as unknown as MockedObject<CandidateRelationsService>;
   });
 
@@ -110,60 +105,9 @@ describe('Candidate profile section components', () => {
     });
   });
 
-  describe('CandidateSkills', () => {
-    it('surfaces the duplicate-skill validation error', async () => {
-      relations.addSkill.mockImplementation(() => {
-        throw new Error('El candidato ya tiene esta habilidad registrada.');
-      });
-      renderSection(<CandidateSkills candidateId="c1" skills={[]} />);
-
-      await userEvent.click(screen.getByRole('button', { name: 'Añadir habilidad' }));
-
-      expect(
-        screen.getByText('El candidato ya tiene esta habilidad registrada.'),
-      ).toBeInTheDocument();
-    });
-
-    it('removes a skill through the relations service', async () => {
-      renderSection(
-        <CandidateSkills
-          candidateId="c1"
-          skills={[{ id: 'skill-1', skill: 'Compras', level: 'Medio' }]}
-        />,
-      );
-
-      await userEvent.click(screen.getByRole('button', { name: 'Quitar' }));
-
-      expect(relations.removeSkill).toHaveBeenCalledWith('c1', 'skill-1');
-    });
-  });
-
   // KTL-22: the detail page renders every section read-only, whatever the viewer may do.
+  // Languages, programs, skills and tags are covered by candidate-relation-section.spec.
   describe.each([
-    {
-      name: 'CandidateLanguages',
-      testId: 'candidate-languages',
-      text: 'Inglés',
-      ui: (readOnly: boolean) => (
-        <CandidateLanguages
-          candidateId="c1"
-          languages={[{ id: 'l1', language: 'Inglés', level: 'B2', certification: '' }]}
-          readOnly={readOnly}
-        />
-      ),
-    },
-    {
-      name: 'CandidatePrograms',
-      testId: 'candidate-programs',
-      text: 'SAP',
-      ui: (readOnly: boolean) => (
-        <CandidatePrograms
-          candidateId="c1"
-          programs={[{ id: 'p1', program: 'SAP', level: 'Alto', yearsExperience: 2 }]}
-          readOnly={readOnly}
-        />
-      ),
-    },
     {
       name: 'CandidateEducation',
       testId: 'candidate-education',
@@ -205,18 +149,6 @@ describe('Candidate profile section components', () => {
               isCurrent: true,
             },
           ]}
-          readOnly={readOnly}
-        />
-      ),
-    },
-    {
-      name: 'CandidateSkills',
-      testId: 'candidate-skills',
-      text: 'Compras',
-      ui: (readOnly: boolean) => (
-        <CandidateSkills
-          candidateId="c1"
-          skills={[{ id: 's1', skill: 'Compras', level: 'Medio' }]}
           readOnly={readOnly}
         />
       ),

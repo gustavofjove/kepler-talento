@@ -2,11 +2,10 @@ import type { TFunction } from 'i18next';
 import type { CandidateStatus } from '../../candidates/models/candidate.models';
 import {
   ALL_CANDIDATE_STATUSES,
-  type CriteriaFilter,
   type MultiValueMode,
   type SearchFilters,
 } from '../models/search.models';
-import { CRITERIA_GROUPS, type CriteriaKind } from './criteria-group.model';
+import { CRITERIA_GROUPS } from './criteria-group.model';
 
 export interface StatusOption {
   value: CandidateStatus;
@@ -17,14 +16,6 @@ export interface SummaryGroup {
   label: string;
   values: string[];
 }
-
-/** The criterion each group is composing before it is added to the filters. */
-export const EMPTY_DRAFTS: Record<CriteriaKind, CriteriaFilter> = {
-  skill: { value: '', level: '' },
-  language: { value: '', level: '' },
-  program: { value: '', level: '' },
-  tag: { value: '', level: '' },
-};
 
 export function statusOptions(t: TFunction): StatusOption[] {
   return ALL_CANDIDATE_STATUSES.map((value) => ({

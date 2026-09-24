@@ -86,6 +86,19 @@ navegación sobre el título, por ejemplo «Candidatos › Nombre Apellido › E
 sustituye al antiguo botón «Ver candidato». Los listados y el resto de páginas principales no
 muestran ruta. Consulta la [nota de versión KTL-23](docs/ktl-23/release-notes.md).
 
+## Selector de valores de catálogo KTL-24
+
+Habilidades, idiomas, programas y etiquetas se eligen con un único selector en la búsqueda
+avanzada, los presets, las posiciones y la edición del candidato. Cada familia ocupa una sola
+línea con sus etiquetas y un botón (+); al pulsarlo aparece la lista de valores disponibles, que
+se filtra al escribir, y con Intro el valor se añade como una etiqueta con su nivel. El nivel, la certificación de un
+idioma o los años de un programa se cambian desde la propia etiqueta, sin quitarla y volver a
+añadirla. En el candidato, un idioma, una habilidad o un programa solo se guarda cuando se elige su
+nivel. En la búsqueda, un criterio nuevo empieza en «Cualquier nivel» y el control
+«Cualquiera» / «Todos» aparece a partir de dos criterios. La dependencia nueva
+`react-aria-components` y los identificadores de prueba sustituidos se explican en la
+[nota de versión KTL-24](docs/ktl-24/release-notes.md).
+
 ## Migración de Access KTL-7
 
 El esquema de candidatos (`CND_Candidates` y sus tablas de relación de idiomas, programas,

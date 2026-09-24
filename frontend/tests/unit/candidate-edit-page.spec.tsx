@@ -89,7 +89,9 @@ describe('CandidateEditPage (KTL-22)', () => {
     for (const testId of SECTIONS) {
       expect(screen.getByTestId(testId)).toBeInTheDocument();
     }
-    expect(within(screen.getByTestId('candidate-skills')).getByRole('button')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('candidate-skills')).getByTestId('candidate-skill-add'),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('document-file')).toBeInTheDocument();
     expect(screen.getByTestId('candidate-edit-hint')).toHaveTextContent('«Guardar»');
     expect(screen.getByTestId('candidate-edit-view')).toHaveAttribute('href', '/app/candidates/c1');
@@ -146,6 +148,39 @@ describe('CandidateEditPage (KTL-22)', () => {
     const stored = bed.api.candidates.get('c1');
     expect(stored?.lastName).toBe('Martí');
     expect(stored?.skills.map((item) => item.skill)).toEqual(['Compras']);
+  });
+
+  // KTL-24: through the real relations service and the fake API, not a service double.
+  it('saves a language once its level is chosen and changes the level in place', async () => {
+    await renderAt('/app/candidates/c1/edit');
+
+    await userEvent.click(await screen.findByTestId('candidate-language-add'));
+    await userEvent.type(screen.getByTestId('candidate-language-input'), 'ingl');
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    const editor = await screen.findByTestId('candidate-language-editor');
+    expect(bed.api.candidates.get('c1')?.languages).toEqual([]);
+    await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
+
+    await waitFor(() =>
+      expect(bed.api.candidates.get('c1')?.languages).toEqual([
+        expect.objectContaining({ language: 'Inglés', level: 'B2' }),
+      ]),
+    );
+    const [{ id }] = bed.api.candidates.get('c1')!.languages;
+    await waitFor(() =>
+      expect(screen.getByTestId('candidate-language-chip')).not.toHaveAttribute('data-status'),
+    );
+
+    await userEvent.click(screen.getByTestId('candidate-language-chip'));
+    const reopened = await screen.findByTestId('candidate-language-editor');
+    await userEvent.click(within(reopened).getByRole('radio', { name: 'C1' }));
+
+    await waitFor(() =>
+      expect(bed.api.candidates.get('c1')?.languages).toEqual([
+        expect.objectContaining({ id, language: 'Inglés', level: 'C1' }),
+      ]),
+    );
+    expect(screen.getByTestId('candidate-language-chip')).toHaveTextContent('C1');
   });
 
   it('continues on the new candidate’s edit page after the first save', async () => {

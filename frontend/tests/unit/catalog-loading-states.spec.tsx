@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
-import { CandidateSkills } from '../../src/app/features/candidates/components/candidate-skills';
+import { CandidateRelationSection } from '../../src/app/features/candidates/components/candidate-relation-section';
 import { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
 import { AppError } from '../../src/app/shared/models/error.models';
+import { FakeCandidateApi } from './support/candidate-doubles';
 import { createCatalogTestBed, FakeCatalogApi } from './support/catalog-doubles';
 
 /**
@@ -12,12 +14,13 @@ import { createCatalogTestBed, FakeCatalogApi } from './support/catalog-doubles'
  * rather than render an empty option list as a complete result.
  */
 describe('Catalog-consuming components', () => {
-  // The add form, which is what consumes the catalog, renders only for an editor.
+  // The picker input, which is what consumes the catalog, renders only for an editor.
   const authService = { profile: signal(null), hasPermission: () => true };
+  const candidate = new FakeCandidateApi().seed({ id: 'c1', firstName: 'Ana', lastName: 'Ruiz' });
   const renderWith = (catalogService: CatalogService) =>
     render(
       <ServicesProvider value={{ ...services, catalogService, authService } as unknown as Services}>
-        <CandidateSkills candidateId="c1" skills={[]} />
+        <CandidateRelationSection kind="skill" candidate={candidate} />
       </ServicesProvider>,
     );
 
@@ -36,7 +39,7 @@ describe('Catalog-consuming components', () => {
     renderWith(service);
 
     await waitFor(() => expect(screen.getByTestId('catalog-status')).toHaveTextContent(/Cargando/));
-    expect(screen.getByRole('button', { name: 'Añadir habilidad' })).toBeDisabled();
+    expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
     release?.();
   });
 
@@ -52,19 +55,19 @@ describe('Catalog-consuming components', () => {
         'No se ha podido conectar con el servidor.',
       ),
     );
-    expect(screen.getByRole('button', { name: 'Añadir habilidad' })).toBeDisabled();
+    expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
     expect(screen.queryByRole('option', { name: 'Compras' })).not.toBeInTheDocument();
   });
 
-  it('renders the loaded options once the vocabulary arrives', async () => {
+  it('offers the loaded options once the vocabulary arrives', async () => {
     const { service } = createCatalogTestBed();
 
     renderWith(service);
 
-    await waitFor(() =>
-      expect(screen.getByRole('option', { name: 'Compras' })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByTestId('candidate-skill-add')).toBeEnabled());
+    await userEvent.click(screen.getByTestId('candidate-skill-add'));
     expect(screen.queryByTestId('catalog-status')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Añadir habilidad' })).toBeEnabled();
+    await userEvent.type(screen.getByTestId('candidate-skill-input'), 'comp');
+    expect(screen.getByRole('option', { name: 'Compras' })).toBeInTheDocument();
   });
 });

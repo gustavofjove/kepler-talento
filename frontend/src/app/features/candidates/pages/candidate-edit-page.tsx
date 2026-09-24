@@ -9,11 +9,8 @@ import { CandidateForm } from '../components/candidate-form';
 import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
-import { CandidateLanguages } from '../components/candidate-languages';
 import { CandidateNotes } from '../components/candidate-notes';
-import { CandidatePrograms } from '../components/candidate-programs';
-import { CandidateSkills } from '../components/candidate-skills';
-import { CandidateTags } from '../components/candidate-tags';
+import { CandidateRelationSection } from '../components/candidate-relation-section';
 import type { CandidateDraft } from '../models/candidate.models';
 
 export function CandidateEditPage() {
@@ -102,10 +99,10 @@ export function CandidateEditPage() {
       {candidate ? (
         <div className="grid two">
           <article className="panel">
-            <CandidateLanguages candidateId={candidate.id} languages={candidate.languages} />
+            <CandidateRelationSection kind="language" candidate={candidate} />
           </article>
           <article className="panel">
-            <CandidatePrograms candidateId={candidate.id} programs={candidate.programs} />
+            <CandidateRelationSection kind="program" candidate={candidate} />
           </article>
           <article className="panel">
             <CandidateEducation candidateId={candidate.id} education={candidate.education} />
@@ -114,10 +111,10 @@ export function CandidateEditPage() {
             <CandidateExperience candidateId={candidate.id} experience={candidate.experience} />
           </article>
           <article className="panel">
-            <CandidateSkills candidateId={candidate.id} skills={candidate.skills} />
+            <CandidateRelationSection kind="skill" candidate={candidate} />
           </article>
           <article className="panel">
-            <CandidateTags candidateId={candidate.id} tags={candidate.tags} />
+            <CandidateRelationSection kind="tag" candidate={candidate} />
           </article>
           <article className="panel span-all">
             <CandidateNotes candidateId={candidate.id} initialNotes={candidate.customNotes} />

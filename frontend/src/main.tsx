@@ -8,6 +8,7 @@ import './styles.css';
 import './app/core/i18n/i18n';
 
 import { createRoot } from 'react-dom/client';
+import { I18nProvider } from 'react-aria-components';
 import { RouterProvider } from 'react-router/dom';
 import { createAppRouter } from './app/app';
 import { appNavigator } from './app/core/di/services';
@@ -29,4 +30,9 @@ if (!container) {
 // Deliberately no <StrictMode>: React 19 double-invokes effects in development,
 // which would double-fire toasts and diverge from the Angular behaviour this
 // port must reproduce. Enabling it is tracked as a follow-up.
-createRoot(container).render(<RouterProvider router={router} />);
+// react-aria (catalog value picker) localizes its few internal strings from this locale.
+createRoot(container).render(
+  <I18nProvider locale="es-ES">
+    <RouterProvider router={router} />
+  </I18nProvider>,
+);

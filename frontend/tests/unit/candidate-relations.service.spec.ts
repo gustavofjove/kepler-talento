@@ -153,6 +153,67 @@ describe('CandidateRelationsService', () => {
     });
   });
 
+  // KTL-24: entries are changed in place from their chip, keeping their id.
+  describe('updates in place', () => {
+    it('changes a language level and keeps its id and certification', async () => {
+      await relations.addLanguage(candidateId, {
+        language: 'Inglés',
+        level: 'B1',
+        certification: 'TOEFL',
+      });
+      const [language] = candidateService.find(candidateId)!.languages;
+
+      await relations.updateLanguage(candidateId, { ...language, level: 'C1' });
+
+      expect(candidateService.find(candidateId)?.languages).toEqual([
+        { ...language, level: 'C1', certification: 'TOEFL' },
+      ]);
+    });
+
+    it('refuses to rename a language onto another one the candidate has', async () => {
+      await relations.addLanguage(candidateId, { language: 'Inglés', level: 'B1' });
+      await relations.addLanguage(candidateId, { language: 'Francés', level: 'A2' });
+      const french = candidateService.find(candidateId)!.languages[1];
+
+      await expect(
+        relations.updateLanguage(candidateId, { ...french, language: 'inglés' }),
+      ).rejects.toThrow(/ya tiene este idioma/i);
+    });
+
+    it('changes a skill level without tripping over itself as a duplicate', async () => {
+      await relations.addSkill(candidateId, { skill: 'Compras', level: 'Medio' });
+      const [skill] = candidateService.find(candidateId)!.skills;
+
+      await relations.updateSkill(candidateId, { ...skill, level: 'Alto' });
+
+      expect(candidateService.find(candidateId)?.skills).toEqual([{ ...skill, level: 'Alto' }]);
+    });
+
+    it('changes the years of a program and refuses negative ones', async () => {
+      await relations.addProgram(candidateId, { program: 'SAP', level: 'Medio' });
+      const [program] = candidateService.find(candidateId)!.programs;
+
+      await relations.updateProgram(candidateId, { ...program, yearsExperience: 4 });
+      expect(candidateService.find(candidateId)?.programs[0].yearsExperience).toBe(4);
+
+      await expect(
+        relations.updateProgram(candidateId, { ...program, yearsExperience: -1 }),
+      ).rejects.toThrow(/no pueden ser negativos/i);
+      expect(candidateService.find(candidateId)?.programs[0].yearsExperience).toBe(4);
+    });
+
+    it('refuses an entry that is no longer there instead of adding it back', async () => {
+      await relations.addSkill(candidateId, { skill: 'Compras', level: 'Medio' });
+      const [skill] = candidateService.find(candidateId)!.skills;
+      await relations.removeSkill(candidateId, skill.id);
+
+      await expect(relations.updateSkill(candidateId, { ...skill, level: 'Alto' })).rejects.toThrow(
+        /ya no existe/i,
+      );
+      expect(candidateService.find(candidateId)?.skills).toHaveLength(0);
+    });
+  });
+
   it('throws when the candidate does not exist', async () => {
     await expect(
       relations.addLanguage('missing-id', { language: 'Inglés', level: 'B1' }),

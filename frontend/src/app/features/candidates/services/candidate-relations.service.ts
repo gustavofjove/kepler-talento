@@ -14,6 +14,17 @@ const sameText = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
+ * The collection with `entry` in place of the one sharing its id. An id no longer present,
+ * because another tab removed it, is refused rather than silently re-added.
+ */
+function replaceById<T extends { id: string }>(items: T[], entry: T): T[] {
+  if (!items.some((item) => item.id === entry.id)) {
+    throw new TranslatableError('candidate.profile.validation.entryNotFound');
+  }
+  return items.map((item) => (item.id === entry.id ? entry : item));
+}
+
+/**
  * Candidate relation collections.
  *
  * The validation rules are unchanged; failures are `TranslatableError`s keyed into
@@ -38,6 +49,22 @@ export class CandidateRelationsService {
     await this.candidateService.setLanguages(candidateId, [...candidate.languages, language]);
   }
 
+  /** Changes an entry in place (level, certification), keeping its id. */
+  async updateLanguage(candidateId: string, language: CandidateLanguage): Promise<void> {
+    const candidate = await this.require(candidateId);
+    if (
+      candidate.languages.some(
+        (item) => item.id !== language.id && sameText(item.language, language.language),
+      )
+    ) {
+      throw new TranslatableError('candidate.profile.languages.duplicate');
+    }
+    await this.candidateService.setLanguages(
+      candidateId,
+      replaceById(candidate.languages, language),
+    );
+  }
+
   async removeLanguage(candidateId: string, languageId: string): Promise<void> {
     const candidate = await this.require(candidateId);
     await this.candidateService.setLanguages(
@@ -56,6 +83,22 @@ export class CandidateRelationsService {
     }
     const program: CandidateProgram = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setPrograms(candidateId, [...candidate.programs, program]);
+  }
+
+  /** Changes an entry in place (level, years of experience), keeping its id. */
+  async updateProgram(candidateId: string, program: CandidateProgram): Promise<void> {
+    const candidate = await this.require(candidateId);
+    if (
+      candidate.programs.some(
+        (item) => item.id !== program.id && sameText(item.program, program.program),
+      )
+    ) {
+      throw new TranslatableError('candidate.profile.programs.duplicate');
+    }
+    if (program.yearsExperience !== undefined && program.yearsExperience < 0) {
+      throw new TranslatableError('candidate.profile.validation.negativeYears');
+    }
+    await this.candidateService.setPrograms(candidateId, replaceById(candidate.programs, program));
   }
 
   async removeProgram(candidateId: string, programId: string): Promise<void> {
@@ -118,6 +161,17 @@ export class CandidateRelationsService {
     }
     const skill: CandidateSkill = { ...input, id: crypto.randomUUID() };
     await this.candidateService.setSkills(candidateId, [...candidate.skills, skill]);
+  }
+
+  /** Changes an entry's level in place, keeping its id. */
+  async updateSkill(candidateId: string, skill: CandidateSkill): Promise<void> {
+    const candidate = await this.require(candidateId);
+    if (
+      candidate.skills.some((item) => item.id !== skill.id && sameText(item.skill, skill.skill))
+    ) {
+      throw new TranslatableError('candidate.profile.skills.duplicate');
+    }
+    await this.candidateService.setSkills(candidateId, replaceById(candidate.skills, skill));
   }
 
   async removeSkill(candidateId: string, skillId: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { offered } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -50,17 +51,16 @@ test.describe('Catalog management CRUD', () => {
     await page.selectOption('select[name="family"]', 'language');
     await expect(page.locator(`tbody tr:has-text("${editedName}")`)).toBeVisible();
 
-    // A deactivated value is no longer offered on a candidate form.
+    // A deactivated value is not offered on a candidate form, whatever is typed.
     await page.goto('/app/candidates/new');
     await page.fill('input[name="firstName"]', `Cat${suffix}`);
     await page.fill('input[name="lastName"]', 'Test');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
-    const languageSelect = page
-      .getByTestId('candidate-languages')
-      .locator('select[name="language"]');
-    await expect(languageSelect.locator('option', { hasText: 'Inglés' }).first()).toBeAttached();
-    await expect(languageSelect.locator(`option:text-is("${editedName}")`)).toHaveCount(0);
+    const candidateEditUrl = page.url();
+    await expect(page.getByTestId('candidate-language-add')).toBeEnabled();
+    await expect(await offered(page, 'candidate-language', 'Ingl')).toHaveCount(1);
+    await expect(await offered(page, 'candidate-language', editedName)).toHaveCount(0);
 
     // Reactivating puts it back in its family position.
     await page.goto('/app/catalogs');
@@ -72,6 +72,18 @@ test.describe('Catalog management CRUD', () => {
     await expect(
       page.locator(`tbody tr:has-text("${editedName}")`).locator('span.badge'),
     ).toContainText('Activo');
+
+    // ...and the candidate picker offers it again by typing its name.
+    await page.goto(candidateEditUrl);
+    await expect(page.getByTestId('candidate-language-add')).toBeEnabled();
+    const back = await offered(page, 'candidate-language', editedName.toLowerCase());
+    await expect(back).toHaveCount(1);
+    await expect(back).toHaveText(editedName);
+
+    // Leave no test candidate behind: retire it through the product's logical path.
+    await page.goto(candidateEditUrl.replace(/\/edit$/, ''));
+    await page.locator('button.button.danger').click();
+    await page.getByTestId('confirm-accept').click();
   });
 
   test('edit mode offers only save and cancel and locks the other rows', async ({ page }) => {

@@ -1,120 +1,100 @@
+import { useTranslation } from 'react-i18next';
+import { ToggleButton, ToggleButtonGroup } from 'react-aria-components';
+import { CatalogValuePicker } from '../../catalogs/components/catalog-value-picker';
+import {
+  normalizeName,
+  pickerTestIds,
+  type PickerItem,
+} from '../../catalogs/components/catalog-value-picker.logic';
 import type { CriteriaFilter, MultiValueMode } from '../models/search.models';
 import type { CriteriaGroupDefinition } from './criteria-group.model';
-import { useTranslation } from 'react-i18next';
 
 interface Props {
   group: CriteriaGroupDefinition;
   criteria: CriteriaFilter[];
   mode: MultiValueMode;
-  draft: CriteriaFilter;
   valueOptions: string[];
   levelOptions: string[];
-  onDraftChange: (draft: CriteriaFilter) => void;
-  onAdd: () => void;
-  onRemove: (index: number) => void;
+  disabled?: boolean;
+  onCriteriaChange: (criteria: CriteriaFilter[]) => void;
   onModeChange: (mode: MultiValueMode) => void;
 }
 
+const toItem = (criterion: CriteriaFilter): PickerItem => ({
+  key: normalizeName(criterion.value),
+  value: criterion.value,
+  level: criterion.level,
+});
+
+const toCriterion = (item: PickerItem): CriteriaFilter => ({
+  value: item.value,
+  level: item.level,
+});
+
+/**
+ * One multi-value filter family on the shared catalog value picker. It only maps criteria
+ * to picker items and back; the level is optional, so a new criterion means any level until
+ * it is set on its chip. The same prefixes serve the search, preset and position pages.
+ */
 export function CriteriaGroup({
   group,
   criteria,
   mode,
-  draft,
   valueOptions,
   levelOptions,
-  onDraftChange,
-  onAdd,
-  onRemove,
+  disabled = false,
+  onCriteriaChange,
   onModeChange,
 }: Props) {
   const { t } = useTranslation();
+  const idPrefix = `search-${group.kind}`;
   const label = t(group.labelKey);
-  return (
-    <fieldset className="criteria-group" data-criteria={group.kind} aria-label={label}>
-      <div className="criteria-add">
-        <div className="field">
-          <label htmlFor={`${group.kind}-value`}>{label}</label>
-          <select
-            id={`${group.kind}-value`}
-            name={`${group.kind}Draft`}
-            value={draft.value}
-            onChange={(e) => onDraftChange({ ...draft, value: e.target.value })}
-          >
-            <option value="">{t('search.criteria.option.select')}</option>
-            {valueOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </div>
-        {group.levelFamily ? (
-          <div className="field">
-            <label htmlFor={`${group.kind}-level`}>{t(group.levelLabelKey!)}</label>
-            <select
-              id={`${group.kind}-level`}
-              name={`${group.kind}LevelDraft`}
-              value={draft.level}
-              onChange={(e) => onDraftChange({ ...draft, level: e.target.value })}
-            >
-              <option value="">{t('search.criteria.level.any')}</option>
-              {levelOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        <button
-          className="button secondary small"
-          type="button"
-          disabled={!draft.value}
-          data-testid={`add-${group.kind}`}
-          onClick={onAdd}
-        >
-          {t(group.addLabelKey)}
-        </button>
-      </div>
+  const items = criteria.map(toItem);
 
-      {criteria.length ? (
-        <>
-          <div className="criteria-mode">
-            <label htmlFor={`${group.kind}-mode`}>{t('search.criteria.match')}</label>
-            <select
-              id={`${group.kind}-mode`}
-              name={`${group.kind}Mode`}
-              value={mode}
-              onChange={(e) => onModeChange(e.target.value === 'ALL' ? 'ALL' : 'ANY')}
-            >
-              <option value="ANY">{t('search.criteria.mode.any')}</option>
-              <option value="ALL">{t('search.criteria.mode.all')}</option>
-            </select>
-          </div>
-          <ul className="criteria-list">
-            {criteria.map((criterion, index) => (
-              <li key={`${criterion.value}-${index}`}>
-                <span>
-                  <span className="badge">{criterion.value}</span>{' '}
-                  {criterion.level || (group.levelFamily ? t('search.criteria.level.any') : '')}
-                </span>
-                <button
-                  className="button ghost small"
-                  type="button"
-                  aria-label={t('search.criteria.remove', { value: criterion.value })}
-                  onClick={() => onRemove(index)}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="empty-state">
-          {t('search.criteria.group.empty', { label: label.toLowerCase() })}
-        </p>
-      )}
-    </fieldset>
+  // ANY/ALL only means something from two criteria, so it is not shown before then.
+  const modeToggle =
+    criteria.length < 2 ? null : (
+      <ToggleButtonGroup
+        aria-label={t('search.criteria.mode.label', { label })}
+        className="criteria-mode"
+        data-testid={pickerTestIds(idPrefix).mode}
+        selectionMode="single"
+        disallowEmptySelection
+        selectedKeys={[mode]}
+        onSelectionChange={(keys) => onModeChange([...keys][0] === 'ALL' ? 'ALL' : 'ANY')}
+      >
+        <ToggleButton id="ANY" className="criteria-mode-option" data-value="ANY">
+          {t('search.criteria.mode.any')}
+        </ToggleButton>
+        <ToggleButton id="ALL" className="criteria-mode-option" data-value="ALL">
+          {t('search.criteria.mode.all')}
+        </ToggleButton>
+      </ToggleButtonGroup>
+    );
+
+  return (
+    <div className="criteria-group" data-criteria={group.kind}>
+      <CatalogValuePicker
+        idPrefix={idPrefix}
+        label={label}
+        addLabel={t(group.addLabelKey)}
+        valueOptions={valueOptions}
+        levelOptions={group.levelFamily ? levelOptions : undefined}
+        levelMode="optional"
+        anyLevelLabel={t('search.criteria.level.any')}
+        items={items}
+        disabled={disabled}
+        headerAction={modeToggle}
+        onAdd={(item) => onCriteriaChange([...criteria, toCriterion(item)])}
+        onChange={(item) =>
+          onCriteriaChange(
+            items.map((current) => toCriterion(current.key === item.key ? item : current)),
+          )
+        }
+        onRemove={(item) =>
+          onCriteriaChange(items.filter((current) => current.key !== item.key).map(toCriterion))
+        }
+      />
+    </div>
   );
 }

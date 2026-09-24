@@ -73,6 +73,20 @@ describe('i18n foundation', () => {
     }
   });
 
+  // KTL-24: the picker's add labels are reached through the criteria and relation tables.
+  it('resolves every catalog picker key', () => {
+    for (const kind of ['skill', 'language', 'program', 'tag']) {
+      expect(i18n.t(`catalogPicker.add.${kind}`)).toMatch(/^Añadir .+…$/);
+    }
+    for (const key of ['noResults', 'level', 'pending', 'retry']) {
+      expect(i18n.t(`catalogPicker.${key}`)).not.toContain('catalogPicker');
+    }
+    expect(i18n.t('catalogPicker.remove', { value: 'Inglés' })).toBe('Quitar Inglés');
+    expect(i18n.t('search.criteria.mode.label', { label: 'Idiomas' })).toBe(
+      'Coincidencia de Idiomas',
+    );
+  });
+
   it('fails the test run on a missing key, naming it', () => {
     expect(() => i18n.t('candidate.profile.does.not.exist')).toThrow(
       /candidate\.profile\.does\.not\.exist/,
