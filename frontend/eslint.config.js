@@ -10,7 +10,6 @@ const i18next = require('eslint-plugin-i18next');
 // render it with t(), and delete the path here. Never add a file to silence the rule.
 const LEGACY_HARDCODED_COPY = [
   'src/app/core/layout/app-layout.tsx',
-  'src/app/features/search/components/criteria-group.tsx',
   'src/app/features/search/components/search-results.tsx',
 ];
 

@@ -1,5 +1,14 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import {
+  addFirstOffered,
+  addValue,
+  chip,
+  chips,
+  offered,
+  removeValue,
+  setLevel,
+} from './support/catalog-picker';
 import { ensureSearchCandidate } from './support/seed-candidate';
 
 test.use({ storageState: authFile('rrhh_admin') });
@@ -20,8 +29,25 @@ test.describe('Advanced search', () => {
 
   test('offers tag criteria without a level control', async ({ page }) => {
     await page.goto('/app/search');
-    await expect(page.locator('select[name="tagDraft"]')).toBeVisible();
-    await expect(page.locator('select[name="tagLevelDraft"]')).toHaveCount(0);
+
+    // A tag chip shows no level and opens no level editor.
+    await addFirstOffered(page, 'search-tag');
+    const tag = chips(page, 'search-tag');
+    await tag.click();
+    await expect(page.getByTestId('search-tag-editor')).toHaveCount(0);
+  });
+
+  test('sets a criterion level on its chip instead of adding the value twice', async ({ page }) => {
+    await page.goto('/app/search');
+    await addValue(page, 'search-language', 'Inglés');
+    await setLevel(page, 'search-language', 'Inglés', 'B2');
+    await expect(chip(page, 'search-language', 'Inglés')).toContainText('B2');
+
+    await expect(await offered(page, 'search-language', 'Ingl')).toHaveCount(0);
+    await expect(chips(page, 'search-language')).toHaveCount(1);
+
+    await removeValue(page, 'search-language', 'Inglés');
+    await expect(await offered(page, 'search-language', 'Ingl')).not.toHaveCount(0);
   });
 
   test('shows no results for a text filter that matches nobody', async ({ page }) => {
@@ -102,17 +128,17 @@ test.describe('Advanced search', () => {
     // Same candidate, opposite CV filter: she has a principal CV, so she must disappear.
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
 
-    // The ANY/ALL control only exists once a family holds a criterion, and the criterion
-    // itself is added from the catalog-backed select.
+    // The ANY/ALL control appears once a family holds two criteria.
     await page.getByTestId('toggle-filters').click();
     await page.selectOption('select[name="hasCv"]', '');
-    const skill = page.locator('select[name="skillDraft"] option').nth(1);
-    await page.selectOption('select[name="skillDraft"]', await skill.getAttribute('value'));
-    await page.getByTestId('add-skill').click();
+    const all = page.getByTestId('search-skill-mode').locator('[data-value="ALL"]');
+    await addFirstOffered(page, 'search-skill');
+    // A single criterion has nothing to combine: no ANY/ALL control yet.
+    await expect(page.getByTestId('search-skill-mode')).toHaveCount(0);
+    await addFirstOffered(page, 'search-skill');
 
-    const mode = page.locator('select[name="skillMode"]');
-    await expect(mode).toBeVisible();
-    await mode.selectOption('ALL');
+    await all.click();
+    await expect(all).toHaveAttribute('aria-checked', 'true');
     await page.click('button[type="submit"]:has-text("Buscar")');
 
     // The seeded candidate declares no skills, so requiring one must exclude her. What this

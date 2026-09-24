@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
@@ -7,7 +7,7 @@ import type { CandidateStatus } from '../../candidates/models/candidate.models';
 import type { CriteriaFilter, SearchFilters } from '../models/search.models';
 import { CriteriaGroup } from './criteria-group';
 import { CRITERIA_GROUPS, type CriteriaKind } from './criteria-group.model';
-import { EMPTY_DRAFTS, statusOptions } from './search-criteria.logic';
+import { statusOptions } from './search-criteria.logic';
 import { SearchCriteriaSummary } from './search-criteria-summary';
 import './search-filters.css';
 
@@ -43,7 +43,6 @@ export function SearchCriteriaForm({
   const { t } = useTranslation();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
-  const [drafts, setDrafts] = useState<Record<CriteriaKind, CriteriaFilter>>(EMPTY_DRAFTS);
   const options = useMemo(() => statusOptions(t), [t]);
 
   const collapsible = onCollapsedChange !== undefined;
@@ -58,22 +57,10 @@ export function SearchCriteriaForm({
     });
   };
 
-  const addCriterion = (kind: CriteriaKind): void => {
-    const draft = drafts[kind];
-    if (!draft.value) {
-      return;
-    }
-    // A value can only appear once per type: adding it again replaces its level.
-    const criteria = filters[`${kind}Criteria`];
-    const index = criteria.findIndex((item) => item.value === draft.value);
-    onFiltersChange({
-      ...filters,
-      [`${kind}Criteria`]:
-        index >= 0
-          ? criteria.map((item, i) => (i === index ? { ...draft } : item))
-          : [...criteria, { ...draft }],
-    });
-    setDrafts((current) => ({ ...current, [kind]: { value: '', level: '' } }));
+  // A value appears once per family: the picker never offers one already held, so its
+  // level is changed on its chip rather than by adding it again.
+  const setCriteria = (kind: CriteriaKind, criteria: CriteriaFilter[]): void => {
+    onFiltersChange({ ...filters, [`${kind}Criteria`]: criteria });
   };
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
@@ -101,7 +88,8 @@ export function SearchCriteriaForm({
       <form className="grid" onSubmit={submit} noValidate>
         {leading}
 
-        <SearchCriteriaSummary filters={filters} />
+        {/* The chips already show every criterion while the body is open. */}
+        {isCollapsed ? <SearchCriteriaSummary filters={filters} /> : null}
 
         {!isCollapsed ? (
           <div className="filters-body grid">
@@ -162,21 +150,10 @@ export function SearchCriteriaForm({
                 group={group}
                 criteria={filters[`${group.kind}Criteria`]}
                 mode={filters[`${group.kind}Mode`]}
-                draft={drafts[group.kind]}
                 valueOptions={catalogs.activeNames(group.valueFamily)}
                 levelOptions={group.levelFamily ? catalogs.activeNames(group.levelFamily) : []}
-                onDraftChange={(draft) =>
-                  setDrafts((current) => ({ ...current, [group.kind]: draft }))
-                }
-                onAdd={() => addCriterion(group.kind)}
-                onRemove={(index) =>
-                  onFiltersChange({
-                    ...filters,
-                    [`${group.kind}Criteria`]: filters[`${group.kind}Criteria`].filter(
-                      (_, i) => i !== index,
-                    ),
-                  })
-                }
+                disabled={Boolean(catalogStatus.message)}
+                onCriteriaChange={(criteria) => setCriteria(group.kind, criteria)}
                 onModeChange={(mode) =>
                   onFiltersChange({ ...filters, [`${group.kind}Mode`]: mode })
                 }

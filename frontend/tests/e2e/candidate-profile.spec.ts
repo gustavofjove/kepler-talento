@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { authorizationHeaders } from './support/auth';
+import { addValue, chip, chips, offered, openInput, setLevel } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -17,26 +19,40 @@ async function createCandidate(
 }
 
 test.describe('Candidate profile enrichment', () => {
-  test('adds a language, a skill, and rejects a duplicate language', async ({ page }) => {
+  test('adds a language and a skill, changes a level in place, and never duplicates', async ({
+    page,
+  }) => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Perfil${suffix}`, 'Test');
+    const id = page.url().split('/').at(-2)!;
+    const stored = async () =>
+      (
+        await (
+          await page.request.get(`/api/candidates/${id}`, { headers: authorizationHeaders(page) })
+        ).json()
+      ).languages as { id: string; language: string; level: string }[];
 
-    const languagesPanel = page.getByTestId('candidate-languages');
-    await languagesPanel.locator('select[name="language"]').selectOption('Inglés');
-    await languagesPanel.locator('select[name="level"]').selectOption('B2');
-    await languagesPanel.locator('button:has-text("Añadir idioma")').click();
-    await expect(languagesPanel.locator('span.badge:has-text("Inglés")')).toBeVisible();
+    await addValue(page, 'candidate-language', 'Inglés', 'B2');
+    await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('B2');
+    // A value the candidate already has is not offered, so it cannot be added twice.
+    await expect(await offered(page, 'candidate-language', 'Ingl')).toHaveCount(0);
 
-    await languagesPanel.locator('select[name="language"]').selectOption('Inglés');
-    await languagesPanel.locator('select[name="level"]').selectOption('C1');
-    await languagesPanel.locator('button:has-text("Añadir idioma")').click();
-    await expect(languagesPanel.locator('text=ya tiene este idioma')).toBeVisible();
+    // Abandoning the level choice saves nothing.
+    await (await openInput(page, 'candidate-language')).fill('Alem');
+    await page.getByRole('listbox').getByRole('option', { name: 'Alemán', exact: true }).click();
+    await expect(page.getByTestId('candidate-language-editor')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('candidate-language-editor')).toHaveCount(0);
+    await expect(chips(page, 'candidate-language')).toHaveCount(1);
 
-    const skillsPanel = page.getByTestId('candidate-skills');
-    await skillsPanel.locator('select[name="skill"]').selectOption('Compras');
-    await skillsPanel.locator('select[name="level"]').selectOption('Medio');
-    await skillsPanel.locator('button:has-text("Añadir habilidad")').click();
-    await expect(skillsPanel.locator('span.badge:has-text("Compras")')).toBeVisible();
+    // The level changes in place: same entry, new level, nothing added or removed.
+    const [before] = await stored();
+    await setLevel(page, 'candidate-language', 'Inglés', 'C1');
+    await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('C1');
+    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
+    expect(await stored()).toEqual([expect.objectContaining({ id: before.id, level: 'C1' })]);
+
+    await addValue(page, 'candidate-skill', 'Compras', 'Medio');
 
     // A section change followed by a core save on the same page must not conflict.
     await page.fill('input[name="lastName"]', 'Test Editado');
@@ -47,8 +63,8 @@ test.describe('Candidate profile enrichment', () => {
     // The detail page shows what was added, read-only, even for an administrator.
     await page.getByTestId('candidate-edit-view').click();
     await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
-    const detailSkills = page.getByTestId('candidate-skills');
-    await expect(detailSkills.locator('span.badge')).toHaveCount(1);
+    await expect(chips(page, 'candidate-skill')).toHaveCount(1);
+    await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('C1');
     for (const testId of [
       'candidate-languages',
       'candidate-programs',
@@ -62,6 +78,7 @@ test.describe('Candidate profile enrichment', () => {
       const section = page.getByTestId(testId);
       await expect(section.locator('form')).toHaveCount(0);
       await expect(section.locator('button')).toHaveCount(0);
+      await expect(section.getByRole('combobox')).toHaveCount(0);
     }
     await expect(page.getByTestId('document-file')).toHaveCount(0);
   });

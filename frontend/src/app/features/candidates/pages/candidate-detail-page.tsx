@@ -7,11 +7,8 @@ import { CandidateCvPreview } from '../components/candidate-cv-preview';
 import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
-import { CandidateLanguages } from '../components/candidate-languages';
-import { CandidatePrograms } from '../components/candidate-programs';
-import { CandidateSkills } from '../components/candidate-skills';
-import { CandidateTags } from '../components/candidate-tags';
 import { CandidateNotes } from '../components/candidate-notes';
+import { CandidateRelationSection } from '../components/candidate-relation-section';
 import { candidateFullName } from '../candidate-name';
 import { mailtoHref, telHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
@@ -166,10 +163,10 @@ export function CandidateDetailPage() {
       {/* Viewing only: every change is made on the edit page, whatever the viewer may do. */}
       <div className="grid two">
         <article className="panel">
-          <CandidateLanguages candidateId={item.id} languages={item.languages} readOnly />
+          <CandidateRelationSection kind="language" candidate={item} readOnly />
         </article>
         <article className="panel">
-          <CandidatePrograms candidateId={item.id} programs={item.programs} readOnly />
+          <CandidateRelationSection kind="program" candidate={item} readOnly />
         </article>
         <article className="panel">
           <CandidateEducation candidateId={item.id} education={item.education} readOnly />
@@ -178,10 +175,10 @@ export function CandidateDetailPage() {
           <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
         </article>
         <article className="panel">
-          <CandidateSkills candidateId={item.id} skills={item.skills} readOnly />
+          <CandidateRelationSection kind="skill" candidate={item} readOnly />
         </article>
         <article className="panel">
-          <CandidateTags candidateId={item.id} tags={item.tags} readOnly />
+          <CandidateRelationSection kind="tag" candidate={item} readOnly />
         </article>
         <article className="panel span-all">
           <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />

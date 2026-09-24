@@ -98,6 +98,13 @@ test.describe('Secure access', () => {
     await expect(readonlyPage.getByTestId('candidate-edit-view')).toHaveCount(0);
     await expect(readonlyPage.locator('[data-testid^="candidate-"] form')).toHaveCount(0);
     await expect(readonlyPage.getByTestId('document-file')).toHaveCount(0);
+    // KTL-24: every relation section renders its chips only, with no picker input.
+    for (const family of ['language', 'program', 'skill', 'tag']) {
+      await expect(readonlyPage.getByTestId(`candidate-${family}-picker`)).toBeVisible();
+      await expect(readonlyPage.getByTestId(`candidate-${family}-input`)).toHaveCount(0);
+      await expect(readonlyPage.getByTestId(`candidate-${family}-add`)).toHaveCount(0);
+    }
+    await expect(readonlyPage.getByRole('combobox')).toHaveCount(0);
     await readonlyPage.goto(`/app/candidates/${candidateId}/edit`);
     await expect(readonlyPage).toHaveURL(/\/app$/);
     const unauthorized = await readonlyPage.request.get(
@@ -115,6 +122,9 @@ test.describe('Secure access', () => {
     const readonlyHeaders = authorizationHeaders(readonlyPage);
     const writes = [
       ['put', `/api/candidates/${candidateId}/skills`, { skills: [], version: 1 }],
+      ['put', `/api/candidates/${candidateId}/languages`, { languages: [], version: 1 }],
+      ['put', `/api/candidates/${candidateId}/programs`, { programs: [], version: 1 }],
+      ['put', `/api/candidates/${candidateId}/tags`, { tags: [], version: 1 }],
       ['post', `/api/candidates/${candidateId}/notes`, { body: 'Nota no autorizada' }],
       ['post', `/api/candidates/${candidateId}/documents`, undefined],
     ] as const;

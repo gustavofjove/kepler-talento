@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { addValue, chip } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -32,9 +33,8 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
   // KTL-22: tags and notes are edited on the edit page, where creation continues.
   await expect(page).toHaveURL(/\/app\/candidates\/[0-9a-f-]+\/edit$/);
   const candidateUrl = page.url().replace(/\/edit$/, '');
-  await page.getByTestId('candidate-tag-select').selectOption({ label: tag });
-  await page.getByTestId('candidate-tags').locator('button[type="submit"]').click();
-  await expect(page.getByTestId('candidate-tags')).toContainText(tag);
+  await addValue(page, 'candidate-tag', tag);
+  await expect(chip(page, 'candidate-tag', tag)).not.toHaveAttribute('data-status');
 
   await page.getByTestId('candidate-note-body').fill(note);
   await page.getByTestId('candidate-notes').locator('form button[type="submit"]').click();
@@ -50,14 +50,13 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
 
   // The detail page shows the tag but offers no way to change tags or notes.
   await page.goto(candidateUrl);
-  await expect(page.getByTestId('candidate-tags')).toContainText(tag);
-  await expect(page.getByTestId('candidate-tag-select')).toHaveCount(0);
+  await expect(chip(page, 'candidate-tag', tag)).toBeVisible();
+  await expect(page.getByTestId('candidate-tag-input')).toHaveCount(0);
   await expect(page.getByTestId('candidate-note-body')).toHaveCount(0);
   await expect(page.getByTestId('candidate-tags').locator('button')).toHaveCount(0);
 
   await page.goto('/app/search');
-  await page.selectOption('select[name="tagDraft"]', { label: tag });
-  await page.getByTestId('add-tag').click();
+  await addValue(page, 'search-tag', tag);
   await page.locator('form button[type="submit"]').click();
   await expect(page.getByText(`${firstName} Candidate`)).toBeVisible();
 
