@@ -185,20 +185,7 @@
   outline: 2px solid rgba(22, 33, 54, 0.15);
   outline-offset: 0;
 }
-.criteria-group {
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-}
-/* One compact row per family; a fixed label width lines the four rows up. */
-.criteria-group {
-  padding: 8px 12px;
-}
-.criteria-group .catalog-picker-label {
-  flex: 0 0 6.5rem;
-}
+/* The row look (border, label column) lives in catalog-family-rows.css. */
 /* ANY/ALL toggle next to the family label, shown from two criteria. */
 .criteria-mode {
   display: inline-flex;

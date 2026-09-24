@@ -73,8 +73,6 @@ export interface CatalogValuePickerProps {
   onRetry?: (item: PickerItem) => void;
 }
 
-/** Key of the one uncommitted item a required-level picker holds while its level is chosen. */
-const DRAFT_KEY = '__catalog-picker-draft__';
 /** Collection key standing for the empty level, which react-aria cannot key on. */
 const ANY_LEVEL = '__any-level__';
 
@@ -84,8 +82,9 @@ const ANY_LEVEL = '__any-level__';
  *
  * Purely presentational. The host owns the items and hears synchronous intents; an async host
  * reflects its progress back through each item's `status`. The picker keeps only transient UI
- * state: the typed text, which chip's editor is open, and - for a required level - the one
- * value being added until its level is chosen, so no host can receive a partial entry.
+ * state: the typed text and which chip's editor is open. A required level is never left empty:
+ * a new item starts at the lowest level (the first option, in catalog order), and a picker
+ * with no level to offer cannot add.
  */
 export function CatalogValuePicker({
   idPrefix,
@@ -114,7 +113,6 @@ export function CatalogValuePicker({
   const ids = pickerTestIds(idPrefix);
   const labelId = useId();
   const [query, setQuery] = useState('');
-  const [draft, setDraft] = useState<PickerItem | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const chipRefs = useRef(new Map<string, HTMLDivElement>());
   const inputRef = useRef<HTMLInputElement>(null);
@@ -126,17 +124,12 @@ export function CatalogValuePicker({
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const openListOnMount = useRef(false);
   const focusAddButton = useRef(false);
-  const editingRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!refocusInput.current) return;
     refocusInput.current = false;
     inputRef.current?.focus();
   }, [comboKey]);
-
-  useEffect(() => {
-    editingRef.current = editingKey;
-  }, [editingKey]);
 
   useEffect(() => {
     if (adding || !focusAddButton.current) return;
@@ -155,11 +148,9 @@ export function CatalogValuePicker({
     setAdding(false);
   };
 
-  // Back to (+) once focus has settled somewhere other than the input or its list. The level
-  // editor of a value being added also takes focus, but the input stays for the next value.
+  // Back to (+) once focus has settled somewhere other than the input or its list.
   const collapseWhenIdle = (): void => {
     requestAnimationFrame(() => {
-      if (editingRef.current === DRAFT_KEY) return;
       const active = document.activeElement;
       if (active === inputRef.current || active?.closest('.catalog-picker-popover')) return;
       collapse(false);
@@ -167,14 +158,14 @@ export function CatalogValuePicker({
   };
   const hasLevels = levelOptions !== undefined;
   const required = hasLevels && levelMode === 'required';
+  // A required level with nothing to offer would add an entry without one.
+  const addDisabled = disabled || (required && !levelOptions?.length);
 
-  const shown = useMemo(() => (draft ? [...items, draft] : items), [items, draft]);
   const offered = useMemo(
-    () => filterOptions(valueOptions, query, shown).map((value) => ({ id: value })),
-    [valueOptions, query, shown],
+    () => filterOptions(valueOptions, query, items).map((value) => ({ id: value })),
+    [valueOptions, query, items],
   );
-  const editing =
-    editingKey === DRAFT_KEY ? draft : (items.find((item) => item.key === editingKey) ?? null);
+  const editing = items.find((item) => item.key === editingKey) ?? null;
 
   // Read when the popover positions itself, after the chip it anchors to has mounted.
   const anchorRef = useMemo<RefObject<HTMLElement | null>>(
@@ -186,54 +177,25 @@ export function CatalogValuePicker({
     [editingKey],
   );
 
-  const closeEditor = (): void => {
-    if (editingKey === DRAFT_KEY) {
-      setDraft(null);
-      // The draft chip the editor would return focus to is gone once it closes, so focus would
-      // fall to the page. Put it back in the input, ready for the next value, after react-aria
-      // has finished restoring - but never take it from wherever the user has clicked.
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          const active = document.activeElement;
-          if (!active || active === document.body) inputRef.current?.focus();
-        }),
-      );
-    }
-    setEditingKey(null);
-  };
+  const closeEditor = (): void => setEditingKey(null);
 
   const choose = (key: Key | null): void => {
     if (key === null) return;
     const value = String(key);
     setQuery('');
-    if (required) {
-      setDraft({ key: DRAFT_KEY, value, level: '', details: {} });
-      setEditingKey(DRAFT_KEY);
-      return;
-    }
-    onAdd({ key: value, value, level: '' });
+    onAdd(
+      required
+        ? { key: value, value, level: levelOptions?.[0] ?? '', details: {} }
+        : { key: value, value, level: '' },
+    );
     // With a controlled selection react-aria leaves the list open after a choice; a fresh
     // combobox closes it, and focus goes back to its input for the next value.
     refocusInput.current = true;
     setComboKey((current) => current + 1);
   };
 
-  const commit = (item: PickerItem): void => {
-    if (item.key === DRAFT_KEY) {
-      const { key: _draftKey, ...rest } = item;
-      onAdd({ ...rest, key: item.value });
-      setDraft(null);
-    } else {
-      onChange(item);
-    }
-  };
-
   const remove = (keys: Set<Key>): void => {
     for (const key of keys) {
-      if (key === DRAFT_KEY) {
-        closeEditor();
-        continue;
-      }
       const item = items.find((candidate) => candidate.key === key);
       if (item) onRemove(item);
     }
@@ -255,13 +217,13 @@ export function CatalogValuePicker({
         </span>
         {headerAction}
 
-        {shown.length ? (
+        {items.length ? (
           <TagGroup
             aria-labelledby={labelId}
             className="catalog-picker-chips"
             onRemove={readOnly ? undefined : remove}
           >
-            <TagList items={shown} className="catalog-picker-chip-list">
+            <TagList items={items} className="catalog-picker-chip-list">
               {(item) => (
                 <Tag
                   id={item.key}
@@ -274,16 +236,15 @@ export function CatalogValuePicker({
                   data-testid={ids.chip}
                   data-value={item.value}
                   data-status={item.status}
-                  data-draft={item.key === DRAFT_KEY || undefined}
                   onAction={canEdit ? () => setEditingKey(item.key) : undefined}
                 >
                   <span className="catalog-picker-chip-value">{item.value}</span>
-                  {hasLevels && item.key !== DRAFT_KEY ? (
+                  {hasLevels ? (
                     <span className="catalog-picker-chip-level">
                       {item.level ? (formatLevel?.(item.level) ?? item.level) : anyLevelLabel}
                     </span>
                   ) : null}
-                  {item.key !== DRAFT_KEY && detailText?.(item) ? (
+                  {detailText?.(item) ? (
                     <span className="catalog-picker-chip-detail">{detailText(item)}</span>
                   ) : null}
                   {item.status === 'pending' ? (
@@ -316,7 +277,7 @@ export function CatalogValuePicker({
             // Filtering is ours: accent-insensitive and excluding values already held.
             defaultFilter={() => true}
             allowsEmptyCollection
-            isDisabled={disabled}
+            isDisabled={addDisabled}
           >
             <PickerInput
               ref={inputRef}
@@ -355,7 +316,7 @@ export function CatalogValuePicker({
             data-testid={ids.add}
             aria-label={addLabel}
             title={addLabel}
-            disabled={disabled}
+            disabled={addDisabled}
             onClick={startAdding}
           >
             <span aria-hidden="true">+</span>
@@ -364,7 +325,7 @@ export function CatalogValuePicker({
       </div>
 
       {/* Where values can be added the (+) says enough; a read-only empty picker says why. */}
-      {!shown.length && readOnly && emptyText ? (
+      {!items.length && readOnly && emptyText ? (
         <p className="empty-state catalog-picker-empty-state">{emptyText}</p>
       ) : null}
 
@@ -407,13 +368,12 @@ export function CatalogValuePicker({
             <ChipEditor
               key={editing.key}
               item={editing}
-              isDraft={editing.key === DRAFT_KEY}
               levelOptions={levelOptions ?? []}
               optional={!required}
               anyLevelLabel={anyLevelLabel}
               levelLabel={levelLabel}
               renderDetails={renderDetails}
-              onCommit={commit}
+              onCommit={onChange}
               onClose={closeEditor}
             />
           </Dialog>
@@ -488,7 +448,6 @@ function RemoveButton({ label, testId }: { label: string; testId: string }) {
 
 interface ChipEditorProps {
   item: PickerItem;
-  isDraft: boolean;
   levelOptions: string[];
   optional: boolean;
   anyLevelLabel: string;
@@ -499,12 +458,11 @@ interface ChipEditorProps {
 }
 
 /**
- * The level and details of one chip. Choosing a level commits the whole draft and closes;
- * detail fields commit when focus leaves them or on Enter, once the item has a level.
+ * The level and details of one chip. Choosing a level commits the item and closes; detail
+ * fields commit when focus leaves them or on Enter, once the item has a level.
  */
 function ChipEditor({
   item,
-  isDraft,
   levelOptions,
   optional,
   anyLevelLabel,
@@ -530,7 +488,7 @@ function ChipEditor({
   };
 
   const commitDetails = (): void => {
-    if (isDraft || !hasLevel || sameItem(current, committed)) return;
+    if (!hasLevel || sameItem(current, committed)) return;
     onCommit(current);
     setCommitted(current);
   };
@@ -541,7 +499,7 @@ function ChipEditor({
   const confirmDetails = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key !== 'Enter' || !(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
-    if (isDraft || !hasLevel) return;
+    if (!hasLevel) return;
     commitDetails();
     onClose();
   };
@@ -594,11 +552,6 @@ function ChipEditor({
           ))}
         </ToggleButtonGroup>
       )}
-      {isDraft ? (
-        <p className="catalog-picker-hint">
-          {t('catalogPicker.levelRequired', { value: item.value })}
-        </p>
-      ) : null}
       {renderDetails ? (
         <div className="catalog-picker-details" onBlur={leaveDetails} onKeyDown={confirmDetails}>
           {renderDetails(current, setCurrent)}

@@ -5,6 +5,7 @@ import {
   type MultiValueMode,
   type SearchFilters,
 } from '../models/search.models';
+import { CATALOG_FAMILY_ORDER } from '../../catalogs/components/catalog-family-rows.logic';
 import { CRITERIA_GROUPS } from './criteria-group.model';
 import { selectedStatuses } from './search-basic-filters.logic';
 
@@ -57,7 +58,7 @@ export function buildSummaryGroups(filters: SearchFilters, t: TFunction): Summar
       values: [t(filters.hasCv === 'yes' ? 'search.criteria.cv.yes' : 'search.criteria.cv.no')],
     });
   }
-  for (const group of CRITERIA_GROUPS) {
+  for (const group of CATALOG_FAMILY_ORDER.map((kind) => CRITERIA_GROUPS[kind])) {
     const criteria = filters[`${group.kind}Criteria`];
     if (!criteria.length) {
       continue;

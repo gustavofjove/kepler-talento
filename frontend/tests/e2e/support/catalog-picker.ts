@@ -6,8 +6,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
  * or `candidate-language`; each page renders one picker per prefix.
  *
  * Search pickers take an optional level: add the value, then `setLevel`. Candidate pickers
- * (except tags) require one: pass it to `addValue`, which chooses it in the editor that
- * opens on adding.
+ * (except tags) require one and add at the family's lowest level (KTL-27): pass the wanted
+ * level to `addValue`, which changes it on the saved chip when it differs.
  */
 
 /** Every chip of a picker. */
@@ -70,8 +70,19 @@ export async function addValue(
 ): Promise<void> {
   await (await openInput(page, prefix)).fill(name);
   await page.getByRole('listbox').getByRole('option', { name, exact: true }).click();
-  if (level !== undefined) await chooseLevel(page, prefix, level);
-  // A candidate chip is replaced by the saved entry's once the write lands; wait for that.
+  await settled(page, prefix, name);
+  if (level === undefined) return;
+  // The chip reads «value · level …»; only open its editor when the level must change.
+  const current = await chip(page, prefix, name)
+    .locator('.catalog-picker-chip-level')
+    .textContent();
+  if (current?.trim() === level) return;
+  await setLevel(page, prefix, name, level);
+  await settled(page, prefix, name);
+}
+
+/** A candidate chip is replaced by the saved entry's once the write lands; wait for that. */
+async function settled(page: Page, prefix: string, name: string): Promise<void> {
   await expect(chip(page, prefix, name)).toBeVisible();
   await expect(chip(page, prefix, name)).not.toHaveAttribute('data-status');
 }

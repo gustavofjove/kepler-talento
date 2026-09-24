@@ -93,11 +93,20 @@ avanzada, los presets, las posiciones y la edición del candidato. Cada familia 
 línea con sus etiquetas y un botón (+); al pulsarlo aparece la lista de valores disponibles, que
 se filtra al escribir, y con Intro el valor se añade como una etiqueta con su nivel. El nivel, la certificación de un
 idioma o los años de un programa se cambian desde la propia etiqueta, sin quitarla y volver a
-añadirla. En el candidato, un idioma, una habilidad o un programa solo se guarda cuando se elige su
-nivel. En la búsqueda, un criterio nuevo empieza en «Cualquier nivel» y el control
+añadirla. En la búsqueda, un criterio nuevo empieza en «Cualquier nivel» y el control
 «Cualquiera» / «Todos» aparece a partir de dos criterios. La dependencia nueva
 `react-aria-components` y los identificadores de prueba sustituidos se explican en la
 [nota de versión KTL-24](docs/ktl-24/release-notes.md).
+
+## Panel de competencias KTL-27
+
+Todas las pantallas muestran habilidades, idiomas, programas y etiquetas con las mismas filas, en
+ese orden y con la etiqueta en la misma línea que sus valores. En la ficha y en la edición del
+candidato, las cuatro familias están juntas en el panel «Competencias», y todas las secciones
+ocupan el ancho completo, una debajo de otra. Un idioma, una habilidad o un programa se guarda en
+cuanto se elige, con el nivel más bajo activo de su catálogo; el nivel, la certificación o los años
+se cambian pulsando su etiqueta. Si una familia no tiene niveles activos, no se le pueden añadir
+valores. Consulta la [nota de versión KTL-27](docs/ktl-27/release-notes.md).
 
 ## Migración de Access KTL-7
 

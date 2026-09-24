@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
-import { CandidateRelationSection } from '../../src/app/features/candidates/components/candidate-relation-section';
+import { CandidateCompetencies } from '../../src/app/features/candidates/components/candidate-competencies';
 import { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
 import { AppError } from '../../src/app/shared/models/error.models';
 import { FakeCandidateApi } from './support/candidate-doubles';
@@ -20,7 +20,7 @@ describe('Catalog-consuming components', () => {
   const renderWith = (catalogService: CatalogService) =>
     render(
       <ServicesProvider value={{ ...services, catalogService, authService } as unknown as Services}>
-        <CandidateRelationSection kind="skill" candidate={candidate} />
+        <CandidateCompetencies candidate={candidate} />
       </ServicesProvider>,
     );
 
@@ -57,6 +57,23 @@ describe('Catalog-consuming components', () => {
     );
     expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
     expect(screen.queryByRole('option', { name: 'Compras' })).not.toBeInTheDocument();
+  });
+
+  it('says once which family cannot be added to while its levels are all inactive', async () => {
+    const { service } = createCatalogTestBed(
+      new FakeCatalogApi({ skill: ['Compras'], skill_level: [], language_level: ['A1'] }),
+    );
+
+    renderWith(service);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('catalog-status')).toHaveTextContent(
+        'No hay niveles activos de Habilidades',
+      ),
+    );
+    expect(screen.getAllByTestId('catalog-status')).toHaveLength(1);
+    expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
+    expect(screen.getByTestId('candidate-language-add')).toBeEnabled();
   });
 
   it('offers the loaded options once the vocabulary arrives', async () => {

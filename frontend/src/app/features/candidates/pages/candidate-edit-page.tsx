@@ -10,7 +10,7 @@ import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateNotes } from '../components/candidate-notes';
-import { CandidateRelationSection } from '../components/candidate-relation-section';
+import { CandidateCompetencies } from '../components/candidate-competencies';
 import type { CandidateDraft } from '../models/candidate.models';
 
 export function CandidateEditPage() {
@@ -97,13 +97,9 @@ export function CandidateEditPage() {
         <CandidateForm key={candidateId || 'new'} candidate={candidate} onSave={save} />
       </article>
       {candidate ? (
-        <div className="grid two">
-          <article className="panel">
-            <CandidateRelationSection kind="language" candidate={candidate} />
-          </article>
-          <article className="panel">
-            <CandidateRelationSection kind="program" candidate={candidate} />
-          </article>
+        // One full-width section per row, in reading order (KTL-27).
+        <div className="grid">
+          <CandidateCompetencies candidate={candidate} />
           <article className="panel">
             <CandidateEducation candidateId={candidate.id} education={candidate.education} />
           </article>
@@ -111,12 +107,6 @@ export function CandidateEditPage() {
             <CandidateExperience candidateId={candidate.id} experience={candidate.experience} />
           </article>
           <article className="panel">
-            <CandidateRelationSection kind="skill" candidate={candidate} />
-          </article>
-          <article className="panel">
-            <CandidateRelationSection kind="tag" candidate={candidate} />
-          </article>
-          <article className="panel span-all">
             <CandidateNotes candidateId={candidate.id} initialNotes={candidate.customNotes} />
           </article>
           <article className="panel">

@@ -8,7 +8,7 @@ import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateNotes } from '../components/candidate-notes';
-import { CandidateRelationSection } from '../components/candidate-relation-section';
+import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
 import { mailtoHref, telHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
@@ -127,7 +127,9 @@ export function CandidateDetailPage() {
           ) : null}
         </div>
       </div>
-      <div className="grid two">
+      {/* One full-width section per row, in reading order (KTL-27). Viewing only: every change
+          is made on the edit page, whatever the viewer may do. */}
+      <div className="grid">
         <article className="panel">
           <h2>{t('candidate.detail.mainData')}</h2>
           <dl className="prop-list">
@@ -159,15 +161,7 @@ export function CandidateDetailPage() {
             </dd>
           </dl>
         </article>
-      </div>
-      {/* Viewing only: every change is made on the edit page, whatever the viewer may do. */}
-      <div className="grid two">
-        <article className="panel">
-          <CandidateRelationSection kind="language" candidate={item} readOnly />
-        </article>
-        <article className="panel">
-          <CandidateRelationSection kind="program" candidate={item} readOnly />
-        </article>
+        <CandidateCompetencies candidate={item} readOnly />
         <article className="panel">
           <CandidateEducation candidateId={item.id} education={item.education} readOnly />
         </article>
@@ -175,12 +169,6 @@ export function CandidateDetailPage() {
           <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
         </article>
         <article className="panel">
-          <CandidateRelationSection kind="skill" candidate={item} readOnly />
-        </article>
-        <article className="panel">
-          <CandidateRelationSection kind="tag" candidate={item} readOnly />
-        </article>
-        <article className="panel span-all">
           <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />
         </article>
         <article className="panel">

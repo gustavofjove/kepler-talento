@@ -4,7 +4,6 @@ import { usePermission, useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { CatalogValuePicker } from '../../catalogs/components/catalog-value-picker';
 import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
-import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import type { Candidate } from '../models/candidate.models';
@@ -25,11 +24,12 @@ interface Props {
 }
 
 /**
- * One catalog-backed relation of a candidate (languages, skills, programs or tags) on the
- * shared picker. Every add, change and removal persists at once through the relations
- * service; each chip carries its own pending or failed state, so a refused write never
- * disturbs the other entries or the core form. Languages, skills and programs need a level
- * before anything is written.
+ * One catalog-backed relation of a candidate (languages, skills, programs or tags): a row of
+ * the Competencias panel, on the shared picker. Every add, change and removal persists at
+ * once through the relations service; each chip carries its own pending or failed state, so a
+ * refused write never disturbs the other entries or the core form. Languages, skills and
+ * programs are added at their lowest level, changed from the chip. The panel shows the
+ * catalog notice.
  */
 export function CandidateRelationSection({ kind, candidate, readOnly = false }: Props) {
   const { t } = useTranslation();
@@ -78,13 +78,10 @@ export function CandidateRelationSection({ kind, candidate, readOnly = false }: 
   };
 
   return (
-    <section className="section-block" data-testid={definition.testId}>
-      <h3 className="section-title">{t(definition.titleKey)}</h3>
-      {canEdit ? <CatalogStatusNotice status={catalogStatus} /> : null}
+    <div data-testid={definition.testId}>
       <CatalogValuePicker
         idPrefix={definition.idPrefix}
         label={t(definition.titleKey)}
-        labelHidden
         addLabel={t(definition.addLabelKey)}
         valueOptions={catalogs.activeNames(definition.valueFamily)}
         levelOptions={
@@ -111,7 +108,7 @@ export function CandidateRelationSection({ kind, candidate, readOnly = false }: 
           if (write) void run(write.intent);
         }}
       />
-    </section>
+    </div>
   );
 }
 

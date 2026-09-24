@@ -118,11 +118,6 @@
   color: var(--danger);
 }
 
-.catalog-picker-chip[data-draft] {
-  background: var(--bg-1);
-  border-style: dashed;
-}
-
 .catalog-picker-chip-value {
   overflow-wrap: anywhere;
 }
@@ -308,12 +303,6 @@
 .catalog-picker-select-button[data-focus-visible] {
   outline: 2px solid var(--fj-orange-bright);
   outline-offset: 2px;
-}
-
-.catalog-picker-hint {
-  color: var(--fg-3);
-  font-size: 12px;
-  margin: 0;
 }
 
 .catalog-picker-details {
