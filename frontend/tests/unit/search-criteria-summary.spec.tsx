@@ -44,9 +44,9 @@ describe('SearchCriteriaSummary', () => {
     expect(group('Estados')).toHaveTextContent('En proceso');
     expect(group('CV')).toHaveTextContent('Con CV');
     // The combination mode is only worth stating when there is more than one criterion.
-    expect(group('Habilidad (Todos)')).toHaveTextContent('Java · Avanzado');
+    expect(group('Habilidad (Todos)')).toHaveTextContent('Java · ≥ Avanzado');
     expect(group('Habilidad (Todos)')).toHaveTextContent('SQL');
-    expect(group('Idiomas')).toHaveTextContent('Inglés · B2');
+    expect(group('Idiomas')).toHaveTextContent('Inglés · ≥ B2');
     expect(group('Etiquetas')).toHaveTextContent('Recontratable');
   });
 

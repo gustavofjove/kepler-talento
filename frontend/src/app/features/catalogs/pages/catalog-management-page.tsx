@@ -153,6 +153,10 @@ export function CatalogManagementPage() {
           </p>
         </div>
 
+        {(['language_level', 'program_level', 'skill_level'] as CatalogFamily[]).includes(
+          activeFamily,
+        ) && <p className="muted">{t('catalogs.management.levelOrderHint')}</p>}
+
         <form className="grid two" onSubmit={(event) => void createItem(event)} noValidate>
           <div className="field">
             <label htmlFor="newNameEs">{t('catalogs.management.form.name')}</label>

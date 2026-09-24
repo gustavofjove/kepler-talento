@@ -83,6 +83,21 @@ public sealed class SearchFilterNormalizationTests
     }
 
     [Fact]
+    public void Different_minimums_for_one_value_remain_distinct_in_schema_one()
+    {
+        var filters = SearchFilterNormalization.Normalize(
+            new SearchFiltersInput(null, null, null, null,
+                [new SearchCriterionInput("Inglés", "B2"), new SearchCriterionInput("Inglés", "C1")],
+                "ALL", null, null, null), "Filters");
+
+        Assert.Equal(["B2", "C1"], filters.LanguageCriteria.Select(criterion => criterion.Level));
+        Assert.Equal(MultiValueMode.All, filters.LanguageMode);
+        Assert.Equal(1, SearchFilterNormalization.FilterSchemaVersion);
+        var stored = SearchFilterDocument.Serialize(filters);
+        Assert.Equal(stored, SearchFilterDocument.Serialize(SearchFilterDocument.Parse(stored)));
+    }
+
+    [Fact]
     public void Empty_and_complete_status_selections_are_both_unrestricted()
     {
         var empty = SearchFilterNormalization.Normalize(

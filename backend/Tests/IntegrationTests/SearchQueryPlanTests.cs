@@ -74,6 +74,13 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
             Assert.DoesNotContain("Seq Scan on \"CND_CandidateSkills\"", plan, StringComparison.Ordinal);
             Assert.DoesNotContain("Seq Scan on \"CND_CandidateLanguages\"", plan, StringComparison.Ordinal);
             Assert.DoesNotContain("Seq Scan on \"CND_CandidatePrograms\"", plan, StringComparison.Ordinal);
+            if (name == "Skill ALL across three values")
+            {
+                Assert.Contains("\"LevelId\" = ANY", plan, StringComparison.Ordinal);
+                Assert.Contains("Index Scan using \"UX_CND_CandidateSkills_CandidateId_SkillId\"", plan,
+                    StringComparison.Ordinal);
+                Assert.DoesNotContain("\"CAT_CatalogItems\"", plan, StringComparison.Ordinal);
+            }
         }
 
         var path = Path.Combine(RepositoryRoot(), "docs", "ktl-10", "query-plans.md");

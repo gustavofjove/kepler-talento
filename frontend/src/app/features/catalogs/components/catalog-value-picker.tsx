@@ -54,6 +54,8 @@ export interface CatalogValuePickerProps {
   levelMode?: 'optional' | 'required';
   /** Chip and option text for an empty level in an optional-level picker. */
   anyLevelLabel?: string;
+  levelLabel?: string;
+  formatLevel?: (level: string) => string;
   items: PickerItem[];
   /** Shown instead of the chips while there are none. */
   emptyText?: string;
@@ -94,6 +96,8 @@ export function CatalogValuePicker({
   levelOptions,
   levelMode = 'optional',
   anyLevelLabel = '',
+  levelLabel,
+  formatLevel,
   items,
   emptyText,
   readOnly = false,
@@ -261,7 +265,7 @@ export function CatalogValuePicker({
               {(item) => (
                 <Tag
                   id={item.key}
-                  textValue={chipText(item, hasLevels, anyLevelLabel)}
+                  textValue={chipText(item, hasLevels, anyLevelLabel, formatLevel)}
                   ref={(element: HTMLDivElement | null) => {
                     if (element) chipRefs.current.set(item.key, element);
                     else chipRefs.current.delete(item.key);
@@ -275,7 +279,9 @@ export function CatalogValuePicker({
                 >
                   <span className="catalog-picker-chip-value">{item.value}</span>
                   {hasLevels && item.key !== DRAFT_KEY ? (
-                    <span className="catalog-picker-chip-level">{item.level || anyLevelLabel}</span>
+                    <span className="catalog-picker-chip-level">
+                      {item.level ? (formatLevel?.(item.level) ?? item.level) : anyLevelLabel}
+                    </span>
                   ) : null}
                   {item.key !== DRAFT_KEY && detailText?.(item) ? (
                     <span className="catalog-picker-chip-detail">{detailText(item)}</span>
@@ -405,6 +411,7 @@ export function CatalogValuePicker({
               levelOptions={levelOptions ?? []}
               optional={!required}
               anyLevelLabel={anyLevelLabel}
+              levelLabel={levelLabel}
               renderDetails={renderDetails}
               onCommit={commit}
               onClose={closeEditor}
@@ -485,6 +492,7 @@ interface ChipEditorProps {
   levelOptions: string[];
   optional: boolean;
   anyLevelLabel: string;
+  levelLabel?: string;
   renderDetails?: CatalogValuePickerProps['renderDetails'];
   onCommit: (item: PickerItem) => void;
   onClose: () => void;
@@ -500,6 +508,7 @@ function ChipEditor({
   levelOptions,
   optional,
   anyLevelLabel,
+  levelLabel,
   renderDetails,
   onCommit,
   onClose,
@@ -545,11 +554,11 @@ function ChipEditor({
     <div className="catalog-picker-editor-form">
       {levelOptions.length > MAX_TOGGLE_LEVELS ? (
         <Select
-          aria-label={t('catalogPicker.level')}
+          aria-label={levelLabel ?? t('catalogPicker.level')}
           className="catalog-picker-level-select"
           selectedKey={selectedLevel}
           onSelectionChange={chooseLevel}
-          placeholder={t('catalogPicker.level')}
+          placeholder={levelLabel ?? t('catalogPicker.level')}
         >
           <Button className="catalog-picker-select-button">
             <SelectValue />
@@ -566,7 +575,7 @@ function ChipEditor({
         </Select>
       ) : (
         <ToggleButtonGroup
-          aria-label={t('catalogPicker.level')}
+          aria-label={levelLabel ?? t('catalogPicker.level')}
           className="catalog-picker-levels"
           selectionMode="single"
           disallowEmptySelection
@@ -599,8 +608,17 @@ function ChipEditor({
   );
 }
 
-function chipText(item: PickerItem, hasLevels: boolean, anyLevelLabel: string): string {
-  const level = hasLevels ? item.level || anyLevelLabel : '';
+function chipText(
+  item: PickerItem,
+  hasLevels: boolean,
+  anyLevelLabel: string,
+  formatLevel?: (level: string) => string,
+): string {
+  const level = hasLevels
+    ? item.level
+      ? (formatLevel?.(item.level) ?? item.level)
+      : anyLevelLabel
+    : '';
   return level ? `${item.value} ${level}` : item.value;
 }
 

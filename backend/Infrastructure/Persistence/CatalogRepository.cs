@@ -44,6 +44,17 @@ public sealed class CatalogRepository(
         string subjectId,
         CancellationToken cancellationToken)
     {
+        if (auditEventType == CatalogAuditEvents.Reordered)
+        {
+            // A reorder is one family-wide decision. Force an optimistic-concurrency
+            // update for every loaded member, including those staying in place, so two
+            // requests swapping disjoint pairs cannot both commit a mixed order.
+            foreach (var entry in dbContext.ChangeTracker.Entries<CatalogItem>()
+                .Where(entry => entry.Entity.Family == subjectId))
+            {
+                entry.Property(item => item.SortOrder).IsModified = true;
+            }
+        }
         dbContext.AuditEvents.Add(new AuditEvent(
             Guid.CreateVersion7(),
             auditEventType,

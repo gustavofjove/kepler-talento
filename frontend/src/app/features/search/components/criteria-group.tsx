@@ -82,6 +82,8 @@ export function CriteriaGroup({
         levelOptions={group.levelFamily ? levelOptions : undefined}
         levelMode="optional"
         anyLevelLabel={t('search.criteria.level.any')}
+        levelLabel={t('search.criteria.level.minimum')}
+        formatLevel={(level) => t('search.criteria.level.atLeast', { level })}
         items={items}
         disabled={disabled}
         headerAction={modeToggle}

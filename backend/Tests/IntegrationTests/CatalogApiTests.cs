@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Identity;
+using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Features.Catalogs;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;
@@ -155,6 +157,39 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
             .AsNoTracking()
             .Where(item => item.Family == Family && item.NameNormalized == "catalan")
             .ToListAsync());
+    }
+
+    [Fact]
+    public async Task Stale_disjoint_reorders_cannot_commit_a_mixed_family_order()
+    {
+        await ResetAsync();
+        await using var firstContext = NewDbContext();
+        await using var secondContext = NewDbContext();
+        var first = new CatalogRepository(firstContext, new TestCorrelationContext(), TestActor.Manager);
+        var second = new CatalogRepository(secondContext, new TestCorrelationContext(), TestActor.Manager);
+
+        // Both requests read the same order before either saves. Their swaps touch disjoint
+        // rows, so per-row concurrency on changed items alone would let both succeed.
+        var firstItems = await first.ListAsync(Family, includeInactive: true, CancellationToken.None);
+        var secondItems = await second.ListAsync(Family, includeInactive: true, CancellationToken.None);
+        var firstOrder = firstItems.Select(item => item.Id).ToArray();
+        (firstOrder[0], firstOrder[1]) = (firstOrder[1], firstOrder[0]);
+        firstItems[0].MoveTo(2, DateTimeOffset.UtcNow);
+        firstItems[1].MoveTo(1, DateTimeOffset.UtcNow);
+        secondItems[2].MoveTo(4, DateTimeOffset.UtcNow);
+        secondItems[3].MoveTo(3, DateTimeOffset.UtcNow);
+
+        Assert.Equal(CatalogSaveOutcome.Saved,
+            await first.SaveAsync(CatalogAuditEvents.Reordered, Family, CancellationToken.None));
+        Assert.Equal(CatalogSaveOutcome.ConcurrencyConflict,
+            await second.SaveAsync(CatalogAuditEvents.Reordered, Family, CancellationToken.None));
+
+        await using var check = NewDbContext();
+        var stored = await check.CatalogItems.AsNoTracking().Where(item => item.Family == Family)
+            .OrderBy(item => item.SortOrder).Select(item => item.Id).ToArrayAsync();
+        Assert.Equal(firstOrder, stored);
+        Assert.Equal(1, await check.AuditEvents.CountAsync(audit =>
+            audit.EventType == CatalogAuditEvents.Reordered && audit.SubjectId == Family));
     }
 
     [Fact]
@@ -422,5 +457,10 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         public bool IsAuthenticated => authenticated;
         public bool HasPermission(string permission) =>
             authenticated && permissions.Contains(permission, StringComparer.Ordinal);
+    }
+
+    private sealed class TestCorrelationContext : ICorrelationContext
+    {
+        public string CorrelationId => "ktl-25-reorder-concurrency";
     }
 }
