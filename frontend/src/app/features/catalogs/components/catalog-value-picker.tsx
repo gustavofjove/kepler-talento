@@ -202,6 +202,10 @@ export function CatalogValuePicker({
   };
 
   const failed = items.filter((item) => item.status === 'error');
+  const pendingKeys = useMemo(
+    () => items.filter((item) => item.status === 'pending').map((item) => item.key),
+    [items],
+  );
   const canEdit = hasLevels && !readOnly && !disabled;
 
   return (
@@ -222,6 +226,10 @@ export function CatalogValuePicker({
             aria-labelledby={labelId}
             className="catalog-picker-chips"
             onRemove={readOnly ? undefined : remove}
+            // A chip whose write is still in flight has no settled identity yet (a new entry
+            // is keyed by its value until the saved id arrives), so it takes no edit or removal
+            // until it settles; otherwise the late write would silently undo the user's action.
+            disabledKeys={pendingKeys}
           >
             <TagList items={items} className="catalog-picker-chip-list">
               {(item) => (

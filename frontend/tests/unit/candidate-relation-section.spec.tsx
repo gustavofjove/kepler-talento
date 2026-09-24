@@ -200,6 +200,27 @@ describe('CandidateRelationSection', () => {
     expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
   });
 
+  it('keeps a slow add inert until it is saved, so no later write undoes the user', async () => {
+    let save: () => void = () => undefined;
+    relations.addLanguage.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (save = resolve)),
+    );
+    renderSection('language');
+
+    await typeInto('candidate-language', 'fran');
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    const pending = chip('candidate-language', 'Francés');
+    expect(pending).toHaveAttribute('data-status', 'pending');
+
+    await userEvent.click(pending);
+    await userEvent.click(within(pending).getByTestId('candidate-language-remove'));
+
+    expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
+    expect(relations.updateLanguage).not.toHaveBeenCalled();
+    expect(chip('candidate-language', 'Francés')).toBeInTheDocument();
+    save();
+  });
+
   it('cannot add a skill while no skill level is active', async () => {
     const api = new FakeCatalogApi({ skill: ['Compras', 'Gestión documental'], skill_level: [] });
     catalogService = new CatalogService(api);
