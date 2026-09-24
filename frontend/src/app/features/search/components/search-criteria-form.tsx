@@ -1,4 +1,13 @@
-import { useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
@@ -8,6 +17,7 @@ import type { CriteriaFilter, SearchFilters } from '../models/search.models';
 import { CriteriaGroup } from './criteria-group';
 import { CRITERIA_GROUPS, type CriteriaKind } from './criteria-group.model';
 import { statusOptions } from './search-criteria.logic';
+import { cvChoices, selectedStatuses, toggleCv, toggleStatus } from './search-basic-filters.logic';
 import { SearchCriteriaSummary } from './search-criteria-summary';
 import './search-filters.css';
 
@@ -25,8 +35,7 @@ interface SearchCriteriaFormProps {
 }
 
 /**
- * The criteria editor. The one component that edits a filter set: the search page and the
- * preset create and edit pages all render it, so a change here reaches every screen.
+ * The criteria editor shared by search, preset and position pages.
  *
  * Controlled: every write is an immutable update pushed back through `onFiltersChange`, and
  * nothing here runs a search or saves a preset - that is the host's `onSubmit`.
@@ -43,18 +52,72 @@ export function SearchCriteriaForm({
   const { t } = useTranslation();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
-  const options = useMemo(() => statusOptions(t), [t]);
+  const options = useMemo(() => statusOptions(t).slice(0, 7), [t]);
+  const statusValues = useMemo(() => options.map((option) => option.value), [options]);
+  const selected = selectedStatuses(filters.statusValues, statusValues);
+  const cv = cvChoices(filters.hasCv);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const statusButtonRef = useRef<HTMLButtonElement>(null);
+  const statusPanelRef = useRef<HTMLDivElement>(null);
+  const statusPanelId = useId();
+  const statusSummary =
+    selected.length === options.length
+      ? t('search.criteria.status.all')
+      : selected.length === 1
+        ? options.find((option) => option.value === selected[0])?.label
+        : t('search.criteria.status.count', { count: selected.length });
 
   const collapsible = onCollapsedChange !== undefined;
   const isCollapsed = collapsible && Boolean(collapsed);
 
-  const toggleStatus = (status: CandidateStatus, event: ChangeEvent<HTMLInputElement>): void => {
-    onFiltersChange({
-      ...filters,
-      statusValues: event.target.checked
-        ? [...filters.statusValues, status]
-        : filters.statusValues.filter((item) => item !== status),
-    });
+  useEffect(() => {
+    if (!statusOpen) return;
+
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (statusButtonRef.current?.contains(target) || statusPanelRef.current?.contains(target))
+        return;
+      setStatusOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      const focused = document.activeElement;
+      if (focused !== statusButtonRef.current && !statusPanelRef.current?.contains(focused)) return;
+      setStatusOpen(false);
+      statusButtonRef.current?.focus();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [statusOpen]);
+
+  useLayoutEffect(() => {
+    if (!statusOpen) return;
+    const placePanel = (): void => {
+      const button = statusButtonRef.current;
+      const panel = statusPanelRef.current;
+      if (!button || !panel) return;
+      const buttonLeft = button.getBoundingClientRect().left;
+      const panelWidth = panel.getBoundingClientRect().width;
+      const viewportWidth = document.documentElement.clientWidth;
+      const left = Math.max(16, Math.min(buttonLeft, viewportWidth - panelWidth - 16));
+      panel.style.left = `${left - buttonLeft}px`;
+    };
+    placePanel();
+    window.addEventListener('resize', placePanel);
+    return () => window.removeEventListener('resize', placePanel);
+  }, [statusOpen]);
+
+  const changeStatus = (status: CandidateStatus, checked: boolean): void => {
+    const next = toggleStatus(filters.statusValues, statusValues, status, checked);
+    if (next.length === selected.length && next.every((value, index) => value === selected[index]))
+      return;
+    onFiltersChange({ ...filters, statusValues: next });
   };
 
   // A value appears once per family: the picker never offers one already held, so its
@@ -93,53 +156,99 @@ export function SearchCriteriaForm({
 
         {!isCollapsed ? (
           <div className="filters-body grid">
-            <div className="grid two">
-              <div className="basic-filters">
-                <div className="inline-field">
-                  <label htmlFor="filter-text">{t('search.criteria.text')}</label>
-                  <input
-                    id="filter-text"
-                    name="text"
-                    value={filters.text}
-                    placeholder={t('search.criteria.textPlaceholder')}
-                    onChange={(e) => onFiltersChange({ ...filters, text: e.target.value })}
-                  />
-                </div>
-                <div className="inline-field">
-                  <label htmlFor="filter-hasCv">{t('search.criteria.cv')}</label>
-                  <select
-                    id="filter-hasCv"
-                    name="hasCv"
-                    value={filters.hasCv}
-                    onChange={(e) =>
-                      onFiltersChange({
-                        ...filters,
-                        hasCv: e.target.value as SearchFilters['hasCv'],
-                      })
-                    }
-                  >
-                    <option value="">{t('search.criteria.cv.any')}</option>
-                    <option value="yes">{t('search.criteria.cv.yes')}</option>
-                    <option value="no">{t('search.criteria.cv.no')}</option>
-                  </select>
-                </div>
+            <div className="basic-filters-row">
+              <div className="inline-field basic-text-field">
+                <label htmlFor="filter-text">{t('search.criteria.text')}</label>
+                <input
+                  id="filter-text"
+                  name="text"
+                  value={filters.text}
+                  placeholder={t('search.criteria.textPlaceholder')}
+                  onChange={(e) => onFiltersChange({ ...filters, text: e.target.value })}
+                />
               </div>
-              <fieldset className="status-group">
-                <legend>{t('search.criteria.statuses')}</legend>
-                <div className="status-options">
-                  {options.map((option) => (
-                    <label className="inline-check" key={option.value}>
-                      <input
-                        type="checkbox"
-                        data-status={option.value}
-                        checked={filters.statusValues.includes(option.value)}
-                        onChange={(e) => toggleStatus(option.value, e)}
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
+              <div className="basic-cv-field" role="group" aria-label={t('search.criteria.cv')}>
+                <span className="basic-field-label">{t('search.criteria.cv')}</span>
+                {(['yes', 'no'] as const).map((choice) => (
+                  <label className="inline-check" key={choice}>
+                    <input
+                      type="checkbox"
+                      name="hasCv"
+                      value={choice}
+                      checked={cv[choice]}
+                      onChange={(event) => {
+                        const next = toggleCv(filters.hasCv, choice, event.target.checked);
+                        if (next !== filters.hasCv) onFiltersChange({ ...filters, hasCv: next });
+                      }}
+                    />
+                    {t(`search.criteria.cv.${choice}`)}
+                  </label>
+                ))}
+              </div>
+              <div className="status-picker">
+                <button
+                  ref={statusButtonRef}
+                  type="button"
+                  className="status-disclosure"
+                  data-testid="status-disclosure"
+                  aria-expanded={statusOpen}
+                  aria-controls={statusPanelId}
+                  onClick={() => setStatusOpen((open) => !open)}
+                >
+                  <span className="basic-field-label">{t('search.criteria.statuses')}</span>
+                  <span>{statusSummary}</span>
+                  <span aria-hidden="true">{statusOpen ? '▴' : '▾'}</span>
+                </button>
+                {statusOpen ? (
+                  <div
+                    ref={statusPanelRef}
+                    id={statusPanelId}
+                    className="status-panel"
+                    role="group"
+                    aria-label={t('search.criteria.statuses')}
+                  >
+                    <div className="status-options">
+                      {options.map((option) => (
+                        <div className="status-option" key={option.value}>
+                          <label className="inline-check">
+                            <input
+                              type="checkbox"
+                              name="statusValues"
+                              data-status={option.value}
+                              checked={selected.includes(option.value)}
+                              onChange={(event) => changeStatus(option.value, event.target.checked)}
+                            />
+                            {option.label}
+                          </label>
+                          <button
+                            type="button"
+                            className="status-only"
+                            data-testid={`status-only-${option.value}`}
+                            data-selected={selected.length === 1 && selected[0] === option.value}
+                            aria-label={t('search.criteria.status.only', { status: option.label })}
+                            title={t('search.criteria.status.only', { status: option.label })}
+                            onClick={() =>
+                              onFiltersChange({ ...filters, statusValues: [option.value] })
+                            }
+                          >
+                            <span className="status-only-icon" aria-hidden="true" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {selected.length < options.length ? (
+                      <button
+                        type="button"
+                        className="button ghost small status-select-all"
+                        data-testid="status-select-all"
+                        onClick={() => onFiltersChange({ ...filters, statusValues })}
+                      >
+                        {t('search.criteria.status.selectAll')}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <CatalogStatusNotice status={catalogStatus} />

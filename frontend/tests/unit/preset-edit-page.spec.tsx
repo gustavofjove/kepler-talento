@@ -34,8 +34,6 @@ describe('PresetEditPage', () => {
   let searchPresetsService: {
     state: unknown;
     load: ReturnType<typeof vi.fn>;
-    loadLastFilters: ReturnType<typeof vi.fn>;
-    rememberLastFilters: ReturnType<typeof vi.fn>;
     emptyFilters: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
     createPreset: ReturnType<typeof vi.fn>;
@@ -47,8 +45,6 @@ describe('PresetEditPage', () => {
     searchPresetsService = {
       state: signal({ status: 'loaded', presets: [] }),
       load: vi.fn().mockResolvedValue([]),
-      loadLastFilters: vi.fn(() => structuredClone(EMPTY_SEARCH_FILTERS)),
-      rememberLastFilters: vi.fn(),
       emptyFilters: vi.fn(() => structuredClone(EMPTY_SEARCH_FILTERS)),
       get: vi.fn().mockResolvedValue(stored),
       createPreset: vi.fn().mockResolvedValue({ ...stored, id: 'p-new', name: 'Nuevo' }),
@@ -126,6 +122,26 @@ describe('PresetEditPage', () => {
         4,
       ),
     );
+  });
+
+  it('renders and preserves saved CV and status filters', async () => {
+    const saved = {
+      ...stored,
+      filters: { ...stored.filters, hasCv: 'yes' as const, statusValues: ['available' as const] },
+    };
+    searchPresetsService.get.mockResolvedValue(saved);
+    renderAt('/app/admin/presets/p-1/edit');
+    await waitFor(() => expect(nameInput()).toHaveValue('Java senior'));
+
+    expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin CV' })).not.toBeChecked();
+    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Disponible');
+    await userEvent.click(screen.getByTestId('preset-save'));
+    await waitFor(() => expect(searchPresetsService.updatePreset).toHaveBeenCalled());
+    expect(searchPresetsService.updatePreset.mock.calls[0][2]).toMatchObject({
+      hasCv: 'yes',
+      statusValues: ['available'],
+    });
   });
 
   it.each([

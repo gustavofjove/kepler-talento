@@ -186,39 +186,17 @@ describe('SearchPresetsService', () => {
     expect(loaded.filters.skillMode).toBe('ANY');
   });
 
-  it('keeps last filters in the browser and never uploads them', async () => {
+  it('ignores retained last filters when loading the shared preset library', async () => {
+    const retained = JSON.stringify({ text: 'ana', hasCv: 'yes' });
+    localStorage.setItem(LAST_FILTERS_KEY, retained);
     const fetcher = vi.fn().mockResolvedValue(json([]));
     const service = build(fetcher);
 
-    service.rememberLastFilters({ ...service.emptyFilters(), text: 'ana', hasCv: 'yes' });
-    const restored = service.loadLastFilters();
+    await service.load();
 
-    expect(restored.text).toBe('ana');
-    expect(restored.hasCv).toBe('yes');
-    expect(localStorage.getItem(LAST_FILTERS_KEY)).toContain('ana');
-    // Remembering a filter set is a local convenience and must never become a server write.
-    expect(fetcher).not.toHaveBeenCalled();
-  });
-
-  it('falls back to empty filters when the stored last-filter value is unusable', () => {
-    const service = build(vi.fn());
-
-    localStorage.setItem(LAST_FILTERS_KEY, 'no json en absoluto');
-
-    expect(service.loadLastFilters()).toEqual(service.emptyFilters());
-  });
-
-  it('still converts the older last-filter shape that stored plain value arrays', () => {
-    const service = build(vi.fn());
-    localStorage.setItem(
-      LAST_FILTERS_KEY,
-      JSON.stringify({ languageValues: ['Inglés'], programValues: ['Excel'] }),
-    );
-
-    const restored = service.loadLastFilters();
-
-    expect(restored.languageCriteria).toEqual([{ value: 'Inglés', level: '' }]);
-    expect(restored.programCriteria).toEqual([{ value: 'Excel', level: '' }]);
+    expect(service.listPresets()).toEqual([]);
+    expect(called(fetcher)).toEqual(['GET /api/search-presets']);
+    expect(localStorage.getItem(LAST_FILTERS_KEY)).toBe(retained);
   });
 
   it('ignores legacy local presets entirely and never uploads or deletes them', async () => {

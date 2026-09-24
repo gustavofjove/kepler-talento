@@ -171,19 +171,20 @@ test.describe('Advanced search', () => {
   test('the CV filter and the multi-value mode reach the server query', async ({ page }) => {
     await page.goto('/app/search');
     await page.fill('input[name="text"]', 'KtlSearchSeed');
-    await page.selectOption('select[name="hasCv"]', 'yes');
+    await page.locator('input[name="hasCv"][value="no"]').uncheck();
     await page.click('button[type="submit"]:has-text("Buscar")');
     await expect(page.getByText('KtlSearchSeed Candidate')).toBeVisible();
 
     await page.getByTestId('toggle-filters').click();
-    await page.selectOption('select[name="hasCv"]', 'no');
+    await page.locator('input[name="hasCv"][value="no"]').check();
+    await page.locator('input[name="hasCv"][value="yes"]').uncheck();
     await page.click('button[type="submit"]:has-text("Buscar")');
     // Same candidate, opposite CV filter: she has a principal CV, so she must disappear.
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
 
     // The ANY/ALL control appears once a family holds two criteria.
     await page.getByTestId('toggle-filters').click();
-    await page.selectOption('select[name="hasCv"]', '');
+    await page.locator('input[name="hasCv"][value="yes"]').check();
     const all = page.getByTestId('search-skill-mode').locator('[data-value="ALL"]');
     await addFirstOffered(page, 'search-skill');
     // A single criterion has nothing to combine: no ANY/ALL control yet.
@@ -198,6 +199,57 @@ test.describe('Advanced search', () => {
     // proves at this level is that the criterion and its mode reach the server query; the
     // ANY/ALL semantics themselves are proven against PostgreSQL in SearchApiTests.
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
+  });
+
+  test('basic filters share a wide row and the status popover fits a narrow screen', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/app/search');
+    const text = await page.locator('input[name="text"]').boundingBox();
+    const cv = await page.locator('.basic-cv-field').boundingBox();
+    const disclosure = page.getByTestId('status-disclosure');
+    const status = await disclosure.boundingBox();
+    expect(text && cv && status).toBeTruthy();
+    expect(Math.abs(text!.y - cv!.y)).toBeLessThan(12);
+    expect(Math.abs(text!.y - status!.y)).toBeLessThan(12);
+
+    for (const width of [320, 600, 768, 769, 790, 799, 800, 850, 900, 1100]) {
+      await page.setViewportSize({ width, height: 844 });
+      await disclosure.click();
+      const bounds = await page.locator('.status-panel').boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x, `left edge at ${width}px`).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width, `right edge at ${width}px`).toBeLessThanOrEqual(width);
+      await disclosure.click();
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const firstCriterion = page.locator('.criteria-group').first();
+    const criterionBefore = await firstCriterion.boundingBox();
+    await disclosure.click();
+    const panel = page.locator('.status-panel');
+    const popup = await panel.boundingBox();
+    expect(popup && criterionBefore).toBeTruthy();
+    expect(popup!.x).toBeGreaterThanOrEqual(0);
+    expect(popup!.x + popup!.width).toBeLessThanOrEqual(390);
+    expect((await firstCriterion.boundingBox())!.y).toBe(criterionBefore!.y);
+
+    await page.getByTestId('status-only-available').click();
+    await expect(page.locator('[data-status="available"]')).toBeChecked();
+    await expect(page.locator('[data-status="new"]')).not.toBeChecked();
+    await page.locator('[data-status="new"]').check();
+    await expect(page.locator('[data-status="new"]')).toBeChecked();
+    await page.locator('[data-status="new"]').uncheck();
+    await page.locator('input[name="text"]').click();
+    await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    await disclosure.click();
+    await expect(page.locator('[data-status="new"]')).not.toBeChecked();
+    await page.getByTestId('status-select-all').click();
+    await expect(page.locator('[data-status="new"]')).toBeChecked();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
   });
 
   test('a superseded search is cancelled and cannot overwrite the newer one', async ({ page }) => {

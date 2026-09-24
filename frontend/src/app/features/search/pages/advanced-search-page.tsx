@@ -46,7 +46,7 @@ export function AdvancedSearchPage() {
   // re-run the search - results only change in run/clear/loadPreset/page, exactly
   // as the Angular version behaved (FR-4).
   const [filters, setFilters] = useState<SearchFilters>(() =>
-    searchPresetsService.loadLastFilters(),
+    candidateSearchService.emptyFilters(),
   );
   // One page, never a complete collection: the totals come from the server, and nothing
   // here treats `results.items.length` as "how many candidates matched".
@@ -120,7 +120,7 @@ export function AdvancedSearchPage() {
   );
 
   useEffect(() => {
-    void execute(searchPresetsService.loadLastFilters(), 1);
+    void execute(candidateSearchService.emptyFilters(), 1);
     void searchPresetsService.load().catch(() => {
       toastService.show(t('search.presets.loadFailed'), 'error');
     });
@@ -130,12 +130,11 @@ export function AdvancedSearchPage() {
       }
       inFlight.current?.abort();
     };
-  }, [execute, searchPresetsService, toastService, t]);
+  }, [candidateSearchService, execute, searchPresetsService, toastService, t]);
 
   const run = (next: SearchFilters): void => {
     const cloned = cloneSearchFilters(next);
     setFilters(cloned);
-    searchPresetsService.rememberLastFilters(cloned);
     setFiltersCollapsed(true);
     schedule(cloned, 1);
   };
@@ -143,7 +142,6 @@ export function AdvancedSearchPage() {
   const clear = (): void => {
     const empty = candidateSearchService.emptyFilters();
     setFilters(empty);
-    searchPresetsService.rememberLastFilters(empty);
     setFiltersCollapsed(false);
     schedule(empty, 1);
   };
@@ -164,7 +162,6 @@ export function AdvancedSearchPage() {
     try {
       const applied = await searchPresetsService.applyPreset(presetId);
       setFilters(applied);
-      searchPresetsService.rememberLastFilters(applied);
       setFiltersCollapsed(true);
       await execute(applied, 1);
       toastService.show(t('search.presets.applied'), 'success');

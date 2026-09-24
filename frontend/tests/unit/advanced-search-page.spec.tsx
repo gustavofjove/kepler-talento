@@ -46,8 +46,6 @@ describe('AdvancedSearchPage', () => {
   let searchPresetsService: {
     state: ReturnType<typeof signal<{ status: string; presets: unknown[] }>>;
     load: ReturnType<typeof vi.fn>;
-    loadLastFilters: ReturnType<typeof vi.fn>;
-    rememberLastFilters: ReturnType<typeof vi.fn>;
     emptyFilters: ReturnType<typeof vi.fn>;
     applyPreset: ReturnType<typeof vi.fn>;
     createPreset: ReturnType<typeof vi.fn>;
@@ -61,8 +59,6 @@ describe('AdvancedSearchPage', () => {
     searchPresetsService = {
       state: signal<{ status: string; presets: unknown[] }>({ status: 'loaded', presets: [] }),
       load: vi.fn().mockResolvedValue([]),
-      loadLastFilters: vi.fn(() => structuredClone(EMPTY_SEARCH_FILTERS)),
-      rememberLastFilters: vi.fn(),
       emptyFilters: vi.fn(() => structuredClone(EMPTY_SEARCH_FILTERS)),
       applyPreset: vi.fn(),
       createPreset: vi.fn(),
@@ -89,6 +85,30 @@ describe('AdvancedSearchPage', () => {
         </MemoryRouter>
       </ServicesProvider>,
     );
+
+  it('opens with empty filters even when old filters remain in browser storage', async () => {
+    localStorage.setItem('rrhh.search.last-filters.v1', JSON.stringify({ text: 'previous' }));
+    const search = vi.fn().mockResolvedValue(page([]));
+
+    renderPage({ search, emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS) });
+
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+    expect(search.mock.calls[0][0]).toEqual(EMPTY_SEARCH_FILTERS);
+    expect(screen.getByRole('textbox', { name: /texto/i })).toHaveValue('');
+    expect(localStorage.getItem('rrhh.search.last-filters.v1')).toContain('previous');
+  });
+
+  it('opens status choices without starting a new search', async () => {
+    const search = vi.fn().mockResolvedValue(page([]));
+    renderPage({ search, emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS) });
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(screen.getByTestId('status-disclosure'));
+    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'true');
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
+  });
 
   it('reports the server total rather than the number of rows on screen', async () => {
     const search = vi.fn().mockResolvedValue(page(['a', 'b'], { totalCount: 57, pageSize: 25 }));
