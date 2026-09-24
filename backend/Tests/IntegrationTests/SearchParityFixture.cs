@@ -58,6 +58,15 @@ public static class SearchParityFixture
     public const string ProgramLevelMedium = "Medio";
     public const string ProgramLevelHigh = "Alto";
 
+    // The fixture adds its extra level names after the standard catalog seed. Keep the
+    // reference evaluator's independent rank explicit, including intermediate seed levels.
+    public static readonly IReadOnlyList<string> SkillLevels =
+        [SkillLevelBasic, "Medio", "Alto", "Experto", SkillLevelAdvanced];
+    public static readonly IReadOnlyList<string> LanguageLevels =
+        ["A1", "A2", "B1", LanguageLevelB2, LanguageLevelC1, "C2"];
+    public static readonly IReadOnlyList<string> ProgramLevels =
+        ["Básico", ProgramLevelMedium, "Avanzado", "Experto", ProgramLevelHigh];
+
     /// <summary>
     /// A candidate whose notes contain <c>%</c> and <c>_</c>, so a query that forgets to
     /// escape the pattern matches candidates it should not.

@@ -230,11 +230,14 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     /// stopped finding them would be a data-loss bug wearing an administration feature's
     /// clothes.
     /// </remarks>
-    private async Task<ILookup<(string Family, string Name), Guid>> ResolveCatalogAsync(
+    private sealed record CatalogMatch(Guid Id, string Family, string Name, int SortOrder);
+
+    private async Task<IReadOnlyList<CatalogMatch>> ResolveCatalogAsync(
         SearchFiltersValue filters,
         CancellationToken cancellationToken)
     {
         var wanted = new List<(string Family, string Name)>();
+        var levelFamilies = new HashSet<string>(StringComparer.Ordinal);
         Collect(filters.SkillCriteria, CatalogFamilies.Skill, CatalogFamilies.SkillLevel);
         Collect(filters.LanguageCriteria, CatalogFamilies.Language, CatalogFamilies.LanguageLevel);
         Collect(filters.ProgramCriteria, CatalogFamilies.Program, CatalogFamilies.ProgramLevel);
@@ -248,32 +251,42 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                 if (!criterion.MatchesAnyLevel)
                 {
                     wanted.Add((levelFamily, criterion.NormalizedLevel));
+                    levelFamilies.Add(levelFamily);
                 }
             }
         }
 
         if (wanted.Count == 0)
         {
-            return Array.Empty<((string, string) Key, Guid Value)>().ToLookup(pair => pair.Key, pair => pair.Value);
+            return [];
         }
         var families = wanted.Select(item => item.Family).Distinct().ToArray();
         var names = wanted.Select(item => item.Name).Distinct().ToArray();
+        var rankedFamilies = levelFamilies.ToArray();
         var items = await dbContext.CatalogItems
             .AsNoTracking()
-            .Where(item => families.Contains(item.Family) && names.Contains(item.NameNormalized))
-            .Select(item => new { item.Id, item.Family, item.NameNormalized })
+            .Where(item => (families.Contains(item.Family) && names.Contains(item.NameNormalized))
+                || rankedFamilies.Contains(item.Family))
+            .Select(item => new CatalogMatch(item.Id, item.Family, item.NameNormalized, item.SortOrder))
             .ToListAsync(cancellationToken);
-        return items.ToLookup(item => (item.Family, item.NameNormalized), item => item.Id);
+        return items;
     }
 
     private static ResolvedCriterion Resolve(
-        ILookup<(string Family, string Name), Guid> catalog,
+        IReadOnlyList<CatalogMatch> catalog,
         SearchCriterion criterion,
         string valueFamily,
-        string levelFamily) => new(
-        [.. catalog[(valueFamily, criterion.NormalizedValue)]],
-        criterion.MatchesAnyLevel ? [] : [.. catalog[(levelFamily, criterion.NormalizedLevel)]],
-        criterion.MatchesAnyLevel);
+        string levelFamily)
+    {
+        var minimum = catalog.Where(item => item.Family == levelFamily
+            && item.Name == criterion.NormalizedLevel).ToArray();
+        return new ResolvedCriterion(
+            [.. catalog.Where(item => item.Family == valueFamily
+                && item.Name == criterion.NormalizedValue).Select(item => item.Id)],
+            criterion.MatchesAnyLevel ? [] : [.. catalog.Where(item => item.Family == levelFamily
+                && minimum.Any(level => item.SortOrder >= level.SortOrder)).Select(item => item.Id)],
+            criterion.MatchesAnyLevel);
+    }
 
     /// <summary>
     /// Combines two candidate predicates with <c>OR</c> under a single parameter, so the

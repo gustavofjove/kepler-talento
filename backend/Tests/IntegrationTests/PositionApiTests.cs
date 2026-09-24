@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Features.Positions;
+using KeplerTalento.Domain.Candidates;
+using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Identity;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
@@ -85,6 +88,56 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
         var read = (await client.GetFromJsonAsync<PositionResponse>($"/api/positions/{created.Id}"))!;
         Assert.Equal("ALL", read.Requirements.SkillMode);
         Assert.Equal("Java", Assert.Single(read.Requirements.SkillCriteria!)!.Value);
+    }
+
+    [Fact]
+    public async Task Position_requirements_keep_their_bytes_while_matching_higher_levels()
+    {
+        await ResetAsync(); await AddUserAsync("manager", "manager@example.test", "rrhh_user");
+        await using (var db = NewDbContext())
+        {
+            var english = await db.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.Language
+                && item.NameNormalized == CatalogName.Normalize("Inglés"));
+            var b1 = await db.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.LanguageLevel
+                && item.NameNormalized == CatalogName.Normalize("B1"));
+            var c1 = await db.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.LanguageLevel
+                && item.NameNormalized == CatalogName.Normalize("C1"));
+            var now = DateTimeOffset.UtcNow;
+            foreach (var (name, level) in new[] { ("Lower", b1), ("Higher", c1) })
+            {
+                var candidate = new Candidate(Guid.CreateVersion7(), name, "Ktl25", now);
+                db.Candidates.Add(candidate);
+                db.CandidateLanguages.Add(new CandidateLanguage(Guid.CreateVersion7(), candidate.Id,
+                    english.Id, level.Id));
+            }
+            await db.SaveChangesAsync();
+        }
+        await using var factory = CreateFactory(); using var client = await ClientAsync(factory, "manager");
+        var created = await CreateAsync(client, "English B2", requirements: new
+        {
+            languageCriteria = new[] { new { value = "Inglés", level = "B2" } },
+            languageMode = "ANY",
+        });
+        string before;
+        await using (var db = NewDbContext())
+        {
+            before = (await db.Positions.AsNoTracking().SingleAsync()).Requirements;
+        }
+
+        var fetched = (await client.GetFromJsonAsync<PositionResponse>($"/api/positions/{created.Id}"))!;
+        using var response = await client.PostAsJsonAsync("/api/candidates/search", new
+        {
+            filters = fetched.Requirements, page = 1, pageSize = 25,
+        });
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var names = json.RootElement.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("firstName").GetString()!).ToArray();
+        Assert.Equal(["Higher"], names);
+        await using var after = NewDbContext();
+        var stored = await after.Positions.AsNoTracking().SingleAsync();
+        Assert.Equal(before, stored.Requirements);
+        Assert.Equal(1, stored.FilterSchemaVersion);
     }
 
     [Fact]

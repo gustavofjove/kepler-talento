@@ -110,11 +110,21 @@ describe('SearchCriteriaForm', () => {
 
     await userEvent.click(chip);
     const editor = await screen.findByTestId('search-language-editor');
+    expect(within(editor).getByRole('radiogroup', { name: 'Nivel mínimo' })).toBeInTheDocument();
     await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
 
     expect((onFiltersChange.mock.lastCall![0] as SearchFilters).languageCriteria).toEqual([
       { value: 'Inglés', level: 'B2' },
     ]);
+    rerender(
+      <SearchCriteriaForm
+        filters={onFiltersChange.mock.lastCall![0] as SearchFilters}
+        onFiltersChange={onFiltersChange}
+        onSubmit={onSubmit}
+        actions={null}
+      />,
+    );
+    expect(screen.getByTestId('search-language-chip')).toHaveTextContent('≥ B2');
     // The value is not offered again, so it cannot become a second criterion.
     if (!screen.queryByTestId('search-language-input'))
       await userEvent.click(screen.getByTestId('search-language-add'));

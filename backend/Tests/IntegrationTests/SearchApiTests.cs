@@ -23,10 +23,9 @@ namespace KeplerTalento.Tests.IntegrationTests;
 /// </summary>
 /// <remarks>
 /// Every filter assertion is made twice: once against the API, and once against
-/// <see cref="ReferenceSearchEvaluator"/>, which is a transcription of the browser-side
-/// search KTL-10 replaces. "The new query returns what the old one did" is therefore checked
-/// against an independent implementation rather than against expectations written from the
-/// same understanding that produced the SQL.
+/// <see cref="ReferenceSearchEvaluator"/>, an independent in-memory implementation of the
+/// current search rules. This checks the SQL against a separate implementation rather than
+/// expectations written from the same understanding that produced the query.
 /// </remarks>
 [Collection(WebHostCollection.Name)]
 public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<PostgreSqlFixture>
@@ -77,6 +76,24 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 Filters(skills: [(SearchParityFixture.SkillJava, SearchParityFixture.SkillLevelAdvanced)])
             },
             {
+                "skill minimum includes a higher level",
+                Filters(skills: [(SearchParityFixture.SkillJava, SearchParityFixture.SkillLevelBasic)])
+            },
+            {
+                "skill ALL applies independent minimums",
+                Filters(skills:
+                    [(SearchParityFixture.SkillJava, SearchParityFixture.SkillLevelBasic),
+                     (SearchParityFixture.SkillPython, SearchParityFixture.SkillLevelBasic)],
+                    skillMode: "ALL")
+            },
+            {
+                "repeated skill value at distinct minimums remains in ALL",
+                Filters(skills:
+                    [(SearchParityFixture.SkillJava, SearchParityFixture.SkillLevelBasic),
+                     (SearchParityFixture.SkillJava, SearchParityFixture.SkillLevelAdvanced)],
+                    skillMode: "ALL")
+            },
+            {
                 "skill ANY across two values",
                 Filters(
                     skills: [(SearchParityFixture.SkillJava, ""), (SearchParityFixture.SkillSql, "")],
@@ -119,6 +136,22 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                     languageMode: "ANY")
             },
             {
+                "language minimum includes a higher level",
+                Filters(languages: [(SearchParityFixture.LanguageEnglish, SearchParityFixture.LanguageLevelB2)])
+            },
+            {
+                "highest language level matches itself only",
+                Filters(languages: [(SearchParityFixture.LanguageEnglish, SearchParityFixture.LanguageLevelC1)])
+            },
+            {
+                "unknown language level matches nothing",
+                Filters(languages: [(SearchParityFixture.LanguageEnglish, "Z9")])
+            },
+            {
+                "level from the wrong family matches nothing",
+                Filters(languages: [(SearchParityFixture.LanguageEnglish, SearchParityFixture.SkillLevelAdvanced)])
+            },
+            {
                 "language ALL across separate rows",
                 Filters(
                     languages:
@@ -131,6 +164,10 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             {
                 "program value with a level",
                 Filters(programs: [(SearchParityFixture.ProgramExcel, SearchParityFixture.ProgramLevelHigh)])
+            },
+            {
+                "program minimum includes a higher level",
+                Filters(programs: [(SearchParityFixture.ProgramExcel, SearchParityFixture.ProgramLevelMedium)])
             },
             {
                 "program ANY",
@@ -182,6 +219,99 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.Equal(
             page.Items.Select(item => item.CandidateId).Distinct().Count(),
             page.Items.Count);
+    }
+
+    [Fact]
+    public async Task Language_minimum_includes_higher_levels()
+    {
+        var fixture = await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        SearchFiltersInput At(string level) => new(null, null, null, null,
+            [new SearchCriterionInput(SearchParityFixture.LanguageEnglish, level)],
+            "ANY", null, null, null);
+        var minimum = await SearchAsync(client, At(SearchParityFixture.LanguageLevelB2), pageSize: 100);
+        var higher = await SearchAsync(client, At(SearchParityFixture.LanguageLevelC1), pageSize: 100);
+
+        Assert.Equal(["Ana", "Bruno", "Elena", "Fermín"],
+            minimum.Items.Select(item => item.FirstName).Order(StringComparer.Ordinal));
+        Assert.Equal(["Bruno", "Fermín"],
+            higher.Items.Select(item => item.FirstName).Order(StringComparer.Ordinal));
+        Assert.Equal(4, minimum.TotalCount);
+        Assert.Equal(2, higher.TotalCount);
+        Assert.Equal(fixture.Count(candidate => candidate.IsActive &&
+            candidate.Languages.Any(language => language.Value == SearchParityFixture.LanguageEnglish)),
+            minimum.TotalCount);
+    }
+
+    [Fact]
+    public async Task Highest_catalog_level_matches_only_itself()
+    {
+        await SeedAsync();
+        await using (var dbContext = NewDbContext())
+        {
+            var english = await dbContext.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.Language
+                && item.NameNormalized == CatalogName.Normalize(SearchParityFixture.LanguageEnglish));
+            var c2 = await dbContext.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.LanguageLevel
+                && item.NameNormalized == CatalogName.Normalize("C2"));
+            var candidate = new Candidate(Guid.CreateVersion7(), "Clara", "Highest", DateTimeOffset.UtcNow);
+            dbContext.Candidates.Add(candidate);
+            dbContext.CandidateLanguages.Add(new CandidateLanguage(Guid.CreateVersion7(), candidate.Id,
+                english.Id, c2.Id));
+            await dbContext.SaveChangesAsync();
+        }
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+        var filters = new SearchFiltersInput(null, null, null, null,
+            [new SearchCriterionInput(SearchParityFixture.LanguageEnglish, "C2")],
+            "ANY", null, null, null);
+
+        var page = await SearchAsync(client, filters, pageSize: 100);
+        Assert.Equal("Clara", Assert.Single(page.Items).FirstName);
+        Assert.Equal(1, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task Inactive_and_reordered_levels_follow_the_configured_rank()
+    {
+        await SeedAsync();
+        await using var dbContext = NewDbContext();
+        var b2 = await dbContext.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.LanguageLevel
+            && item.NameNormalized == CatalogName.Normalize(SearchParityFixture.LanguageLevelB2));
+        var c1 = await dbContext.CatalogItems.SingleAsync(item => item.Family == CatalogFamilies.LanguageLevel
+            && item.NameNormalized == CatalogName.Normalize(SearchParityFixture.LanguageLevelC1));
+        var originalB2 = b2.SortOrder;
+        var originalC1 = c1.SortOrder;
+        var originalActive = c1.IsActive;
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+        var filters = new SearchFiltersInput(null, null, null, null,
+            [new SearchCriterionInput(SearchParityFixture.LanguageEnglish, SearchParityFixture.LanguageLevelB2)],
+            "ANY", null, null, null);
+
+        try
+        {
+            c1.SetActive(false, DateTimeOffset.UtcNow);
+            await dbContext.SaveChangesAsync();
+            var inactive = await SearchAsync(client, filters, pageSize: 100);
+            Assert.Contains(inactive.Items, item => item.FirstName == "Bruno");
+            Assert.Contains(inactive.Items, item => item.FirstName == "Fermín");
+
+            b2.MoveTo(originalC1, DateTimeOffset.UtcNow);
+            c1.MoveTo(originalB2, DateTimeOffset.UtcNow);
+            await dbContext.SaveChangesAsync();
+            var reordered = await SearchAsync(client, filters, pageSize: 100);
+            Assert.Equal(["Ana", "Elena"],
+                reordered.Items.Select(item => item.FirstName).Order(StringComparer.Ordinal));
+        }
+        finally
+        {
+            b2.MoveTo(originalB2, DateTimeOffset.UtcNow);
+            c1.MoveTo(originalC1, DateTimeOffset.UtcNow);
+            c1.SetActive(originalActive, DateTimeOffset.UtcNow);
+            await dbContext.SaveChangesAsync();
+        }
     }
 
     [Fact]
@@ -414,6 +544,18 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.DoesNotContain("candidateId", body, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("totalCount", body, StringComparison.OrdinalIgnoreCase);
+
+            // Validation and catalog resolution must not run for a refused caller.
+            var invalid = await client.PostAsJsonAsync(SearchRoute, new
+            {
+                filters = new { languageCriteria = new[] { new { value = "Inglés", level = "SecretLevel" } },
+                    tagCriteria = new[] { new { value = "VIP", level = "invalid" } } },
+                page = 0,
+            });
+            Assert.Equal(HttpStatusCode.Forbidden, invalid.StatusCode);
+            var invalidBody = await invalid.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("SecretLevel", invalidBody, StringComparison.Ordinal);
+            Assert.DoesNotContain(SearchErrors.TagLevelInvalid, invalidBody, StringComparison.Ordinal);
         }
     }
 
@@ -698,6 +840,35 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             Assert.Equal("ALL", fetched.Filters.SkillMode);
             Assert.Equal(created.Version, fetched.Version);
         }
+    }
+
+    [Fact]
+    public async Task Applying_a_preset_keeps_its_filter_bytes_and_searches_at_or_above_the_minimum()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        var created = await CreatePresetAsync(client, "English minimum", new
+        {
+            languageCriteria = new[] { new { value = SearchParityFixture.LanguageEnglish,
+                level = SearchParityFixture.LanguageLevelB2 } },
+            languageMode = "ANY",
+        });
+        string before;
+        await using (var dbContext = NewDbContext())
+        {
+            before = (await dbContext.SearchPresets.AsNoTracking().SingleAsync()).Filters;
+        }
+
+        var applied = await ReadPresetAsync(await client.PostAsJsonAsync(
+            $"{PresetRoute}/{created.Id}/use", new { }));
+        var page = await SearchAsync(client, applied.Filters, pageSize: 100);
+
+        Assert.Equal(["Ana", "Bruno", "Elena", "Fermín"],
+            page.Items.Select(item => item.FirstName).Order(StringComparer.Ordinal));
+        await using var afterContext = NewDbContext();
+        Assert.Equal(before, (await afterContext.SearchPresets.AsNoTracking().SingleAsync()).Filters);
+        Assert.Equal(1, (await afterContext.SearchPresets.AsNoTracking().SingleAsync()).FilterSchemaVersion);
     }
 
     [Fact]

@@ -61,8 +61,10 @@ can never store filters the search endpoint would refuse.
   produces a blank line every time a user adds one before choosing its value.
 - Criteria are deduplicated on their normalized `(value, level)` pair. Repeating a criterion
   cannot change `ANY`, and under `ALL` it would add a condition already stated.
-- An empty criterion level matches **any** level for that value; a non-empty one requires
-  both value and level.
+- An empty criterion level matches **any** level for that value. A non-empty level is a
+  minimum: it matches that level and every later level in the applicable catalog family's
+  configured order, including inactive levels. An unknown level matches nothing. Reordering
+  `language_level`, `program_level`, or `skill_level` changes search ranking immediately.
 - An unknown criterion value matches nothing. It is not an error: refusing it would disclose
   which catalog values exist to a caller who may not read the catalog.
 - Unsupported statuses, modes and CV selections are refused with stable codes

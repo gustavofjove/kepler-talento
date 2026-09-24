@@ -3,15 +3,15 @@ using KeplerTalento.Application.Features.Search;
 namespace KeplerTalento.Tests.IntegrationTests;
 
 /// <summary>
-/// The pre-KTL-10 search semantics, preserved as a second opinion.
+/// An independent in-memory reference for the current search semantics.
 /// </summary>
 /// <remarks>
 /// This is a deliberate transcription of the browser-side <c>CandidateSearchService</c> that
 /// KTL-10 replaces: the same field list for free text, the same
 /// <c>trim().toLocaleLowerCase()</c> comparison, the same <c>ANY</c>/<c>ALL</c> rules and the
-/// same treatment of an empty criterion level. It exists so "the new query returns what the
-/// old one did" is an assertion against an independent implementation rather than against
-/// expectations hand-written from the same understanding that produced the SQL.
+/// same treatment of an empty criterion level. KTL-25 adds ordered minimum-level matching.
+/// It exists so the PostgreSQL query is checked against an independent implementation
+/// rather than expectations hand-written from the same understanding that produced the SQL.
 ///
 /// It is test-only and intentionally naive — it filters a list in memory, which is precisely
 /// the thing KTL-10 stops doing in production.
@@ -48,9 +48,12 @@ public static class ReferenceSearchEvaluator
                     || statuses.Contains(candidate.Status, StringComparer.Ordinal))
                 .Where(candidate => hasCv.Length == 0
                     || (hasCv == "yes") == (candidate.PrimaryDocumentId is not null))
-                .Where(candidate => Matches(candidate.Skills, filters.SkillCriteria, filters.SkillMode))
-                .Where(candidate => Matches(candidate.Languages, filters.LanguageCriteria, filters.LanguageMode))
-                .Where(candidate => Matches(candidate.Programs, filters.ProgramCriteria, filters.ProgramMode))
+                .Where(candidate => Matches(candidate.Skills, filters.SkillCriteria, filters.SkillMode,
+                    SearchParityFixture.SkillLevels))
+                .Where(candidate => Matches(candidate.Languages, filters.LanguageCriteria, filters.LanguageMode,
+                    SearchParityFixture.LanguageLevels))
+                .Where(candidate => Matches(candidate.Programs, filters.ProgramCriteria, filters.ProgramMode,
+                    SearchParityFixture.ProgramLevels))
                 .OrderByDescending(candidate => candidate.UpdatedAtUtc)
                 .ThenBy(candidate => candidate.Id)
                 .Select(candidate => candidate.Id),
@@ -60,7 +63,8 @@ public static class ReferenceSearchEvaluator
     private static bool Matches(
         IReadOnlyList<ParityRelation> held,
         IReadOnlyList<SearchCriterionInput?>? criteria,
-        string? mode)
+        string? mode,
+        IReadOnlyList<string> orderedLevels)
     {
         var wanted = (criteria ?? [])
             .Where(criterion => !string.IsNullOrWhiteSpace(criterion?.Value))
@@ -71,7 +75,9 @@ public static class ReferenceSearchEvaluator
         }
         bool MatchesOne(SearchCriterionInput? criterion) => held.Any(relation =>
             Equals(relation.Value, criterion!.Value)
-            && (string.IsNullOrWhiteSpace(criterion.Level) || Equals(relation.Level, criterion.Level)));
+            && (string.IsNullOrWhiteSpace(criterion.Level)
+                || (IndexOf(orderedLevels, criterion.Level) >= 0
+                    && IndexOf(orderedLevels, relation.Level) >= IndexOf(orderedLevels, criterion.Level))));
 
         return string.Equals(mode, "ALL", StringComparison.OrdinalIgnoreCase)
             ? wanted.All(MatchesOne)
@@ -82,4 +88,13 @@ public static class ReferenceSearchEvaluator
         (left ?? string.Empty).Trim(),
         (right ?? string.Empty).Trim(),
         StringComparison.OrdinalIgnoreCase);
+
+    private static int IndexOf(IReadOnlyList<string> levels, string? level)
+    {
+        for (var index = 0; index < levels.Count; index++)
+        {
+            if (Equals(levels[index], level)) return index;
+        }
+        return -1;
+    }
 }

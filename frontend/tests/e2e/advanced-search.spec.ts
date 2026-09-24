@@ -10,6 +10,7 @@ import {
   setLevel,
 } from './support/catalog-picker';
 import { ensureSearchCandidate } from './support/seed-candidate';
+import { authorizationHeaders } from './support/auth';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -48,6 +49,58 @@ test.describe('Advanced search', () => {
 
     await removeValue(page, 'search-language', 'Inglés');
     await expect(await offered(page, 'search-language', 'Ingl')).not.toHaveCount(0);
+  });
+
+  test('finds a higher language level from a lower minimum', async ({ page }) => {
+    const marker = `Ktl25Level${Date.now()}`;
+    const headers = authorizationHeaders(page);
+    const create = await page.request.post('/api/candidates', {
+      headers,
+      data: {
+        firstName: marker,
+        lastName: 'Candidate',
+        phone: '+34 600 100 250',
+        status: 'available',
+        email: `${marker.toLowerCase()}@example.invalid`,
+        location: 'Madrid',
+        province: 'Madrid',
+        country: 'España',
+        availability: 'Inmediata',
+        source: 'LinkedIn',
+        notes: 'Fixture KTL-25.',
+        receivedAt: '2026-05-10',
+        consentAt: '2026-05-10',
+        reviewDueAt: '2027-05-10',
+      },
+    });
+    expect(create.ok(), await create.text()).toBeTruthy();
+    const candidate = (await create.json()) as { id: string; version: number };
+    try {
+      const relations = await page.request.put(`/api/candidates/${candidate.id}/languages`, {
+        headers,
+        data: { languages: [{ language: 'Inglés', level: 'C1' }], version: candidate.version },
+      });
+      expect(relations.ok(), await relations.text()).toBeTruthy();
+
+      await page.goto('/app/search');
+      await page.locator('input[name="text"]').fill(marker);
+      await addValue(page, 'search-language', 'Inglés');
+      await setLevel(page, 'search-language', 'Inglés', 'B2');
+      await expect(chip(page, 'search-language', 'Inglés')).toContainText('≥ B2');
+      await page.locator('button[type="submit"]').click();
+      await expect(page.getByTestId('filters-summary')).toContainText('≥ B2');
+      await expect(page.getByText(`${marker} Candidate`)).toBeVisible();
+    } finally {
+      const current = await page.request.get(`/api/candidates/${candidate.id}`, { headers });
+      if (current.ok()) {
+        const stored = (await current.json()) as { version: number };
+        const retired = await page.request.put(`/api/candidates/${candidate.id}/active`, {
+          headers,
+          data: { isActive: false, version: stored.version },
+        });
+        expect(retired.ok()).toBeTruthy();
+      }
+    }
   });
 
   test('shows no results for a text filter that matches nobody', async ({ page }) => {

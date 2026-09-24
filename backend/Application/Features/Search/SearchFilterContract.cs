@@ -6,7 +6,8 @@ namespace KeplerTalento.Application.Features.Search;
 
 /// <summary>
 /// One filter line as a caller writes it: a catalog value and an optional level, where an
-/// empty level means "any level for this value".
+/// empty level means "any level for this value" and a named level means that level or higher
+/// in its family's configured catalog order.
 /// </summary>
 public sealed record SearchCriterionInput(string? Value, string? Level);
 

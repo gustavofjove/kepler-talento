@@ -65,7 +65,10 @@ export function buildSummaryGroups(filters: SearchFilters, t: TFunction): Summar
               mode: modeLabel(filters[`${group.kind}Mode`], t),
             })
           : t(group.labelKey),
-      values: criteria.map((c) => `${c.value}${c.level ? ` · ${c.level}` : ''}`),
+      values: criteria.map(
+        (c) =>
+          `${c.value}${c.level ? ` · ${t('search.criteria.level.atLeast', { level: c.level })}` : ''}`,
+      ),
     });
   }
   return groups;
