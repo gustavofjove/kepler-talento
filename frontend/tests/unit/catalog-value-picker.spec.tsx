@@ -393,6 +393,28 @@ describe('CatalogValuePicker', () => {
       expect(chip('Inglés')).toHaveTextContent('Guardando…');
     });
 
+    it('takes no edit or removal on a pending chip until it settles', async () => {
+      const onChange = vi.fn();
+      const onRemove = vi.fn();
+      render(
+        <Host
+          initial={[{ key: 'en', value: 'Inglés', level: 'B1', status: 'pending' }]}
+          onChange={onChange}
+          onRemove={onRemove}
+        />,
+      );
+
+      await userEvent.click(chip('Inglés'));
+      expect(screen.queryByTestId('test-language-editor')).toBeNull();
+      await userEvent.click(within(chip('Inglés')).getByTestId('test-language-remove'));
+      chip('Inglés').focus();
+      await userEvent.keyboard('{Delete}');
+
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onRemove).not.toHaveBeenCalled();
+      expect(chip('Inglés')).toBeInTheDocument();
+    });
+
     it('shows a failed chip with its message and a retry, leaving the others alone', async () => {
       const onRetry = vi.fn();
       const failed: PickerItem = {
