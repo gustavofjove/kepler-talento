@@ -100,11 +100,30 @@ describe('CandidateRelationSection', () => {
       testId: 'candidate-languages',
       prefix: 'candidate-language',
       text: 'TOEFL',
+      label: 'Idiomas',
     },
-    { kind: 'program', testId: 'candidate-programs', prefix: 'candidate-program', text: '2 años' },
-    { kind: 'skill', testId: 'candidate-skills', prefix: 'candidate-skill', text: 'Compras' },
-    { kind: 'tag', testId: 'candidate-tags', prefix: 'candidate-tag', text: 'Antigua' },
-  ] as const)('$kind', ({ kind, testId, prefix, text }) => {
+    {
+      kind: 'program',
+      testId: 'candidate-programs',
+      prefix: 'candidate-program',
+      text: '2 años',
+      label: 'Programas',
+    },
+    {
+      kind: 'skill',
+      testId: 'candidate-skills',
+      prefix: 'candidate-skill',
+      text: 'Compras',
+      label: 'Habilidades',
+    },
+    {
+      kind: 'tag',
+      testId: 'candidate-tags',
+      prefix: 'candidate-tag',
+      text: 'Antigua',
+      label: 'Etiquetas',
+    },
+  ] as const)('$kind', ({ kind, testId, prefix, text, label }) => {
     it('shows its entries as chips with a picker, under the kept section test id', () => {
       renderSection(kind);
 
@@ -133,20 +152,26 @@ describe('CandidateRelationSection', () => {
       expect(section.queryByRole('button')).toBeNull();
     });
 
-    it('disables its input and shows the catalog notice while catalogs cannot load', async () => {
+    it('disables adding while catalogs cannot load, leaving the notice to the panel', async () => {
       const api = new FakeCatalogApi();
       api.failure = new AppError('INTERNAL_ERROR', 'No se ha podido conectar con el servidor.');
       catalogService = createCatalogTestBed(api).service;
       renderSection(kind);
 
       const section = within(screen.getByTestId(testId));
-      await waitFor(() =>
-        expect(section.getByTestId('catalog-status')).toHaveTextContent(
-          'No se ha podido conectar con el servidor.',
-        ),
-      );
-      expect(section.getByTestId(`${prefix}-add`)).toBeDisabled();
+      await waitFor(() => expect(section.getByTestId(`${prefix}-add`)).toBeDisabled());
       expect(section.getAllByTestId(`${prefix}-chip`)[0]).toHaveTextContent(text);
+      expect(section.queryByTestId('catalog-status')).toBeNull();
+    });
+
+    it('names its picker with its visible label instead of a heading', () => {
+      renderSection(kind);
+
+      const section = within(screen.getByTestId(testId));
+      expect(section.queryByRole('heading')).toBeNull();
+      expect(section.getByRole('grid')).toHaveAccessibleName(
+        section.getByText(label, { selector: '.catalog-picker-label' }).textContent!,
+      );
     });
   });
 
@@ -160,35 +185,29 @@ describe('CandidateRelationSection', () => {
     expect(screen.getByTestId('candidate-language-add')).toBeInTheDocument();
   });
 
-  it('saves a language only once its level is chosen, with its certification', async () => {
+  it('saves a language at once with the lowest active level, opening no editor', async () => {
+    const lowest = catalogService.activeNames('language_level')[0];
     renderSection('language');
 
     await typeInto('candidate-language', 'fran');
     await userEvent.keyboard('{ArrowDown}{Enter}');
-    const editor = await screen.findByTestId('candidate-language-editor');
-    expect(relations.addLanguage).not.toHaveBeenCalled();
-
-    await userEvent.type(within(editor).getByLabelText('Certificación'), 'DELF');
-    await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
 
     expect(relations.addLanguage).toHaveBeenCalledWith('c1', {
       language: 'Francés',
-      level: 'B2',
-      certification: 'DELF',
+      level: lowest,
+      certification: '',
     });
+    expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
   });
 
-  it('sends no write when the level choice is abandoned', async () => {
+  it('cannot add a skill while no skill level is active', async () => {
+    const api = new FakeCatalogApi({ skill: ['Compras', 'Gestión documental'], skill_level: [] });
+    catalogService = new CatalogService(api);
+    await catalogService.ensureLoaded();
     renderSection('skill');
 
-    await typeInto('candidate-skill', 'gest');
-    await userEvent.keyboard('{ArrowDown}{Enter}');
-    await screen.findByTestId('candidate-skill-editor');
-    await userEvent.keyboard('{Escape}');
-
-    await waitFor(() => expect(screen.queryByTestId('candidate-skill-editor')).toBeNull());
+    expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
     expect(relations.addSkill).not.toHaveBeenCalled();
-    expect(chip('candidate-skill', 'Gestión documental')).toBeUndefined();
   });
 
   it('changes a language level in place and keeps its certification', async () => {

@@ -316,40 +316,72 @@ describe('CatalogValuePicker', () => {
   });
 
   describe('required level', () => {
-    it('opens the level editor at once and commits only once a level is chosen', async () => {
+    it('commits at once with the lowest level and opens no editor', async () => {
       const onAdd = vi.fn();
       render(<Host levelMode="required" onAdd={onAdd} />);
 
       await userEvent.type(await openInput(), 'ale');
       await userEvent.keyboard('{ArrowDown}{Enter}');
 
-      const editor = await screen.findByTestId('test-language-editor');
-      expect(onAdd).not.toHaveBeenCalled();
-      expect(within(editor).getByText('Elige un nivel para añadir Alemán.')).toBeInTheDocument();
-      expect(within(editor).queryByRole('radio', { name: 'Cualquier nivel' })).toBeNull();
-
-      await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
-
       expect(onAdd).toHaveBeenCalledTimes(1);
-      expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ value: 'Alemán', level: 'B2' }));
-      expect(chip('Alemán')).toHaveTextContent('B2');
-      // Focus returns to the input for the next value rather than falling to the page.
+      expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ value: 'Alemán', level: 'A1' }));
+      expect(chip('Alemán')).toHaveTextContent('A1');
+      expect(screen.queryByTestId('test-language-editor')).toBeNull();
       await waitFor(() => expect(input()).toHaveFocus());
     });
 
-    it('discards the value and commits nothing when the editor is closed without a level', async () => {
-      const onAdd = vi.fn();
-      render(<Host levelMode="required" onAdd={onAdd} />);
+    it('changes the default level on the chip, offering no «Cualquier nivel»', async () => {
+      const onChange = vi.fn();
+      render(
+        <Host
+          levelMode="required"
+          initial={[{ key: 'de', value: 'Alemán', level: 'A1' }]}
+          onChange={onChange}
+        />,
+      );
 
-      await userEvent.type(await openInput(), 'ale');
-      await userEvent.keyboard('{ArrowDown}{Enter}');
+      await userEvent.click(chip('Alemán'));
+      const editor = await screen.findByTestId('test-language-editor');
+      expect(within(editor).queryByRole('radio', { name: 'Cualquier nivel' })).toBeNull();
+      await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
+
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ key: 'de', level: 'B2' }));
+      expect(chip('Alemán')).toHaveTextContent('B2');
+    });
+
+    it('keeps the default level when the editor is closed without a choice', async () => {
+      const onChange = vi.fn();
+      render(
+        <Host
+          levelMode="required"
+          initial={[{ key: 'de', value: 'Alemán', level: 'A1' }]}
+          onChange={onChange}
+        />,
+      );
+
+      await userEvent.click(chip('Alemán'));
       await screen.findByTestId('test-language-editor');
       await userEvent.keyboard('{Escape}');
 
       await waitFor(() => expect(screen.queryByTestId('test-language-editor')).toBeNull());
-      expect(onAdd).not.toHaveBeenCalled();
-      expect(chips()).toHaveLength(0);
-      await waitFor(() => expect(input()).toHaveFocus());
+      expect(onChange).not.toHaveBeenCalled();
+      expect(chip('Alemán')).toHaveTextContent('A1');
+    });
+
+    it('cannot add while the level family offers no level, but still removes', async () => {
+      const onRemove = vi.fn();
+      render(
+        <Host
+          levelMode="required"
+          levelOptions={[]}
+          initial={[{ key: 'de', value: 'Alemán', level: 'B1' }]}
+          onRemove={onRemove}
+        />,
+      );
+
+      expect(addButton()).toBeDisabled();
+      await userEvent.click(within(chip('Alemán')).getByTestId('test-language-remove'));
+      expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ key: 'de' }));
     });
   });
 

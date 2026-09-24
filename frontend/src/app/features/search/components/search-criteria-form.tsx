@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCatalogs } from '../../catalogs/use-catalogs';
+import { CatalogFamilyRows } from '../../catalogs/components/catalog-family-rows';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import type { CandidateStatus } from '../../candidates/models/candidate.models';
@@ -251,23 +252,24 @@ export function SearchCriteriaForm({
               </div>
             </div>
 
-            <CatalogStatusNotice status={catalogStatus} />
-
-            {CRITERIA_GROUPS.map((group) => (
-              <CriteriaGroup
-                key={group.kind}
-                group={group}
-                criteria={filters[`${group.kind}Criteria`]}
-                mode={filters[`${group.kind}Mode`]}
-                valueOptions={catalogs.activeNames(group.valueFamily)}
-                levelOptions={group.levelFamily ? catalogs.activeNames(group.levelFamily) : []}
-                disabled={Boolean(catalogStatus.message)}
-                onCriteriaChange={(criteria) => setCriteria(group.kind, criteria)}
-                onModeChange={(mode) =>
-                  onFiltersChange({ ...filters, [`${group.kind}Mode`]: mode })
-                }
-              />
-            ))}
+            <CatalogFamilyRows
+              notice={<CatalogStatusNotice status={catalogStatus} />}
+              renderRow={(kind) => {
+                const group = CRITERIA_GROUPS[kind];
+                return (
+                  <CriteriaGroup
+                    group={group}
+                    criteria={filters[`${kind}Criteria`]}
+                    mode={filters[`${kind}Mode`]}
+                    valueOptions={catalogs.activeNames(group.valueFamily)}
+                    levelOptions={group.levelFamily ? catalogs.activeNames(group.levelFamily) : []}
+                    disabled={Boolean(catalogStatus.message)}
+                    onCriteriaChange={(criteria) => setCriteria(kind, criteria)}
+                    onModeChange={(mode) => onFiltersChange({ ...filters, [`${kind}Mode`]: mode })}
+                  />
+                );
+              }}
+            />
           </div>
         ) : null}
 

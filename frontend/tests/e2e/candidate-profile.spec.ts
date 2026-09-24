@@ -1,7 +1,15 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders } from './support/auth';
-import { addValue, chip, chips, offered, openInput, setLevel } from './support/catalog-picker';
+import {
+  addValue,
+  chip,
+  chips,
+  offered,
+  openInput,
+  removeValue,
+  setLevel,
+} from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -37,12 +45,27 @@ test.describe('Candidate profile enrichment', () => {
     // A value the candidate already has is not offered, so it cannot be added twice.
     await expect(await offered(page, 'candidate-language', 'Ingl')).toHaveCount(0);
 
-    // Abandoning the level choice saves nothing.
+    // KTL-27: a value is saved at once at the lowest active level, without opening the
+    // editor; closing the editor without a choice keeps that level.
     await (await openInput(page, 'candidate-language')).fill('Alem');
     await page.getByRole('listbox').getByRole('option', { name: 'Alemán', exact: true }).click();
+    await expect(page.getByTestId('candidate-language-editor')).toHaveCount(0);
+    await expect(chips(page, 'candidate-language')).toHaveCount(2);
+    await expect(chip(page, 'candidate-language', 'Alemán')).not.toHaveAttribute('data-status');
+    // The API lists active values only by default; the lowest is the first by sort order.
+    const levels = (await (
+      await page.request.get('/api/catalogs/language_level', {
+        headers: authorizationHeaders(page),
+      })
+    ).json()) as { nameEs: string; sortOrder: number }[];
+    const lowest = [...levels].sort((a, b) => a.sortOrder - b.sortOrder)[0].nameEs;
+    expect((await stored()).find((entry) => entry.language === 'Alemán')?.level).toBe(lowest);
+    await chip(page, 'candidate-language', 'Alemán').click();
     await expect(page.getByTestId('candidate-language-editor')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('candidate-language-editor')).toHaveCount(0);
+    await expect(chip(page, 'candidate-language', 'Alemán')).toContainText(lowest);
+    await removeValue(page, 'candidate-language', 'Alemán');
     await expect(chips(page, 'candidate-language')).toHaveCount(1);
 
     // The level changes in place: same entry, new level, nothing added or removed.
@@ -81,6 +104,74 @@ test.describe('Candidate profile enrichment', () => {
       await expect(section.getByRole('combobox')).toHaveCount(0);
     }
     await expect(page.getByTestId('document-file')).toHaveCount(0);
+  });
+
+  test('stacks the sections and shares the family rows with search (KTL-27)', async ({ page }) => {
+    const suffix = Date.now().toString();
+    await createCandidate(page, `Filas${suffix}`, 'Test');
+    const editUrl = page.url();
+
+    const families = async () =>
+      page
+        .getByTestId('candidate-competencies')
+        .locator('.catalog-family-row')
+        .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-family')));
+    const labelWidths = async () =>
+      page
+        .locator('.catalog-family-row .catalog-picker-label')
+        .evaluateAll((labels) => labels.map((label) => label.getBoundingClientRect().width));
+    // One full-width section per row: same left edge and width, each below the previous one.
+    const expectStacked = async (testIds: string[]) => {
+      const boxes = [];
+      for (const testId of testIds) {
+        boxes.push(
+          await page.getByTestId(testId).evaluate((element) => {
+            const { x, y, width, height } = element.closest('.panel')!.getBoundingClientRect();
+            return { x, y, width, height };
+          }),
+        );
+      }
+      for (let index = 1; index < boxes.length; index++) {
+        expect(boxes[index].y).toBeGreaterThan(boxes[index - 1].y + boxes[index - 1].height - 1);
+        expect(Math.abs(boxes[index].x - boxes[0].x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(boxes[index].width - boxes[0].width)).toBeLessThanOrEqual(1);
+      }
+    };
+    const sections = [
+      'candidate-competencies',
+      'candidate-education',
+      'candidate-experience',
+      'candidate-notes',
+      'candidate-documents',
+    ];
+
+    await expect(page.getByTestId('candidate-skill-add')).toBeEnabled();
+    expect(await families()).toEqual(['skill', 'language', 'program', 'tag']);
+    await expectStacked(sections);
+    const candidateWidths = await labelWidths();
+
+    await page.goto('/app/search');
+    await expect(page.getByTestId('search-skill-add')).toBeEnabled();
+    const searchRows = await page
+      .locator('.catalog-family-row')
+      .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-family')));
+    expect(searchRows).toEqual(['skill', 'language', 'program', 'tag']);
+    expect(await labelWidths()).toEqual(candidateWidths);
+
+    await page.goto(editUrl.replace(/\/edit$/, ''));
+    await expect(page.getByTestId('candidate-competencies')).toBeVisible();
+    expect(await families()).toEqual(['skill', 'language', 'program', 'tag']);
+    await expectStacked(sections);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const url of [editUrl, editUrl.replace(/\/edit$/, '')]) {
+      await page.goto(url);
+      await expect(page.getByTestId('candidate-competencies')).toBeVisible();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
   });
 
   test('rejects experience with an end date before the start date', async ({ page }) => {

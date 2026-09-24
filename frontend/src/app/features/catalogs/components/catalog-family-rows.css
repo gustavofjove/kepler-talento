@@ -1,0 +1,20 @@
+/* Shared family rows (KTL-27): search, presets, positions and candidate profiles. */
+.catalog-family-rows {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* One compact row per family; a fixed label width lines the four rows up. */
+.catalog-family-row {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.catalog-family-row .catalog-picker-label {
+  flex: 0 0 6.5rem;
+}

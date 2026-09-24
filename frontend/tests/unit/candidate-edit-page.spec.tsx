@@ -97,6 +97,37 @@ describe('CandidateEditPage (KTL-22)', () => {
     expect(screen.getByTestId('candidate-edit-view')).toHaveAttribute('href', '/app/candidates/c1');
   });
 
+  it('stacks the sections, with the four families in one Competencias panel (KTL-27)', async () => {
+    await renderAt('/app/candidates/c1/edit');
+    await screen.findByLabelText('Nombre');
+
+    const order = [
+      'Datos principales',
+      'Competencias',
+      'Formación',
+      'Experiencia',
+      'Notas personalizadas',
+      'Documentos',
+    ];
+    const headings = screen
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent)
+      .filter((text) => order.includes(text ?? ''));
+    expect(headings).toEqual(order);
+    const panel = screen.getByTestId('candidate-competencies');
+    expect(panel.parentElement).not.toHaveClass('two');
+
+    expect(
+      [...panel.querySelectorAll('.catalog-family-row')].map((row) =>
+        row.getAttribute('data-family'),
+      ),
+    ).toEqual(['skill', 'language', 'program', 'tag']);
+    expect(
+      [...panel.querySelectorAll('.catalog-picker-label')].map((label) => label.textContent),
+    ).toEqual(['Habilidades', 'Idiomas', 'Programas', 'Etiquetas']);
+    expect(panel.querySelector('.catalog-picker-label[data-hidden]')).toBeNull();
+  });
+
   it('keeps document upload hidden for an editor without the upload permission', async () => {
     granted.delete('documents.upload');
     await renderAt('/app/candidates/c1/edit');
@@ -151,19 +182,17 @@ describe('CandidateEditPage (KTL-22)', () => {
   });
 
   // KTL-24: through the real relations service and the fake API, not a service double.
-  it('saves a language once its level is chosen and changes the level in place', async () => {
+  it('saves a language at once at the lowest level and changes the level in place', async () => {
     await renderAt('/app/candidates/c1/edit');
 
     await userEvent.click(await screen.findByTestId('candidate-language-add'));
     await userEvent.type(screen.getByTestId('candidate-language-input'), 'ingl');
     await userEvent.keyboard('{ArrowDown}{Enter}');
-    const editor = await screen.findByTestId('candidate-language-editor');
-    expect(bed.api.candidates.get('c1')?.languages).toEqual([]);
-    await userEvent.click(within(editor).getByRole('radio', { name: 'B2' }));
+    expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
 
     await waitFor(() =>
       expect(bed.api.candidates.get('c1')?.languages).toEqual([
-        expect.objectContaining({ language: 'Inglés', level: 'B2' }),
+        expect.objectContaining({ language: 'Inglés', level: 'A1' }),
       ]),
     );
     const [{ id }] = bed.api.candidates.get('c1')!.languages;

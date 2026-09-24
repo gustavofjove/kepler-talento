@@ -72,6 +72,32 @@ describe('CandidateDetailPage breadcrumb (KTL-23)', () => {
     expect(trail().getAllByRole('link')).toHaveLength(1);
   });
 
+  it('stacks every section full width, with a read-only Competencias panel (KTL-27)', async () => {
+    bed.api.seed({ id: 'c2', firstName: 'Eva', lastName: 'Sanz' });
+    await renderAt('/app/candidates/c2');
+    await screen.findByRole('heading', { level: 1, name: 'Eva Sanz' });
+
+    const order = [
+      'Datos principales',
+      'Auditoría',
+      'Competencias',
+      'Formación',
+      'Experiencia',
+      'Notas personalizadas',
+      'Documentos',
+    ];
+    const headings = screen
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent)
+      .filter((text) => order.includes(text ?? ''));
+    expect(headings).toEqual(order);
+    expect(screen.getByTestId('candidate-competencies').parentElement).not.toHaveClass('two');
+
+    const panel = within(screen.getByTestId('candidate-competencies'));
+    expect(panel.queryByRole('button')).toBeNull();
+    expect(panel.getByText('Sin programas asociados.')).toBeInTheDocument();
+  });
+
   it('offers only the list while the candidate loads', async () => {
     await renderAt('/app/candidates/c1');
 
