@@ -57,7 +57,6 @@
   "candidate.profile.competencies.noLevels": "There are no active {{family}} levels; activate them in Catalogs to add.",
   "candidate.profile.validation.negativeYears": "Years of experience cannot be negative.",
   "candidate.profile.validation.notFound": "Candidate not found.",
-  "candidate.profile.validation.entryNotFound": "This entry no longer exists. Reload the page to see the changes.",
   "candidate.profile.yearsCount": "{{years}} years",
   "candidate.profile.action.remove": "Remove",
   "candidate.profile.option.select": "Select",

@@ -11,11 +11,18 @@ import './candidate-notes.css';
 interface Props {
   candidateId: string;
   initialNotes: CandidateNote[];
-  /** See candidate-languages. */
+  /** True unless the Notas panel is in edit mode (KTL-29); the actions still apply at once. */
   readOnly?: boolean;
+  /** Reports unsaved input: a new note being typed or a note being edited. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function CandidateNotes({ candidateId, initialNotes, readOnly = false }: Props) {
+export function CandidateNotes({
+  candidateId,
+  initialNotes,
+  readOnly = false,
+  onDirtyChange,
+}: Props) {
   const { t } = useTranslation();
   const { confirmDialogService } = useServices();
   const canUpdate = usePermission('candidates.update');
@@ -27,6 +34,17 @@ export function CandidateNotes({ candidateId, initialNotes, readOnly = false }: 
   const [editing, setEditing] = useState<string | null>(null);
   const [editBody, setEditBody] = useState('');
   const [error, setError] = useState('');
+  const dirty = canEdit && (body.trim() !== '' || editing !== null);
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  // Leaving edit mode drops unsaved input, as «Hecho» and a confirmed discard both mean.
+  useEffect(() => {
+    if (canEdit) return;
+    setBody('');
+    setEditing(null);
+    setError('');
+  }, [canEdit]);
 
   useEffect(
     () => notesService.hydrate(candidateId, initialNotes),
@@ -79,7 +97,6 @@ export function CandidateNotes({ candidateId, initialNotes, readOnly = false }: 
 
   return (
     <section className="section-block candidate-notes" data-testid="candidate-notes">
-      <h3 className="section-title">{t('candidate.profile.notes.title')}</h3>
       {!notes.length ? <p className="empty-state">{t('candidate.profile.notes.empty')}</p> : null}
       <div className="item-list">
         {notes.map((note) => (

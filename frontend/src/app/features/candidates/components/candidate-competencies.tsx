@@ -1,31 +1,49 @@
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePermission } from '../../../core/di/services-context';
+import { useServices } from '../../../core/di/services-context';
+import { errorText } from '../../../core/i18n/translatable-error';
 import { CatalogFamilyRows } from '../../catalogs/components/catalog-family-rows';
 import { CATALOG_FAMILY_ORDER } from '../../catalogs/components/catalog-family-rows.logic';
+import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import type { Candidate } from '../models/candidate.models';
-import { familiesWithoutLevels } from './candidate-competencies.logic';
+import { useCandidates } from '../use-candidates';
+import {
+  changedFamilies,
+  familiesWithoutLevels,
+  savedFamilies,
+  type FamilyItems,
+} from './candidate-competencies.logic';
+import { CandidatePanel } from './candidate-panel';
+import type { PanelControl } from './candidate-panel.logic';
 import { CandidateRelationSection } from './candidate-relation-section';
-import { RELATION_DEFINITIONS } from './candidate-relation-section.logic';
+import { RELATION_DEFINITIONS, type RelationKind } from './candidate-relation-section.logic';
+import { usePanelDraft } from './use-panel-draft';
 
 interface Props {
   candidate: Candidate;
-  /** The detail page shows the rows read-only, whatever the viewer may do. */
-  readOnly?: boolean;
+  control: PanelControl;
 }
 
 /**
  * Skills, languages, programs and tags of a candidate in one panel, on the family rows every
- * search and preset host uses too (KTL-27). The catalog notice is shown once, for the panel.
+ * search and preset host uses too (KTL-27). In edit mode the four families form one draft;
+ * «Guardar» writes only the families that changed, one after another, since each write
+ * carries the aggregate version the previous one returned (KTL-29 design D4). A family the
+ * API refuses keeps its draft and error, and a further «Guardar» retries only it.
  */
-export function CandidateCompetencies({ candidate, readOnly = false }: Props) {
+export function CandidateCompetencies({ candidate, control }: Props) {
   const { t } = useTranslation();
-  const canUpdate = usePermission('candidates.update');
+  const { candidateRelationsService, toastService } = useServices();
+  const candidateService = useCandidates();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
-  const canEdit = !readOnly && canUpdate;
+  const saved = useMemo(() => savedFamilies(candidate), [candidate]);
+  const draft = usePanelDraft<FamilyItems>(saved, control.editing, control.onDirtyChange);
+  const [errors, setErrors] = useState<Partial<Record<RelationKind, string>>>({});
+  const [saving, setSaving] = useState(false);
 
   const withoutLevels = catalogStatus.message
     ? []
@@ -41,17 +59,93 @@ export function CandidateCompetencies({ candidate, readOnly = false }: Props) {
       .join(' ') ||
       null);
 
+  const setError = (kind: RelationKind, error?: string): void =>
+    setErrors((current) => {
+      const { [kind]: _cleared, ...rest } = current;
+      return error ? { ...rest, [kind]: error } : rest;
+    });
+
+  const change = (kind: RelationKind, items: PickerItem[], changed: PickerItem): void => {
+    try {
+      RELATION_DEFINITIONS[kind].validate(candidate, items, changed);
+    } catch (err) {
+      setError(kind, errorText(err, t));
+      return;
+    }
+    setError(kind);
+    draft.set({ ...draft.value, [kind]: items });
+  };
+
+  const save = async (): Promise<void> => {
+    setSaving(true);
+    const pending = { ...draft.value };
+    const failures: Partial<Record<RelationKind, string>> = {};
+    for (const kind of changedFamilies(CATALOG_FAMILY_ORDER, saved, draft.value)) {
+      // Each family maps its draft against the aggregate as it stands now, after the
+      // families saved before it in this loop.
+      const current = candidateService.find(candidate.id) ?? candidate;
+      try {
+        await RELATION_DEFINITIONS[kind].save(candidateRelationsService, current, pending[kind]);
+        const absorbed = candidateService.find(candidate.id) ?? current;
+        pending[kind] = RELATION_DEFINITIONS[kind].items(absorbed);
+      } catch (err) {
+        failures[kind] = errorText(err, t);
+      }
+    }
+    setSaving(false);
+    setErrors(failures);
+    if (Object.keys(failures).length) {
+      // Saved families now match the aggregate, so only the refused ones stay changed.
+      draft.set(pending);
+      return;
+    }
+    toastService.show(t('candidate.panel.saved.competencies'), 'success');
+    control.onClose();
+  };
+
+  const cancel = (): void => {
+    draft.reset();
+    setErrors({});
+  };
+
   return (
-    <article className="panel" data-testid="candidate-competencies">
-      <h2>{t('candidate.profile.competencies.title')}</h2>
+    <CandidatePanel
+      id="competencies"
+      title={t('candidate.profile.competencies.title')}
+      control={control}
+      mode="form"
+      onSave={() => void save()}
+      onCancel={cancel}
+      saving={saving}
+      saveDisabled={Boolean(catalogStatus.message)}
+      testId="candidate-competencies"
+    >
       <CatalogFamilyRows
         notice={
-          canEdit ? <CatalogStatusNotice status={{ ...catalogStatus, message }} /> : undefined
+          control.editing ? (
+            <CatalogStatusNotice status={{ ...catalogStatus, message }} />
+          ) : undefined
         }
         renderRow={(kind) => (
-          <CandidateRelationSection kind={kind} candidate={candidate} readOnly={readOnly} />
+          <>
+            <CandidateRelationSection
+              kind={kind}
+              items={draft.value[kind]}
+              editing={control.editing}
+              onItemsChange={(items, changed) => change(kind, items, changed)}
+            />
+            {control.editing && errors[kind] ? (
+              <p
+                className="empty-state"
+                role="alert"
+                data-testid={`${RELATION_DEFINITIONS[kind].idPrefix}-error`}
+              >
+                {errors[kind]}
+              </p>
+            ) : null}
+          </>
         )}
       />
-    </article>
+    </CandidatePanel>
   );
 }

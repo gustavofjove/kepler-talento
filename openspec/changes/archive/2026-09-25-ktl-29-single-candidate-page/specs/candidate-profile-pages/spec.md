@@ -1,177 +1,4 @@
-# Candidate Profile Pages Specification
-
-## Purpose
-
-Defines how the application presents a candidate to its users: a single candidate page that shows
-the profile and its documents read-only, where each panel is edited in place and saved on its own
-(KTL-29), plus the create page for new candidates.
-
-## Requirements
-
-### Requirement: Detail page keeps viewing and status actions
-
-The candidate page SHALL keep document download and the CV preview for users holding the document
-download permission, whether or not a panel is in edit mode. It SHALL keep the activate/deactivate
-action in the page header for users holding the candidate update permission. Activation and
-deactivation SHALL still require explicit confirmation. The page SHALL NOT offer a link to a
-separate edit page.
-
-#### Scenario: Document is downloaded from the detail page
-
-- **WHEN** a user holding the document download permission opens a candidate with a clean document
-- **THEN** the document can be downloaded and previewed from the candidate page
-
-#### Scenario: Editor reaches the edit page
-
-- **WHEN** a user holding the candidate update permission opens the candidate page
-- **THEN** editing is reached through each panel's «Editar», no link to a separate edit page is
-  shown, and the activate/deactivate action is offered
-
-#### Scenario: Reader sees no status actions
-
-- **WHEN** a user without the candidate update permission opens the candidate page
-- **THEN** neither «Editar» nor the activate/deactivate action is offered
-
-### Requirement: Candidate pages are localized and accessible
-
-All copy on the candidate page and the create page SHALL be Spanish and come from the localization
-catalogue. Each page SHALL have a single top-level heading and a heading per panel. Within the
-Competencias panel, each family SHALL be identified by its visible row label, which names its
-picker, rather than by its own heading.
-
-«Editar», «Guardar», «Cancelar» and «Hecho» SHALL have accessible names that include the panel
-they act on. On entering edit mode, focus SHALL move to the panel's first control. On saving,
-cancelling or finishing, focus SHALL return to that panel's «Editar».
-
-Form controls SHALL keep programmatic labels, stable names and test identifiers. Save
-confirmations SHALL be announced to assistive technology. Both pages SHALL be operable by keyboard,
-and SHALL NOT scroll horizontally at 390 pixels wide, including while a panel is in edit mode.
-
-#### Scenario: Save confirmation with a screen reader
-
-- **WHEN** an editor saves a form panel
-- **THEN** the confirmation is exposed through a live status region
-
-#### Scenario: Edit control names its panel
-
-- **WHEN** an assistive technology user reaches the «Editar» of Educación
-- **THEN** it is announced with a name that includes Educación
-
-#### Scenario: Focus follows edit mode
-
-- **WHEN** a keyboard user activates «Editar» on Datos principales and later «Cancelar»
-- **THEN** focus moves to the first field of Datos principales and then back to its «Editar»
-
-#### Scenario: Families are named by their row labels
-
-- **WHEN** an assistive technology user navigates the Competencias panel
-- **THEN** the panel has its own heading and each family's picker is announced with its row label
-
-#### Scenario: Narrow viewport
-
-- **WHEN** the candidate page is shown at 390 pixels wide with a panel in edit mode
-- **THEN** every section and control remains reachable and the page does not scroll horizontally
-
-### Requirement: Competencias panel and stacked sections
-
-The candidate page SHALL present skills, languages, programs and tags together in one panel headed
-`Competencias`. Each family SHALL be one row in the shared family row layout, in the order
-Habilidades, Idiomas, Programas, Etiquetas. When catalogs cannot be loaded, the catalog status
-notice SHALL appear once for the panel while it is in edit mode.
-
-Every panel SHALL span the full width of the sections column and be stacked vertically, in the
-order Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas, Documentos. A
-panel in edit mode SHALL keep its position in that order.
-
-The sections column SHALL be the full content width, unless the CV preview is shown beside it as
-the CV preview requirement describes.
-
-When Competencias is read-only, its rows SHALL show chips only, and each family without entries
-SHALL show its empty-state text in its row.
-
-#### Scenario: Edit page layout
-
-- **WHEN** an editor puts Competencias in edit mode
-- **THEN** every panel keeps its position in the stacked order, and Competencias shows the rows
-  Habilidades, Idiomas, Programas and Etiquetas in that order with their add controls
-
-#### Scenario: Detail page layout
-
-- **WHEN** any reader opens a candidate page
-- **THEN** Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas and Documentos
-  are shown across the sections column, one below another, and Competencias shows the rows
-  Habilidades, Idiomas, Programas and Etiquetas in that order, read-only
-
-#### Scenario: Family without entries on the detail page
-
-- **WHEN** a candidate has no programs and a reader opens the candidate page
-- **THEN** the Programas row shows its empty-state text
-
-#### Scenario: Catalogs are unavailable on the edit page
-
-- **WHEN** the catalogs fail to load and an editor puts Competencias in edit mode
-- **THEN** a single catalog notice is shown in the Competencias panel, every family's add control
-  is disabled, and «Guardar» is disabled
-
-### Requirement: CV preview beside the candidate sections
-
-The candidate page SHALL offer the CV preview to users holding the document download permission,
-under the existing preview rules, whether or not a panel is in edit mode. The new-candidate page
-SHALL NOT show a preview.
-
-When the preview is shown and the page's content area is at least 1360 CSS pixels wide:
-
-- The preview SHALL be a column to the right of the sections column.
-- It SHALL stay visible below the application header while the sections scroll.
-- The page's content area SHALL widen, up to 1920 CSS pixels.
-
-When the content area is narrower, the preview SHALL follow the last section, one below another.
-
-When the preview is not shown, the sections column SHALL take the full content width, and no empty
-column SHALL remain.
-
-Two-column field groups inside the sections column SHALL become one column when that column is too
-narrow for two, regardless of the viewport width. Reading and keyboard order SHALL be the sections
-first and then the preview, at every width.
-
-#### Scenario: Preview beside the sections on a wide screen
-
-- **WHEN** a user holding the document download permission opens the page of a candidate with a
-  clean PDF at 1920×1080
-- **THEN** the CV preview is shown to the right of Datos principales
-
-#### Scenario: Preview on the edit page
-
-- **WHEN** a user holding the candidate update and document download permissions puts Datos
-  principales in edit mode on a candidate with a clean PDF at 1920×1080
-- **THEN** the CV preview stays shown to the right of the Datos principales editor
-
-#### Scenario: Preview stays in view
-
-- **WHEN** the preview is shown beside the sections and the user scrolls down to Documentos
-- **THEN** the preview remains fully visible below the application header
-
-#### Scenario: Preview stacked on a narrower screen
-
-- **WHEN** a user holding the document download permission opens the candidate page at 1366×768
-- **THEN** the CV preview is shown below the last section
-
-#### Scenario: No preview leaves one column
-
-- **WHEN** a user without the document download permission opens the candidate page at 1920×1080
-- **THEN** no preview content is requested, the sections take the full content width and no empty
-  column is shown
-
-#### Scenario: Field groups follow the sections column
-
-- **WHEN** the preview is shown beside the sections, the sections column is too narrow for two
-  field columns, and Datos principales, Educación, Experiencia or Documentos is in edit mode
-- **THEN** that panel's form shows its fields in one column
-
-#### Scenario: New candidate page has no preview
-
-- **WHEN** an editor opens the new-candidate page
-- **THEN** no CV preview is shown
+## ADDED Requirements
 
 ### Requirement: One candidate page with per-panel edit mode
 
@@ -442,3 +269,205 @@ permission SHALL find «Editar» offered there under the panel permission rules.
 
 - **WHEN** a user opens the create page
 - **THEN** only the core record form and the post-save note are shown
+
+## MODIFIED Requirements
+
+### Requirement: Detail page keeps viewing and status actions
+
+The candidate page SHALL keep document download and the CV preview for users holding the document
+download permission, whether or not a panel is in edit mode. It SHALL keep the activate/deactivate
+action in the page header for users holding the candidate update permission. Activation and
+deactivation SHALL still require explicit confirmation. The page SHALL NOT offer a link to a
+separate edit page.
+
+#### Scenario: Document is downloaded from the detail page
+
+- **WHEN** a user holding the document download permission opens a candidate with a clean document
+- **THEN** the document can be downloaded and previewed from the candidate page
+
+#### Scenario: Editor reaches the edit page
+
+- **WHEN** a user holding the candidate update permission opens the candidate page
+- **THEN** editing is reached through each panel's «Editar», no link to a separate edit page is
+  shown, and the activate/deactivate action is offered
+
+#### Scenario: Reader sees no status actions
+
+- **WHEN** a user without the candidate update permission opens the candidate page
+- **THEN** neither «Editar» nor the activate/deactivate action is offered
+
+### Requirement: Candidate pages are localized and accessible
+
+All copy on the candidate page and the create page SHALL be Spanish and come from the localization
+catalogue. Each page SHALL have a single top-level heading and a heading per panel. Within the
+Competencias panel, each family SHALL be identified by its visible row label, which names its
+picker, rather than by its own heading.
+
+«Editar», «Guardar», «Cancelar» and «Hecho» SHALL have accessible names that include the panel
+they act on. On entering edit mode, focus SHALL move to the panel's first control. On saving,
+cancelling or finishing, focus SHALL return to that panel's «Editar».
+
+Form controls SHALL keep programmatic labels, stable names and test identifiers. Save
+confirmations SHALL be announced to assistive technology. Both pages SHALL be operable by keyboard,
+and SHALL NOT scroll horizontally at 390 pixels wide, including while a panel is in edit mode.
+
+#### Scenario: Save confirmation with a screen reader
+
+- **WHEN** an editor saves a form panel
+- **THEN** the confirmation is exposed through a live status region
+
+#### Scenario: Edit control names its panel
+
+- **WHEN** an assistive technology user reaches the «Editar» of Educación
+- **THEN** it is announced with a name that includes Educación
+
+#### Scenario: Focus follows edit mode
+
+- **WHEN** a keyboard user activates «Editar» on Datos principales and later «Cancelar»
+- **THEN** focus moves to the first field of Datos principales and then back to its «Editar»
+
+#### Scenario: Families are named by their row labels
+
+- **WHEN** an assistive technology user navigates the Competencias panel
+- **THEN** the panel has its own heading and each family's picker is announced with its row label
+
+#### Scenario: Narrow viewport
+
+- **WHEN** the candidate page is shown at 390 pixels wide with a panel in edit mode
+- **THEN** every section and control remains reachable and the page does not scroll horizontally
+
+### Requirement: Competencias panel and stacked sections
+
+The candidate page SHALL present skills, languages, programs and tags together in one panel headed
+`Competencias`. Each family SHALL be one row in the shared family row layout, in the order
+Habilidades, Idiomas, Programas, Etiquetas. When catalogs cannot be loaded, the catalog status
+notice SHALL appear once for the panel while it is in edit mode.
+
+Every panel SHALL span the full width of the sections column and be stacked vertically, in the
+order Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas, Documentos. A
+panel in edit mode SHALL keep its position in that order.
+
+The sections column SHALL be the full content width, unless the CV preview is shown beside it as
+the CV preview requirement describes.
+
+When Competencias is read-only, its rows SHALL show chips only, and each family without entries
+SHALL show its empty-state text in its row.
+
+#### Scenario: Edit page layout
+
+- **WHEN** an editor puts Competencias in edit mode
+- **THEN** every panel keeps its position in the stacked order, and Competencias shows the rows
+  Habilidades, Idiomas, Programas and Etiquetas in that order with their add controls
+
+#### Scenario: Detail page layout
+
+- **WHEN** any reader opens a candidate page
+- **THEN** Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas and Documentos
+  are shown across the sections column, one below another, and Competencias shows the rows
+  Habilidades, Idiomas, Programas and Etiquetas in that order, read-only
+
+#### Scenario: Family without entries on the detail page
+
+- **WHEN** a candidate has no programs and a reader opens the candidate page
+- **THEN** the Programas row shows its empty-state text
+
+#### Scenario: Catalogs are unavailable on the edit page
+
+- **WHEN** the catalogs fail to load and an editor puts Competencias in edit mode
+- **THEN** a single catalog notice is shown in the Competencias panel, every family's add control
+  is disabled, and «Guardar» is disabled
+
+### Requirement: CV preview beside the candidate sections
+
+The candidate page SHALL offer the CV preview to users holding the document download permission,
+under the existing preview rules, whether or not a panel is in edit mode. The new-candidate page
+SHALL NOT show a preview.
+
+When the preview is shown and the page's content area is at least 1360 CSS pixels wide:
+
+- The preview SHALL be a column to the right of the sections column.
+- It SHALL stay visible below the application header while the sections scroll.
+- The page's content area SHALL widen, up to 1920 CSS pixels.
+
+When the content area is narrower, the preview SHALL follow the last section, one below another.
+
+When the preview is not shown, the sections column SHALL take the full content width, and no empty
+column SHALL remain.
+
+Two-column field groups inside the sections column SHALL become one column when that column is too
+narrow for two, regardless of the viewport width. Reading and keyboard order SHALL be the sections
+first and then the preview, at every width.
+
+#### Scenario: Preview beside the sections on a wide screen
+
+- **WHEN** a user holding the document download permission opens the page of a candidate with a
+  clean PDF at 1920×1080
+- **THEN** the CV preview is shown to the right of Datos principales
+
+#### Scenario: Preview on the edit page
+
+- **WHEN** a user holding the candidate update and document download permissions puts Datos
+  principales in edit mode on a candidate with a clean PDF at 1920×1080
+- **THEN** the CV preview stays shown to the right of the Datos principales editor
+
+#### Scenario: Preview stays in view
+
+- **WHEN** the preview is shown beside the sections and the user scrolls down to Documentos
+- **THEN** the preview remains fully visible below the application header
+
+#### Scenario: Preview stacked on a narrower screen
+
+- **WHEN** a user holding the document download permission opens the candidate page at 1366×768
+- **THEN** the CV preview is shown below the last section
+
+#### Scenario: No preview leaves one column
+
+- **WHEN** a user without the document download permission opens the candidate page at 1920×1080
+- **THEN** no preview content is requested, the sections take the full content width and no empty
+  column is shown
+
+#### Scenario: Field groups follow the sections column
+
+- **WHEN** the preview is shown beside the sections, the sections column is too narrow for two
+  field columns, and Datos principales, Educación, Experiencia or Documentos is in edit mode
+- **THEN** that panel's form shows its fields in one column
+
+#### Scenario: New candidate page has no preview
+
+- **WHEN** an editor opens the new-candidate page
+- **THEN** no CV preview is shown
+
+## REMOVED Requirements
+
+### Requirement: Candidate detail page is read-only
+
+**Reason**: The candidate page is no longer read-only for every user. Editors switch individual
+panels into edit mode on the same page.
+**Migration**: Read-only presentation by default is covered by "One candidate page with per-panel
+edit mode". The absence of editing controls for readers is covered by "Panel editing follows API
+permissions".
+
+### Requirement: Edit page owns every candidate change
+
+**Reason**: The separate edit page is removed, and its address redirects to the candidate page.
+Per-item immediate persistence of relation entries is replaced by staged, per-panel saves.
+**Migration**: Editing moves to the candidate page:
+
+- "One candidate page with per-panel edit mode" for the page and the redirect;
+- "Form panels save only their own changes" for the core record and relations, including the
+  lowest-level and in-place level scenarios;
+- "Notes and documents act immediately in edit mode" for notes and documents;
+- "Panel editing follows API permissions" for authorization.
+
+### Requirement: Edit page states its save behaviours
+
+**Reason**: There is no longer a page mixing immediate and on-demand saves. Each panel has an
+explicit «Guardar»/«Cancelar» or «Hecho».
+**Migration**: Save confirmation and concurrency behaviour are covered by "Form panels save only
+their own changes" and "Panel saves handle concurrent edits".
+
+### Requirement: Candidate creation continues on the edit page
+
+**Reason**: The edit page no longer exists. Creation lands on the candidate page.
+**Migration**: Covered by the added requirement "Candidate creation continues on the candidate
+page".

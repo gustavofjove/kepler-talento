@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { CANDIDATE_PAGE_URL, editPanel } from './support/candidate-panels';
 import { offered } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
@@ -56,8 +57,9 @@ test.describe('Catalog management CRUD', () => {
     await page.fill('input[name="firstName"]', `Cat${suffix}`);
     await page.fill('input[name="lastName"]', 'Test');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
-    const candidateEditUrl = page.url();
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+    const candidateUrl = page.url();
+    await editPanel(page, 'competencies');
     await expect(page.getByTestId('candidate-language-add')).toBeEnabled();
     await expect(await offered(page, 'candidate-language', 'Ingl')).toHaveCount(1);
     await expect(await offered(page, 'candidate-language', editedName)).toHaveCount(0);
@@ -74,14 +76,15 @@ test.describe('Catalog management CRUD', () => {
     ).toContainText('Activo');
 
     // ...and the candidate picker offers it again by typing its name.
-    await page.goto(candidateEditUrl);
+    await page.goto(candidateUrl);
+    await editPanel(page, 'competencies');
     await expect(page.getByTestId('candidate-language-add')).toBeEnabled();
     const back = await offered(page, 'candidate-language', editedName.toLowerCase());
     await expect(back).toHaveCount(1);
     await expect(back).toHaveText(editedName);
 
     // Leave no test candidate behind: retire it through the product's logical path.
-    await page.goto(candidateEditUrl.replace(/\/edit$/, ''));
+    await page.goto(candidateUrl);
     await page.locator('button.button.danger').click();
     await page.getByTestId('confirm-accept').click();
   });

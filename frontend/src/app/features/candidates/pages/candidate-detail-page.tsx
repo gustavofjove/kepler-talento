@@ -1,5 +1,6 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { Link, useBlocker, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { useErrorToast } from '../../../core/services/use-error-toast';
@@ -7,7 +8,10 @@ import { CandidateCvPreview } from '../components/candidate-cv-preview';
 import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
+import { CandidateMainPanel } from '../components/candidate-main-panel';
 import { CandidateNotes } from '../components/candidate-notes';
+import { CandidatePanel } from '../components/candidate-panel';
+import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
 import { mailtoHref, telHref } from '../contact-links';
@@ -21,6 +25,7 @@ export function CandidateDetailPage() {
   const candidateService = useCandidate(candidateId);
   const item = candidateService.find(candidateId);
   const canEdit = usePermission('candidates.update');
+  const canUpload = usePermission('documents.upload');
   const aggregate = candidateService.aggregateStatus(candidateId);
   const canReadList = usePermission('candidates.read');
   // The list is offered in every state, even while loading or after a failure; the name only
@@ -34,6 +39,73 @@ export function CandidateDetailPage() {
   ];
   if (aggregate !== 'loading' && item)
     trail.push({ label: candidateFullName(item), current: true });
+
+  // KTL-29: one page, one panel in edit mode at a time. Each panel reports whether it holds
+  // unsaved changes; only the open panel's report counts (design D1, D6).
+  const [editing, setEditing] = useState<PanelId | null>(null);
+  const [dirtyPanels, setDirtyPanels] = useState<Partial<Record<PanelId, boolean>>>({});
+  const dirty = editing !== null && Boolean(dirtyPanels[editing]);
+
+  const reportDirty = useMemo(() => {
+    const report =
+      (id: PanelId) =>
+      (value: boolean): void =>
+        setDirtyPanels((current) =>
+          current[id] === value ? current : { ...current, [id]: value },
+        );
+    return {
+      main: report('main'),
+      competencies: report('competencies'),
+      education: report('education'),
+      experience: report('experience'),
+      notes: report('notes'),
+      documents: report('documents'),
+    } satisfies Record<PanelId, (value: boolean) => void>;
+  }, []);
+
+  const confirmDiscard = useCallback(
+    (leaving: boolean): Promise<boolean> =>
+      confirmDialogService.confirm({
+        title: t(leaving ? 'candidate.panel.leaveTitle' : 'candidate.panel.discardTitle'),
+        message: t(leaving ? 'candidate.panel.leaveMessage' : 'candidate.panel.discardMessage'),
+        confirmText: t('candidate.panel.discardConfirm'),
+        cancelText: t('candidate.panel.keepEditing'),
+        danger: true,
+      }),
+    [confirmDialogService, t],
+  );
+
+  const open = async (id: PanelId): Promise<void> => {
+    if (editing === id) return;
+    if (dirty && !(await confirmDiscard(false))) return;
+    setEditing(id);
+  };
+  const close = useCallback(() => setEditing(null), []);
+
+  // Leaving the page with unsaved changes asks first: in-app navigation through the router,
+  // reload and tab close through the browser's own prompt.
+  const blocker = useBlocker(dirty);
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    void confirmDiscard(true).then((leave) => (leave ? blocker.proceed() : blocker.reset()));
+  }, [blocker, confirmDiscard]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent): void => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  // The API refuses relation and note writes on a removed candidate, so those panels offer
+  // no «Editar» then; the core record and documents keep following their permissions (D7).
+  const isActive = item?.isActive ?? false;
+  const control = (id: PanelId, allowed: boolean): PanelControl => ({
+    editing: editing === id,
+    canEdit: allowed,
+    onEdit: () => void open(id),
+    onClose: close,
+    onDirtyChange: reportDirty[id],
+  });
 
   const setActive = async (active: boolean): Promise<void> => {
     if (!item) return;
@@ -109,9 +181,6 @@ export function CandidateDetailPage() {
         <div className="toolbar">
           {canEdit ? (
             <>
-              <Link className="button secondary" to={`/app/candidates/${item.id}/edit`}>
-                {t('candidate.detail.edit')}
-              </Link>
               <button
                 className={item.isActive ? 'button danger' : 'button secondary'}
                 type="button"
@@ -127,31 +196,19 @@ export function CandidateDetailPage() {
           ) : null}
         </div>
       </div>
-      {/* One full-width section per row, in reading order (KTL-27). Viewing only: every change
-          is made on the edit page, whatever the viewer may do. The CV preview sits beside the
-          sections on wide screens and after them otherwise (KTL-28). */}
+      {canEdit && !isActive ? (
+        <p className="muted" data-testid="candidate-removed-hint">
+          {t('candidate.detail.removedHint')}
+        </p>
+      ) : null}
+      {/* One full-width panel per row, in reading order (KTL-27). Each editable panel switches
+          to its editor in place (KTL-29). The CV preview sits beside the panels on wide
+          screens and after them otherwise (KTL-28). */}
       <div className="page-split">
         <div className="page-split__layout">
           <div className="page-split__main">
             <div className="grid">
-              <article className="panel">
-                <h2>{t('candidate.detail.mainData')}</h2>
-                <dl className="prop-list">
-                  <dt>{t('candidate.detail.status')}</dt>
-                  <dd>{item.status}</dd>
-                  <dt>{t('candidate.detail.availability')}</dt>
-                  <dd>{item.availability}</dd>
-                  <dt>{t('candidate.detail.location')}</dt>
-                  <dd>
-                    {item.location} {item.province}
-                  </dd>
-                  <dt>{t('candidate.detail.receivedAt')}</dt>
-                  <dd>{item.receivedAt || t('candidate.detail.pending')}</dd>
-                  <dt>{t('candidate.detail.reviewDueAt')}</dt>
-                  <dd>{item.reviewDueAt || t('candidate.detail.pending')}</dd>
-                </dl>
-                {item.notes ? <p>{item.notes}</p> : null}
-              </article>
+              <CandidateMainPanel candidate={item} control={control('main', canEdit)} />
               <article className="panel">
                 <h2>{t('candidate.detail.audit')}</h2>
                 <dl className="prop-list">
@@ -165,19 +222,43 @@ export function CandidateDetailPage() {
                   </dd>
                 </dl>
               </article>
-              <CandidateCompetencies candidate={item} readOnly />
-              <article className="panel">
-                <CandidateEducation candidateId={item.id} education={item.education} readOnly />
-              </article>
-              <article className="panel">
-                <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
-              </article>
-              <article className="panel">
-                <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />
-              </article>
-              <article className="panel">
-                <CandidateDocuments candidate={item} readOnly />
-              </article>
+              <CandidateCompetencies
+                candidate={item}
+                control={control('competencies', canEdit && isActive)}
+              />
+              <CandidateEducation
+                candidate={item}
+                control={control('education', canEdit && isActive)}
+              />
+              <CandidateExperience
+                candidate={item}
+                control={control('experience', canEdit && isActive)}
+              />
+              <CandidatePanel
+                id="notes"
+                title={t('candidate.profile.notes.title')}
+                control={control('notes', canEdit && isActive)}
+                mode="actions"
+              >
+                <CandidateNotes
+                  candidateId={item.id}
+                  initialNotes={item.customNotes}
+                  readOnly={editing !== 'notes'}
+                  onDirtyChange={reportDirty.notes}
+                />
+              </CandidatePanel>
+              <CandidatePanel
+                id="documents"
+                title={t('candidate.profile.documents.title')}
+                control={control('documents', canUpload)}
+                mode="actions"
+              >
+                <CandidateDocuments
+                  candidate={item}
+                  readOnly={editing !== 'documents'}
+                  onDirtyChange={reportDirty.documents}
+                />
+              </CandidatePanel>
             </div>
           </div>
           <aside className="page-split__aside">

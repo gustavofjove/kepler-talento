@@ -12,7 +12,8 @@ import { AdminUsersPage } from './features/admin/users/admin-users-page';
 import { CandidateDetailPage } from './features/candidates/pages/candidate-detail-page';
 import { CatalogManagementPage } from './features/catalogs/pages/catalog-management-page';
 import { AdvancedSearchPage } from './features/search/pages/advanced-search-page';
-import { CandidateEditPage } from './features/candidates/pages/candidate-edit-page';
+import { CandidateCreatePage } from './features/candidates/pages/candidate-create-page';
+import { CandidateEditRedirect } from './features/candidates/pages/candidate-edit-redirect';
 import { CandidateListPage } from './features/candidates/pages/candidate-list-page';
 import { DashboardPage } from './features/dashboard/dashboard-page';
 import { PositionListPage } from './features/positions/position-list-page';
@@ -55,19 +56,16 @@ export function createAppRouter() {
             },
             {
               element: <RequirePermission permission="candidates.create" />,
-              children: [{ path: 'candidates/new', element: <CandidateEditPage /> }],
+              children: [{ path: 'candidates/new', element: <CandidateCreatePage /> }],
             },
             {
               element: <RequirePermission permission="candidates.read" />,
               children: [
                 { path: 'candidates', element: <CandidateListPage /> },
                 { path: 'candidates/:id', element: <CandidateDetailPage /> },
+                { path: 'candidates/:id/edit', element: <CandidateEditRedirect /> },
                 { path: 'search', element: <AdvancedSearchPage /> },
               ],
-            },
-            {
-              element: <RequirePermission permission="candidates.update" />,
-              children: [{ path: 'candidates/:id/edit', element: <CandidateEditPage /> }],
             },
             {
               element: <RequirePermission permission="catalogs.manage" />,

@@ -1,0 +1,20 @@
+.candidate-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.candidate-panel__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.candidate-panel__header h2 {
+  margin: 0;
+}
+
+.candidate-panel__body {
+  min-width: 0;
+}

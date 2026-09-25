@@ -38,6 +38,7 @@ export function ConfirmDialog() {
           <button
             className="button ghost"
             type="button"
+            data-testid="confirm-cancel"
             onClick={() => confirmDialogService.cancel()}
           >
             {state.cancelText}

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Candidate, CandidateDraft } from '../models/candidate.models';
 import { toDraft } from './candidate-form.logic';
@@ -8,15 +8,25 @@ const STATUSES = ['new', 'available', 'in_process', 'hired', 'rejected'] as cons
 interface CandidateFormProps {
   candidate?: Candidate;
   onSave: (draft: CandidateDraft) => void;
+  /**
+   * Set when the form is a candidate page panel (KTL-29): the panel's «Guardar» submits it by
+   * this id, so the form renders no button of its own.
+   */
+  formId?: string;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-/** The core record only; the relation sections live beside it on the edit page. */
-export function CandidateForm({ candidate, onSave }: CandidateFormProps) {
+/** The core record only; the other sections are panels of their own on the candidate page. */
+export function CandidateForm({ candidate, onSave, formId, onDirtyChange }: CandidateFormProps) {
   const { t } = useTranslation();
   // Initialiser only. The parent passes `key` so switching candidate remounts
   // and resets the draft, which is what the Angular input setter did.
   const [draft, setDraft] = useState<CandidateDraft>(() => toDraft(candidate));
   const [error, setError] = useState('');
+  const initial = useMemo(() => JSON.stringify(toDraft(candidate)), [candidate]);
+  const dirty = JSON.stringify(draft) !== initial;
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const set =
     (key: keyof CandidateDraft) =>
@@ -36,7 +46,7 @@ export function CandidateForm({ candidate, onSave }: CandidateFormProps) {
   return (
     // noValidate: the browser must not block submit, so the Spanish message above is
     // what users (and the e2e spec) see.
-    <form className="section-block" onSubmit={submit} noValidate>
+    <form id={formId} className="section-block" onSubmit={submit} noValidate>
       <div className="grid two">
         <div className="field">
           <label htmlFor="firstName">{t('candidate.form.firstName')}</label>
@@ -119,11 +129,13 @@ export function CandidateForm({ candidate, onSave }: CandidateFormProps) {
         <textarea id="notes" name="notes" rows={4} value={draft.notes} onChange={set('notes')} />
       </div>
       {error ? <p className="empty-state">{error}</p> : null}
-      <div className="form-actions">
-        <button className="button" type="submit">
-          {t('candidate.form.save')}
-        </button>
-      </div>
+      {formId ? null : (
+        <div className="form-actions">
+          <button className="button" type="submit">
+            {t('candidate.form.save')}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

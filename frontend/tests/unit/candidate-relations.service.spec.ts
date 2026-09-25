@@ -1,7 +1,85 @@
 import { CandidateService } from '../../src/app/features/candidates/services/candidate.service';
-import { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
-import { EMPTY_CANDIDATE_DRAFT } from '../../src/app/features/candidates/models/candidate.models';
+import {
+  CandidateRelationsService,
+  validateEducationEntry,
+  validateExperienceEntry,
+  validateLanguageEntry,
+  validateProgramEntry,
+  validateSkillEntry,
+  validateTagEntry,
+} from '../../src/app/features/candidates/services/candidate-relations.service';
+import {
+  EMPTY_CANDIDATE_DRAFT,
+  type CandidateEducation,
+  type CandidateExperience,
+} from '../../src/app/features/candidates/models/candidate.models';
 import { createCandidateTestBed, FakeCandidateApi } from './support/candidate-doubles';
+
+const education = (overrides: Partial<CandidateEducation> = {}): CandidateEducation => ({
+  id: crypto.randomUUID(),
+  educationType: 'Grado',
+  degree: 'Grado en ADE',
+  institution: 'UCM',
+  status: 'Finalizada',
+  ...overrides,
+});
+
+const experience = (overrides: Partial<CandidateExperience> = {}): CandidateExperience => ({
+  id: crypto.randomUUID(),
+  company: 'Acme',
+  position: 'Analista',
+  sector: 'Servicios',
+  isCurrent: false,
+  ...overrides,
+});
+
+// KTL-29: panels validate each entry before it joins their draft, and save whole lists.
+describe('candidate relation validators', () => {
+  it('refuses a duplicate language regardless of case, but not the entry itself', () => {
+    const english = { id: 'a', language: 'Inglés', level: 'B2' };
+    const copy = { id: 'b', language: 'inglés', level: 'C1' };
+    expect(() => validateLanguageEntry([english], english)).not.toThrow();
+    expect(() => validateLanguageEntry([english, copy], copy)).toThrow(/ya tiene este idioma/i);
+  });
+
+  it('refuses a duplicate program and negative years', () => {
+    const excel = { id: 'a', program: 'Excel', level: 'Avanzado' };
+    const copy = { id: 'b', program: 'excel', level: 'Medio' };
+    expect(() => validateProgramEntry([excel, copy], copy)).toThrow(/ya tiene este programa/i);
+    const negative = { id: 'c', program: 'SAP', level: 'Medio', yearsExperience: -1 };
+    expect(() => validateProgramEntry([negative], negative)).toThrow(/no pueden ser negativos/i);
+  });
+
+  it('refuses a duplicate skill and a duplicate tag', () => {
+    const skill = { id: 'a', skill: 'Gestión documental', level: 'Alto' };
+    const skillCopy = { id: 'b', skill: 'gestión documental', level: 'Medio' };
+    expect(() => validateSkillEntry([skill, skillCopy], skillCopy)).toThrow(
+      /ya tiene esta habilidad/i,
+    );
+    const tag = { id: 'a', tag: 'Remoto' };
+    const tagCopy = { id: 'b', tag: 'remoto' };
+    expect(() => validateTagEntry([tag, tagCopy], tagCopy)).toThrow();
+  });
+
+  it('requires a degree and a plausible end year', () => {
+    expect(() => validateEducationEntry(education({ degree: '   ' }))).toThrow(
+      /titulación es obligatoria/i,
+    );
+    expect(() => validateEducationEntry(education({ endYear: 1900 }))).toThrow(
+      /año de finalización no es válido/i,
+    );
+    expect(() => validateEducationEntry(education({ endYear: 2020 }))).not.toThrow();
+  });
+
+  it('refuses an end date before the start date and negative years', () => {
+    expect(() =>
+      validateExperienceEntry(experience({ startDate: '2024-06-01', endDate: '2024-01-01' })),
+    ).toThrow(/no puede ser anterior/i);
+    expect(() => validateExperienceEntry(experience({ yearsExperience: -2 }))).toThrow(
+      /no pueden ser negativos/i,
+    );
+  });
+});
 
 describe('CandidateRelationsService', () => {
   let candidateService: CandidateService;
@@ -22,210 +100,64 @@ describe('CandidateRelationsService', () => {
     ).id;
   });
 
-  describe('languages', () => {
-    it('adds a language to the candidate', async () => {
-      await relations.addLanguage(candidateId, { language: 'Inglés', level: 'B2' });
-      expect(candidateService.find(candidateId)?.languages).toHaveLength(1);
-    });
+  it('saves a whole language list in one write, keeping ids of existing entries', async () => {
+    await relations.saveLanguages(candidateId, [
+      { id: 'l1', language: 'Inglés', level: 'B1', certification: 'TOEFL' },
+    ]);
+    const [english] = candidateService.find(candidateId)!.languages;
 
-    it('rejects a duplicate language regardless of case', async () => {
-      await relations.addLanguage(candidateId, { language: 'Inglés', level: 'B2' });
-      await expect(
-        relations.addLanguage(candidateId, { language: 'inglés', level: 'C1' }),
-      ).rejects.toThrow(/ya tiene este idioma/i);
-    });
+    await relations.saveLanguages(candidateId, [
+      { ...english!, level: 'C1' },
+      { id: 'l2', language: 'Francés', level: 'A2' },
+    ]);
 
-    it('removes a language by id', async () => {
-      await relations.addLanguage(candidateId, { language: 'Francés', level: 'B1' });
-      const [language] = candidateService.find(candidateId)!.languages;
-      await relations.removeLanguage(candidateId, language.id);
-      expect(candidateService.find(candidateId)?.languages).toHaveLength(0);
-    });
+    const saved = candidateService.find(candidateId)!.languages;
+    expect(saved).toHaveLength(2);
+    expect(saved[0]).toEqual({ ...english, level: 'C1' });
   });
 
-  describe('programs', () => {
-    it('rejects a duplicate program', async () => {
-      await relations.addProgram(candidateId, {
-        program: 'Excel',
-        level: 'Avanzado',
-        yearsExperience: 3,
-      });
-      await expect(
-        relations.addProgram(candidateId, { program: 'Excel', level: 'Medio' }),
-      ).rejects.toThrow(/ya tiene este programa/i);
-    });
-
-    it('rejects negative years of experience', async () => {
-      await expect(
-        relations.addProgram(candidateId, { program: 'SAP', level: 'Medio', yearsExperience: -1 }),
-      ).rejects.toThrow(/no pueden ser negativos/i);
-    });
+  it('refuses a list holding a duplicate and writes nothing', async () => {
+    await expect(
+      relations.saveSkills(candidateId, [
+        { id: 's1', skill: 'Compras', level: 'Medio' },
+        { id: 's2', skill: 'compras', level: 'Alto' },
+      ]),
+    ).rejects.toThrow(/ya tiene esta habilidad/i);
+    expect(candidateService.find(candidateId)?.skills).toHaveLength(0);
   });
 
-  describe('education', () => {
-    it('requires a degree', async () => {
-      await expect(
-        relations.addEducation(candidateId, {
-          educationType: 'Grado',
-          degree: '   ',
-          institution: 'UCM',
-          status: 'Finalizada',
-        }),
-      ).rejects.toThrow(/titulación es obligatoria/i);
-    });
-
-    it('rejects an implausible end year', async () => {
-      await expect(
-        relations.addEducation(candidateId, {
-          educationType: 'Grado',
-          degree: 'Grado en ADE',
-          institution: 'UCM',
-          status: 'Finalizada',
-          endYear: 1900,
-        }),
-      ).rejects.toThrow(/año de finalización no es válido/i);
-    });
-
-    it('accepts a valid education record', async () => {
-      await relations.addEducation(candidateId, {
-        educationType: 'Grado',
-        degree: 'Grado en ADE',
-        institution: 'UCM',
-        status: 'Finalizada',
-        endYear: 2020,
-      });
-      expect(candidateService.find(candidateId)?.education).toHaveLength(1);
-    });
+  it('refuses invalid education and experience lists', async () => {
+    await expect(relations.saveEducation(candidateId, [education({ degree: '' })])).rejects.toThrow(
+      /titulación es obligatoria/i,
+    );
+    await expect(
+      relations.saveExperience(candidateId, [experience({ yearsExperience: -1 })]),
+    ).rejects.toThrow(/no pueden ser negativos/i);
   });
 
-  describe('experience', () => {
-    it('rejects an end date before the start date', async () => {
-      await expect(
-        relations.addExperience(candidateId, {
-          company: 'Acme',
-          position: 'Analista',
-          sector: 'Servicios',
-          startDate: '2024-06-01',
-          endDate: '2024-01-01',
-          isCurrent: false,
-        }),
-      ).rejects.toThrow(/no puede ser anterior/i);
-    });
-
-    it('clears the end date when marked as current', async () => {
-      await relations.addExperience(candidateId, {
-        company: 'Acme',
-        position: 'Analista',
-        sector: 'Servicios',
-        startDate: '2024-01-01',
-        endDate: '2024-06-01',
-        isCurrent: true,
-      });
-      expect(candidateService.find(candidateId)?.experience[0].endDate).toBeUndefined();
-    });
-
-    it('rejects negative years of experience', async () => {
-      await expect(
-        relations.addExperience(candidateId, {
-          company: 'Acme',
-          position: 'Analista',
-          sector: 'Servicios',
-          isCurrent: false,
-          yearsExperience: -2,
-        }),
-      ).rejects.toThrow(/no pueden ser negativos/i);
-    });
+  it('saves an empty list, removing every entry', async () => {
+    await relations.savePrograms(candidateId, [{ id: 'p1', program: 'SAP', level: 'Medio' }]);
+    await relations.savePrograms(candidateId, []);
+    expect(candidateService.find(candidateId)?.programs).toHaveLength(0);
   });
 
-  describe('skills', () => {
-    it('rejects a duplicate skill', async () => {
-      await relations.addSkill(candidateId, { skill: 'Gestión documental', level: 'Alto' });
-      await expect(
-        relations.addSkill(candidateId, { skill: 'gestión documental', level: 'Medio' }),
-      ).rejects.toThrow(/ya tiene esta habilidad/i);
-    });
-
-    it('removes a skill by id', async () => {
-      await relations.addSkill(candidateId, { skill: 'Compras', level: 'Medio' });
-      const [skill] = candidateService.find(candidateId)!.skills;
-      await relations.removeSkill(candidateId, skill.id);
-      expect(candidateService.find(candidateId)?.skills).toHaveLength(0);
-    });
-  });
-
-  // KTL-24: entries are changed in place from their chip, keeping their id.
-  describe('updates in place', () => {
-    it('changes a language level and keeps its id and certification', async () => {
-      await relations.addLanguage(candidateId, {
-        language: 'Inglés',
-        level: 'B1',
-        certification: 'TOEFL',
-      });
-      const [language] = candidateService.find(candidateId)!.languages;
-
-      await relations.updateLanguage(candidateId, { ...language, level: 'C1' });
-
-      expect(candidateService.find(candidateId)?.languages).toEqual([
-        { ...language, level: 'C1', certification: 'TOEFL' },
-      ]);
-    });
-
-    it('refuses to rename a language onto another one the candidate has', async () => {
-      await relations.addLanguage(candidateId, { language: 'Inglés', level: 'B1' });
-      await relations.addLanguage(candidateId, { language: 'Francés', level: 'A2' });
-      const french = candidateService.find(candidateId)!.languages[1];
-
-      await expect(
-        relations.updateLanguage(candidateId, { ...french, language: 'inglés' }),
-      ).rejects.toThrow(/ya tiene este idioma/i);
-    });
-
-    it('changes a skill level without tripping over itself as a duplicate', async () => {
-      await relations.addSkill(candidateId, { skill: 'Compras', level: 'Medio' });
-      const [skill] = candidateService.find(candidateId)!.skills;
-
-      await relations.updateSkill(candidateId, { ...skill, level: 'Alto' });
-
-      expect(candidateService.find(candidateId)?.skills).toEqual([{ ...skill, level: 'Alto' }]);
-    });
-
-    it('changes the years of a program and refuses negative ones', async () => {
-      await relations.addProgram(candidateId, { program: 'SAP', level: 'Medio' });
-      const [program] = candidateService.find(candidateId)!.programs;
-
-      await relations.updateProgram(candidateId, { ...program, yearsExperience: 4 });
-      expect(candidateService.find(candidateId)?.programs[0].yearsExperience).toBe(4);
-
-      await expect(
-        relations.updateProgram(candidateId, { ...program, yearsExperience: -1 }),
-      ).rejects.toThrow(/no pueden ser negativos/i);
-      expect(candidateService.find(candidateId)?.programs[0].yearsExperience).toBe(4);
-    });
-
-    it('refuses an entry that is no longer there instead of adding it back', async () => {
-      await relations.addSkill(candidateId, { skill: 'Compras', level: 'Medio' });
-      const [skill] = candidateService.find(candidateId)!.skills;
-      await relations.removeSkill(candidateId, skill.id);
-
-      await expect(relations.updateSkill(candidateId, { ...skill, level: 'Alto' })).rejects.toThrow(
-        /ya no existe/i,
-      );
-      expect(candidateService.find(candidateId)?.skills).toHaveLength(0);
-    });
+  it('clears the end date of a current position', async () => {
+    await relations.saveExperience(candidateId, [
+      experience({ startDate: '2024-01-01', endDate: '2024-06-01', isCurrent: true }),
+    ]);
+    expect(candidateService.find(candidateId)?.experience[0]!.endDate).toBeUndefined();
   });
 
   it('throws when the candidate does not exist', async () => {
-    await expect(
-      relations.addLanguage('missing-id', { language: 'Inglés', level: 'B1' }),
-    ).rejects.toThrow(/no encontrado/i);
+    await expect(relations.saveTags('missing-id', [])).rejects.toThrow(/no encontrado/i);
   });
 
-  // The service is only ever driven from the detail screen, which has already awaited the
-  // aggregate — but that is an invariant that erodes, so the service loads it itself.
+  // The candidate page has already awaited the aggregate, but that invariant erodes, so the
+  // service loads it itself before writing.
   it('loads a candidate it has not seen rather than reporting it missing', async () => {
     api.seed({ id: 'never-opened', firstName: 'Nunca', lastName: 'Abierta' });
 
-    await relations.addLanguage('never-opened', { language: 'Inglés', level: 'B1' });
+    await relations.saveLanguages('never-opened', [{ id: 'l1', language: 'Inglés', level: 'B1' }]);
 
     expect(candidateService.find('never-opened')?.languages).toHaveLength(1);
   });
