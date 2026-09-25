@@ -31,14 +31,15 @@ test.describe('Catalog management CRUD', () => {
     const row = page.locator(`tbody tr:has-text("${initialName}")`);
     await expect(row).toBeVisible();
 
-    await row.locator('button:has-text("Editar")').click();
+    // KTL-31: a click on the row (here its order cell) opens the inline editor.
+    await row.locator('td').first().click();
     await page.locator('input[name="editNameEs"]').fill(editedName);
     await page.locator('button:has-text("Guardar")').click();
 
     const editedRow = page.locator(`tbody tr:has-text("${editedName}")`);
     await expect(editedRow).toBeVisible();
 
-    await editedRow.locator('button:has-text("Bajar")').click();
+    await editedRow.getByTestId('catalog-move-down').click();
     await expect(editedRow).toBeVisible();
 
     // Deactivation is the only retirement path, and it is confirmed.

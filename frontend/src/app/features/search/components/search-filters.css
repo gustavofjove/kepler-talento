@@ -41,6 +41,45 @@
   grid-column: 1 / -1;
   margin: 0;
 }
+/* A read-only criterion, drawn like the value chips of the search form's pickers. */
+.filters-summary .chip {
+  align-items: center;
+  background: var(--fj-orange-pale);
+  border: 1px solid var(--fj-orange-soft);
+  border-radius: var(--r-pill);
+  color: var(--fj-orange-dark);
+  display: inline-flex;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 100%;
+  min-height: 24px;
+  overflow-wrap: anywhere;
+  padding: 2px 10px;
+}
+/* Every group on one line (label, then its chips), wrapping only when the line runs out. */
+.filters-summary--inline {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.filters-summary--inline .summary-group {
+  align-items: center;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.filters-summary--inline .summary-label {
+  color: var(--fg-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+.filters-summary--inline .empty-state {
+  background: none;
+  border: 0;
+  padding: 0;
+}
 .filters-body {
   border-top: 1px solid var(--border);
   padding-top: 14px;

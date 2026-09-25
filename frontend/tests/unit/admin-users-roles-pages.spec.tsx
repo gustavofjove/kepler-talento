@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, useLocation } from 'react-router';
 import { AdminUsersPage } from '../../src/app/features/admin/users/admin-users-page';
 import { AdminRolesPage } from '../../src/app/features/admin/roles/admin-roles-page';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
@@ -82,6 +83,40 @@ describe('administration pages', () => {
       'Debe existir al menos un administrador activo.',
     );
     expect(screen.getByTestId('user-display-name')).toHaveValue('Nueva Persona');
+  });
+
+  it('does not navigate when a user row is clicked, having no page of its own (KTL-31)', async () => {
+    const profileService = {
+      users: signal([adminUser]),
+      load: vi.fn().mockResolvedValue([adminUser]),
+      create: vi.fn(),
+      setRole: vi.fn(),
+      setActive: vi.fn(),
+    };
+    const roleService = { roles: signal([role]), load: vi.fn().mockResolvedValue([role]) };
+    let path = '';
+    function PathProbe() {
+      path = useLocation().pathname;
+      return null;
+    }
+    renderPage(
+      <MemoryRouter initialEntries={['/app/admin/users']}>
+        <AdminUsersPage />
+        <PathProbe />
+      </MemoryRouter>,
+      { profileService: profileService as never, roleService: roleService as never },
+    );
+
+    await userEvent.click(await screen.findByText('Ana Admin'));
+    await userEvent.click(screen.getByText('ana@example.com'));
+
+    const row = screen.getByText('Ana Admin').closest('tr')!;
+    expect(row).not.toHaveClass('row-link-row');
+    expect(within(row).queryByRole('link')).toBeNull();
+    expect(screen.getByTestId('users-table')).toHaveClass('data-table');
+    expect(path).toBe('/app/admin/users');
+    expect(profileService.setRole).not.toHaveBeenCalled();
+    expect(profileService.setActive).not.toHaveBeenCalled();
   });
 
   it('renders roles and disables system-role deactivation', async () => {

@@ -24,8 +24,11 @@ function seedCandidates(api: FakeCandidateApi, count: number, patch: Partial<Can
 }
 
 let currentSearch = '';
+let currentPath = '';
 function LocationProbe() {
-  currentSearch = useLocation().search;
+  const location = useLocation();
+  currentSearch = location.search;
+  currentPath = location.pathname;
   return null;
 }
 
@@ -241,6 +244,68 @@ describe('CandidateListPage', () => {
         .getAllByRole('checkbox')
         .filter((box) => (box as HTMLInputElement).checked),
     ).toHaveLength(0);
+  });
+
+  // ---- KTL-31: clickable rows ----
+
+  it('shows the name as the row link, the e-mail as mailto, the phone as text and no «Abrir»', async () => {
+    seedCandidates(api, 1, { email: 'ana@example.test', phone: '+34 600 111 222' });
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    const row = rows()[0];
+
+    expect(within(row).getByRole('link', { name: 'Nombre0 Apellido000' })).toHaveAttribute(
+      'href',
+      '/app/candidates/c-000',
+    );
+    expect(within(row).getByRole('link', { name: 'ana@example.test' })).toHaveAttribute(
+      'href',
+      'mailto:ana@example.test',
+    );
+    expect(within(row).getByText('+34 600 111 222').closest('a')).toBeNull();
+    expect(within(row).getAllByRole('link')).toHaveLength(2);
+    expect(within(row).queryByRole('link', { name: 'Abrir' })).toBeNull();
+    expect(document.querySelector('a[href^="tel:"]')).toBeNull();
+  });
+
+  it('opens the candidate when a plain part of the row is clicked', async () => {
+    seedCandidates(api, 1, { phone: '600111222' });
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+
+    await userEvent.click(within(rows()[0]).getByText('600111222'));
+
+    expect(currentPath).toBe('/app/candidates/c-000');
+  });
+
+  it('only selects when the selection checkbox or its cell is clicked', async () => {
+    seedCandidates(api, 1);
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    const checkbox = within(rows()[0]).getByRole('checkbox');
+
+    await userEvent.click(checkbox);
+    // A near-miss on the empty space around the checkbox.
+    await userEvent.click(checkbox.closest('td')!);
+
+    expect(checkbox).toBeChecked();
+    expect(currentPath).toBe('/app/candidates');
+  });
+
+  it('keeps the e-mail link from opening the candidate', async () => {
+    seedCandidates(api, 1, { email: 'ana@example.test' });
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(1));
+    const email = within(rows()[0]).getByRole('link', { name: 'ana@example.test' });
+    // jsdom cannot follow mailto:. The default is stopped at the document, after React's row
+    // handler has run, so the row still sees an ordinary link click.
+    const stop = (event: Event) => event.preventDefault();
+    document.addEventListener('click', stop);
+
+    await userEvent.click(email);
+
+    document.removeEventListener('click', stop);
+    expect(currentPath).toBe('/app/candidates');
   });
 
   it('hides the include-inactive control without the removal permission', async () => {

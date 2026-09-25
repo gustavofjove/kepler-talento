@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { formatDate } from '../../../core/i18n/format';
-import { mailtoHref, telHref } from '../contact-links';
+import '../../../shared/components/data-table.css';
+import { useRowLink } from '../../../shared/components/row-link';
+import { mailtoHref } from '../contact-links';
 import type { CandidateListItem } from '../models/candidate.models';
 import {
   type ListSort,
@@ -32,6 +34,7 @@ export function CandidateTable({
   onToggleSelectAll,
 }: Props) {
   const { t } = useTranslation();
+  const rowLink = useRowLink();
   const sortButton = (field: SortField, label: string) => (
     <button
       className="th-sort"
@@ -48,7 +51,7 @@ export function CandidateTable({
 
   return (
     <div className="panel table-wrap">
-      <table data-testid="candidate-table">
+      <table className="data-table" data-testid="candidate-table">
         <thead>
           <tr>
             {canEdit ? (
@@ -72,15 +75,22 @@ export function CandidateTable({
             <th aria-sort={ariaSort('updatedAt')}>
               {sortButton('updatedAt', t('candidates.list.column.updatedAt'))}
             </th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
           {candidates.length ? (
             candidates.map((candidate) => (
-              <tr key={candidate.candidateId} data-testid="candidate-row">
+              // The whole row opens the candidate; the name is its keyboard link.
+              <tr
+                key={candidate.candidateId}
+                className="row-link-row"
+                data-testid="candidate-row"
+                onClick={rowLink(`/app/candidates/${candidate.candidateId}`)}
+                onAuxClick={rowLink(`/app/candidates/${candidate.candidateId}`)}
+              >
                 {canEdit ? (
-                  <td>
+                  // A near-miss around the checkbox only ever selects.
+                  <td data-row-link-ignore="">
                     <input
                       type="checkbox"
                       aria-label={t('candidates.list.selectRow', {
@@ -94,20 +104,16 @@ export function CandidateTable({
                   </td>
                 ) : null}
                 <td>
-                  <strong>
+                  <Link className="row-link" to={`/app/candidates/${candidate.candidateId}`}>
                     {candidate.firstName} {candidate.lastName}
-                  </strong>
+                  </Link>
                   {candidate.email ? (
                     <div className="muted contact-links">
                       <a href={mailtoHref(candidate.email)}>{candidate.email}</a>
                     </div>
                   ) : null}
                 </td>
-                <td className="contact-links">
-                  {candidate.phone ? (
-                    <a href={telHref(candidate.phone)}>{candidate.phone}</a>
-                  ) : null}
-                </td>
+                <td>{candidate.phone}</td>
                 <td>
                   <span className="badge">{statusLabel(candidate.status, t)}</span>
                   {!candidate.isActive ? (
@@ -120,19 +126,11 @@ export function CandidateTable({
                     : t('candidates.list.cv.pending')}
                 </td>
                 <td>{formatDate(candidate.updatedAt)}</td>
-                <td>
-                  <Link
-                    className="button secondary"
-                    to={`/app/candidates/${candidate.candidateId}`}
-                  >
-                    {t('candidates.list.open')}
-                  </Link>
-                </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan={canEdit ? 7 : 6} className="muted">
+              <td colSpan={canEdit ? 6 : 5} className="muted">
                 {t('candidates.list.noRows')}
               </td>
             </tr>

@@ -7,11 +7,40 @@
   background: var(--bg-2);
 }
 
+/* A record spanning several rows (one `<tbody>` per record) highlights and clicks as one. */
+.row-link-group {
+  cursor: pointer;
+}
+
+.row-link-group:hover td {
+  background: var(--bg-2);
+}
+
+.row-link-group tr:not(:last-child) td {
+  border-bottom: 0;
+}
+
 /* The row's keyboard target: reads as the plain bold name, not as a separate link. */
 .row-link {
   color: inherit;
   font-weight: 600;
   text-decoration: none;
+}
+
+/* The same keyboard target when the row acts in place (a button, not a link). */
+button.row-link {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  text-align: left;
+}
+
+button.row-link:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .row-link:focus-visible {

@@ -2,6 +2,9 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import '../../../shared/components/data-table.css';
+import { isRowClick } from '../../../shared/components/row-link';
+import { ArrowDownIcon, ArrowUpIcon } from '../components/move-icons';
 import { useCatalogs } from '../use-catalogs';
 import {
   CATALOG_FAMILY_LABELS,
@@ -199,7 +202,8 @@ export function CatalogManagementPage() {
           <p className="empty-state">{t('catalogs.management.empty')}</p>
         ) : (
           <div className="table-wrap">
-            <table className="catalog-table">
+            {/* A catalog value has no page of its own: its row opens the inline editor instead. */}
+            <table className="catalog-table data-table">
               <thead>
                 <tr>
                   <th>{t('catalogs.management.column.order')}</th>
@@ -215,8 +219,21 @@ export function CatalogManagementPage() {
                   // While one row is edited, the other rows' actions are disabled
                   // (not hidden, so the table does not reflow) until Save or Cancel.
                   const isLocked = !!editingId && !isEditing;
+                  // Only an idle table edits on row click; a locked or editing row stays put.
+                  const canStartEdit = !editingId;
                   return (
-                    <tr key={item.id} className={isEditing ? 'is-editing' : undefined}>
+                    <tr
+                      key={item.id}
+                      className={
+                        isEditing ? 'is-editing' : canStartEdit ? 'row-link-row' : undefined
+                      }
+                      data-testid="catalog-row"
+                      onClick={(event) => {
+                        if (canStartEdit && event.button === 0 && isRowClick(event)) {
+                          startEdit(item);
+                        }
+                      }}
+                    >
                       <td>{item.sortOrder}</td>
                       <td>
                         {isEditing ? (
@@ -250,7 +267,19 @@ export function CatalogManagementPage() {
                             required
                           />
                         ) : (
-                          item.nameEs
+                          // The row's keyboard target: the name reads as text and starts the edit.
+                          <button
+                            className="row-link"
+                            type="button"
+                            data-testid="catalog-edit"
+                            aria-label={t('catalogs.management.action.editLabel', {
+                              name: item.nameEs,
+                            })}
+                            disabled={isLocked}
+                            onClick={() => startEdit(item)}
+                          >
+                            {item.nameEs}
+                          </button>
                         )}
                       </td>
                       <td>
@@ -286,29 +315,30 @@ export function CatalogManagementPage() {
                           ) : (
                             <>
                               <button
-                                className="button ghost"
+                                className="button ghost icon-button"
                                 type="button"
+                                data-testid="catalog-move-up"
+                                aria-label={t('catalogs.management.action.moveUpLabel', {
+                                  name: item.nameEs,
+                                })}
+                                title={t('catalogs.management.action.moveUp')}
                                 disabled={isLocked}
                                 onClick={() => void move(item, -1)}
                               >
-                                {t('catalogs.management.action.moveUp')}
+                                <ArrowUpIcon />
                               </button>
                               <button
-                                className="button ghost"
+                                className="button ghost icon-button"
                                 type="button"
+                                data-testid="catalog-move-down"
+                                aria-label={t('catalogs.management.action.moveDownLabel', {
+                                  name: item.nameEs,
+                                })}
+                                title={t('catalogs.management.action.moveDown')}
                                 disabled={isLocked}
                                 onClick={() => void move(item, 1)}
                               >
-                                {t('catalogs.management.action.moveDown')}
-                              </button>
-                              <button
-                                className="button secondary"
-                                type="button"
-                                data-testid="catalog-edit"
-                                disabled={isLocked}
-                                onClick={() => startEdit(item)}
-                              >
-                                {t('catalogs.management.action.edit')}
+                                <ArrowDownIcon />
                               </button>
                               <button
                                 className={item.isActive ? 'button danger' : 'button secondary'}

@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
@@ -10,6 +10,12 @@ import {
   type SearchPreset,
 } from '../../src/app/features/search/models/search.models';
 import type { PresetsState } from '../../src/app/features/search/services/search-presets.service';
+
+/** Stands in for the edit page, so a test sees which preset the list opened. */
+function EditProbe() {
+  const { id } = useParams();
+  return <p data-testid="preset-edit-page">{id}</p>;
+}
 
 describe('PresetListPage', () => {
   const preset = (overrides: Partial<SearchPreset> = {}): SearchPreset => ({
@@ -47,8 +53,11 @@ describe('PresetListPage', () => {
           } as unknown as Services
         }
       >
-        <MemoryRouter>
-          <PresetListPage />
+        <MemoryRouter initialEntries={['/app/admin/presets']}>
+          <Routes>
+            <Route path="/app/admin/presets" element={<PresetListPage />} />
+            <Route path="/app/admin/presets/:id/edit" element={<EditProbe />} />
+          </Routes>
         </MemoryRouter>
       </ServicesProvider>,
     );
@@ -58,7 +67,7 @@ describe('PresetListPage', () => {
     vi.clearAllMocks();
   });
 
-  it('loads the library and lists each preset compactly, without its criteria', async () => {
+  it('loads the library and lists each preset with its criteria on a line below', async () => {
     renderPage({
       status: 'loaded',
       presets: [
@@ -73,13 +82,40 @@ describe('PresetListPage', () => {
     // Alphabetical by default, without regard to accents.
     expect(within(rows[0]).getByTestId('preset-row-name')).toHaveTextContent('Inglés B2');
     const java = rows[1];
-    expect(within(java).getByTestId('preset-edit')).toHaveAttribute(
+    // The name is the keyboard link to the edit page; there is no separate edit or view control.
+    expect(within(java).getByRole('link', { name: 'Java senior' })).toHaveAttribute(
       'href',
       '/app/admin/presets/p-1/edit',
     );
+    expect(within(java).queryByRole('link', { name: 'Editar' })).toBeNull();
+    expect(
+      within(java)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Eliminar']);
     expect(java).toHaveTextContent('Nunca');
-    // Criteria are one click away in the dialog, not rendered in every row.
-    expect(screen.queryByTestId('filters-summary')).toBeNull();
+    const criteria = within(java).getByTestId('preset-criteria');
+    expect(criteria).toHaveAttribute('colspan', '4');
+    // One wrapping line of label + chips, as the search form shows criteria, not titled columns.
+    const summary = within(criteria).getByTestId('filters-summary');
+    expect(summary).toHaveClass('filters-summary--inline');
+    expect(within(summary).queryByRole('heading')).toBeNull();
+    expect(within(summary).getByText('Con CV')).toHaveClass('chip');
+  });
+
+  it('shows the list inside a panel, like the other tables', () => {
+    renderPage({ status: 'loaded', presets: [preset()] });
+
+    expect(screen.getByTestId('presets-table').parentElement).toHaveClass('panel');
+  });
+
+  it('shows the empty summary text for a preset without criteria', () => {
+    renderPage({
+      status: 'loaded',
+      presets: [preset({ filters: structuredClone(EMPTY_SEARCH_FILTERS) })],
+    });
+
+    expect(screen.getByTestId('preset-criteria')).toHaveTextContent('Sin filtros aplicados.');
   });
 
   it('renders no breadcrumb, being the top of its section (KTL-23)', () => {
@@ -89,24 +125,35 @@ describe('PresetListPage', () => {
     expect(screen.queryByTestId('breadcrumb')).not.toBeInTheDocument();
   });
 
-  it('opens the criteria of a preset from the eye button beside its name', async () => {
+  it.each([
+    ['values line', () => screen.getByText('Nunca')],
+    ['criteria line', () => screen.getByTestId('preset-criteria')],
+  ])('opens the edit page when the %s is clicked', async (_, target) => {
     renderPage({ status: 'loaded', presets: [preset()] });
-    const view = screen.getByRole('button', { name: 'Ver criterios de Java senior' });
 
-    await userEvent.click(view);
+    await userEvent.click(target());
 
-    const dialog = screen.getByRole('dialog', { name: 'Java senior' });
-    expect(within(dialog).getByTestId('filters-summary')).toHaveTextContent('Con CV');
-    expect(within(dialog).getByTestId('preset-view-last-used')).toHaveTextContent('Nunca');
-    expect(within(dialog).getByTestId('preset-view-edit')).toHaveAttribute(
-      'href',
-      '/app/admin/presets/p-1/edit',
-    );
+    expect(screen.getByTestId('preset-edit-page')).toHaveTextContent('p-1');
+  });
 
-    await userEvent.keyboard('{Escape}');
+  it('opens the edit page from the name link with the keyboard', async () => {
+    renderPage({ status: 'loaded', presets: [preset()] });
 
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(view).toHaveFocus();
+    screen.getByRole('link', { name: 'Java senior' }).focus();
+    await userEvent.keyboard('{Enter}');
+
+    expect(screen.getByTestId('preset-edit-page')).toHaveTextContent('p-1');
+  });
+
+  it('opens the edit page in a new tab on Ctrl-click', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    renderPage({ status: 'loaded', presets: [preset()] });
+
+    fireEvent.click(screen.getByTestId('preset-criteria'), { ctrlKey: true });
+
+    expect(open).toHaveBeenCalledWith('/app/admin/presets/p-1/edit', '_blank', 'noopener');
+    expect(screen.queryByTestId('preset-edit-page')).toBeNull();
+    open.mockRestore();
   });
 
   it('shows an empty state when the library has no presets', () => {
@@ -144,6 +191,9 @@ describe('PresetListPage', () => {
 
     await waitFor(() => expect(confirmDialogService.confirm).toHaveBeenCalled());
     expect(searchPresetsService.removePreset).not.toHaveBeenCalled();
+    // «Eliminar» sits inside the clickable record, and must not open it.
+    expect(screen.queryByTestId('preset-edit-page')).toBeNull();
+    expect(screen.getAllByTestId('preset-row')).toHaveLength(1);
   });
 
   it('deletes a confirmed preset against the version it listed', async () => {

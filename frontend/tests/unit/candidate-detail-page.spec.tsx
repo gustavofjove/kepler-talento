@@ -82,6 +82,27 @@ describe('CandidateDetailPage', () => {
   const asEditor = () =>
     ['candidates.update', 'documents.upload'].forEach((permission) => granted.add(permission));
 
+  it('shows the header phone as plain text and the e-mail as a mail link (KTL-31)', async () => {
+    bed.api.seed({
+      id: 'c2',
+      firstName: 'Ona',
+      lastName: 'Marti',
+      email: 'ona@example.test',
+      phone: '+34 600 111 222',
+    });
+    await renderAt('/app/candidates/c2');
+    await loaded();
+
+    const contact = within(screen.getByTestId('candidate-contact'));
+    expect(contact.getByTestId('candidate-phone')).toHaveTextContent('+34 600 111 222');
+    expect(contact.getByTestId('candidate-phone').closest('a')).toBeNull();
+    expect(contact.getByRole('link', { name: 'ona@example.test' })).toHaveAttribute(
+      'href',
+      'mailto:ona@example.test',
+    );
+    expect(document.querySelector('a[href^="tel:"]')).toBeNull();
+  });
+
   describe('breadcrumb (KTL-23)', () => {
     const trail = () => within(screen.getByTestId('breadcrumb'));
     const trailText = () =>

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRoles, useServices, useUsers } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
+import '../../../shared/components/data-table.css';
 import { AppError } from '../../../shared/models/error.models';
 import type { AdminUser } from './profile.service';
 
@@ -122,7 +123,8 @@ export function AdminUsersPage() {
         </div>
       </form>
       <div className="panel table-wrap">
-        <table>
+        {/* No row navigation: a user has no page of its own yet, it is edited in place. */}
+        <table className="data-table" data-testid="users-table">
           <thead>
             <tr>
               <th>{t('admin.users.name')}</th>

@@ -269,17 +269,9 @@
   color: var(--muted);
 }
 
-/* Link tables mix text, a select and small buttons: centre each row on one line. */
-.position-links-table td {
-  vertical-align: middle;
-}
-
-/* Matches `.button.small` (28px), so the select sets no taller row than the actions. */
+/* Row height and control size come from `.data-table`; only the width is the select's own. */
 .position-stage-select {
-  font-size: 13px;
-  min-height: 28px;
   min-width: 10rem;
-  padding: 3px 8px;
 }
 
 .picker-dialog {
