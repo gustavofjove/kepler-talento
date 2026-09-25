@@ -64,10 +64,21 @@ export function validateTagEntry(list: readonly CandidateTag[], entry: Candidate
   }
 }
 
+/**
+ * Refuses a blank required field. The panel forms use `noValidate`, so the browser does not
+ * enforce their `required` attributes: this is the check. The API and the database require
+ * the same fields.
+ */
+function requireText(value: string | undefined, key: string): void {
+  if (!value?.trim()) throw new TranslatableError(key);
+}
+
 export function validateEducationEntry(entry: CandidateEducation): void {
-  if (!entry.degree.trim()) {
-    throw new TranslatableError('candidate.profile.education.required');
-  }
+  // In form order, so the first message names the first field to fill in.
+  requireText(entry.educationType, 'candidate.profile.education.typeRequired');
+  requireText(entry.degree, 'candidate.profile.education.required');
+  requireText(entry.institution, 'candidate.profile.education.institutionRequired');
+  requireText(entry.status, 'candidate.profile.education.statusRequired');
   const currentYear = new Date().getFullYear();
   if (entry.endYear !== undefined && (entry.endYear < 1950 || entry.endYear > currentYear + 1)) {
     throw new TranslatableError('candidate.profile.education.invalidEndYear');
@@ -75,6 +86,9 @@ export function validateEducationEntry(entry: CandidateEducation): void {
 }
 
 export function validateExperienceEntry(entry: CandidateExperience): void {
+  requireText(entry.company, 'candidate.profile.experience.companyRequired');
+  requireText(entry.position, 'candidate.profile.experience.positionRequired');
+  requireText(entry.sector, 'candidate.profile.experience.sectorRequired');
   refuseNegativeYears(entry.yearsExperience);
   if (entry.startDate && entry.endDate && entry.endDate < entry.startDate) {
     throw new TranslatableError('candidate.profile.experience.invalidRange');

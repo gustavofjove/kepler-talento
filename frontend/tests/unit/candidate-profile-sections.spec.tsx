@@ -122,7 +122,7 @@ describe('Candidate profile section panels (KTL-29)', () => {
       await userEvent.type(screen.getByLabelText('Centro'), 'UCM');
       await userEvent.click(screen.getByRole('button', { name: 'Añadir formación' }));
 
-      expect(screen.getByText(/titulación es obligatoria/i)).toBeInTheDocument();
+      expect(screen.getByText('El tipo de formación es obligatorio.')).toBeInTheDocument();
       expect(screen.getByLabelText('Centro')).toHaveValue('UCM');
       expect(relations.saveEducation).not.toHaveBeenCalled();
     });
@@ -132,6 +132,7 @@ describe('Candidate profile section panels (KTL-29)', () => {
 
       await userEvent.selectOptions(screen.getByLabelText('Tipo'), 'Grado');
       await userEvent.type(screen.getByLabelText('Titulación'), 'Máster en RRHH');
+      await userEvent.type(screen.getByLabelText('Centro'), 'UCM');
       await userEvent.selectOptions(screen.getByLabelText('Estado'), 'Finalizada');
       await userEvent.click(screen.getByRole('button', { name: 'Añadir formación' }));
 
@@ -177,6 +178,9 @@ describe('Candidate profile section panels (KTL-29)', () => {
     it('refuses an end date before the start date locally', async () => {
       renderPanel((c) => <CandidateExperience candidate={candidate} control={c} />);
 
+      await userEvent.type(screen.getByLabelText('Empresa'), 'Acme');
+      await userEvent.type(screen.getByLabelText('Puesto'), 'Analista');
+      await userEvent.selectOptions(screen.getByLabelText('Sector'), 'Servicios');
       await userEvent.type(screen.getByLabelText('Fecha inicio'), '2024-06-01');
       await userEvent.type(screen.getByLabelText('Fecha fin'), '2024-01-01');
       await userEvent.click(screen.getByRole('button', { name: 'Añadir experiencia' }));

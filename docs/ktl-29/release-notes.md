@@ -26,7 +26,10 @@ keep changes as a draft until the panel's own «Guardar». «Cancelar» discards
 
 This replaces the KTL-22 and KTL-27 behaviour, where each relation add, change or removal was
 written immediately. A new language, skill or program still joins at its catalog's lowest active
-level. Duplicates and invalid entries are refused before they join the draft.
+level. Duplicates and invalid entries are refused before they join the draft. That now includes
+blank required fields: type, degree, institution and status for Formación, and company, position
+and sector for Experiencia. Each gets its own Spanish message. Before, an education entry with no
+institution passed the form and failed only at the database, with a generic error.
 
 **Notes and documents act immediately.** In Notas and Documentos, adding, editing or retiring a
 note and uploading, marking primary or removing a document apply immediately, with their existing
