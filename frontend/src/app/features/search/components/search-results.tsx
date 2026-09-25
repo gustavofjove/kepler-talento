@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
 import { mailtoHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
@@ -66,7 +67,7 @@ export function SearchResults({
   return (
     <div className="section-block">
       <div className="table-wrap">
-        <table>
+        <table className="data-table">
           <thead>
             <tr>
               <th>{t('search.results.column.candidate')}</th>

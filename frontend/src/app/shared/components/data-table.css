@@ -1,0 +1,38 @@
+/* A record table (KTL-31): rows mix text, badges, dropdowns and buttons, so every cell is centred
+ * on one line and in-row controls share the `.button.small` height (28px). Controls outside
+ * `.data-table` (forms, dialogs, toolbars) keep their global size. */
+.data-table td {
+  vertical-align: middle;
+}
+
+.data-table td .muted {
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.data-table td select,
+.data-table td input:not([type='checkbox'], [type='radio'], [type='file'], [type='hidden']) {
+  font-size: 13px;
+  min-height: 28px;
+  padding-block: 3px;
+  padding-left: 8px;
+}
+
+/* Inline edit inputs match the row's buttons, so entering edit mode never changes the row height
+ * and the negative margin `.cell-input` uses in taller rows is not needed. */
+.data-table td .cell-input {
+  height: 28px;
+  margin: 0;
+}
+
+.data-table td .button {
+  font-size: 12px;
+  min-height: 28px;
+  padding: 4px 10px;
+}
+
+/* An icon-only row action (e.g. move up/down): square, at the same 28px height. */
+.data-table td .button.icon-button {
+  min-width: 28px;
+  padding: 4px;
+}

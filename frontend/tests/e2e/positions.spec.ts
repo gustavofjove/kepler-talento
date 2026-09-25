@@ -66,6 +66,11 @@ test.describe('Positions - manager', () => {
     await page.getByTestId('position-text-filter').fill(title);
     await expect(page.locator(`a[href="/app/positions/${id}"]`)).toBeVisible();
 
+    // KTL-31: the row opens the position. Click a plain cell (the location), not the title link.
+    const row = page.getByTestId('position-row').filter({ hasText: title });
+    await row.getByRole('cell').nth(1).click();
+    await expect(page).toHaveURL(new RegExp(`/app/positions/${id}$`));
+
     // Leave the data as found: positions cannot be deleted, so close it.
     await page.goto(`/app/positions/${id}/edit`);
     await page.getByTestId('position-status').selectOption('closed');

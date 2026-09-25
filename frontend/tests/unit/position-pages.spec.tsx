@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
@@ -223,6 +223,29 @@ describe('Position pages', () => {
           page: 1,
         }),
       );
+    });
+
+    it('opens the position when a plain part of its row is clicked (KTL-31)', async () => {
+      renderAt('/app/positions');
+      const row = (await screen.findAllByTestId('position-row'))[0];
+
+      fireEvent.click(within(row).getByText('Madrid'));
+
+      await waitFor(() => expect(location()).toHaveTextContent('/app/positions/pos-1'));
+    });
+
+    it('opens the position in a new tab on Ctrl-click and middle-click (KTL-31)', async () => {
+      const open = vi.spyOn(window, 'open').mockReturnValue(null);
+      renderAt('/app/positions');
+      const cell = within((await screen.findAllByTestId('position-row'))[0]).getByText('Madrid');
+
+      fireEvent.click(cell, { ctrlKey: true });
+      fireEvent(cell, new MouseEvent('auxclick', { bubbles: true, button: 1 }));
+
+      expect(open).toHaveBeenCalledTimes(2);
+      expect(open).toHaveBeenCalledWith('/app/positions/pos-1', '_blank', 'noopener');
+      expect(location()).toHaveTextContent(/^\/app\/positions$/);
+      open.mockRestore();
     });
 
     it('shows the empty state and hides creation from a reader', async () => {

@@ -98,6 +98,22 @@ sus candidatos hasta reabrirla.
 Ver la lista exige `positions.read` y `candidates.read`; modificarla, `positions.manage` y
 `candidates.read`. Consulta la [nota de versión KTL-30](docs/ktl-30/release-notes.md).
 
+## Tablas coherentes KTL-31
+
+En Candidatos, Posiciones y Presets, al hacer clic en una fila se abre su registro: la ficha del
+candidato, la página de la posición o la edición del preset. Ctrl/⌘-clic o clic central lo abren en
+otra pestaña, y el nombre sigue siendo un enlace accesible con el teclado. Los enlaces y controles
+de la fila (correo, desplegables, «Eliminar», casilla de selección) no abren el registro. Se retiran
+los botones «Abrir» y «Editar» y el diálogo de criterios de los presets: cada preset muestra sus
+criterios como etiquetas en una línea bajo su fila. Los teléfonos se muestran como texto, sin
+enlace `tel:`.
+
+En Catálogos, al hacer clic en una fila se abre su edición en línea (ya no hay botón «Editar») y
+«Subir»/«Bajar» son flechas. Todas las tablas comparten el estilo `.data-table`
+(`frontend/src/app/shared/components/data-table.css`): celdas centradas verticalmente y controles
+compactos de 28px. Usuarios solo adopta el estilo, porque sus filas se editan en el sitio. La página de detalle de usuario y la unificación de las páginas de consulta y edición
+quedan para tickets futuros. Consulta la [nota de versión KTL-31](docs/ktl-31/release-notes.md).
+
 ## Ruta de navegación KTL-23
 
 Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de

@@ -64,17 +64,17 @@ test.describe('Shared search presets', () => {
     const name = uniqueName('CRUD');
     await createPreset(page, name);
 
-    // Its criteria are viewed in a dialog opened from beside the name, through the same summary
-    // the search page uses, and the dialog closes back to the list.
+    // KTL-31: its criteria are shown inline on a full-width line below its values, through the
+    // same summary the search page uses; there is no view dialog or edit button any more.
     const row = await findRow(page, name);
-    await row.getByTestId('preset-view').click();
-    const dialog = page.getByTestId('criteria-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByTestId('filters-summary')).toContainText('Laura');
-    await page.keyboard.press('Escape');
-    await expect(dialog).toHaveCount(0);
+    await expect(row.getByTestId('preset-criteria').getByTestId('filters-summary')).toContainText(
+      'Laura',
+    );
+    await expect(page.getByTestId('criteria-dialog')).toHaveCount(0);
 
-    await row.getByTestId('preset-edit').click();
+    // Clicking the criteria line opens the preset's edit page.
+    await row.getByTestId('preset-criteria').click();
+    await expect(page).toHaveURL(/\/app\/admin\/presets\/[^/]+\/edit$/);
     await expect(page.getByTestId('preset-name')).toHaveValue(name);
     await expect(page.locator('input[name="text"]')).toHaveValue('Laura');
     const renamed = `${name} editado`;
@@ -86,8 +86,10 @@ test.describe('Shared search presets', () => {
     await expect(page).toHaveURL(/\/app\/admin\/presets$/);
     const renamedRow = await findRow(page, renamed);
 
-    // The breadcrumb leads back to the library without saving.
-    await renamedRow.getByTestId('preset-edit').click();
+    // The name is the keyboard link to the same page. The breadcrumb then leads back to the
+    // library without saving.
+    await renamedRow.getByTestId('preset-row-name').focus();
+    await page.keyboard.press('Enter');
     await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(renamed);
     await breadcrumb.getByTestId('breadcrumb-presets').click();
     await expect(page).toHaveURL(/\/app\/admin\/presets$/);

@@ -2,8 +2,24 @@ import { useCallback, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router';
 import './row-link.css';
 
-/** Clicks on these keep their own behaviour: a row never hijacks a real control. */
-const INTERACTIVE = 'a, button, input, select, textarea, label, [role="button"]';
+/**
+ * Clicks on these keep their own behaviour: a row never hijacks a real control. A cell marked
+ * `data-row-link-ignore` (e.g. a selection checkbox cell) opts out as a whole, so a near-miss
+ * around its control never navigates.
+ */
+const INTERACTIVE =
+  'a, button, input, select, textarea, label, [role="button"], [data-row-link-ignore]';
+
+/**
+ * Whether a click on a row belongs to the row itself: a primary or middle button, outside every
+ * link and control, and not the end of a text selection. Rows that act in place (e.g. starting an
+ * inline edit) use this directly; rows that open a record use `useRowLink`.
+ */
+export function isRowClick(event: MouseEvent<HTMLElement>): boolean {
+  if (event.defaultPrevented || (event.button !== 0 && event.button !== 1)) return false;
+  if ((event.target as Element).closest(INTERACTIVE)) return false;
+  return !window.getSelection()?.toString();
+}
 
 /**
  * Makes a whole table row open `to`, while every link, button and control inside it keeps working
@@ -16,9 +32,7 @@ export function useRowLink(): (to: string) => (event: MouseEvent<HTMLElement>) =
   const navigate = useNavigate();
   return useCallback(
     (to: string) => (event: MouseEvent<HTMLElement>) => {
-      if (event.defaultPrevented || (event.button !== 0 && event.button !== 1)) return;
-      if ((event.target as Element).closest(INTERACTIVE)) return;
-      if (window.getSelection()?.toString()) return;
+      if (!isRowClick(event)) return;
       if (event.ctrlKey || event.metaKey || event.button === 1) {
         window.open(to, '_blank', 'noopener');
         return;

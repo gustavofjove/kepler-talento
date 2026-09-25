@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useSearchPresets, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
+import '../../../shared/components/data-table.css';
 import { Pagination } from '../../../shared/components/pagination';
-import { SearchCriteriaDialog } from '../../search/components/search-criteria-dialog';
-import type { SearchPreset } from '../../search/models/search.models';
+import { useRowLink } from '../../../shared/components/row-link';
+import { SearchCriteriaSummary } from '../../search/components/search-criteria-summary';
 import {
   DEFAULT_PRESET_SORT,
   filterPresets,
@@ -21,35 +22,18 @@ import { useDeletePreset } from './use-delete-preset';
 import './preset-list-page.css';
 
 const SHORT_DATE_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'short', timeStyle: 'short' };
-const DATE_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
-
-/** Decorative: the button carries the accessible name. */
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
 
 export function PresetListPage() {
   const { searchPresetsService } = useServices();
   const { t } = useTranslation();
   const { status, presets } = useSearchPresets();
   const deletePreset = useDeletePreset();
+  const rowLink = useRowLink();
 
   const [text, setText] = useState('');
   const [sort, setSort] = useState<PresetSort>(DEFAULT_PRESET_SORT);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [viewing, setViewing] = useState<SearchPreset | null>(null);
 
   useEffect(() => {
     // The failure is shown from the service state; a rejected promise here has nothing to add.
@@ -130,8 +114,8 @@ export function PresetListPage() {
           <p className="muted" data-testid="presets-count">
             {t('presets.list.count', { shown: paged.length, total: visible.length })}
           </p>
-          <div className="table-wrap">
-            <table data-testid="presets-table">
+          <div className="panel table-wrap">
+            <table className="data-table" data-testid="presets-table">
               <thead>
                 <tr>
                   {sortHeader('name', t('presets.column.name'))}
@@ -140,25 +124,23 @@ export function PresetListPage() {
                   <th scope="col">{t('presets.column.actions')}</th>
                 </tr>
               </thead>
-              <tbody>
-                {paged.map((preset) => {
-                  const viewLabel = t('presets.action.view', { name: preset.name });
-                  return (
-                    <tr key={preset.id} data-testid="preset-row">
+              {paged.map((preset) => {
+                const editPath = `${PRESETS_ROUTE}/${preset.id}/edit`;
+                return (
+                  // One group per preset: its values line and its criteria line open the edit
+                  // page as a single record; the name is the keyboard link.
+                  <tbody
+                    key={preset.id}
+                    className="row-link-group"
+                    data-testid="preset-row"
+                    onClick={rowLink(editPath)}
+                    onAuxClick={rowLink(editPath)}
+                  >
+                    <tr>
                       <td>
-                        <div className="preset-name-cell">
-                          <span data-testid="preset-row-name">{preset.name}</span>
-                          <button
-                            className="button ghost small icon-button"
-                            type="button"
-                            data-testid="preset-view"
-                            aria-label={viewLabel}
-                            title={viewLabel}
-                            onClick={() => setViewing(preset)}
-                          >
-                            <EyeIcon />
-                          </button>
-                        </div>
+                        <Link className="row-link" to={editPath} data-testid="preset-row-name">
+                          {preset.name}
+                        </Link>
                       </td>
                       <td>{formatDate(preset.updatedAt, SHORT_DATE_TIME)}</td>
                       <td>
@@ -168,13 +150,6 @@ export function PresetListPage() {
                       </td>
                       <td>
                         <div className="preset-row-actions">
-                          <Link
-                            className="button secondary small"
-                            to={`${PRESETS_ROUTE}/${preset.id}/edit`}
-                            data-testid="preset-edit"
-                          >
-                            {t('presets.action.edit')}
-                          </Link>
                           <button
                             className="button danger small"
                             type="button"
@@ -186,9 +161,14 @@ export function PresetListPage() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
+                    <tr>
+                      <td colSpan={4} className="preset-criteria" data-testid="preset-criteria">
+                        <SearchCriteriaSummary filters={preset.filters} layout="inline" />
+                      </td>
+                    </tr>
+                  </tbody>
+                );
+              })}
             </table>
           </div>
           <Pagination
@@ -203,37 +183,6 @@ export function PresetListPage() {
           />
         </>
       )}
-
-      {viewing ? (
-        <SearchCriteriaDialog
-          title={viewing.name}
-          filters={viewing.filters}
-          onClose={() => setViewing(null)}
-          details={
-            <dl className="preset-meta">
-              <dt>{t('presets.view.createdAt')}</dt>
-              <dd>{formatDate(viewing.createdAt, DATE_TIME)}</dd>
-              <dt>{t('presets.view.updatedAt')}</dt>
-              <dd>{formatDate(viewing.updatedAt, DATE_TIME)}</dd>
-              <dt>{t('presets.view.lastUsedAt')}</dt>
-              <dd data-testid="preset-view-last-used">
-                {viewing.lastUsedAt
-                  ? formatDate(viewing.lastUsedAt, DATE_TIME)
-                  : t('presets.lastUsed.never')}
-              </dd>
-            </dl>
-          }
-          actions={
-            <Link
-              className="button secondary"
-              to={`${PRESETS_ROUTE}/${viewing.id}/edit`}
-              data-testid="preset-view-edit"
-            >
-              {t('presets.action.edit')}
-            </Link>
-          }
-        />
-      ) : null}
     </section>
   );
 }

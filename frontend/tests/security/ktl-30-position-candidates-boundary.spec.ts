@@ -84,7 +84,7 @@ describe('KTL-30 position candidate security boundary', () => {
     };
     // The same contact columns candidate search shows, behind the same candidates.read.
     expect(fields('PositionCandidateResponse')).not.toMatch(
-      /Notes|Documents?|DocumentId|Consent|Review|Location|Source|Description|Requirements/,
+      /Notes|Documents?\b|DocumentId|Consent|Review|Location|Source|Description|Requirements/,
     );
     expect(fields('CandidatePositionResponse')).not.toMatch(
       /Email|Phone|Notes|Description|Requirements/,

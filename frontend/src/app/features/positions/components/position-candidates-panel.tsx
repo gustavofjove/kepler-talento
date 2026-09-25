@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
 import { mailtoHref } from '../../candidates/contact-links';
 import type { PositionCandidate } from '../position.models';
@@ -86,7 +87,7 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
         </p>
       ) : (
         <div className="table-wrap">
-          <table className="position-links-table">
+          <table className="data-table">
             <thead>
               <tr>
                 <th>{t('positions.candidates.column.candidate')}</th>

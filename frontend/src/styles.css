@@ -657,7 +657,8 @@ input[type='radio']:disabled,
   }
 }
 
-/* Wide variant of .field, for selects whose option labels need the room. */
+/* Wide variant of .field, for selects whose option labels need the room. Capped at the space
+ * available, so a phone-width panel never pushes the page into horizontal scroll (KTL-31). */
 .field--wide {
-  min-width: 320px;
+  min-width: min(100%, 320px);
 }

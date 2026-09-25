@@ -4,7 +4,9 @@ import { Link } from 'react-router';
 import { usePermission, useServices } from '../../core/di/services-context';
 import { formatDate, formatNumber } from '../../core/i18n/format';
 import { useErrorToast } from '../../core/services/use-error-toast';
+import '../../shared/components/data-table.css';
 import { Pagination } from '../../shared/components/pagination';
+import { useRowLink } from '../../shared/components/row-link';
 import { usePositions } from './use-positions';
 import type { PositionListQuery, PositionStatus } from './position.models';
 import './positions.css';
@@ -15,6 +17,7 @@ export function PositionListPage() {
   const page = usePositions();
   const canManage = usePermission('positions.manage');
   const notifyError = useErrorToast();
+  const rowLink = useRowLink();
   const [status, setStatus] = useState<PositionStatus | 'all'>('open');
   const [text, setText] = useState('');
   const [sortField, setSortField] = useState<PositionListQuery['sortField']>('updatedAt');
@@ -97,7 +100,7 @@ export function PositionListPage() {
         <p>{t('positions.list.empty')}</p>
       ) : (
         <div className="panel table-wrap positions-table">
-          <table>
+          <table className="data-table">
             <thead>
               <tr>
                 <th>{t('positions.form.title')}</th>
@@ -109,9 +112,18 @@ export function PositionListPage() {
             </thead>
             <tbody>
               {page.items.map((item) => (
-                <tr key={item.id}>
+                // The whole row opens the position; the title is its keyboard link.
+                <tr
+                  key={item.id}
+                  className="row-link-row"
+                  data-testid="position-row"
+                  onClick={rowLink(`/app/positions/${item.id}`)}
+                  onAuxClick={rowLink(`/app/positions/${item.id}`)}
+                >
                   <td>
-                    <Link to={`/app/positions/${item.id}`}>{item.title}</Link>
+                    <Link className="row-link" to={`/app/positions/${item.id}`}>
+                      {item.title}
+                    </Link>
                   </td>
                   <td>{item.location || '—'}</td>
                   <td>

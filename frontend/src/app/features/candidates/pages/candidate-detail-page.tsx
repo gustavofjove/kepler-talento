@@ -15,7 +15,7 @@ import { CandidatePositionsPanel } from '../components/candidate-positions-panel
 import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
-import { mailtoHref, telHref } from '../contact-links';
+import { mailtoHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
 
 export function CandidateDetailPage() {
@@ -190,10 +190,10 @@ export function CandidateDetailPage() {
           <h1>
             {item.firstName} {item.lastName}
           </h1>
-          <p className="muted contact-links">
+          <p className="muted contact-links" data-testid="candidate-contact">
             {item.email ? <a href={mailtoHref(item.email)}>{item.email}</a> : null}
             {item.email && item.phone ? ' · ' : null}
-            {item.phone ? <a href={telHref(item.phone)}>{item.phone}</a> : null}
+            {item.phone ? <span data-testid="candidate-phone">{item.phone}</span> : null}
           </p>
         </div>
         <div className="toolbar">

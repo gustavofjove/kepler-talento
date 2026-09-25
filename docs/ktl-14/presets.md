@@ -124,9 +124,11 @@ KTL-10 granted. KTL-14 changes no grant.
 
 - **Admin › Presets** (`/app/admin/presets`, guarded by `manage_presets`): a list with name
   filter, sorting, pagination and delete, plus create (`/new`) and edit (`/:id/edit`) pages. There
-  is no read-only page: an eye button beside each name opens `SearchCriteriaDialog`, a compact
-  modal with the criteria summary, the timestamps and an edit link. The editor warns that presets
-  are visible to everyone with search access and must not contain personal data.
+  is no read-only page. Since KTL-31 each preset shows its criteria summary on a full-width line
+  below its values, and a click on either line (or Enter on the name link) opens its edit page; the
+  former eye button, criteria dialog and «Editar» button are gone
+  ([KTL-31 release notes](../ktl-31/release-notes.md)). The editor warns that presets are visible
+  to everyone with search access and must not contain personal data.
 - **Búsqueda** only applies presets. It has no save, rename or delete control; holders of
   `manage_presets` see a link to the administration section.
 - **One editor, one summary.** `SearchCriteriaForm` and `SearchCriteriaSummary`
