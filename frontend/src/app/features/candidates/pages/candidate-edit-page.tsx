@@ -11,6 +11,7 @@ import { CandidateEducation } from '../components/candidate-education';
 import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateNotes } from '../components/candidate-notes';
 import { CandidateCompetencies } from '../components/candidate-competencies';
+import { CandidateCvPreview } from '../components/candidate-cv-preview';
 import type { CandidateDraft } from '../models/candidate.models';
 
 export function CandidateEditPage() {
@@ -90,31 +91,40 @@ export function CandidateEditPage() {
       <p className="empty-state">{t('candidate.profile.validation.notFound')}</p>
     </div>
   ) : (
-    <>
-      <article className="panel">
-        <h2>{t('candidate.edit.mainData')}</h2>
-        {/* key remounts the form when navigating between new and edit. */}
-        <CandidateForm key={candidateId || 'new'} candidate={candidate} onSave={save} />
-      </article>
-      {candidate ? (
-        // One full-width section per row, in reading order (KTL-27).
-        <div className="grid">
-          <CandidateCompetencies candidate={candidate} />
+    // The CV preview sits beside the sections on wide screens and after them otherwise; the
+    // new-candidate page has nothing to preview (KTL-28).
+    <div className="page-split">
+      <div className="page-split__layout">
+        <div className="page-split__main">
           <article className="panel">
-            <CandidateEducation candidateId={candidate.id} education={candidate.education} />
+            <h2>{t('candidate.edit.mainData')}</h2>
+            {/* key remounts the form when navigating between new and edit. */}
+            <CandidateForm key={candidateId || 'new'} candidate={candidate} onSave={save} />
           </article>
-          <article className="panel">
-            <CandidateExperience candidateId={candidate.id} experience={candidate.experience} />
-          </article>
-          <article className="panel">
-            <CandidateNotes candidateId={candidate.id} initialNotes={candidate.customNotes} />
-          </article>
-          <article className="panel">
-            <CandidateDocuments candidate={candidate} />
-          </article>
+          {candidate ? (
+            // One full-width section per row, in reading order (KTL-27).
+            <div className="grid">
+              <CandidateCompetencies candidate={candidate} />
+              <article className="panel">
+                <CandidateEducation candidateId={candidate.id} education={candidate.education} />
+              </article>
+              <article className="panel">
+                <CandidateExperience candidateId={candidate.id} experience={candidate.experience} />
+              </article>
+              <article className="panel">
+                <CandidateNotes candidateId={candidate.id} initialNotes={candidate.customNotes} />
+              </article>
+              <article className="panel">
+                <CandidateDocuments candidate={candidate} />
+              </article>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-    </>
+        <aside className="page-split__aside">
+          {candidate ? <CandidateCvPreview candidate={candidate} /> : null}
+        </aside>
+      </div>
+    </div>
   );
 
   return (

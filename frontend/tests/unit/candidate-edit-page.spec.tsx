@@ -7,6 +7,7 @@ import { signal } from '../../src/app/core/state/signal';
 import { CandidateEditPage } from '../../src/app/features/candidates/pages/candidate-edit-page';
 import { CandidateNotesService } from '../../src/app/features/candidates/services/candidate-notes.service';
 import { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
+import type { CandidateDocument } from '../../src/app/features/candidates/models/candidate.models';
 import type { DocumentService } from '../../src/app/features/documents/services/document.service';
 import { createCandidateTestBed, type CandidateTestBed } from './support/candidate-doubles';
 import { loadedCatalogService } from './support/catalog-doubles';
@@ -31,9 +32,13 @@ describe('CandidateEditPage (KTL-22)', () => {
   let relations: CandidateRelationsService;
   let granted: Set<string>;
   const toastService = { show: vi.fn() };
+  // The content request never settles: these specs only care whether it is made.
+  const openPreview = vi.fn(() => new Promise(() => {}));
+  let listed: CandidateDocument[];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    listed = [];
     bed = createCandidateTestBed();
     bed.api.seed({ id: 'c1', firstName: 'Ona', lastName: 'Marti' });
     relations = new CandidateRelationsService(bed.service);
@@ -48,8 +53,9 @@ describe('CandidateEditPage (KTL-22)', () => {
   const renderAt = async (path: string) => {
     const catalogService = await loadedCatalogService();
     const documentService = {
-      list: vi.fn().mockResolvedValue([]),
+      list: vi.fn().mockResolvedValue(listed),
       observeUntilSettled: vi.fn(),
+      openPreview,
     } as unknown as DocumentService;
     const authService = {
       profile: signal(null),
@@ -126,6 +132,54 @@ describe('CandidateEditPage (KTL-22)', () => {
       [...panel.querySelectorAll('.catalog-picker-label')].map((label) => label.textContent),
     ).toEqual(['Habilidades', 'Idiomas', 'Programas', 'Etiquetas']);
     expect(panel.querySelector('.catalog-picker-label[data-hidden]')).toBeNull();
+  });
+
+  describe('CV preview (KTL-28)', () => {
+    const cv: CandidateDocument = {
+      id: 'd1',
+      documentType: 'CV',
+      originalFilename: 'cv.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 10,
+      isPrimary: true,
+      uploadedAt: '2026-01-01T00:00:00Z',
+      availabilityState: 'Available',
+    };
+
+    beforeEach(() => {
+      listed = [cv];
+    });
+
+    it('shows the preview in the aside, after the sections, with the download permission', async () => {
+      granted.add('documents.download');
+      await renderAt('/app/candidates/c1/edit');
+
+      const preview = await screen.findByTestId('candidate-cv-preview');
+      expect(preview.parentElement).toHaveClass('page-split__aside');
+      expect(preview.closest('.page-split__layout')?.firstElementChild).toHaveClass(
+        'page-split__main',
+      );
+      await waitFor(() => expect(openPreview).toHaveBeenCalled());
+    });
+
+    it('shows no preview and requests no content without the download permission', async () => {
+      await renderAt('/app/candidates/c1/edit');
+      await screen.findByTestId('candidate-documents');
+
+      expect(screen.queryByTestId('candidate-cv-preview')).not.toBeInTheDocument();
+      expect(document.querySelector('.page-split__aside')).toBeEmptyDOMElement();
+      expect(openPreview).not.toHaveBeenCalled();
+    });
+
+    it('shows no preview on the new-candidate page', async () => {
+      granted.add('documents.download');
+      await renderAt('/app/candidates/new');
+      await screen.findByLabelText('Nombre');
+
+      expect(screen.queryByTestId('candidate-cv-preview')).not.toBeInTheDocument();
+      expect(document.querySelector('.page-split__aside')).toBeEmptyDOMElement();
+      expect(openPreview).not.toHaveBeenCalled();
+    });
   });
 
   it('keeps document upload hidden for an editor without the upload permission', async () => {

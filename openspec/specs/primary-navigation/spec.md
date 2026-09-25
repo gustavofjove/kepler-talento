@@ -434,3 +434,14 @@ correct accents.
 - **WHEN** a candidate with a very long full name is opened at 390 pixels wide
 - **THEN** the trail fits within the viewport without horizontal page scroll
 - **AND** the full name remains available to the user
+
+### Requirement: Shell content width
+
+Every page inside the application shell SHALL center its content area and cap it at 1440 CSS
+pixels, including the side padding. The only case that widens it is the candidate CV preview
+beside the sections (`candidate-profile-pages`).
+
+#### Scenario: Default content width on a wide screen
+
+- **WHEN** a page without a CV preview is shown at 1920×1080
+- **THEN** its content area is at most 1440 CSS pixels wide and horizontally centered

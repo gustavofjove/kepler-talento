@@ -128,54 +128,63 @@ export function CandidateDetailPage() {
         </div>
       </div>
       {/* One full-width section per row, in reading order (KTL-27). Viewing only: every change
-          is made on the edit page, whatever the viewer may do. */}
-      <div className="grid">
-        <article className="panel">
-          <h2>{t('candidate.detail.mainData')}</h2>
-          <dl className="prop-list">
-            <dt>{t('candidate.detail.status')}</dt>
-            <dd>{item.status}</dd>
-            <dt>{t('candidate.detail.availability')}</dt>
-            <dd>{item.availability}</dd>
-            <dt>{t('candidate.detail.location')}</dt>
-            <dd>
-              {item.location} {item.province}
-            </dd>
-            <dt>{t('candidate.detail.receivedAt')}</dt>
-            <dd>{item.receivedAt || t('candidate.detail.pending')}</dd>
-            <dt>{t('candidate.detail.reviewDueAt')}</dt>
-            <dd>{item.reviewDueAt || t('candidate.detail.pending')}</dd>
-          </dl>
-          {item.notes ? <p>{item.notes}</p> : null}
-        </article>
-        <article className="panel">
-          <h2>{t('candidate.detail.audit')}</h2>
-          <dl className="prop-list">
-            <dt>{t('candidate.detail.created')}</dt>
-            <dd>{item.createdAt.slice(0, 19)}</dd>
-            <dt>{t('candidate.detail.updated')}</dt>
-            <dd>{item.updatedAt.slice(0, 19)}</dd>
-            <dt>{t('candidate.detail.active')}</dt>
-            <dd data-testid="candidate-active">
-              {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
-            </dd>
-          </dl>
-        </article>
-        <CandidateCompetencies candidate={item} readOnly />
-        <article className="panel">
-          <CandidateEducation candidateId={item.id} education={item.education} readOnly />
-        </article>
-        <article className="panel">
-          <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
-        </article>
-        <article className="panel">
-          <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />
-        </article>
-        <article className="panel">
-          <CandidateDocuments candidate={item} readOnly />
-        </article>
+          is made on the edit page, whatever the viewer may do. The CV preview sits beside the
+          sections on wide screens and after them otherwise (KTL-28). */}
+      <div className="page-split">
+        <div className="page-split__layout">
+          <div className="page-split__main">
+            <div className="grid">
+              <article className="panel">
+                <h2>{t('candidate.detail.mainData')}</h2>
+                <dl className="prop-list">
+                  <dt>{t('candidate.detail.status')}</dt>
+                  <dd>{item.status}</dd>
+                  <dt>{t('candidate.detail.availability')}</dt>
+                  <dd>{item.availability}</dd>
+                  <dt>{t('candidate.detail.location')}</dt>
+                  <dd>
+                    {item.location} {item.province}
+                  </dd>
+                  <dt>{t('candidate.detail.receivedAt')}</dt>
+                  <dd>{item.receivedAt || t('candidate.detail.pending')}</dd>
+                  <dt>{t('candidate.detail.reviewDueAt')}</dt>
+                  <dd>{item.reviewDueAt || t('candidate.detail.pending')}</dd>
+                </dl>
+                {item.notes ? <p>{item.notes}</p> : null}
+              </article>
+              <article className="panel">
+                <h2>{t('candidate.detail.audit')}</h2>
+                <dl className="prop-list">
+                  <dt>{t('candidate.detail.created')}</dt>
+                  <dd>{item.createdAt.slice(0, 19)}</dd>
+                  <dt>{t('candidate.detail.updated')}</dt>
+                  <dd>{item.updatedAt.slice(0, 19)}</dd>
+                  <dt>{t('candidate.detail.active')}</dt>
+                  <dd data-testid="candidate-active">
+                    {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
+                  </dd>
+                </dl>
+              </article>
+              <CandidateCompetencies candidate={item} readOnly />
+              <article className="panel">
+                <CandidateEducation candidateId={item.id} education={item.education} readOnly />
+              </article>
+              <article className="panel">
+                <CandidateExperience candidateId={item.id} experience={item.experience} readOnly />
+              </article>
+              <article className="panel">
+                <CandidateNotes candidateId={item.id} initialNotes={item.customNotes} readOnly />
+              </article>
+              <article className="panel">
+                <CandidateDocuments candidate={item} readOnly />
+              </article>
+            </div>
+          </div>
+          <aside className="page-split__aside">
+            <CandidateCvPreview candidate={item} />
+          </aside>
+        </div>
       </div>
-      <CandidateCvPreview candidate={item} />
     </section>
   );
 }

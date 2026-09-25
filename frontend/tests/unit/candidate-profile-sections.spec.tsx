@@ -12,7 +12,7 @@ import type { CatalogService } from '../../src/app/features/catalogs/services/ca
 import { loadedCatalogService } from './support/catalog-doubles';
 
 describe('Candidate profile section components', () => {
-  it('keeps the CV preview as the last block on the candidate detail page', () => {
+  it('keeps the CV preview after the sections, in the page aside (KTL-28)', () => {
     const source = readFileSync(
       'src/app/features/candidates/pages/candidate-detail-page.tsx',
       'utf8',
@@ -22,7 +22,7 @@ describe('Candidate profile section components', () => {
     expect(documents).toBeGreaterThan(-1);
     expect(preview).toBeGreaterThan(documents);
     expect(source.slice(preview)).toMatch(
-      /<CandidateCvPreview candidate=\{item\} \/>\s*<\/section>/,
+      /<CandidateCvPreview candidate=\{item\} \/>\s*<\/aside>\s*<\/div>\s*<\/div>\s*<\/section>/,
     );
   });
   let relations: MockedObject<CandidateRelationsService>;

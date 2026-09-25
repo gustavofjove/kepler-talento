@@ -7,6 +7,15 @@ export type PreviewMessageKey =
   | 'candidate.profile.preview.legacyUnavailable'
   | 'candidate.profile.preview.unsupported';
 
+// PDF open parameters: fit the page to the viewer width so the whole line is readable at
+// any screen size. Chromium honours `view=FitH` (and keeps fitting on resize); Firefox's
+// pdf.js reads `zoom=page-width`. Each viewer ignores the parameter it does not know.
+export const FIT_WIDTH_FRAGMENT = '#view=FitH&zoom=page-width';
+
+export function viewerUrl(objectUrl: string): string {
+  return `${objectUrl}${FIT_WIDTH_FRAGMENT}`;
+}
+
 export function isPreviewable(document: CandidateDocument): boolean {
   return document.availabilityState === 'Available' && document.mimeType === 'application/pdf';
 }

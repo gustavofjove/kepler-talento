@@ -1,4 +1,6 @@
 .cv-preview {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   overflow: hidden;
 }
@@ -21,5 +23,19 @@
 @media (max-width: 767px) {
   .cv-preview__viewer {
     min-height: 70vh;
+  }
+}
+
+/* Beside the sections the aside is viewport-tall (styles.css, .page-split), so the panel fills
+ * it and the viewer takes whatever the heading and picker leave. Same threshold as the split. */
+@container page-split (min-width: 1360px) {
+  .page-split__aside > .cv-preview {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .page-split__aside > .cv-preview .cv-preview__viewer {
+    flex: 1;
+    min-height: 0;
   }
 }

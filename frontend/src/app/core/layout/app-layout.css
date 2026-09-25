@@ -4,6 +4,7 @@
  * so every rule below is prefixed with `.shell`.
  */
 .shell {
+  --shell-max-width: 1440px;
   min-height: 100vh;
 }
 
@@ -92,8 +93,14 @@ html {
 
 .shell main {
   margin: 0 auto;
-  max-width: 1180px;
+  max-width: var(--shell-max-width);
   padding: 22px;
+}
+
+/* A candidate page showing the CV preview beside its sections (.page-split in styles.css)
+ * needs room for both columns, so it alone may widen the content area (KTL-28). */
+.shell main:has(.page-split__aside .cv-preview) {
+  max-width: 1920px;
 }
 
 .shell .user {

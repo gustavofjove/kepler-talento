@@ -174,6 +174,91 @@ test.describe('Candidate profile enrichment', () => {
     }
   });
 
+  test('shows the CV beside the sections on wide screens and after them otherwise (KTL-28)', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+
+    // Without a preview the shell keeps its default cap.
+    await page.goto('/app/candidates');
+    const mainWidth = await page
+      .locator('main')
+      .evaluate((element) => element.getBoundingClientRect().width);
+    expect(mainWidth).toBeLessThanOrEqual(1440);
+
+    await createCandidate(page, `Vista${Date.now()}`, 'Test');
+    const editUrl = page.url();
+    const detailUrl = editUrl.replace(/\/edit$/, '');
+    const documents = page.getByTestId('candidate-documents');
+    await documents.getByTestId('document-file').setInputFiles({
+      name: 'vista-cv.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from(
+        '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<<>>\n%%EOF',
+        'utf-8',
+      ),
+    });
+    await documents.getByTestId('document-upload').click();
+    // The preview follows the scan and loads the PDF once it is clean.
+    await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/, {
+      timeout: 25_000,
+    });
+
+    const box = async (locator: import('@playwright/test').Locator) =>
+      (await locator.boundingBox())!;
+    const mainData = () => page.locator('.page-split__main > :first-child');
+    const preview = page.getByTestId('candidate-cv-preview');
+
+    for (const url of [editUrl, detailUrl]) {
+      await page.goto(url);
+      await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const data = await box(mainData());
+      const side = await box(preview);
+      expect(side.x).toBeGreaterThanOrEqual(data.x + data.width);
+      expect(side.y).toBeLessThan(data.y + data.height);
+
+      // Sticky: still fully visible below the header once the sections scroll to Documentos.
+      await page.getByTestId('candidate-documents').scrollIntoViewIfNeeded();
+      const header = await box(page.locator('.shell header'));
+      const stuck = await box(preview);
+      expect(stuck.y).toBeGreaterThanOrEqual(header.y + header.height - 1);
+      expect(stuck.y + stuck.height).toBeLessThanOrEqual(1080 + 1);
+    }
+
+    // The main data form keeps two columns beside the preview, and a picker opens on screen.
+    await page.goto(editUrl);
+    await expect(preview).toBeVisible();
+    const first = await box(page.locator('input[name="firstName"]'));
+    const last = await box(page.locator('input[name="lastName"]'));
+    expect(Math.abs(first.y - last.y)).toBeLessThanOrEqual(1);
+    await (await openInput(page, 'candidate-skill')).fill('a');
+    const listbox = await box(page.getByRole('listbox'));
+    expect(listbox.x).toBeGreaterThanOrEqual(0);
+    expect(listbox.x + listbox.width).toBeLessThanOrEqual(1920);
+    await page.keyboard.press('Escape');
+
+    // At 1366×768 the content area is under the threshold: the preview follows Documentos.
+    await page.setViewportSize({ width: 1366, height: 768 });
+    for (const url of [editUrl, detailUrl]) {
+      await page.goto(url);
+      await expect(preview).toBeVisible();
+      const last = await box(page.getByTestId('candidate-documents'));
+      expect((await box(preview)).y).toBeGreaterThanOrEqual(last.y + last.height);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const url of [editUrl, detailUrl]) {
+      await page.goto(url);
+      await expect(preview).toBeVisible();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+    }
+  });
+
   test('rejects experience with an end date before the start date', async ({ page }) => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Exp${suffix}`, 'Test');
