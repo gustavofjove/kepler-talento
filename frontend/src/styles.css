@@ -602,6 +602,61 @@ input[type='radio']:disabled,
   grid-column: 1 / -1;
 }
 
+/*
+ * Sections column plus an optional aside (KTL-28). The aside turns into a sticky right-hand
+ * column only when it actually holds the CV preview and the content area is wide enough;
+ * otherwise everything stacks in one column. The page itself is the container, because the
+ * width that matters is the content area's, not the viewport's; a container cannot query
+ * itself, so the grid lives one level down.
+ */
+.page-split {
+  container: page-split / inline-size;
+}
+
+.page-split__layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.page-split__main {
+  container: page-split-main / inline-size;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.page-split__aside {
+  min-width: 0;
+}
+
+/* The preview renders nothing without permission or documents; drop the stacked gap too. */
+.page-split__aside:empty {
+  display: none;
+}
+
+@container page-split (min-width: 1360px) {
+  .page-split__layout:has(> .page-split__aside .cv-preview) {
+    grid-template-columns: minmax(0, 1fr) minmax(560px, 45%);
+  }
+
+  .page-split__layout:has(> .page-split__aside .cv-preview) > .page-split__aside {
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px - 40px);
+    position: sticky;
+    top: calc(64px + 20px);
+  }
+}
+
+/* Field grids follow the sections column, whatever the viewport width. */
+@container page-split-main (max-width: 620px) {
+  .grid.two {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Wide variant of .field, for selects whose option labels need the room. */
 .field--wide {
   min-width: 320px;

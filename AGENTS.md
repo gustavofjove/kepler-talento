@@ -193,6 +193,11 @@ Since KTL-3 (Angular → React migration):
   decorative in React but load-bearing for the Playwright suite.
 - Tests live outside `src/`: `tests/unit/*.spec.ts(x)` (jsdom + Testing Library, shared
   doubles in `tests/unit/support/`), `tests/integration/`, `tests/security/`, `tests/e2e/`.
+- Every record an e2e spec creates (candidate, position, catalog item, user, role, preset,
+  import file) must carry a `Date.now()` value in its name, title, code, e-mail or file
+  name. The Playwright global teardown (`scripts/e2e-cleanup.js`) purges test data by that
+  13-digit marker, so an unmarked record would stay in the development database. Seeded
+  fixtures shared across runs (e.g. `ensureSearchCandidate`) stay unmarked on purpose.
 - Formatting is Prettier (single quotes, trailing commas, width 100); the pre-commit hook
   runs it through lint-staged.
 

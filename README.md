@@ -194,10 +194,13 @@ para incluir el margen acotado del framing multipart.
 Consulta el [contrato y flujo de documentos KTL-9](docs/ktl-9/documents.md) y la
 [nota de versión](docs/ktl-9/release-notes.md).
 
-La página de detalle incluye una vista previa del CV principal cuando es un PDF disponible y la
-persona tiene `documents.download`. Otros formatos conservan la descarga. La vista previa reutiliza
-el endpoint privado de contenido y no expone rutas ni enlaces permanentes; consulte la
-[documentación de KTL-20](docs/ktl-20/document-preview.md).
+La página de detalle y la edición de un candidato existente incluyen una vista previa del CV
+principal cuando es un PDF disponible y la persona tiene `documents.download`. Otros formatos
+conservan la descarga. La vista previa reutiliza el endpoint privado de contenido y no expone rutas
+ni enlaces permanentes; consulte la [documentación de KTL-20](docs/ktl-20/document-preview.md).
+Cuando el área de contenido mide al menos 1360 px, la vista previa se muestra como columna fija a
+la derecha de las secciones; en pantallas más estrechas aparece tras la última sección. Consulte la
+[nota de versión de KTL-28](docs/ktl-28/release-notes.md).
 
 ## Presets de búsqueda KTL-14
 

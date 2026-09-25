@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { CandidateCvPreview } from '../../src/app/features/candidates/components/candidate-cv-preview';
+import { FIT_WIDTH_FRAGMENT } from '../../src/app/features/candidates/components/candidate-cv-preview.logic';
 import type {
   Candidate,
   CandidateDocument,
@@ -109,7 +110,10 @@ describe('CandidateCvPreview', () => {
 
   it('renders a clean PDF and revokes its URL on unmount', async () => {
     const view = renderPreview([pdf()]);
-    expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute(
+      'data',
+      `blob:preview${FIT_WIDTH_FRAGMENT}`,
+    );
     expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute(
       'title',
       'Vista previa del documento PDF',
@@ -152,12 +156,18 @@ describe('CandidateCvPreview', () => {
     const picker = screen.getByTestId('preview-document-select');
     await userEvent.selectOptions(picker, 'second');
     await waitFor(() =>
-      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:second'),
+      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute(
+        'data',
+        `blob:second${FIT_WIDTH_FRAGMENT}`,
+      ),
     );
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:first');
     await userEvent.selectOptions(picker, 'first');
     await waitFor(() =>
-      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:first-again'),
+      expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute(
+        'data',
+        `blob:first-again${FIT_WIDTH_FRAGMENT}`,
+      ),
     );
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:second');
     expect(openPreview).toHaveBeenCalledTimes(2);
@@ -187,10 +197,16 @@ describe('CandidateCvPreview', () => {
   it('preserves the active preview across same-candidate aggregate refreshes', async () => {
     const document = pdf();
     const view = renderPreview([document]);
-    expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    expect(await screen.findByTestId('cv-preview-viewer')).toHaveAttribute(
+      'data',
+      `blob:preview${FIT_WIDTH_FRAGMENT}`,
+    );
     view.rerenderCandidate([{ ...document, sizeBytes: 20 }]);
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
-    expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute('data', 'blob:preview');
+    expect(screen.getByTestId('cv-preview-viewer')).toHaveAttribute(
+      'data',
+      `blob:preview${FIT_WIDTH_FRAGMENT}`,
+    );
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(revokeObjectURL).not.toHaveBeenCalled();
   });

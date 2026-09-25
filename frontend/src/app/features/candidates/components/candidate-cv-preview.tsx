@@ -7,6 +7,7 @@ import {
   isPreviewable,
   pickDefaultDocument,
   previewMessageKey,
+  viewerUrl,
 } from './candidate-cv-preview.logic';
 import './candidate-cv-preview.css';
 
@@ -146,7 +147,7 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
   };
 
   return (
-    <section className="panel span-all cv-preview" data-testid="candidate-cv-preview">
+    <section className="panel cv-preview" data-testid="candidate-cv-preview">
       <h2>{t('candidate.profile.preview.title')}</h2>
       {documents.length > 1 ? (
         <div className="field cv-preview__picker">
@@ -200,7 +201,7 @@ export function CandidateCvPreview({ candidate }: { candidate: Candidate }) {
       {loadState === 'ready' && objectUrl ? (
         <object
           type="application/pdf"
-          data={objectUrl}
+          data={viewerUrl(objectUrl)}
           data-testid="cv-preview-viewer"
           aria-label={t('candidate.profile.preview.viewerLabel')}
           title={t('candidate.profile.preview.viewerLabel')}

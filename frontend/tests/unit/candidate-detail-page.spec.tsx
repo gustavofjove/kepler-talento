@@ -6,6 +6,7 @@ import { signal } from '../../src/app/core/state/signal';
 import { CandidateDetailPage } from '../../src/app/features/candidates/pages/candidate-detail-page';
 import { CandidateNotesService } from '../../src/app/features/candidates/services/candidate-notes.service';
 import { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
+import type { CandidateDocument } from '../../src/app/features/candidates/models/candidate.models';
 import type { DocumentService } from '../../src/app/features/documents/services/document.service';
 import { createCandidateTestBed, type CandidateTestBed } from './support/candidate-doubles';
 import { loadedCatalogService } from './support/catalog-doubles';
@@ -13,8 +14,10 @@ import { loadedCatalogService } from './support/catalog-doubles';
 describe('CandidateDetailPage breadcrumb (KTL-23)', () => {
   let bed: CandidateTestBed;
   let granted: Set<string>;
+  let listed: CandidateDocument[];
 
   beforeEach(() => {
+    listed = [];
     bed = createCandidateTestBed();
     bed.api.seed({ id: 'c1', firstName: 'Ona', lastName: 'Marti' });
     granted = new Set(['candidates.read']);
@@ -23,8 +26,10 @@ describe('CandidateDetailPage breadcrumb (KTL-23)', () => {
   const renderAt = async (path: string) => {
     const catalogService = await loadedCatalogService();
     const documentService = {
-      list: vi.fn().mockResolvedValue([]),
+      list: vi.fn().mockResolvedValue(listed),
       observeUntilSettled: vi.fn(),
+      // Never settles: the specs only look at where the preview is placed.
+      openPreview: vi.fn(() => new Promise(() => {})),
     } as unknown as DocumentService;
     const authService = {
       profile: signal(null),
@@ -96,6 +101,37 @@ describe('CandidateDetailPage breadcrumb (KTL-23)', () => {
     const panel = within(screen.getByTestId('candidate-competencies'));
     expect(panel.queryByRole('button')).toBeNull();
     expect(panel.getByText('Sin programas asociados.')).toBeInTheDocument();
+  });
+
+  it('places the CV preview in the aside, after the sections (KTL-28)', async () => {
+    granted.add('documents.download');
+    listed = [
+      {
+        id: 'd1',
+        documentType: 'CV',
+        originalFilename: 'cv.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 10,
+        isPrimary: true,
+        uploadedAt: '2026-01-01T00:00:00Z',
+        availabilityState: 'Available',
+      },
+    ];
+    await renderAt('/app/candidates/c1');
+
+    const preview = await screen.findByTestId('candidate-cv-preview');
+    expect(preview.parentElement).toHaveClass('page-split__aside');
+    expect(preview.closest('.page-split__layout')?.firstElementChild).toHaveClass(
+      'page-split__main',
+    );
+  });
+
+  it('leaves the aside empty without the download permission (KTL-28)', async () => {
+    await renderAt('/app/candidates/c1');
+    await screen.findByRole('heading', { level: 1, name: 'Ona Marti' });
+
+    expect(screen.queryByTestId('candidate-cv-preview')).not.toBeInTheDocument();
+    expect(document.querySelector('.page-split__aside')).toBeEmptyDOMElement();
   });
 
   it('offers only the list while the candidate loads', async () => {
