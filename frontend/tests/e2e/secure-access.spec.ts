@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authorizationHeaders, signInAs } from './support/auth';
+import { CANDIDATE_PAGE_URL, editPanel } from './support/candidate-panels';
 
 const PDF_BYTES = Buffer.from('%PDF-1.4\n%%EOF', 'utf-8');
 
@@ -66,10 +67,9 @@ test.describe('Secure access', () => {
     await adminPage.fill('input[name="firstName"]', `Preview${Date.now()}`);
     await adminPage.fill('input[name="lastName"]', 'Security');
     await adminPage.click('button[type="submit"]');
-    await expect(adminPage).toHaveURL(
-      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
-    );
-    const candidateId = adminPage.url().split('/').at(-2)!;
+    await expect(adminPage).toHaveURL(CANDIDATE_PAGE_URL);
+    const candidateId = adminPage.url().split('/').at(-1)!;
+    await editPanel(adminPage, 'documents');
     const documents = adminPage.getByTestId('candidate-documents');
     await documents.getByTestId('document-file').setInputFiles({
       name: 'secure-preview.pdf',
@@ -93,10 +93,10 @@ test.describe('Secure access', () => {
     await signInAs(readonlyPage, 'readonly');
     await readonlyPage.goto(`/app/candidates/${candidateId}`);
     await expect(readonlyPage.getByTestId('candidate-cv-preview')).toHaveCount(0);
-    // KTL-22: the detail page offers no editing control, and the edit route is refused.
+    // KTL-29: a reader gets no «Editar» on any panel and no form at all.
     await expect(readonlyPage.getByTestId('candidate-documents')).toBeVisible();
-    await expect(readonlyPage.getByTestId('candidate-edit-view')).toHaveCount(0);
-    await expect(readonlyPage.locator('[data-testid^="candidate-"] form')).toHaveCount(0);
+    await expect(readonlyPage.locator('[data-testid^="candidate-panel-"]')).toHaveCount(0);
+    await expect(readonlyPage.locator('main form')).toHaveCount(0);
     await expect(readonlyPage.getByTestId('document-file')).toHaveCount(0);
     // KTL-24: every relation section renders its chips only, with no picker input.
     for (const family of ['language', 'program', 'skill', 'tag']) {
@@ -105,8 +105,12 @@ test.describe('Secure access', () => {
       await expect(readonlyPage.getByTestId(`candidate-${family}-add`)).toHaveCount(0);
     }
     await expect(readonlyPage.getByRole('combobox')).toHaveCount(0);
+    // The former edit address leads a reader to the same read-only page, never to an editor.
     await readonlyPage.goto(`/app/candidates/${candidateId}/edit`);
-    await expect(readonlyPage).toHaveURL(/\/app$/);
+    await expect(readonlyPage).toHaveURL(new RegExp(`/app/candidates/${candidateId}$`));
+    await expect(readonlyPage.getByTestId('candidate-documents')).toBeVisible();
+    await expect(readonlyPage.locator('[data-testid^="candidate-panel-"]')).toHaveCount(0);
+    await expect(readonlyPage.locator('main form')).toHaveCount(0);
     const unauthorized = await readonlyPage.request.get(
       `/api/candidates/${candidateId}/documents/${documentId}/content`,
       { headers: authorizationHeaders(readonlyPage) },

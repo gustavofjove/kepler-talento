@@ -1,6 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders, signInAs } from './support/auth';
+import { editPanel } from './support/candidate-panels';
 import { addValue, chip, chips } from './support/catalog-picker';
 
 /**
@@ -233,7 +234,8 @@ test.describe('Primary navigation - narrow viewport', () => {
     const candidate = (await created.json()) as { id: string };
 
     try {
-      await page.goto(`/app/candidates/${candidate.id}/edit`);
+      await page.goto(`/app/candidates/${candidate.id}`);
+      await editPanel(page, 'competencies');
       for (const language of ['Inglés', 'Francés', 'Alemán', 'Italiano', 'Portugués']) {
         await addValue(page, 'candidate-language', language, 'C1');
       }

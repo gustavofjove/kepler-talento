@@ -1,14 +1,16 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { MockedObject } from 'vitest';
+import { useState } from 'react';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
-import { TranslatableError } from '../../src/app/core/i18n/translatable-error';
 import { signal } from '../../src/app/core/state/signal';
 import { CandidateRelationSection } from '../../src/app/features/candidates/components/candidate-relation-section';
-import type { RelationKind } from '../../src/app/features/candidates/components/candidate-relation-section.logic';
+import {
+  RELATION_DEFINITIONS,
+  type RelationKind,
+} from '../../src/app/features/candidates/components/candidate-relation-section.logic';
 import type { Candidate } from '../../src/app/features/candidates/models/candidate.models';
-import type { CandidateRelationsService } from '../../src/app/features/candidates/services/candidate-relations.service';
+import type { PickerItem } from '../../src/app/features/catalogs/components/catalog-value-picker.logic';
 import { CatalogService } from '../../src/app/features/catalogs/services/catalog.service';
 import { AppError } from '../../src/app/shared/models/error.models';
 import { FakeCandidateApi } from './support/candidate-doubles';
@@ -19,13 +21,13 @@ import {
 } from './support/catalog-doubles';
 
 /**
- * The one table-driven section behind the candidate languages, programs, skills and tags.
- * The relations service is a double, so each spec controls when a write settles.
+ * The one table-driven row behind the candidate languages, programs, skills and tags. Since
+ * KTL-29 it is controlled: it proposes each add, change and removal as a new draft list and
+ * writes nothing itself. The harness applies every proposal and records it.
  */
 describe('CandidateRelationSection', () => {
-  let relations: MockedObject<CandidateRelationsService>;
   let catalogService: CatalogService;
-  let canUpdate: boolean;
+  let proposals: { items: PickerItem[]; changed: PickerItem }[];
 
   const candidate = (overrides: Partial<Candidate> = {}): Candidate =>
     new FakeCandidateApi().seed({
@@ -42,21 +44,37 @@ describe('CandidateRelationSection', () => {
       ...overrides,
     });
 
-  const renderSection = (kind: RelationKind, subject = candidate(), readOnly = false) =>
+  function Harness(props: { kind: RelationKind; subject: Candidate; editing: boolean }) {
+    const [items, setItems] = useState(() => RELATION_DEFINITIONS[props.kind].items(props.subject));
+    return (
+      <CandidateRelationSection
+        kind={props.kind}
+        items={items}
+        editing={props.editing}
+        onItemsChange={(next, changed) => {
+          proposals.push({ items: next, changed });
+          setItems(next);
+        }}
+      />
+    );
+  }
+
+  const renderSection = (kind: RelationKind, subject = candidate(), editing = true) =>
     render(
       <ServicesProvider
         value={
           {
             ...services,
-            candidateRelationsService: relations,
             catalogService,
-            authService: { profile: signal(null), hasPermission: vi.fn(() => canUpdate) },
+            authService: { profile: signal(null), hasPermission: vi.fn(() => true) },
           } as unknown as Services
         }
       >
-        <CandidateRelationSection kind={kind} candidate={subject} readOnly={readOnly} />
+        <Harness kind={kind} subject={subject} editing={editing} />
       </ServicesProvider>,
     );
+
+  const last = () => proposals.at(-1)!;
 
   /** The input exists only while adding: (+) reveals it. */
   const typeInto = async (prefix: string, text: string) => {
@@ -78,20 +96,7 @@ describe('CandidateRelationSection', () => {
 
   beforeEach(async () => {
     catalogService = await loadedCatalogService();
-    canUpdate = true;
-    relations = {
-      addLanguage: vi.fn(async () => undefined),
-      updateLanguage: vi.fn(async () => undefined),
-      removeLanguage: vi.fn(async () => undefined),
-      addProgram: vi.fn(async () => undefined),
-      updateProgram: vi.fn(async () => undefined),
-      removeProgram: vi.fn(async () => undefined),
-      addSkill: vi.fn(async () => undefined),
-      updateSkill: vi.fn(async () => undefined),
-      removeSkill: vi.fn(async () => undefined),
-      addTag: vi.fn(async () => undefined),
-      removeTag: vi.fn(async () => undefined),
-    } as unknown as MockedObject<CandidateRelationsService>;
+    proposals = [];
   });
 
   describe.each([
@@ -124,7 +129,7 @@ describe('CandidateRelationSection', () => {
       label: 'Etiquetas',
     },
   ] as const)('$kind', ({ kind, testId, prefix, text, label }) => {
-    it('shows its entries as chips with a picker, under the kept section test id', () => {
+    it('shows its entries as chips with a picker in edit mode, under the kept test id', () => {
       renderSection(kind);
 
       const section = within(screen.getByTestId(testId));
@@ -132,8 +137,8 @@ describe('CandidateRelationSection', () => {
       expect(section.getByTestId(`${prefix}-add`)).toBeEnabled();
     });
 
-    it('shows the entries and no editing control when read-only', async () => {
-      renderSection(kind, candidate(), true);
+    it('shows the entries and no editing control outside edit mode', async () => {
+      renderSection(kind, candidate(), false);
 
       const section = within(screen.getByTestId(testId));
       expect(section.getAllByTestId(`${prefix}-chip`)[0]).toHaveTextContent(text);
@@ -141,15 +146,6 @@ describe('CandidateRelationSection', () => {
       expect(section.queryByRole('button')).toBeNull();
       await userEvent.click(section.getAllByTestId(`${prefix}-chip`)[0]);
       expect(screen.queryByTestId(`${prefix}-editor`)).toBeNull();
-    });
-
-    it('offers no editing control without the update permission', () => {
-      canUpdate = false;
-      renderSection(kind);
-
-      const section = within(screen.getByTestId(testId));
-      expect(section.queryByRole('combobox')).toBeNull();
-      expect(section.queryByRole('button')).toBeNull();
     });
 
     it('disables adding while catalogs cannot load, leaving the notice to the panel', async () => {
@@ -175,8 +171,8 @@ describe('CandidateRelationSection', () => {
     });
   });
 
-  it('shows the empty state on the read-only page, and only (+) on the edit page', () => {
-    const { unmount } = renderSection('language', candidate({ languages: [] }), true);
+  it('shows the empty state outside edit mode, and only (+) in it', () => {
+    const { unmount } = renderSection('language', candidate({ languages: [] }), false);
     expect(screen.getByText('Sin idiomas asociados.')).toBeInTheDocument();
     unmount();
 
@@ -185,40 +181,16 @@ describe('CandidateRelationSection', () => {
     expect(screen.getByTestId('candidate-language-add')).toBeInTheDocument();
   });
 
-  it('saves a language at once with the lowest active level, opening no editor', async () => {
-    const lowest = catalogService.activeNames('language_level')[0];
-    renderSection('language');
+  it('proposes a language at the lowest active level, opening no editor', async () => {
+    const lowest = catalogService.activeNames('language_level')[0]!;
+    renderSection('language', candidate({ languages: [] }));
 
-    await typeInto('candidate-language', 'fran');
+    await typeInto('candidate-language', 'ingl');
     await userEvent.keyboard('{ArrowDown}{Enter}');
 
-    expect(relations.addLanguage).toHaveBeenCalledWith('c1', {
-      language: 'Francés',
-      level: lowest,
-      certification: '',
-    });
     expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
-  });
-
-  it('keeps a slow add inert until it is saved, so no later write undoes the user', async () => {
-    let save: () => void = () => undefined;
-    relations.addLanguage.mockImplementationOnce(
-      () => new Promise<void>((resolve) => (save = resolve)),
-    );
-    renderSection('language');
-
-    await typeInto('candidate-language', 'fran');
-    await userEvent.keyboard('{ArrowDown}{Enter}');
-    const pending = chip('candidate-language', 'Francés');
-    expect(pending).toHaveAttribute('data-status', 'pending');
-
-    await userEvent.click(pending);
-    await userEvent.click(within(pending).getByTestId('candidate-language-remove'));
-
-    expect(screen.queryByTestId('candidate-language-editor')).toBeNull();
-    expect(relations.updateLanguage).not.toHaveBeenCalled();
-    expect(chip('candidate-language', 'Francés')).toBeInTheDocument();
-    save();
+    expect(last().changed).toEqual(expect.objectContaining({ value: 'Inglés', level: lowest }));
+    expect(chip('candidate-language', 'Inglés')).toHaveTextContent(lowest);
   });
 
   it('cannot add a skill while no skill level is active', async () => {
@@ -228,27 +200,27 @@ describe('CandidateRelationSection', () => {
     renderSection('skill');
 
     expect(screen.getByTestId('candidate-skill-add')).toBeDisabled();
-    expect(relations.addSkill).not.toHaveBeenCalled();
+    expect(proposals).toHaveLength(0);
   });
 
-  it('changes a language level in place and keeps its certification', async () => {
+  it('proposes a language level change in place, keeping its key and certification', async () => {
     renderSection('language');
 
     await userEvent.click(chip('candidate-language', 'Inglés'));
     const editor = await screen.findByTestId('candidate-language-editor');
     await userEvent.click(within(editor).getByRole('radio', { name: 'C1' }));
 
-    expect(relations.updateLanguage).toHaveBeenCalledWith('c1', {
-      id: 'l1',
-      language: 'Inglés',
-      level: 'C1',
-      certification: 'TOEFL',
-    });
-    expect(relations.addLanguage).not.toHaveBeenCalled();
-    expect(relations.removeLanguage).not.toHaveBeenCalled();
+    expect(last().items).toEqual([
+      expect.objectContaining({
+        key: 'l1',
+        value: 'Inglés',
+        level: 'C1',
+        details: { certification: 'TOEFL' },
+      }),
+    ]);
   });
 
-  it('changes the years of a program in place', async () => {
+  it('proposes the years of a program in place', async () => {
     renderSection('program');
 
     await userEvent.click(chip('candidate-program', 'SAP'));
@@ -256,69 +228,12 @@ describe('CandidateRelationSection', () => {
     await userEvent.clear(years);
     await userEvent.type(years, '5{Enter}');
 
-    expect(relations.updateProgram).toHaveBeenCalledWith(
-      'c1',
-      expect.objectContaining({ id: 'p1', level: 'Medio', yearsExperience: 5 }),
+    expect(last().changed).toEqual(
+      expect.objectContaining({ key: 'p1', level: 'Medio', details: { yearsExperience: 5 } }),
     );
   });
 
-  it('marks a pending write, then reports a refusal on its chip with a retry', async () => {
-    let refuse: (error: Error) => void = () => undefined;
-    relations.updateSkill.mockImplementationOnce(
-      () => new Promise<void>((_, reject) => (refuse = reject)),
-    );
-    renderSection('skill');
-
-    await userEvent.click(chip('candidate-skill', 'Compras'));
-    const editor = await screen.findByTestId('candidate-skill-editor');
-    await userEvent.click(within(editor).getByRole('radio', { name: 'Alto' }));
-
-    expect(chip('candidate-skill', 'Compras')).toHaveAttribute('data-status', 'pending');
-    expect(chip('candidate-skill', 'Compras')).toHaveTextContent('Alto');
-    refuse(new AppError('CONFLICT', 'Otro usuario ha cambiado el candidato.'));
-
-    await waitFor(() =>
-      expect(chip('candidate-skill', 'Compras')).toHaveAttribute('data-status', 'error'),
-    );
-    // A failed change shows what is actually saved, and the other entries are untouched.
-    expect(chip('candidate-skill', 'Compras')).toHaveTextContent('Medio');
-    expect(chip('candidate-skill', 'Análisis')).not.toHaveAttribute('data-status');
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'Compras: Otro usuario ha cambiado el candidato.',
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Reintentar Compras' }));
-
-    expect(relations.updateSkill).toHaveBeenCalledTimes(2);
-    expect(relations.updateSkill).toHaveBeenLastCalledWith(
-      'c1',
-      expect.objectContaining({ id: 's1', level: 'Alto' }),
-    );
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
-  });
-
-  it('keeps a refused add as a failed chip, and removing it sends nothing', async () => {
-    relations.addTag.mockRejectedValueOnce(
-      new TranslatableError('candidate.profile.tags.duplicate'),
-    );
-    await useTagCatalog();
-    await catalogService.ensureLoaded();
-    renderSection('tag', candidate({ tags: [] }));
-
-    await typeInto('candidate-tag', 'activ');
-    await userEvent.keyboard('{ArrowDown}{Enter}');
-
-    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
-    const [failed] = screen.getAllByTestId('candidate-tag-chip');
-    expect(failed).toHaveAttribute('data-status', 'error');
-
-    await userEvent.click(within(failed).getByTestId('candidate-tag-remove'));
-
-    expect(screen.queryAllByTestId('candidate-tag-chip')).toHaveLength(0);
-    expect(relations.removeTag).not.toHaveBeenCalled();
-  });
-
-  it('adds a tag at once, since tags have no level', async () => {
+  it('proposes a tag without a level', async () => {
     await useTagCatalog();
     await catalogService.ensureLoaded();
     renderSection('tag', candidate({ tags: [] }));
@@ -327,7 +242,7 @@ describe('CandidateRelationSection', () => {
     await userEvent.keyboard('{ArrowDown}{Enter}');
 
     expect(screen.queryByTestId('candidate-tag-editor')).toBeNull();
-    expect(relations.addTag).toHaveBeenCalledWith('c1', { tag: 'Activa' });
+    expect(last().items).toEqual([expect.objectContaining({ value: 'Activa', level: '' })]);
   });
 
   it('keeps a deactivated tag assigned but does not offer it again', async () => {
@@ -343,11 +258,38 @@ describe('CandidateRelationSection', () => {
     expect(screen.queryByRole('option', { name: 'Antigua' })).toBeNull();
   });
 
-  it('removes an entry by id', async () => {
+  it('offers removal again, and no stale input, when edit mode is re-entered', async () => {
+    const subject = candidate();
+    const view = renderSection('skill', subject);
+    await typeInto('candidate-skill', 'gest');
+    const wrap = (editing: boolean) => (
+      <ServicesProvider
+        value={
+          {
+            ...services,
+            catalogService,
+            authService: { profile: signal(null), hasPermission: vi.fn(() => true) },
+          } as unknown as Services
+        }
+      >
+        <Harness kind="skill" subject={subject} editing={editing} />
+      </ServicesProvider>
+    );
+
+    view.rerender(wrap(false));
+    expect(screen.queryByRole('button', { name: 'Quitar Compras' })).toBeNull();
+    view.rerender(wrap(true));
+
+    expect(screen.getByRole('button', { name: 'Quitar Compras' })).toBeInTheDocument();
+    expect(screen.queryByTestId('candidate-skill-input')).toBeNull();
+  });
+
+  it('proposes the list without a removed entry', async () => {
     renderSection('skill');
 
     await userEvent.click(screen.getByRole('button', { name: 'Quitar Compras' }));
 
-    expect(relations.removeSkill).toHaveBeenCalledWith('c1', 's1');
+    expect(last().items.map((item) => item.key)).toEqual(['s2']);
+    expect(screen.queryByRole('button', { name: 'Quitar Compras' })).toBeNull();
   });
 });

@@ -54,36 +54,43 @@ El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y audi
 
 ## Etiquetas y notas personalizadas KTL-21
 
-La página de edición del candidato permite asignar etiquetas del catálogo y mantener un hilo
-independiente de notas personalizadas; la ficha las muestra en modo de solo lectura. Cada nota conserva autor y fecha, usa su propia versión para evitar
+La ficha del candidato permite asignar etiquetas del catálogo (panel «Competencias») y mantener un
+hilo independiente de notas personalizadas (panel «Notas»). Cada nota conserva autor y fecha, usa su propia versión para evitar
 sobrescrituras y se retira de forma lógica; no existe borrado físico. El campo histórico `notes`
 del candidato no cambia. Las notas sin un usuario interno resoluble muestran
 `Autor desconocido`. Consulta el [contrato KTL-21](docs/ktl-21/candidate-tags-and-notes.md).
 
-## Consulta y edición de candidatos KTL-22
+## Ficha única del candidato KTL-29
 
-La ficha del candidato (`/app/candidates/:id`) es de solo lectura para todos los usuarios:
-muestra los datos principales, idiomas, programas, formación, experiencia, habilidades,
-etiquetas, notas personalizadas y documentos, con la descarga y la vista previa del CV, pero sin
-controles para añadir, quitar, editar, subir ni retirar. Conserva el enlace «Editar» y la baja o
-el alta lógica para quien tiene `candidates.update`.
+Desde KTL-29 cada candidato tiene una sola página, `/app/candidates/:id`, que sustituye a la
+separación entre ficha de solo lectura y página de edición de KTL-22 (consulta su
+[nota de versión](docs/ktl-22/release-notes.md) como antecedente). Todos los paneles se muestran
+en modo de lectura; «Datos principales», «Competencias», «Formación», «Experiencia», «Notas» y
+«Documentos» tienen un botón «Editar» que convierte ese panel, en su sitio, en el editor de
+siempre. «Auditoría» no se edita.
 
-Toda la edición se hace en la página de edición (`/app/candidates/:id/edit`). Los datos
-principales se guardan con «Guardar» y la página permanece abierta; el resto de secciones se
-guardan al instante, como hasta ahora. Al dar de alta un candidato, el primer guardado lleva a
-su página de edición para continuar con idiomas, experiencia, documentos, etc.
+- **Datos principales, Competencias, Formación y Experiencia** guardan un borrador: nada se
+  escribe hasta pulsar «Guardar» en ese panel, que guarda solo ese panel; «Cancelar» descarta el
+  borrador. En «Competencias» solo se guardan las familias que han cambiado; si una falla, las
+  demás quedan guardadas y un nuevo «Guardar» reintenta solo la que falló.
+- **Notas y Documentos** mantienen sus acciones inmediatas (añadir, editar, retirar, subir,
+  marcar como principal, quitar); «Hecho» vuelve al modo de lectura.
+- **Un panel a la vez.** Abrir otro panel con cambios sin guardar pide confirmación, igual que
+  salir de la página o cerrar la pestaña.
 
-La subida de documentos solo se ofrece en la página de edición, así que en la interfaz requiere
-`documents.upload` y también `candidates.update`. Consulta la
-[nota de versión KTL-22](docs/ktl-22/release-notes.md).
+«Editar» aparece según el permiso que comprueba la API: `candidates.update` para todos los paneles
+salvo «Documentos», que depende solo de `documents.upload`. En un candidato dado de baja no se
+pueden editar competencias, formación, experiencia ni notas, porque la API lo rechaza. La
+dirección antigua `/app/candidates/:id/edit` redirige a la ficha, y el alta de un candidato lleva
+a su ficha tras el primer guardado. Consulta la [nota de versión KTL-29](docs/ktl-29/release-notes.md).
 
 ## Ruta de navegación KTL-23
 
 Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de
-navegación sobre el título, por ejemplo «Candidatos › Nombre Apellido › Editar» o
+navegación sobre el título, por ejemplo «Candidatos › Nombre Apellido» o
 «Admin › Presets › Nombre del preset». Cada tramo lleva a su página, salvo la página actual y
-«Admin», que no tiene destino propio. En la edición de un candidato, el nombre lleva a su ficha y
-sustituye al antiguo botón «Ver candidato». Los listados y el resto de páginas principales no
+«Admin», que no tiene destino propio. Desde KTL-29 la ficha del candidato es también donde se
+edita, así que ya no existe el tramo «Editar» del candidato. Los listados y el resto de páginas principales no
 muestran ruta. Consulta la [nota de versión KTL-23](docs/ktl-23/release-notes.md).
 
 ## Selector de valores de catálogo KTL-24
@@ -101,10 +108,10 @@ añadirla. En la búsqueda, un criterio nuevo empieza en «Cualquier nivel» y e
 ## Panel de competencias KTL-27
 
 Todas las pantallas muestran habilidades, idiomas, programas y etiquetas con las mismas filas, en
-ese orden y con la etiqueta en la misma línea que sus valores. En la ficha y en la edición del
-candidato, las cuatro familias están juntas en el panel «Competencias», y todas las secciones
-ocupan el ancho completo, una debajo de otra. Un idioma, una habilidad o un programa se guarda en
-cuanto se elige, con el nivel más bajo activo de su catálogo; el nivel, la certificación o los años
+ese orden y con la etiqueta en la misma línea que sus valores. En la ficha del candidato, las
+cuatro familias están juntas en el panel «Competencias», y todas las secciones ocupan el ancho
+completo, una debajo de otra. Un idioma, una habilidad o un programa se añade con el nivel más bajo
+activo de su catálogo (y, desde KTL-29, se guarda con el «Guardar» del panel); el nivel, la certificación o los años
 se cambian pulsando su etiqueta. Si una familia no tiene niveles activos, no se le pueden añadir
 valores. Consulta la [nota de versión KTL-27](docs/ktl-27/release-notes.md).
 
@@ -194,7 +201,7 @@ para incluir el margen acotado del framing multipart.
 Consulta el [contrato y flujo de documentos KTL-9](docs/ktl-9/documents.md) y la
 [nota de versión](docs/ktl-9/release-notes.md).
 
-La página de detalle y la edición de un candidato existente incluyen una vista previa del CV
+La ficha de un candidato existente, también mientras se edita un panel, incluye una vista previa del CV
 principal cuando es un PDF disponible y la persona tiene `documents.download`. Otros formatos
 conservan la descarga. La vista previa reutiliza el endpoint privado de contenido y no expone rutas
 ni enlaces permanentes; consulte la [documentación de KTL-20](docs/ktl-20/document-preview.md).

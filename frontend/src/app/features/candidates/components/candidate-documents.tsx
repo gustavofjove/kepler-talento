@@ -32,11 +32,17 @@ function availability(document: CandidateDocument): {
 
 interface Props {
   candidate: Candidate | undefined;
-  /** Hides upload, primary and removal; the list and download stay. See candidate-languages. */
+  /**
+   * Hides upload, primary and removal; the list and download stay. True unless the
+   * Documentos panel is in edit mode (KTL-29); the component is not remounted between modes,
+   * so scan polling carries on.
+   */
   readOnly?: boolean;
+  /** Reports a file selected and not yet uploaded. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function CandidateDocuments({ candidate, readOnly = false }: Props) {
+export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange }: Props) {
   const { t } = useTranslation();
   const { documentService, toastService, confirmDialogService } = useServices();
   const notifyError = useErrorToast();
@@ -51,6 +57,15 @@ export function CandidateDocuments({ candidate, readOnly = false }: Props) {
   const canDownload = usePermission('documents.download');
   const mayUpload = usePermission('documents.upload');
   const canUpload = !readOnly && mayUpload;
+  const dirty = canUpload && selectedFile !== undefined;
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (canUpload) return;
+    setSelectedFile(undefined);
+    setUploadError(undefined);
+  }, [canUpload]);
 
   const replaceDocument = useCallback((next: CandidateDocument) => {
     setDocuments((current) => current.map((item) => (item.id === next.id ? next : item)));
@@ -178,7 +193,6 @@ export function CandidateDocuments({ candidate, readOnly = false }: Props) {
 
   return (
     <section className="section-block" data-testid="candidate-documents">
-      <h3 className="section-title">{t('candidate.profile.documents.title')}</h3>
       {!documents.length ? (
         <p className="empty-state">{t('candidate.profile.documents.empty')}</p>
       ) : null}

@@ -196,8 +196,8 @@ layout.
 
 #### Scenario: Same rows in every host
 
-- **WHEN** the advanced search page, a preset editor, a position editor, a candidate edit page and
-  a candidate detail page are rendered
+- **WHEN** the advanced search page, a preset editor, a position editor, and a candidate page with
+  Competencias both read-only and in edit mode are rendered
 - **THEN** each shows the four families as rows in the order Habilidades, Idiomas, Programas,
   Etiquetas, with the label inline before the chips and the same row look
 

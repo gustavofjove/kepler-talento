@@ -2,6 +2,12 @@ import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders } from './support/auth';
 import {
+  createCandidate as create,
+  editPanel,
+  finishPanel,
+  savePanel,
+} from './support/candidate-panels';
+import {
   addValue,
   chip,
   chips,
@@ -13,79 +19,95 @@ import {
 
 test.use({ storageState: authFile('rrhh_admin') });
 
+/** Creates a candidate and stays on its page (KTL-29: there is no separate edit page). */
 async function createCandidate(
   page: import('@playwright/test').Page,
   firstName: string,
   lastName: string,
-) {
-  await page.goto('/app/candidates/new');
-  await page.fill('input[name="firstName"]', firstName);
-  await page.fill('input[name="lastName"]', lastName);
-  await page.click('button[type="submit"]');
-  // KTL-22: the sections are edited on the edit page, where creation continues.
-  await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
+): Promise<string> {
+  return create(page, firstName, lastName);
+}
+
+async function expectNoHorizontalScroll(page: import('@playwright/test').Page): Promise<void> {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
 }
 
 test.describe('Candidate profile enrichment', () => {
-  test('adds a language and a skill, changes a level in place, and never duplicates', async ({
+  test('stages languages and skills in Competencias, saves them together, and never duplicates', async ({
     page,
   }) => {
     const suffix = Date.now().toString();
-    await createCandidate(page, `Perfil${suffix}`, 'Test');
-    const id = page.url().split('/').at(-2)!;
+    const id = await createCandidate(page, `Perfil${suffix}`, 'Test');
     const stored = async () =>
-      (
-        await (
-          await page.request.get(`/api/candidates/${id}`, { headers: authorizationHeaders(page) })
-        ).json()
-      ).languages as { id: string; language: string; level: string }[];
+      (await (
+        await page.request.get(`/api/candidates/${id}`, { headers: authorizationHeaders(page) })
+      ).json()) as {
+        languages: { id: string; language: string; level: string }[];
+        skills: { skill: string }[];
+        lastName: string;
+      };
 
+    await editPanel(page, 'competencies');
     await addValue(page, 'candidate-language', 'Inglés', 'B2');
     await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('B2');
     // A value the candidate already has is not offered, so it cannot be added twice.
     await expect(await offered(page, 'candidate-language', 'Ingl')).toHaveCount(0);
 
-    // KTL-27: a value is saved at once at the lowest active level, without opening the
-    // editor; closing the editor without a choice keeps that level.
+    // KTL-27: a value joins at the lowest active level, without opening the editor; closing
+    // the editor without a choice keeps that level.
     await (await openInput(page, 'candidate-language')).fill('Alem');
     await page.getByRole('listbox').getByRole('option', { name: 'Alemán', exact: true }).click();
     await expect(page.getByTestId('candidate-language-editor')).toHaveCount(0);
     await expect(chips(page, 'candidate-language')).toHaveCount(2);
-    await expect(chip(page, 'candidate-language', 'Alemán')).not.toHaveAttribute('data-status');
-    // The API lists active values only by default; the lowest is the first by sort order.
     const levels = (await (
       await page.request.get('/api/catalogs/language_level', {
         headers: authorizationHeaders(page),
       })
     ).json()) as { nameEs: string; sortOrder: number }[];
     const lowest = [...levels].sort((a, b) => a.sortOrder - b.sortOrder)[0].nameEs;
-    expect((await stored()).find((entry) => entry.language === 'Alemán')?.level).toBe(lowest);
     await chip(page, 'candidate-language', 'Alemán').click();
     await expect(page.getByTestId('candidate-language-editor')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('candidate-language-editor')).toHaveCount(0);
     await expect(chip(page, 'candidate-language', 'Alemán')).toContainText(lowest);
-    await removeValue(page, 'candidate-language', 'Alemán');
-    await expect(chips(page, 'candidate-language')).toHaveCount(1);
+
+    // KTL-29: nothing is written until «Guardar».
+    expect((await stored()).languages).toEqual([]);
+    await savePanel(page, 'competencies');
+    // The API returns entries in its own order, so compare as a set.
+    const saved = (await stored()).languages;
+    expect(saved).toHaveLength(2);
+    expect(saved).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ language: 'Inglés', level: 'B2' }),
+        expect.objectContaining({ language: 'Alemán', level: lowest }),
+      ]),
+    );
 
     // The level changes in place: same entry, new level, nothing added or removed.
-    const [before] = await stored();
+    const before = saved.find((entry) => entry.language === 'Inglés')!;
+    await editPanel(page, 'competencies');
+    await removeValue(page, 'candidate-language', 'Alemán');
     await setLevel(page, 'candidate-language', 'Inglés', 'C1');
-    await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('C1');
-    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
-    expect(await stored()).toEqual([expect.objectContaining({ id: before.id, level: 'C1' })]);
-
     await addValue(page, 'candidate-skill', 'Compras', 'Medio');
+    await savePanel(page, 'competencies');
+    expect((await stored()).languages).toEqual([
+      expect.objectContaining({ id: before.id, level: 'C1' }),
+    ]);
 
-    // A section change followed by a core save on the same page must not conflict.
+    // Saving another panel afterwards does not conflict with the Competencias save.
+    await editPanel(page, 'main');
     await page.fill('input[name="lastName"]', 'Test Editado');
-    await page.click('form:has(input[name="firstName"]) button[type="submit"]');
-    await expect(page.locator('.toast')).toBeVisible();
-    await expect(page).toHaveURL(/\/edit$/);
+    await savePanel(page, 'main');
+    // Each saved panel announced its own confirmation; the latest is the core record's.
+    await expect(page.locator('.toast').last()).toBeVisible();
+    expect((await stored()).lastName).toBe('Test Editado');
 
-    // The detail page shows what was added, read-only, even for an administrator.
-    await page.getByTestId('candidate-edit-view').click();
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    // Read-only again, every section shows what was saved and offers no control of its own.
+    await page.reload();
     await expect(chips(page, 'candidate-skill')).toHaveCount(1);
     await expect(chip(page, 'candidate-language', 'Inglés')).toContainText('C1');
     for (const testId of [
@@ -106,10 +128,85 @@ test.describe('Candidate profile enrichment', () => {
     await expect(page.getByTestId('document-file')).toHaveCount(0);
   });
 
+  test('edits each panel in place, one at a time, and guards unsaved changes (KTL-29)', async ({
+    page,
+  }) => {
+    const suffix = Date.now().toString();
+    const id = await createCandidate(page, `Panel${suffix}`, 'Test');
+    const stored = async () =>
+      (await (
+        await page.request.get(`/api/candidates/${id}`, { headers: authorizationHeaders(page) })
+      ).json()) as { education: { degree: string }[]; experience: { company: string }[] };
+
+    // Formación: staged, then saved with its own «Guardar».
+    await editPanel(page, 'education');
+    const education = page.getByTestId('candidate-education');
+    await education.locator('select[name="educationType"]').selectOption('Grado');
+    await education.locator('input[name="degree"]').fill(`Grado ${suffix}`);
+    await education.locator('input[name="institution"]').fill('UCM');
+    await education.locator('select[name="status"]').selectOption('Finalizada');
+    await education.locator('form button[type="submit"]').click();
+    await expect(education).toContainText(`Grado ${suffix}`);
+    expect((await stored()).education).toEqual([]);
+    await savePanel(page, 'education');
+    expect((await stored()).education).toEqual([
+      expect.objectContaining({ degree: `Grado ${suffix}` }),
+    ]);
+
+    // Experiencia: staged, then cancelled; nothing is written.
+    await editPanel(page, 'experience');
+    const experience = page.getByTestId('candidate-experience');
+    await experience.locator('input[name="company"]').fill(`Acme ${suffix}`);
+    await experience.locator('input[name="position"]').fill('Analista');
+    await experience.locator('select[name="sector"]').selectOption('Servicios');
+    await experience.locator('form button[type="submit"]').click();
+    await expect(experience).toContainText(`Acme ${suffix}`);
+    await page.getByTestId('candidate-panel-experience-cancel').click();
+    await expect(experience).not.toContainText(`Acme ${suffix}`);
+    expect((await stored()).experience).toEqual([]);
+
+    // Switching panels with unsaved changes asks first; declining keeps the draft.
+    await editPanel(page, 'experience');
+    await experience.locator('input[name="company"]').fill(`Acme ${suffix}`);
+    await experience.locator('input[name="position"]').fill('Analista');
+    await experience.locator('select[name="sector"]').selectOption('Servicios');
+    await experience.locator('form button[type="submit"]').click();
+    await page.getByTestId('candidate-panel-education-edit').click();
+    await expect(page.getByTestId('confirm-dialog')).toBeVisible();
+    await page.getByTestId('confirm-cancel').click();
+    await expect(page.getByTestId('candidate-panel-experience-save')).toBeVisible();
+    await expect(experience).toContainText(`Acme ${suffix}`);
+
+    // Leaving the page with unsaved changes asks too; declining stays with the draft.
+    await page.getByTestId('breadcrumb-candidates').click();
+    await expect(page.getByTestId('confirm-dialog')).toBeVisible();
+    await page.getByTestId('confirm-cancel').click();
+    await expect(page).toHaveURL(new RegExp(`/app/candidates/${id}$`));
+    await expect(experience).toContainText(`Acme ${suffix}`);
+
+    // At 390px an open panel still fits without horizontal scroll.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expectNoHorizontalScroll(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // Confirming the switch discards the draft and opens the other panel.
+    await page.getByTestId('candidate-panel-notes-edit').click();
+    await page.getByTestId('confirm-accept').click();
+    await expect(page.getByTestId('candidate-panel-notes-done')).toBeVisible();
+    await expect(experience).not.toContainText(`Acme ${suffix}`);
+    await finishPanel(page, 'notes');
+    expect((await stored()).experience).toEqual([]);
+
+    // A former edit address still resolves, to the same page.
+    await page.goto(`/app/candidates/${id}/edit`);
+    await expect(page).toHaveURL(new RegExp(`/app/candidates/${id}$`));
+    await expect(page.getByTestId('candidate-panel-main-edit')).toBeVisible();
+  });
+
   test('stacks the sections and shares the family rows with search (KTL-27)', async ({ page }) => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Filas${suffix}`, 'Test');
-    const editUrl = page.url();
+    const candidateUrl = page.url();
 
     const families = async () =>
       page
@@ -145,6 +242,7 @@ test.describe('Candidate profile enrichment', () => {
       'candidate-documents',
     ];
 
+    await editPanel(page, 'competencies');
     await expect(page.getByTestId('candidate-skill-add')).toBeEnabled();
     expect(await families()).toEqual(['skill', 'language', 'program', 'tag']);
     await expectStacked(sections);
@@ -158,20 +256,17 @@ test.describe('Candidate profile enrichment', () => {
     expect(searchRows).toEqual(['skill', 'language', 'program', 'tag']);
     expect(await labelWidths()).toEqual(candidateWidths);
 
-    await page.goto(editUrl.replace(/\/edit$/, ''));
+    await page.goto(candidateUrl);
     await expect(page.getByTestId('candidate-competencies')).toBeVisible();
     expect(await families()).toEqual(['skill', 'language', 'program', 'tag']);
     await expectStacked(sections);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const url of [editUrl, editUrl.replace(/\/edit$/, '')]) {
-      await page.goto(url);
-      await expect(page.getByTestId('candidate-competencies')).toBeVisible();
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow).toBeLessThanOrEqual(1);
-    }
+    await page.goto(candidateUrl);
+    await expect(page.getByTestId('candidate-competencies')).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await editPanel(page, 'competencies');
+    await expectNoHorizontalScroll(page);
   });
 
   test('shows the CV beside the sections on wide screens and after them otherwise (KTL-28)', async ({
@@ -188,8 +283,8 @@ test.describe('Candidate profile enrichment', () => {
     expect(mainWidth).toBeLessThanOrEqual(1440);
 
     await createCandidate(page, `Vista${Date.now()}`, 'Test');
-    const editUrl = page.url();
-    const detailUrl = editUrl.replace(/\/edit$/, '');
+    const candidateUrl = page.url();
+    await editPanel(page, 'documents');
     const documents = page.getByTestId('candidate-documents');
     await documents.getByTestId('document-file').setInputFiles({
       name: 'vista-cv.pdf',
@@ -204,15 +299,18 @@ test.describe('Candidate profile enrichment', () => {
     await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/, {
       timeout: 25_000,
     });
+    await finishPanel(page, 'documents');
 
     const box = async (locator: import('@playwright/test').Locator) =>
       (await locator.boundingBox())!;
-    const mainData = () => page.locator('.page-split__main > :first-child');
+    const mainData = () => page.locator('.page-split__main .panel').first();
     const preview = page.getByTestId('candidate-cv-preview');
 
-    for (const url of [editUrl, detailUrl]) {
-      await page.goto(url);
+    // Read-only, and with Datos principales in edit mode.
+    for (const editing of [false, true]) {
+      await page.goto(candidateUrl);
       await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/);
+      if (editing) await editPanel(page, 'main');
       await page.evaluate(() => window.scrollTo(0, 0));
       const data = await box(mainData());
       const side = await box(preview);
@@ -228,11 +326,11 @@ test.describe('Candidate profile enrichment', () => {
     }
 
     // The main data form keeps two columns beside the preview, and a picker opens on screen.
-    await page.goto(editUrl);
-    await expect(preview).toBeVisible();
     const first = await box(page.locator('input[name="firstName"]'));
     const last = await box(page.locator('input[name="lastName"]'));
     expect(Math.abs(first.y - last.y)).toBeLessThanOrEqual(1);
+    await page.getByTestId('candidate-panel-main-cancel').click();
+    await editPanel(page, 'competencies');
     await (await openInput(page, 'candidate-skill')).fill('a');
     const listbox = await box(page.getByRole('listbox'));
     expect(listbox.x).toBeGreaterThanOrEqual(0);
@@ -241,27 +339,23 @@ test.describe('Candidate profile enrichment', () => {
 
     // At 1366×768 the content area is under the threshold: the preview follows Documentos.
     await page.setViewportSize({ width: 1366, height: 768 });
-    for (const url of [editUrl, detailUrl]) {
-      await page.goto(url);
-      await expect(preview).toBeVisible();
-      const last = await box(page.getByTestId('candidate-documents'));
-      expect((await box(preview)).y).toBeGreaterThanOrEqual(last.y + last.height);
-    }
+    await page.goto(candidateUrl);
+    await expect(preview).toBeVisible();
+    const lastPanel = await box(page.getByTestId('candidate-documents'));
+    expect((await box(preview)).y).toBeGreaterThanOrEqual(lastPanel.y + lastPanel.height);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const url of [editUrl, detailUrl]) {
-      await page.goto(url);
-      await expect(preview).toBeVisible();
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow).toBeLessThanOrEqual(1);
-    }
+    await page.goto(candidateUrl);
+    await expect(preview).toBeVisible();
+    await expectNoHorizontalScroll(page);
+    await editPanel(page, 'main');
+    await expectNoHorizontalScroll(page);
   });
 
   test('rejects experience with an end date before the start date', async ({ page }) => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Exp${suffix}`, 'Test');
+    await editPanel(page, 'experience');
 
     const experiencePanel = page.getByTestId('candidate-experience');
     await experiencePanel.locator('input[name="company"]').fill('Acme');
@@ -269,7 +363,7 @@ test.describe('Candidate profile enrichment', () => {
     await experiencePanel.locator('select[name="sector"]').selectOption('Servicios');
     await experiencePanel.locator('input[name="startDate"]').fill('2024-06-01');
     await experiencePanel.locator('input[name="endDate"]').fill('2024-01-01');
-    await experiencePanel.locator('button:has-text("Añadir experiencia")').click();
+    await experiencePanel.locator('form button[type="submit"]').click();
 
     await expect(experiencePanel.locator('text=no puede ser anterior')).toBeVisible();
   });
@@ -277,11 +371,12 @@ test.describe('Candidate profile enrichment', () => {
   test('requires a degree before adding education', async ({ page }) => {
     const suffix = Date.now().toString();
     await createCandidate(page, `Edu${suffix}`, 'Test');
+    await editPanel(page, 'education');
 
     const educationPanel = page.getByTestId('candidate-education');
     await educationPanel.locator('select[name="educationType"]').selectOption('Grado');
     await educationPanel.locator('select[name="status"]').selectOption('Finalizada');
-    await educationPanel.locator('button:has-text("Añadir formación")').click();
+    await educationPanel.locator('form button[type="submit"]').click();
 
     await expect(educationPanel.locator('text=titulación es obligatoria')).toBeVisible();
   });

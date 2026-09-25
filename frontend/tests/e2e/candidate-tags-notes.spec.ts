@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { CANDIDATE_PAGE_URL, editPanel, finishPanel, savePanel } from './support/candidate-panels';
 import { addValue, chip } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
@@ -30,12 +31,14 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
     .filter({ has: page.locator('input[name="firstName"]') })
     .locator('button[type="submit"]')
     .click();
-  // KTL-22: tags and notes are edited on the edit page, where creation continues.
-  await expect(page).toHaveURL(/\/app\/candidates\/[0-9a-f-]+\/edit$/);
-  const candidateUrl = page.url().replace(/\/edit$/, '');
+  // KTL-29: creation opens the candidate page; tags and notes are edited in their panels.
+  await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+  const candidateUrl = page.url();
+  await editPanel(page, 'competencies');
   await addValue(page, 'candidate-tag', tag);
-  await expect(chip(page, 'candidate-tag', tag)).not.toHaveAttribute('data-status');
+  await savePanel(page, 'competencies');
 
+  await editPanel(page, 'notes');
   await page.getByTestId('candidate-note-body').fill(note);
   await page.getByTestId('candidate-notes').locator('form button[type="submit"]').click();
   const noteRow = page.locator('article.candidate-note', { hasText: note });
@@ -47,8 +50,9 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
   await noteRow.locator('button').last().click();
   await page.getByTestId('confirm-accept').click();
   await expect(noteRow).toHaveCount(0);
+  await finishPanel(page, 'notes');
 
-  // The detail page shows the tag but offers no way to change tags or notes.
+  // Read-only, the page shows the tag but offers no way to change tags or notes.
   await page.goto(candidateUrl);
   await expect(chip(page, 'candidate-tag', tag)).toBeVisible();
   await expect(page.getByTestId('candidate-tag-input')).toHaveCount(0);

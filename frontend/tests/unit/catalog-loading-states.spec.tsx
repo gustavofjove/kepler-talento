@@ -14,13 +14,23 @@ import { createCatalogTestBed, FakeCatalogApi } from './support/catalog-doubles'
  * rather than render an empty option list as a complete result.
  */
 describe('Catalog-consuming components', () => {
-  // The picker input, which is what consumes the catalog, renders only for an editor.
+  // The picker input, which is what consumes the catalog, renders only in edit mode.
   const authService = { profile: signal(null), hasPermission: () => true };
   const candidate = new FakeCandidateApi().seed({ id: 'c1', firstName: 'Ana', lastName: 'Ruiz' });
   const renderWith = (catalogService: CatalogService) =>
     render(
       <ServicesProvider value={{ ...services, catalogService, authService } as unknown as Services}>
-        <CandidateCompetencies candidate={candidate} />
+        {/* In edit mode: the picker input and the notice render only there (KTL-29). */}
+        <CandidateCompetencies
+          candidate={candidate}
+          control={{
+            editing: true,
+            canEdit: true,
+            onEdit: () => undefined,
+            onClose: () => undefined,
+            onDirtyChange: () => undefined,
+          }}
+        />
       </ServicesProvider>,
     );
 

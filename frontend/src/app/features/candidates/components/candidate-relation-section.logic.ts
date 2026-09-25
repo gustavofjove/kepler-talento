@@ -1,9 +1,14 @@
 import type { TFunction } from 'i18next';
-import { TranslatableError } from '../../../core/i18n/translatable-error';
 import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
 import type { CatalogFamily } from '../../catalogs/models/catalog.models';
 import type { Candidate } from '../models/candidate.models';
-import type { CandidateRelationsService } from '../services/candidate-relations.service';
+import {
+  type CandidateRelationsService,
+  validateLanguageEntry,
+  validateProgramEntry,
+  validateSkillEntry,
+  validateTagEntry,
+} from '../services/candidate-relations.service';
 
 export type RelationKind = 'language' | 'skill' | 'program' | 'tag';
 
@@ -11,12 +16,15 @@ export type RelationKind = 'language' | 'skill' | 'program' | 'tag';
 export type RelationDetail = 'certification' | 'yearsExperience';
 
 /**
- * Everything that differs between the four catalog-backed relation sections. The section
- * component is one implementation driven by this table (design D5).
+ * Everything that differs between the four catalog-backed relation rows. The row component
+ * is one implementation driven by this table.
+ *
+ * Since KTL-29 a row edits a draft of picker items; `validate` refuses an entry before it
+ * joins the draft and `save` writes the whole draft through the relations service.
  */
 export interface RelationDefinition {
   kind: RelationKind;
-  /** Section wrapper test id, kept from the four components this replaced. */
+  /** Row wrapper test id, kept from the four components this replaced. */
   testId: string;
   /** Picker prefix: test ids and the input's `name`. */
   idPrefix: string;
@@ -27,17 +35,13 @@ export interface RelationDefinition {
   levelFamily?: CatalogFamily;
   detail?: RelationDetail;
   items: (candidate: Candidate) => PickerItem[];
-  add: (
+  /** Throws a `TranslatableError` when `item` may not stand in `items` (which contains it). */
+  validate: (candidate: Candidate, items: PickerItem[], item: PickerItem) => void;
+  save: (
     service: CandidateRelationsService,
     candidate: Candidate,
-    item: PickerItem,
+    items: PickerItem[],
   ) => Promise<void>;
-  update: (
-    service: CandidateRelationsService,
-    candidate: Candidate,
-    item: PickerItem,
-  ) => Promise<void>;
-  remove: (service: CandidateRelationsService, candidateId: string, key: string) => Promise<void>;
 }
 
 const text = (item: PickerItem, field: RelationDetail): string =>
@@ -48,11 +52,61 @@ const years = (item: PickerItem): number | undefined => {
   return value === undefined || value === '' ? undefined : Number(value);
 };
 
-const existing = <T extends { id: string }>(entries: T[], item: PickerItem): T => {
-  const entry = entries.find((candidate) => candidate.id === item.key);
-  if (!entry) throw new TranslatableError('candidate.profile.validation.entryNotFound');
-  return entry;
-};
+/**
+ * Maps draft items back to entries. A saved entry keeps its id and the fields the picker
+ * does not show (notes); an item added in the draft is keyed by its value, so it gets a
+ * fresh client id, which the API treats as a new row.
+ */
+function toEntries<T extends { id: string }>(
+  saved: readonly T[],
+  items: readonly PickerItem[],
+  build: (item: PickerItem, base: Partial<T>) => T,
+): T[] {
+  return items.map((item) => {
+    const base = saved.find((entry) => entry.id === item.key);
+    return build(item, base ?? ({ id: crypto.randomUUID() } as Partial<T>));
+  });
+}
+
+const languages = (candidate: Candidate, items: readonly PickerItem[]) =>
+  toEntries(candidate.languages, items, (item, base) => ({
+    ...base,
+    id: base.id!,
+    language: item.value,
+    level: item.level,
+    certification: text(item, 'certification'),
+  }));
+
+const skills = (candidate: Candidate, items: readonly PickerItem[]) =>
+  toEntries(candidate.skills, items, (item, base) => ({
+    ...base,
+    id: base.id!,
+    skill: item.value,
+    level: item.level,
+  }));
+
+const programs = (candidate: Candidate, items: readonly PickerItem[]) =>
+  toEntries(candidate.programs, items, (item, base) => ({
+    ...base,
+    id: base.id!,
+    program: item.value,
+    level: item.level,
+    yearsExperience: years(item),
+  }));
+
+const tags = (candidate: Candidate, items: readonly PickerItem[]) =>
+  toEntries(candidate.tags, items, (item, base) => ({ ...base, id: base.id!, tag: item.value }));
+
+/** Validates the entry at `item`'s position against the rest of the converted list. */
+function check<T>(
+  entries: T[],
+  items: PickerItem[],
+  item: PickerItem,
+  rule: (list: T[], entry: T) => void,
+): void {
+  const index = items.findIndex((candidate) => candidate.key === item.key);
+  if (index >= 0) rule(entries, entries[index]!);
+}
 
 export const RELATION_DEFINITIONS: Record<RelationKind, RelationDefinition> = {
   language: {
@@ -72,19 +126,10 @@ export const RELATION_DEFINITIONS: Record<RelationKind, RelationDefinition> = {
         level: entry.level,
         details: { certification: entry.certification ?? '' },
       })),
-    add: (service, candidate, item) =>
-      service.addLanguage(candidate.id, {
-        language: item.value,
-        level: item.level,
-        certification: text(item, 'certification'),
-      }),
-    update: (service, candidate, item) =>
-      service.updateLanguage(candidate.id, {
-        ...existing(candidate.languages, item),
-        level: item.level,
-        certification: text(item, 'certification'),
-      }),
-    remove: (service, candidateId, key) => service.removeLanguage(candidateId, key),
+    validate: (candidate, items, item) =>
+      check(languages(candidate, items), items, item, validateLanguageEntry),
+    save: (service, candidate, items) =>
+      service.saveLanguages(candidate.id, languages(candidate, items)),
   },
   skill: {
     kind: 'skill',
@@ -97,14 +142,9 @@ export const RELATION_DEFINITIONS: Record<RelationKind, RelationDefinition> = {
     levelFamily: 'skill_level',
     items: (candidate) =>
       candidate.skills.map((entry) => ({ key: entry.id, value: entry.skill, level: entry.level })),
-    add: (service, candidate, item) =>
-      service.addSkill(candidate.id, { skill: item.value, level: item.level }),
-    update: (service, candidate, item) =>
-      service.updateSkill(candidate.id, {
-        ...existing(candidate.skills, item),
-        level: item.level,
-      }),
-    remove: (service, candidateId, key) => service.removeSkill(candidateId, key),
+    validate: (candidate, items, item) =>
+      check(skills(candidate, items), items, item, validateSkillEntry),
+    save: (service, candidate, items) => service.saveSkills(candidate.id, skills(candidate, items)),
   },
   program: {
     kind: 'program',
@@ -123,19 +163,10 @@ export const RELATION_DEFINITIONS: Record<RelationKind, RelationDefinition> = {
         level: entry.level,
         details: { yearsExperience: entry.yearsExperience },
       })),
-    add: (service, candidate, item) =>
-      service.addProgram(candidate.id, {
-        program: item.value,
-        level: item.level,
-        yearsExperience: years(item),
-      }),
-    update: (service, candidate, item) =>
-      service.updateProgram(candidate.id, {
-        ...existing(candidate.programs, item),
-        level: item.level,
-        yearsExperience: years(item),
-      }),
-    remove: (service, candidateId, key) => service.removeProgram(candidateId, key),
+    validate: (candidate, items, item) =>
+      check(programs(candidate, items), items, item, validateProgramEntry),
+    save: (service, candidate, items) =>
+      service.savePrograms(candidate.id, programs(candidate, items)),
   },
   tag: {
     kind: 'tag',
@@ -147,10 +178,9 @@ export const RELATION_DEFINITIONS: Record<RelationKind, RelationDefinition> = {
     valueFamily: 'tag',
     items: (candidate) =>
       candidate.tags.map((entry) => ({ key: entry.id, value: entry.tag, level: '' })),
-    add: (service, candidate, item) => service.addTag(candidate.id, { tag: item.value }),
-    // Tags have no level or details, so there is nothing to change in place.
-    update: async () => undefined,
-    remove: (service, candidateId, key) => service.removeTag(candidateId, key),
+    validate: (candidate, items, item) =>
+      check(tags(candidate, items), items, item, validateTagEntry),
+    save: (service, candidate, items) => service.saveTags(candidate.id, tags(candidate, items)),
   },
 };
 
@@ -168,39 +198,12 @@ export function detailText(
   return undefined;
 }
 
-export type RelationIntent =
-  | { type: 'add'; item: PickerItem }
-  | { type: 'change'; item: PickerItem }
-  | { type: 'remove'; item: PickerItem };
+/** The comparable content of an item: status and error are presentation, not data. */
+const signature = (item: PickerItem): string =>
+  JSON.stringify([item.key, item.value, item.level, item.details ?? {}]);
 
-export interface RelationWrite {
-  state: 'pending' | 'error';
-  error?: string;
-  intent: RelationIntent;
-}
-
-/**
- * The chips a section shows: the saved entries with each one's write state laid over it,
- * plus adds not yet absorbed into the aggregate. A pending change shows its intended level;
- * a failed one shows what is actually saved.
- */
-export function mergeWrites(
-  saved: PickerItem[],
-  writes: Record<string, RelationWrite>,
-): PickerItem[] {
-  const savedValues = new Set(saved.map((item) => item.value));
-  const shown = saved.map((item) => {
-    const write = writes[item.key];
-    if (!write) return item;
-    const base =
-      write.state === 'pending' && write.intent.type === 'change' ? write.intent.item : item;
-    return { ...base, status: write.state, error: write.error };
-  });
-  for (const [key, write] of Object.entries(writes)) {
-    if (write.intent.type !== 'add' || saved.some((item) => item.key === key)) continue;
-    // Absorbed by the aggregate under its new id: the saved entry already stands for it.
-    if (write.state === 'pending' && savedValues.has(write.intent.item.value)) continue;
-    shown.push({ ...write.intent.item, status: write.state, error: write.error });
-  }
-  return shown;
+/** True when a family's draft differs from what is saved, in content or order. */
+export function itemsChanged(saved: readonly PickerItem[], draft: readonly PickerItem[]): boolean {
+  if (saved.length !== draft.length) return true;
+  return saved.some((item, index) => signature(item) !== signature(draft[index]!));
 }

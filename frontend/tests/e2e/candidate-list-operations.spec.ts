@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { CANDIDATE_PAGE_URL } from './support/candidate-panels';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -12,9 +13,7 @@ test.describe('Candidate list operations', () => {
       await page.fill('input[name="firstName"]', firstName);
       await page.fill('input[name="lastName"]', lastName);
       await page.click('button[type="submit"]');
-      await expect(page).toHaveURL(
-        /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
-      );
+      await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
     };
 
     await createCandidate(`Filtro${suffix}`, 'Uno');

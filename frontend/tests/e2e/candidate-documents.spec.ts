@@ -1,6 +1,7 @@
 import { expect, test, type Page } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders } from './support/auth';
+import { CANDIDATE_PAGE_URL, editPanel, finishPanel } from './support/candidate-panels';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -14,11 +15,10 @@ async function createCandidate(page: Page, prefix: string): Promise<string> {
   await page.fill('input[name="firstName"]', `${prefix}${Date.now()}`);
   await page.fill('input[name="lastName"]', 'Documentos');
   await page.click('button[type="submit"]');
-  // KTL-22: documents are uploaded on the edit page, where creation continues.
-  await expect(page).toHaveURL(
-    /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
-  );
-  return page.url().split('/').at(-2)!;
+  // KTL-29: creation opens the candidate page; documents are managed in its Documentos panel.
+  await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+  await editPanel(page, 'documents');
+  return page.url().split('/').at(-1)!;
 }
 
 async function expectNoHorizontalScroll(page: Page): Promise<void> {
@@ -71,7 +71,8 @@ test.describe('Candidate documents flow', () => {
       await expectNoHorizontalScroll(page);
     }
 
-    // The preview lives on the read-only detail page, which keeps download but not upload.
+    // Read-only, the panel keeps download and the preview but not upload.
+    await finishPanel(page, 'documents');
     await page.goto(`/app/candidates/${candidateId}`);
     await expect(page.getByTestId('cv-preview-viewer')).toHaveAttribute('data', /^blob:/);
     expect(cspViolations).toEqual([]);
@@ -85,7 +86,7 @@ test.describe('Candidate documents flow', () => {
     await expect(detailDocuments.getByTestId('document-file')).toHaveCount(0);
     await expect(detailDocuments.getByTestId('document-upload')).toHaveCount(0);
 
-    await page.goto(`/app/candidates/${candidateId}/edit`);
+    await editPanel(page, 'documents');
     const refreshedDocuments = page.getByTestId('candidate-documents');
     await refreshedDocuments.getByTestId('document-file').setInputFiles({
       name: 'candidate-cv.txt',
@@ -98,7 +99,7 @@ test.describe('Candidate documents flow', () => {
       'Disponible',
       { timeout: 25_000 },
     );
-    await page.goto(`/app/candidates/${candidateId}`);
+    await finishPanel(page, 'documents');
     await page.getByTestId('preview-document-select').selectOption({ label: 'candidate-cv.txt' });
     await expect(page.getByTestId('cv-preview-unsupported')).toBeVisible();
   });

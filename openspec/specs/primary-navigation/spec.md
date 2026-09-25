@@ -311,16 +311,15 @@ Every page that sits below a list SHALL render a breadcrumb trail above its main
 SHALL show where the page sits in the application and SHALL let the user return to its parents in one
 activation. The trails SHALL be:
 
-| Page               | Trail                                         |
-| ------------------ | --------------------------------------------- |
-| Candidate detail   | `Candidatos` › candidate full name            |
-| Candidate creation | `Candidatos` › `Nuevo candidato`              |
-| Candidate edit     | `Candidatos` › candidate full name › `Editar` |
-| Position detail    | `Posiciones` › position title                 |
-| Position creation  | `Posiciones` › `Nueva posición`               |
-| Position edit      | `Posiciones` › position title › `Editar`      |
-| Preset creation    | `Admin` › `Presets` › `Nuevo preset`          |
-| Preset edit        | `Admin` › `Presets` › preset name             |
+| Page               | Trail                                    |
+| ------------------ | ---------------------------------------- |
+| Candidate detail   | `Candidatos` › candidate full name       |
+| Candidate creation | `Candidatos` › `Nuevo candidato`         |
+| Position detail    | `Posiciones` › position title            |
+| Position creation  | `Posiciones` › `Nueva posición`          |
+| Position edit      | `Posiciones` › position title › `Editar` |
+| Preset creation    | `Admin` › `Presets` › `Nuevo preset`     |
+| Preset edit        | `Admin` › `Presets` › preset name        |
 
 `Candidatos`, `Posiciones` and `Presets` SHALL lead to the candidate list, the position list and the
 preset list respectively, without restoring any list filter, sort or page. A candidate full name or
@@ -361,9 +360,9 @@ correct accents.
 
 #### Scenario: Returning to the profile from the edit page
 
-- **WHEN** a profile holding `candidates.read` and `candidates.update` opens a candidate's edit page
-- **THEN** the trail reads `Candidatos` › the candidate's full name › `Editar`
-- **AND** activating the full name opens that candidate's detail page
+- **WHEN** a profile holding `candidates.read` opens a candidate's former edit address
+- **THEN** the candidate page is shown and the trail reads `Candidatos` › the candidate's full name,
+  with no `Editar` segment
 
 #### Scenario: Creating a candidate
 
@@ -396,8 +395,8 @@ correct accents.
 
 #### Scenario: Loading shows only the parent segments
 
-- **WHEN** a candidate's edit page is still loading the candidate
-- **THEN** the trail shows `Candidatos`, still activatable, and neither the name nor `Editar`
+- **WHEN** a candidate's page is still loading the candidate
+- **THEN** the trail shows `Candidatos`, still activatable, and not the name
 
 #### Scenario: A failed load still offers the way back
 
@@ -406,9 +405,16 @@ correct accents.
 
 #### Scenario: A segment the viewer may not open is plain text
 
-- **WHEN** a profile holding `candidates.update` but not `candidates.read` opens a candidate's edit page
-- **THEN** `Candidatos` and the candidate's full name are plain text, not activatable
+- **WHEN** a profile holding `candidates.create` but not `candidates.read` opens the candidate creation
+  page
+- **THEN** `Candidatos` is plain text, not activatable
 - **AND** navigating to the candidate list by URL is still refused by the route guard
+
+#### Scenario: An unsaved panel edit does not change the trail
+
+- **WHEN** the user changes the first name in the Datos principales panel of a candidate page
+  without saving
+- **THEN** the trail still shows the stored full name
 
 #### Scenario: Top-level pages have no trail
 
@@ -425,8 +431,8 @@ correct accents.
 
 #### Scenario: Keyboard operation
 
-- **WHEN** a keyboard user tabs through the trail on a candidate's edit page
-- **THEN** `Candidatos` and the candidate's full name each receive visible focus and can be activated
+- **WHEN** a keyboard user tabs through the trail on a position's edit page
+- **THEN** `Posiciones` and the position title each receive visible focus and can be activated
 - **AND** the current-page segment receives no focus
 
 #### Scenario: Narrow viewport with a long name

@@ -55,8 +55,19 @@ describe('i18n foundation', () => {
     for (const status of ['new', 'available', 'in_process', 'hired', 'rejected']) {
       expect(i18n.t(`candidate.form.statusOption.${status}`)).not.toContain('candidate.form');
     }
-    for (const key of ['titleEdit', 'titleNew', 'saveHint', 'newHint', 'saved']) {
+    for (const key of ['titleNew', 'newHint']) {
       expect(i18n.t(`candidate.edit.${key}`)).not.toContain('candidate.edit');
+    }
+    for (const key of [
+      'edit',
+      'save',
+      'cancel',
+      'done',
+      'saved.main',
+      'discardTitle',
+      'leaveTitle',
+    ]) {
+      expect(i18n.t(`candidate.panel.${key}`)).not.toContain('candidate.panel');
     }
     for (const key of [
       'ariaLabel',

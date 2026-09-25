@@ -1,6 +1,7 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
 import { authorizationHeaders } from './support/auth';
+import { createCandidate, editPanel, finishPanel, savePanel } from './support/candidate-panels';
 import { addValue, chip, chips, removeValue } from './support/catalog-picker';
 
 test.use({ storageState: authFile('rrhh_admin') });
@@ -15,27 +16,17 @@ test.use({ storageState: authFile('rrhh_admin') });
  * server-owned, and the conflict a stale editor now gets.
  */
 test.describe('Candidate API cutover', () => {
-  const create = async (page: import('@playwright/test').Page, firstName: string) => {
-    await page.goto('/app/candidates/new');
-    await page.fill('input[name="firstName"]', firstName);
-    await page.fill('input[name="lastName"]', 'Candidato');
-    await page.click('button[type="submit"]');
-    // Deliberately stricter than `[\w-]+`, which also matches the `/new` the form was
-    // just on — so the wait would pass without the navigation having happened, and the
-    // identifier read back would be the literal "new". Since KTL-22 creation continues on
-    // the edit page, where the relation and document sections below are edited.
-    await expect(page).toHaveURL(
-      /\/app\/candidates\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/edit$/i,
-    );
-    return page.url().split('/').at(-2)!;
-  };
+  // Since KTL-29 creation opens the candidate page, where each section is a panel edited in
+  // place and saved on its own.
+  const create = createCandidate;
 
   test('adds a relation that survives a reload', async ({ page }) => {
     const firstName = `Rel${Date.now()}`;
     await create(page, firstName);
 
+    await editPanel(page, 'competencies');
     await addValue(page, 'candidate-language', 'Inglés', 'B1');
-    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
+    await savePanel(page, 'competencies');
 
     // A full reload proves the relation is stored server-side: nothing about this
     // candidate survives in the browser.
@@ -48,10 +39,13 @@ test.describe('Candidate API cutover', () => {
     const firstName = `Del${Date.now()}`;
     await create(page, firstName);
 
+    await editPanel(page, 'competencies');
     await addValue(page, 'candidate-language', 'Inglés', 'B1');
-    await expect(chip(page, 'candidate-language', 'Inglés')).not.toHaveAttribute('data-status');
+    await savePanel(page, 'competencies');
 
+    await editPanel(page, 'competencies');
     await removeValue(page, 'candidate-language', 'Inglés');
+    await savePanel(page, 'competencies');
 
     await page.reload();
     await expect(page.getByTestId('candidate-languages')).toBeVisible();
@@ -62,6 +56,7 @@ test.describe('Candidate API cutover', () => {
     const firstName = `Doc${Date.now()}`;
     await create(page, firstName);
 
+    await editPanel(page, 'documents');
     const documents = page.getByTestId('candidate-documents');
     await documents.locator('input[type="file"]').setInputFiles({
       name: 'cv-prueba.pdf',
@@ -71,6 +66,7 @@ test.describe('Candidate API cutover', () => {
     await documents.locator('button:has-text("Subir CV")').click();
 
     await expect(documents.locator('text=cv-prueba.pdf')).toBeVisible();
+    await finishPanel(page, 'documents');
 
     await page.reload();
     await expect(
@@ -85,7 +81,8 @@ test.describe('Candidate API cutover', () => {
     // A real conflict, not a simulated one. The form loads and caches the version it
     // read; a write that lands in between — standing in for another user — advances the
     // stored version, so the form's submit carries a token the server has moved past.
-    await page.goto(`/app/candidates/${id}/edit`);
+    await page.goto(`/app/candidates/${id}`);
+    await editPanel(page, 'main');
     await expect(page.locator('input[name="firstName"]')).toHaveValue(firstName);
 
     const headers = authorizationHeaders(page);
@@ -97,11 +94,12 @@ test.describe('Candidate API cutover', () => {
     expect(interloper.ok()).toBeTruthy();
 
     await page.fill('input[name="lastName"]', 'Candidato Conflictivo');
-    await page.click('button[type="submit"]');
+    await page.getByTestId('candidate-panel-main-save').click();
 
     await expect(page.locator('text=El candidato ha cambiado desde que se cargó')).toBeVisible();
-    // The user is kept on the form rather than sent to a detail page that did not change.
-    await expect(page).toHaveURL(new RegExp(`/app/candidates/${id}/edit$`));
+    // The panel stays in edit mode with the user's draft rather than closing on stale data.
+    await expect(page.getByTestId('candidate-panel-main-save')).toBeVisible();
+    await expect(page.locator('input[name="lastName"]')).toHaveValue('Candidato Conflictivo');
     // And the other write is what survived; the stale submit overwrote nothing.
     const stored = await (await page.request.get(`/api/candidates/${id}`, { headers })).json();
     expect(stored.lastName).toBe('Candidato Adelantado');

@@ -1,85 +1,44 @@
-import { useId, useMemo, useState } from 'react';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePermission, useServices } from '../../../core/di/services-context';
-import { errorText } from '../../../core/i18n/translatable-error';
 import { CatalogValuePicker } from '../../catalogs/components/catalog-value-picker';
 import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
 import { useCatalogs } from '../../catalogs/use-catalogs';
-import type { Candidate } from '../models/candidate.models';
 import {
   detailText,
-  mergeWrites,
   RELATION_DEFINITIONS,
-  type RelationIntent,
   type RelationKind,
-  type RelationWrite,
 } from './candidate-relation-section.logic';
 
 interface Props {
   kind: RelationKind;
-  candidate: Candidate;
-  /** The detail page renders every section read-only, whatever the viewer may do. */
-  readOnly?: boolean;
+  /** The family's items: the saved entries, or the panel's draft while it is edited. */
+  items: PickerItem[];
+  editing: boolean;
+  /** Proposes a new draft; the panel validates it and may refuse it. */
+  onItemsChange: (items: PickerItem[], changed: PickerItem) => void;
 }
 
 /**
  * One catalog-backed relation of a candidate (languages, skills, programs or tags): a row of
- * the Competencias panel, on the shared picker. Every add, change and removal persists at
- * once through the relations service; each chip carries its own pending or failed state, so a
- * refused write never disturbs the other entries or the core form. Languages, skills and
- * programs are added at their lowest level, changed from the chip. The panel shows the
- * catalog notice.
+ * the Competencias panel, on the shared picker. Since KTL-29 the row is controlled: every
+ * add, change and removal edits the panel's draft, which the panel writes with «Guardar».
+ * Languages, skills and programs are added at their lowest level, changed from the chip.
+ * The panel shows the catalog notice and each family's save error.
  */
-export function CandidateRelationSection({ kind, candidate, readOnly = false }: Props) {
+export function CandidateRelationSection({ kind, items, editing, onItemsChange }: Props) {
   const { t } = useTranslation();
   const definition = RELATION_DEFINITIONS[kind];
-  const canUpdate = usePermission('candidates.update');
-  const canEdit = !readOnly && canUpdate;
-  const { candidateRelationsService } = useServices();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
-  const [writes, setWrites] = useState<Record<string, RelationWrite>>({});
-
-  const saved = useMemo(() => definition.items(candidate), [definition, candidate]);
-  const items = useMemo(() => mergeWrites(saved, writes), [saved, writes]);
-
-  const settle = (key: string, write?: RelationWrite): void =>
-    setWrites((current) => {
-      const { [key]: _settled, ...rest } = current;
-      return write ? { ...rest, [key]: write } : rest;
-    });
-
-  const run = async (intent: RelationIntent): Promise<void> => {
-    const { key } = intent.item;
-    settle(key, { state: 'pending', intent });
-    try {
-      if (intent.type === 'add') {
-        await definition.add(candidateRelationsService, candidate, intent.item);
-      } else if (intent.type === 'change') {
-        await definition.update(candidateRelationsService, candidate, intent.item);
-      } else {
-        await definition.remove(candidateRelationsService, candidate.id, key);
-      }
-      settle(key);
-    } catch (err) {
-      settle(key, { state: 'error', error: errorText(err, t), intent });
-    }
-  };
-
-  const remove = (item: PickerItem): void => {
-    // A failed add was never saved: removing its chip just drops it.
-    const write = writes[item.key];
-    if (write?.intent.type === 'add' && !saved.some((entry) => entry.key === item.key)) {
-      settle(item.key);
-      return;
-    }
-    void run({ type: 'remove', item });
-  };
 
   return (
     <div data-testid={definition.testId}>
       <CatalogValuePicker
+        // A fresh picker per mode: react-aria keeps rendered chips while `items` is the same
+        // array, so re-entering edit mode would otherwise show them without their remove
+        // buttons, and an input left open in edit mode would reappear on the next «Editar».
+        key={editing ? 'edit' : 'read'}
         idPrefix={definition.idPrefix}
         label={t(definition.titleKey)}
         addLabel={t(definition.addLabelKey)}
@@ -90,7 +49,7 @@ export function CandidateRelationSection({ kind, candidate, readOnly = false }: 
         levelMode="required"
         items={items}
         emptyText={t(definition.emptyKey)}
-        readOnly={!canEdit}
+        readOnly={!editing}
         disabled={Boolean(catalogStatus.message)}
         detailText={(item) => detailText(definition.detail, item, t)}
         renderDetails={
@@ -100,13 +59,19 @@ export function CandidateRelationSection({ kind, candidate, readOnly = false }: 
               ? (draft, set) => <YearsField item={draft} onChange={set} />
               : undefined
         }
-        onAdd={(item) => void run({ type: 'add', item })}
-        onChange={(item) => void run({ type: 'change', item })}
-        onRemove={remove}
-        onRetry={(item) => {
-          const write = writes[item.key];
-          if (write) void run(write.intent);
-        }}
+        onAdd={(item) => onItemsChange([...items, item], item)}
+        onChange={(item) =>
+          onItemsChange(
+            items.map((entry) => (entry.key === item.key ? item : entry)),
+            item,
+          )
+        }
+        onRemove={(item) =>
+          onItemsChange(
+            items.filter((entry) => entry.key !== item.key),
+            item,
+          )
+        }
       />
     </div>
   );

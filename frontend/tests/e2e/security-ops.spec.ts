@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { signInAs } from './support/auth';
+import { CANDIDATE_PAGE_URL, editPanel } from './support/candidate-panels';
 
 test.describe('Security operational flows', () => {
   test('blocks export action for readonly user', async ({ browser, baseURL }) => {
@@ -26,8 +27,9 @@ test.describe('Security operational flows', () => {
     await page.fill('input[name="firstName"]', `Doc${suffix}`);
     await page.fill('input[name="lastName"]', 'Secure');
     await page.click('button[type="submit"]');
-    // KTL-22: documents are uploaded on the edit page, where creation continues.
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
+    // KTL-29: creation opens the candidate page; documents are uploaded in its Documentos panel.
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+    await editPanel(page, 'documents');
 
     const pdfBuffer = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF', 'utf-8');
     await page.setInputFiles('input[name="file"]', {

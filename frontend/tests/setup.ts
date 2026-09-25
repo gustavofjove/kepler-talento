@@ -15,6 +15,24 @@ if (typeof globalThis.structuredClone !== 'function') {
   globalThis.structuredClone = (value: unknown) => JSON.parse(JSON.stringify(value));
 }
 
+// React Router's data routers (the candidate page's `useBlocker`, KTL-29) build a `Request`
+// for every navigation with jsdom's `AbortSignal`, which Node's own `Request` refuses. Retry
+// without the signal only in that case; nothing under test aborts a navigation request.
+{
+  const NativeRequest = globalThis.Request;
+  globalThis.Request = class extends NativeRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      try {
+        super(input, init);
+      } catch (error) {
+        if (!init?.signal || !(error instanceof TypeError)) throw error;
+        const { signal: _signal, ...rest } = init;
+        super(input, rest);
+      }
+    }
+  } as typeof Request;
+}
+
 if (typeof URL.createObjectURL !== 'function') {
   URL.createObjectURL = () => 'blob:mock-url';
 }

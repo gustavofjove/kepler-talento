@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { authFile } from './global-setup';
+import { CANDIDATE_PAGE_URL, editPanel, savePanel } from './support/candidate-panels';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
@@ -14,21 +15,17 @@ test.describe('Candidate CRUD', () => {
     await page.fill('input[name="lastName"]', lastName);
     await page.click('button[type="submit"]');
 
-    // KTL-22: creating continues on the edit page, and saving the core record stays there.
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
+    // KTL-29: creating opens the candidate page, where Datos principales is edited in place.
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+    await editPanel(page, 'main');
     await page.fill('input[name="lastName"]', `${lastName} Editado`);
-    await page.click('button[type="submit"]');
+    await savePanel(page, 'main');
     await expect(page.locator('.toast')).toBeVisible();
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
-
-    // KTL-23: the breadcrumb leads back to the profile, then to the list.
-    const breadcrumb = page.getByTestId('breadcrumb');
-    await expect(breadcrumb.getByTestId('candidate-edit-view')).toHaveText(
-      `${firstName} ${lastName} Editado`,
-    );
-    await page.getByTestId('candidate-edit-view').click();
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
     await expect(page.locator('h1')).toContainText(`${firstName} ${lastName} Editado`);
+
+    // KTL-23: the breadcrumb names the stored record and leads back to the list.
+    const breadcrumb = page.getByTestId('breadcrumb');
     await expect(breadcrumb.locator('[aria-current="page"]')).toHaveText(
       `${firstName} ${lastName} Editado`,
     );
@@ -56,9 +53,7 @@ test.describe('Candidate CRUD', () => {
     await page.fill('input[name="firstName"]', firstName);
     await page.fill('input[name="lastName"]', 'Candidato');
     await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+\/edit$/);
-    await page.getByTestId('candidate-edit-view').click();
-    await expect(page).toHaveURL(/\/app\/candidates\/[\w-]+$/);
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
 
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();
