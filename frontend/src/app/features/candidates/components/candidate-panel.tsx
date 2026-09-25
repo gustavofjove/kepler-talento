@@ -44,6 +44,7 @@ export function CandidatePanel({
 }: Props) {
   const { t } = useTranslation();
   const ids = panelTestIds(id);
+  const panel = useRef<HTMLElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(control.editing);
@@ -51,7 +52,9 @@ export function CandidatePanel({
   useEffect(() => {
     if (control.editing && !wasEditing.current) {
       body.current?.querySelector<HTMLElement>(FIRST_CONTROL)?.focus();
-    } else if (!control.editing && wasEditing.current) {
+    } else if (!control.editing && wasEditing.current && !focusMovedElsewhere(panel.current)) {
+      // Back to «Editar», unless closing was caused by opening another panel, whose editor
+      // has already taken focus (effects of the two panels run in either order).
       editButton.current?.focus();
     }
     wasEditing.current = control.editing;
@@ -63,7 +66,7 @@ export function CandidatePanel({
   };
 
   return (
-    <article className="panel candidate-panel" data-testid={testId}>
+    <article ref={panel} className="panel candidate-panel" data-testid={testId}>
       <div className="candidate-panel__header">
         <h2>{title}</h2>
         {control.canEdit && !control.editing ? (
@@ -124,4 +127,10 @@ export function CandidatePanel({
       ) : null}
     </article>
   );
+}
+
+/** True when focus sits on a real control outside this panel, e.g. another panel's editor. */
+function focusMovedElsewhere(panel: HTMLElement | null): boolean {
+  const active = document.activeElement;
+  return active !== null && active !== document.body && !panel?.contains(active);
 }

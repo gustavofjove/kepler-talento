@@ -277,6 +277,7 @@ describe('CandidateDetailPage', () => {
       const education = within(screen.getByTestId('candidate-education'));
       await userEvent.selectOptions(education.getByLabelText('Tipo'), 'Grado');
       await userEvent.type(education.getByLabelText('Titulación'), 'Grado en ADE');
+      await userEvent.type(education.getByLabelText('Centro'), 'UCM');
       await userEvent.selectOptions(education.getByLabelText('Estado'), 'Finalizada');
       await userEvent.click(education.getByRole('button', { name: 'Añadir formación' }));
       expect(education.getByText('Grado en ADE')).toBeInTheDocument();
@@ -301,7 +302,7 @@ describe('CandidateDetailPage', () => {
       const education = within(screen.getByTestId('candidate-education'));
       await userEvent.click(education.getByRole('button', { name: 'Añadir formación' }));
 
-      expect(education.getByText(/titulación es obligatoria/i)).toBeInTheDocument();
+      expect(education.getByText('El tipo de formación es obligatorio.')).toBeInTheDocument();
       expect(education.getByText('Sin formación registrada.')).toBeInTheDocument();
     });
 
@@ -514,9 +515,40 @@ describe('CandidateDetailPage', () => {
       const education = within(screen.getByTestId('candidate-education'));
       await userEvent.selectOptions(education.getByLabelText('Tipo'), 'Grado');
       await userEvent.type(education.getByLabelText('Titulación'), 'Grado en ADE');
+      await userEvent.type(education.getByLabelText('Centro'), 'UCM');
       await userEvent.selectOptions(education.getByLabelText('Estado'), 'Finalizada');
       await userEvent.click(education.getByRole('button', { name: 'Añadir formación' }));
     };
+
+    it('keeps focus in the panel being opened, not the one closing (review)', async () => {
+      await renderAt('/app/candidates/c1');
+      await loaded();
+
+      // Opening an earlier panel from a later one: the closing panel must not pull focus back.
+      await userEvent.click(editButton('experience')!);
+      await userEvent.click(editButton('education')!);
+
+      expect(
+        within(screen.getByTestId('candidate-education')).getByLabelText('Tipo'),
+      ).toHaveFocus();
+    });
+
+    it('closes an open relation panel when the candidate is removed (review)', async () => {
+      await renderAt('/app/candidates/c1');
+      await loaded();
+      await userEvent.click(editButton('competencies')!);
+
+      await userEvent.click(screen.getByRole('button', { name: 'Baja lógica' }));
+
+      await waitFor(() => expect(screen.getByTestId('candidate-active')).toHaveTextContent('No'));
+      expect(screen.queryByTestId('candidate-panel-competencies-save')).toBeNull();
+      expect(screen.queryByTestId('candidate-skill-add')).toBeNull();
+      expect(editButton('competencies')).toBeNull();
+      // Reactivating does not reopen the panel that was closed.
+      await userEvent.click(screen.getByRole('button', { name: 'Alta lógica' }));
+      await waitFor(() => expect(screen.getByTestId('candidate-active')).toHaveTextContent('Sí'));
+      expect(screen.queryByTestId('candidate-panel-competencies-save')).toBeNull();
+    });
 
     it('closes a clean panel when another one opens', async () => {
       await renderAt('/app/candidates/c1');

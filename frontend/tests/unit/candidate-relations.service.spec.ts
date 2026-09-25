@@ -71,6 +71,23 @@ describe('candidate relation validators', () => {
     expect(() => validateEducationEntry(education({ endYear: 2020 }))).not.toThrow();
   });
 
+  // The panel forms use noValidate, so these rules are what stops a blank required field.
+  it.each([
+    ['educationType', 'El tipo de formación es obligatorio.'],
+    ['institution', 'El centro es obligatorio.'],
+    ['status', 'El estado de la formación es obligatorio.'],
+  ] as const)('refuses education without %s', (field, message) => {
+    expect(() => validateEducationEntry(education({ [field]: '  ' }))).toThrow(message);
+  });
+
+  it.each([
+    ['company', 'La empresa es obligatoria.'],
+    ['position', 'El puesto es obligatorio.'],
+    ['sector', 'El sector es obligatorio.'],
+  ] as const)('refuses experience without %s', (field, message) => {
+    expect(() => validateExperienceEntry(experience({ [field]: '' }))).toThrow(message);
+  });
+
   it('refuses an end date before the start date and negative years', () => {
     expect(() =>
       validateExperienceEntry(experience({ startDate: '2024-06-01', endDate: '2024-01-01' })),

@@ -42,9 +42,28 @@ export function CandidateDetailPage() {
 
   // KTL-29: one page, one panel in edit mode at a time. Each panel reports whether it holds
   // unsaved changes; only the open panel's report counts (design D1, D6).
-  const [editing, setEditing] = useState<PanelId | null>(null);
+  const [requested, setRequested] = useState<PanelId | null>(null);
   const [dirtyPanels, setDirtyPanels] = useState<Partial<Record<PanelId, boolean>>>({});
+
+  // Who may open each panel mirrors the API (D7). The API refuses relation and note writes on
+  // a removed candidate, so those panels offer no «Editar» then; the core record and documents
+  // keep following their permissions.
+  const isActive = item?.isActive ?? false;
+  const allowed: Record<PanelId, boolean> = {
+    main: canEdit,
+    competencies: canEdit && isActive,
+    education: canEdit && isActive,
+    experience: canEdit && isActive,
+    notes: canEdit && isActive,
+    documents: canUpload,
+  };
+  // A panel that stops being allowed while open (the candidate is removed, say) closes at
+  // once, in the same render, so its editor never outlives the permission.
+  const editing = requested !== null && allowed[requested] ? requested : null;
   const dirty = editing !== null && Boolean(dirtyPanels[editing]);
+  useEffect(() => {
+    if (requested !== null && editing === null) setRequested(null);
+  }, [requested, editing]);
 
   const reportDirty = useMemo(() => {
     const report =
@@ -78,9 +97,9 @@ export function CandidateDetailPage() {
   const open = async (id: PanelId): Promise<void> => {
     if (editing === id) return;
     if (dirty && !(await confirmDiscard(false))) return;
-    setEditing(id);
+    setRequested(id);
   };
-  const close = useCallback(() => setEditing(null), []);
+  const close = useCallback(() => setRequested(null), []);
 
   // Leaving the page with unsaved changes asks first: in-app navigation through the router,
   // reload and tab close through the browser's own prompt.
@@ -96,12 +115,9 @@ export function CandidateDetailPage() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  // The API refuses relation and note writes on a removed candidate, so those panels offer
-  // no «Editar» then; the core record and documents keep following their permissions (D7).
-  const isActive = item?.isActive ?? false;
-  const control = (id: PanelId, allowed: boolean): PanelControl => ({
+  const control = (id: PanelId): PanelControl => ({
     editing: editing === id,
-    canEdit: allowed,
+    canEdit: allowed[id],
     onEdit: () => void open(id),
     onClose: close,
     onDirtyChange: reportDirty[id],
@@ -208,7 +224,7 @@ export function CandidateDetailPage() {
         <div className="page-split__layout">
           <div className="page-split__main">
             <div className="grid">
-              <CandidateMainPanel candidate={item} control={control('main', canEdit)} />
+              <CandidateMainPanel candidate={item} control={control('main')} />
               <article className="panel">
                 <h2>{t('candidate.detail.audit')}</h2>
                 <dl className="prop-list">
@@ -222,22 +238,13 @@ export function CandidateDetailPage() {
                   </dd>
                 </dl>
               </article>
-              <CandidateCompetencies
-                candidate={item}
-                control={control('competencies', canEdit && isActive)}
-              />
-              <CandidateEducation
-                candidate={item}
-                control={control('education', canEdit && isActive)}
-              />
-              <CandidateExperience
-                candidate={item}
-                control={control('experience', canEdit && isActive)}
-              />
+              <CandidateCompetencies candidate={item} control={control('competencies')} />
+              <CandidateEducation candidate={item} control={control('education')} />
+              <CandidateExperience candidate={item} control={control('experience')} />
               <CandidatePanel
                 id="notes"
                 title={t('candidate.profile.notes.title')}
-                control={control('notes', canEdit && isActive)}
+                control={control('notes')}
                 mode="actions"
               >
                 <CandidateNotes
@@ -250,7 +257,7 @@ export function CandidateDetailPage() {
               <CandidatePanel
                 id="documents"
                 title={t('candidate.profile.documents.title')}
-                control={control('documents', canUpload)}
+                control={control('documents')}
                 mode="actions"
               >
                 <CandidateDocuments
