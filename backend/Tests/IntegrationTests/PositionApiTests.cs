@@ -209,7 +209,7 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
         Assert.Equal(["items", "page", "pageSize", "totalCount"], json.RootElement.EnumerateObject().Select(p => p.Name).Order());
         foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())
         {
-            Assert.Equal(["id", "location", "status", "title", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
+            Assert.Equal(["candidateCount", "id", "location", "status", "title", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
         }
     }
 

@@ -8,10 +8,15 @@ import { signal } from '../../src/app/core/state/signal';
 import { PositionDetailPage } from '../../src/app/features/positions/position-detail-page';
 import { PositionFormPage } from '../../src/app/features/positions/position-form-page';
 import { PositionListPage } from '../../src/app/features/positions/position-list-page';
-import type { Position, PositionPage } from '../../src/app/features/positions/position.models';
+import type {
+  Position,
+  PositionCandidate,
+  PositionPage,
+} from '../../src/app/features/positions/position.models';
 import {
   EMPTY_SEARCH_FILTERS,
   type SearchFilters,
+  type SearchResult,
   type SearchResultPage,
 } from '../../src/app/features/search/models/search.models';
 import { AppError } from '../../src/app/shared/models/error.models';
@@ -58,6 +63,10 @@ describe('Position pages', () => {
     get: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    listCandidates: ReturnType<typeof vi.fn>;
+    addCandidate: ReturnType<typeof vi.fn>;
+    changeStage: ReturnType<typeof vi.fn>;
+    removeCandidate: ReturnType<typeof vi.fn>;
   };
   let candidateSearchService: {
     search: ReturnType<typeof vi.fn>;
@@ -70,6 +79,7 @@ describe('Position pages', () => {
     createPreset: ReturnType<typeof vi.fn>;
   };
   const toastService = { show: vi.fn() };
+  const confirmDialogService = { confirm: vi.fn().mockResolvedValue(true) };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,7 +89,7 @@ describe('Position pages', () => {
       state,
       list: vi.fn(async () => {
         const page = {
-          items: [stored],
+          items: [{ ...stored, candidateCount: 3 }],
           page: 1,
           pageSize: 25,
           totalCount: 1,
@@ -90,6 +100,10 @@ describe('Position pages', () => {
       get: vi.fn().mockResolvedValue(structuredClone(stored)),
       create: vi.fn().mockResolvedValue({ ...stored, id: 'pos-new' }),
       update: vi.fn().mockResolvedValue(stored),
+      listCandidates: vi.fn().mockResolvedValue([]),
+      addCandidate: vi.fn(),
+      changeStage: vi.fn(),
+      removeCandidate: vi.fn().mockResolvedValue(undefined),
     };
     candidateSearchService = {
       search: vi.fn().mockResolvedValue(noResults),
@@ -117,6 +131,7 @@ describe('Position pages', () => {
             candidateSearchService,
             searchPresetsService,
             toastService,
+            confirmDialogService,
             authService: {
               profile,
               hasPermission: (permission: Permission) => granted.includes(permission),
@@ -174,6 +189,7 @@ describe('Position pages', () => {
         'href',
         '/app/positions/pos-1',
       );
+      expect(screen.getByTestId('position-candidate-count')).toHaveTextContent('3');
       expect(positionService.list).toHaveBeenLastCalledWith(
         expect.objectContaining({
           status: 'open',
@@ -562,6 +578,236 @@ describe('Position pages', () => {
       first.resolve({ ...noResults, totalCount: 99 });
 
       expect(firstSignal.aborted).toBe(true);
+    });
+  });
+
+  // ---- KTL-30: position candidates ----
+
+  describe('position candidates', () => {
+    const link = (overrides: Partial<PositionCandidate> = {}): PositionCandidate => ({
+      candidateId: 'c-1',
+      firstName: 'Ana',
+      lastName: 'García',
+      email: 'ana@example.test',
+      phone: '600111222',
+      hasPrimaryCv: true,
+      candidateIsActive: true,
+      stage: 'new',
+      addedAtUtc: '2026-09-20T09:00:00Z',
+      updatedAtUtc: '2026-09-20T09:00:00Z',
+      version: 3,
+      ...overrides,
+    });
+    const match = (candidateId: string, firstName: string): SearchResult => ({
+      candidateId,
+      firstName,
+      lastName: 'Pérez',
+      phone: '',
+      email: `${firstName.toLowerCase()}@example.test`,
+      status: 'available',
+      hasPrimaryCv: false,
+      updatedAt: '2026-09-20T09:00:00Z',
+      isActive: true,
+    });
+    const panel = () => within(screen.getByTestId('position-candidates'));
+
+    it('lists the links above the matches with a removed marker', async () => {
+      positionService.listCandidates.mockResolvedValue([
+        link(),
+        link({
+          candidateId: 'c-2',
+          firstName: 'Luis',
+          candidateIsActive: false,
+          stage: 'rejected',
+        }),
+      ]);
+      renderAt('/app/positions/pos-1');
+
+      const rows = await within(await screen.findByTestId('position-candidates')).findAllByTestId(
+        'position-candidate-row',
+      );
+      expect(rows).toHaveLength(2);
+      expect(within(rows[0]).getByRole('link', { name: 'Ana García' })).toHaveAttribute(
+        'href',
+        '/app/candidates/c-1',
+      );
+      expect(within(rows[1]).getByTestId('position-candidate-inactive')).toHaveTextContent(
+        'Eliminado',
+      );
+      expect(within(rows[0]).getByRole('combobox', { name: 'Estado de Ana García' })).toHaveValue(
+        'new',
+      );
+      const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+      expect(headings.indexOf('Candidatos de la posición')).toBeLessThan(
+        headings.indexOf('Candidatos que encajan'),
+      );
+    });
+
+    it('shows the search columns with the stage and date added, and opens the candidate from the row', async () => {
+      positionService.listCandidates.mockResolvedValue([link()]);
+      renderAt('/app/positions/pos-1');
+
+      await screen.findByTestId('position-candidates');
+      const row = (await panel().findAllByTestId('position-candidate-row'))[0];
+      expect(
+        within(screen.getByTestId('position-candidates'))
+          .getAllByRole('columnheader')
+          .map((header) => header.textContent),
+      ).toEqual(['Candidato', 'Teléfono', 'Estado en la posición', 'CV', 'Añadido', 'Acciones']);
+      expect(within(row).getByRole('link', { name: 'ana@example.test' })).toHaveAttribute(
+        'href',
+        'mailto:ana@example.test',
+      );
+      expect(within(row).getByText('600111222').closest('a')).toBeNull();
+      expect(within(row).getByText('Disponible')).toBeVisible();
+      expect(within(row).queryByRole('link', { name: /^Ver/ })).toBeNull();
+
+      await userEvent.click(within(row).getByText('600111222'));
+
+      expect(location()).toHaveTextContent('/app/candidates/c-1');
+    });
+
+    it('adds a match and marks already linked matches as added', async () => {
+      positionService.listCandidates.mockResolvedValue([link()]);
+      candidateSearchService.search.mockResolvedValue({
+        ...noResults,
+        items: [match('c-1', 'Ana'), match('c-9', 'Eva')],
+        totalCount: 2,
+      });
+      positionService.addCandidate.mockResolvedValue(
+        link({ candidateId: 'c-9', firstName: 'Eva', lastName: 'Pérez' }),
+      );
+      renderAt('/app/positions/pos-1');
+
+      const add = await screen.findByRole('button', { name: 'Añadir a Eva Pérez a la posición' });
+      expect(screen.getAllByTestId('added-to-position')).toHaveLength(1);
+      await waitFor(() => expect(add).toBeEnabled());
+      await userEvent.click(add);
+
+      await waitFor(() => expect(screen.getAllByTestId('added-to-position')).toHaveLength(2));
+      expect(positionService.addCandidate).toHaveBeenCalledWith('pos-1', 'c-9');
+      expect(panel().getAllByTestId('position-candidate-row')).toHaveLength(2);
+    });
+
+    it('changes a stage against the loaded version and reloads after a conflict', async () => {
+      positionService.listCandidates.mockResolvedValue([link()]);
+      positionService.changeStage.mockRejectedValueOnce(
+        new AppError('CONFLICT', 'El candidato ha cambiado en esta posición. Vuelva a cargarla.'),
+      );
+      renderAt('/app/positions/pos-1');
+
+      const select = await screen.findByRole('combobox', { name: 'Estado de Ana García' });
+      await userEvent.selectOptions(select, 'interview');
+
+      await waitFor(() =>
+        expect(toastService.show).toHaveBeenCalledWith(
+          'El candidato ha cambiado en esta posición. Vuelva a cargarla.',
+          'error',
+        ),
+      );
+      expect(positionService.changeStage).toHaveBeenCalledWith('pos-1', 'c-1', 'interview', 3);
+      await waitFor(() => expect(positionService.listCandidates).toHaveBeenCalledTimes(2));
+    });
+
+    it('removes a link only after confirmation', async () => {
+      positionService.listCandidates.mockResolvedValue([link()]);
+      confirmDialogService.confirm.mockResolvedValueOnce(false);
+      renderAt('/app/positions/pos-1');
+      const remove = await screen.findByRole('button', {
+        name: 'Quitar a Ana García de la posición',
+      });
+
+      await userEvent.click(remove);
+      expect(positionService.removeCandidate).not.toHaveBeenCalled();
+
+      await userEvent.click(remove);
+      await waitFor(() =>
+        expect(positionService.removeCandidate).toHaveBeenCalledWith('pos-1', 'c-1'),
+      );
+      expect(await panel().findByTestId('position-candidates-empty')).toBeVisible();
+    });
+
+    it('keeps a closed position read-only and explains how to change it', async () => {
+      positionService.get.mockResolvedValue({ ...structuredClone(stored), status: 'closed' });
+      positionService.listCandidates.mockResolvedValue([link({ stage: 'hired' })]);
+      candidateSearchService.search.mockResolvedValue({
+        ...noResults,
+        items: [match('c-9', 'Eva')],
+        totalCount: 1,
+      });
+      renderAt('/app/positions/pos-1');
+
+      expect(await screen.findByTestId('position-candidates-closed')).toBeVisible();
+      expect(await panel().findByText('Contratado')).toBeVisible();
+      expect(panel().queryByRole('combobox')).not.toBeInTheDocument();
+      expect(panel().queryByTestId('remove-from-position')).not.toBeInTheDocument();
+      expect(panel().queryByTestId('position-candidates-add')).not.toBeInTheDocument();
+      await screen.findByText('Eva Pérez');
+      expect(screen.queryByTestId('add-to-position')).not.toBeInTheDocument();
+    });
+
+    it('offers a reader no link controls', async () => {
+      granted = ['positions.read', 'candidates.read'];
+      positionService.listCandidates.mockResolvedValue([link()]);
+      renderAt('/app/positions/pos-1');
+
+      await screen.findByTestId('position-candidates');
+      expect(await panel().findByText('Nuevo')).toBeVisible();
+      expect(panel().queryByRole('combobox')).not.toBeInTheDocument();
+      expect(panel().queryByTestId('position-candidates-add')).not.toBeInTheDocument();
+    });
+
+    it('requests no links and shows no panel without candidates.read', async () => {
+      granted = ['positions.read', 'positions.manage'];
+      renderAt('/app/positions/pos-1');
+
+      await screen.findByText('No tienes permiso para consultar candidatos.');
+      expect(screen.queryByTestId('position-candidates')).not.toBeInTheDocument();
+      expect(positionService.listCandidates).not.toHaveBeenCalled();
+    });
+
+    it('adds a non-matching candidate through the picker, which marks linked ones', async () => {
+      positionService.listCandidates.mockResolvedValue([link()]);
+      candidateSearchService.search.mockResolvedValue({
+        ...noResults,
+        items: [match('c-1', 'Ana'), match('c-7', 'Iris')],
+        totalCount: 2,
+      });
+      positionService.addCandidate.mockResolvedValue(
+        link({ candidateId: 'c-7', firstName: 'Iris', lastName: 'Pérez' }),
+      );
+      renderAt('/app/positions/pos-1');
+
+      await userEvent.click(await screen.findByTestId('position-candidates-add'));
+      const dialog = within(await screen.findByRole('dialog'));
+      expect(dialog.getByRole('searchbox', { name: 'Buscar por nombre o email' })).toHaveFocus();
+      await userEvent.type(dialog.getByRole('searchbox'), 'iris');
+      await waitFor(() =>
+        expect(candidateSearchService.search).toHaveBeenLastCalledWith(
+          expect.objectContaining({ text: 'iris' }),
+          expect.objectContaining({ page: 1, pageSize: 10 }),
+        ),
+      );
+      const options = await dialog.findAllByTestId('position-candidate-picker-option');
+      expect(options[0]).toHaveAttribute('aria-disabled', 'true');
+
+      await userEvent.click(options[1]);
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(positionService.addCandidate).toHaveBeenCalledWith('pos-1', 'c-7');
+      expect(await panel().findByRole('link', { name: 'Iris Pérez' })).toBeVisible();
+    });
+
+    it('closes the picker with Escape and returns focus to its opener', async () => {
+      renderAt('/app/positions/pos-1');
+      const opener = await screen.findByTestId('position-candidates-add');
+
+      await userEvent.click(opener);
+      await screen.findByRole('dialog');
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(opener).toHaveFocus();
     });
   });
 });

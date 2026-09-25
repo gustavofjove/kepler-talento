@@ -31,6 +31,6 @@ public sealed class ListPositionsHandler(IPositionRepository positions, ICurrent
         if ((request.Text ?? string.Empty).Trim().Length > 200) issues.Add(new("Text", PositionErrors.TextTooLong, "El texto de búsqueda es demasiado largo."));
         if (issues.Count > 0) throw new RequestValidationException(issues);
         var result = await positions.ListAsync(new(status, PositionText.Normalize(request.Text), page, pageSize, sortField, direction), cancellationToken);
-        return new PositionPageResponse([.. result.Items.Select(item => new PositionListItemResponse(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version))], result.Page, result.PageSize, result.TotalCount);
+        return new PositionPageResponse([.. result.Items.Select(item => new PositionListItemResponse(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version, item.CandidateCount))], result.Page, result.PageSize, result.TotalCount);
     }
 }

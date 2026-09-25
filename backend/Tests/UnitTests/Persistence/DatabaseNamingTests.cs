@@ -22,7 +22,7 @@ public sealed class DatabaseNamingTests
             .Cast<string>()
             .ToArray();
 
-        Assert.Equal(19, mappedTables.Length);
+        Assert.Equal(20, mappedTables.Length);
         Assert.All(mappedTables, name =>
         {
             Assert.Contains(ApprovedPrefixes, prefix => name.StartsWith(prefix, StringComparison.Ordinal));
@@ -40,6 +40,7 @@ public sealed class DatabaseNamingTests
         Assert.Contains("OPS_Operations", mappedTables);
         Assert.Contains("OPS_MigrationRuns", mappedTables);
         Assert.Contains("OPS_Positions", mappedTables);
+        Assert.Contains("OPS_PositionCandidates", mappedTables);
         Assert.Contains("AUD_Events", mappedTables);
         Assert.Contains("CAT_CatalogItems", mappedTables);
         // User-owned configuration, so ADM_ rather than CND_: saved searches belong to the

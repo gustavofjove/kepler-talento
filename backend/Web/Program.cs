@@ -229,6 +229,19 @@ builder.Services.AddAuthorization(options =>
         && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
         && actor.IsAuthenticated
         && actor.HasPermission(Permissions.PositionsManage)));
+    // KTL-30. Position candidate links name people, so each also requires candidates.read.
+    options.AddPolicy(PositionCandidateEndpoints.ReadPolicy, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.PositionsRead)
+        && actor.HasPermission(Permissions.CandidatesRead)));
+    options.AddPolicy(PositionCandidateEndpoints.ManagePolicy, policy => policy.RequireAssertion(context =>
+        context.Resource is HttpContext httpContext
+        && httpContext.RequestServices.GetRequiredService<ICurrentActor>() is { } actor
+        && actor.IsAuthenticated
+        && actor.HasPermission(Permissions.PositionsManage)
+        && actor.HasPermission(Permissions.CandidatesRead)));
 });
 builder.Services.AddScoped<CorrelationContext>();
 builder.Services.AddScoped<ICorrelationContext>(provider => provider.GetRequiredService<CorrelationContext>());
@@ -379,6 +392,7 @@ app.MapSearchEndpoints();
 app.MapAdminEndpoints();
 app.MapAuditEndpoints();
 app.MapPositionEndpoints();
+app.MapPositionCandidateEndpoints();
 app.MapMeEndpoints();
 if (developmentIssuerEnabled)
 {

@@ -11,6 +11,7 @@ import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateMainPanel } from '../components/candidate-main-panel';
 import { CandidateNotes } from '../components/candidate-notes';
 import { CandidatePanel } from '../components/candidate-panel';
+import { CandidatePositionsPanel } from '../components/candidate-positions-panel';
 import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
@@ -28,6 +29,7 @@ export function CandidateDetailPage() {
   const canUpload = usePermission('documents.upload');
   const aggregate = candidateService.aggregateStatus(candidateId);
   const canReadList = usePermission('candidates.read');
+  const canReadPositions = usePermission('positions.read');
   // The list is offered in every state, even while loading or after a failure; the name only
   // once the candidate has loaded.
   const trail: BreadcrumbItem[] = [
@@ -241,6 +243,10 @@ export function CandidateDetailPage() {
               <CandidateCompetencies candidate={item} control={control('competencies')} />
               <CandidateEducation candidate={item} control={control('education')} />
               <CandidateExperience candidate={item} control={control('experience')} />
+              {/* KTL-30: acts immediately, so it stays outside the edit-mode coordinator. */}
+              {canReadPositions ? (
+                <CandidatePositionsPanel candidateId={item.id} candidateIsActive={isActive} />
+              ) : null}
               <CandidatePanel
                 id="notes"
                 title={t('candidate.profile.notes.title')}

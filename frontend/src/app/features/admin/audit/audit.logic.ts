@@ -70,6 +70,9 @@ export const AUDIT_EVENT_TYPES = [
   'position.created',
   'position.updated',
   'position.status_changed',
+  'position.candidate_added',
+  'position.candidate_stage_changed',
+  'position.candidate_removed',
 ] as const;
 
 /** Builds the query string for `GET /api/audit/events`. */

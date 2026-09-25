@@ -8,10 +8,7 @@ const i18next = require('eslint-plugin-i18next');
 // Components that still hardcode their copy (KTL-12). Entries may only be REMOVED:
 // when a change touches one of these files' copy, move it to src/assets/i18n/es.json,
 // render it with t(), and delete the path here. Never add a file to silence the rule.
-const LEGACY_HARDCODED_COPY = [
-  'src/app/core/layout/app-layout.tsx',
-  'src/app/features/search/components/search-results.tsx',
-];
+const LEGACY_HARDCODED_COPY = ['src/app/core/layout/app-layout.tsx'];
 
 module.exports = [
   {
