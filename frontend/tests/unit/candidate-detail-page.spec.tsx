@@ -23,6 +23,7 @@ describe('CandidateDetailPage', () => {
   let router: DataRouter;
   const toastService = { show: vi.fn() };
   const confirm = vi.fn();
+  const positionService = { listForCandidate: vi.fn(), changeStage: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -31,6 +32,7 @@ describe('CandidateDetailPage', () => {
     bed.api.seed({ id: 'c1', firstName: 'Ona', lastName: 'Marti' });
     granted = new Set(['candidates.read']);
     confirm.mockResolvedValue(true);
+    positionService.listForCandidate.mockResolvedValue([]);
   });
 
   const renderAt = async (path: string) => {
@@ -66,6 +68,7 @@ describe('CandidateDetailPage', () => {
             documentService,
             toastService,
             confirmDialogService: { confirm },
+            positionService,
             authService,
           } as unknown as Services
         }
@@ -658,6 +661,63 @@ describe('CandidateDetailPage', () => {
 
       expect(screen.queryByTestId('document-file')).toBeNull();
       expect(editButton('documents')).toHaveFocus();
+    });
+  });
+
+  describe('positions panel (KTL-30)', () => {
+    const stored = {
+      positionId: 'p-1',
+      title: 'Backend',
+      positionStatus: 'open',
+      stage: 'new',
+      addedAtUtc: '2026-09-20T09:00:00Z',
+      updatedAtUtc: '2026-09-20T09:00:00Z',
+      version: 2,
+    } as const;
+
+    it('hides «Posiciones» and requests nothing without positions.read', async () => {
+      await renderAt('/app/candidates/c1');
+      await loaded();
+      expect(screen.queryByTestId('candidate-positions')).toBeNull();
+      expect(positionService.listForCandidate).not.toHaveBeenCalled();
+    });
+
+    it('lists the candidate’s positions after Experiencia and before Notas', async () => {
+      granted.add('positions.read');
+      positionService.listForCandidate.mockResolvedValue([stored]);
+      await renderAt('/app/candidates/c1');
+      await loaded();
+
+      expect(await screen.findByRole('link', { name: 'Backend' })).toBeVisible();
+      const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+      expect(headings.indexOf('Posiciones')).toBe(headings.indexOf('Experiencia') + 1);
+      expect(headings.indexOf('Notas personalizadas')).toBe(headings.indexOf('Posiciones') + 1);
+      expect(positionService.listForCandidate).toHaveBeenCalledWith('c1');
+    });
+
+    it('changes a stage without disturbing a panel in edit mode', async () => {
+      asEditor();
+      granted.add('positions.read');
+      granted.add('positions.manage');
+      positionService.listForCandidate.mockResolvedValue([stored]);
+      positionService.changeStage.mockResolvedValue({ ...stored, stage: 'interview', version: 3 });
+      await renderAt('/app/candidates/c1');
+      await loaded();
+      await userEvent.click(editButton('main')!);
+      const firstName = screen.getByLabelText('Nombre');
+      await userEvent.type(firstName, 'x');
+
+      await userEvent.selectOptions(
+        await screen.findByRole('combobox', { name: 'Estado en Backend' }),
+        'interview',
+      );
+
+      await waitFor(() =>
+        expect(positionService.changeStage).toHaveBeenCalledWith('p-1', 'c1', 'interview', 2),
+      );
+      expect(confirm).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Onax');
+      expect(screen.getByTestId('candidate-panel-main-save')).toBeInTheDocument();
     });
   });
 

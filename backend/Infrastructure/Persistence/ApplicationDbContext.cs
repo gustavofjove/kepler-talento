@@ -32,6 +32,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportRowOutcome> ImportRowOutcomes => Set<ImportRowOutcome>();
     public DbSet<Position> Positions => Set<Position>();
+    public DbSet<PositionCandidate> PositionCandidates => Set<PositionCandidate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../core/di/services-context';
-import { formatDate } from '../../core/i18n/format';
+import { formatDate, formatNumber } from '../../core/i18n/format';
 import { useErrorToast } from '../../core/services/use-error-toast';
 import { Pagination } from '../../shared/components/pagination';
 import { usePositions } from './use-positions';
@@ -103,6 +103,7 @@ export function PositionListPage() {
                 <th>{t('positions.form.title')}</th>
                 <th>{t('positions.form.location')}</th>
                 <th>{t('positions.form.status')}</th>
+                <th>{t('positions.list.candidates')}</th>
                 <th>{t('positions.list.updated')}</th>
               </tr>
             </thead>
@@ -115,6 +116,9 @@ export function PositionListPage() {
                   <td>{item.location || '—'}</td>
                   <td>
                     <span className="badge">{t(`positions.status.${item.status}`)}</span>
+                  </td>
+                  <td data-testid="position-candidate-count">
+                    {formatNumber(item.candidateCount)}
                   </td>
                   <td>{formatDate(item.updatedAtUtc, { dateStyle: 'medium' })}</td>
                 </tr>

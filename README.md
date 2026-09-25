@@ -84,6 +84,20 @@ pueden editar competencias, formación, experiencia ni notas, porque la API lo r
 dirección antigua `/app/candidates/:id/edit` redirige a la ficha, y el alta de un candidato lleva
 a su ficha tras el primer guardado. Consulta la [nota de versión KTL-29](docs/ktl-29/release-notes.md).
 
+## Candidatos en posiciones KTL-30
+
+Cada posición tiene ahora una lista persistente de candidatos, «Candidatos de la posición», sobre
+los «Candidatos que encajan». Un candidato se añade desde su fila en las coincidencias («Añadir»), desde el buscador «Añadir candidato» de la posición o desde «Añadir a posición» en
+la ficha del candidato; no hace falta que cumpla los requisitos. Cada candidato tiene un estado en
+la posición (Nuevo, Preseleccionado, Entrevista, Contratado o Descartado), independiente de su
+estado general. «Quitar de la posición» borra el vínculo para corregir un error; para descartar,
+se usa el estado Descartado. La ficha del candidato muestra el panel «Posiciones», con las
+posiciones abiertas primero y las cerradas atenuadas. Una posición cerrada no admite cambios en
+sus candidatos hasta reabrirla.
+
+Ver la lista exige `positions.read` y `candidates.read`; modificarla, `positions.manage` y
+`candidates.read`. Consulta la [nota de versión KTL-30](docs/ktl-30/release-notes.md).
+
 ## Ruta de navegación KTL-23
 
 Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de

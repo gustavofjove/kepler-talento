@@ -42,6 +42,9 @@ public static class AuditEventTypes
         PositionAuditEvents.Created,
         PositionAuditEvents.Updated,
         PositionAuditEvents.StatusChanged,
+        PositionAuditEvents.CandidateAdded,
+        PositionAuditEvents.CandidateStageChanged,
+        PositionAuditEvents.CandidateRemoved,
     ];
 
     private static readonly HashSet<string> Known = new(All, StringComparer.Ordinal);

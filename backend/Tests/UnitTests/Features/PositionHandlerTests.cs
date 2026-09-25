@@ -159,7 +159,7 @@ public sealed class PositionHandlerTests
         Assert.Equal(seeded.Id, item.Id);
         Assert.Equal(1, page.TotalCount);
         Assert.Equal(
-            ["Id", "Location", "Status", "Title", "UpdatedAtUtc", "Version"],
+            ["CandidateCount", "Id", "Location", "Status", "Title", "UpdatedAtUtc", "Version"],
             typeof(PositionListItemResponse).GetProperties().Select(property => property.Name).Order());
     }
 
@@ -500,7 +500,7 @@ public sealed class PositionHandlerTests
             LastListOptions = options;
             var items = Items
                 .Where(item => options.Status == "all" || item.Status == options.Status)
-                .Select(item => new PositionSummary(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version))
+                .Select(item => new PositionSummary(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version, 0))
                 .ToArray();
             return Task.FromResult(new PositionPage(items, options.Page, options.PageSize, items.Length));
         }
@@ -530,6 +530,19 @@ public sealed class PositionHandlerTests
             _pending.Clear();
             return Task.FromResult(NextOutcome);
         }
+
+        // Link members belong to PositionCandidateHandlerTests; these handlers never call them.
+        public Task<IReadOnlyList<PositionCandidateItem>> ListCandidatesAsync(Guid positionId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PositionCandidateItem?> FindCandidateItemAsync(Guid positionId, Guid candidateId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<CandidatePositionItem>> ListForCandidateAsync(Guid candidateId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool?> IsPositionOpenAsync(Guid positionId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool?> IsCandidateActiveAsync(Guid candidateId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PositionCandidate?> FindLinkAsync(Guid positionId, Guid candidateId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<int> CountLinksAsync(Guid positionId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public void AddLink(PositionCandidate link) => throw new NotSupportedException();
+        public void RemoveLink(PositionCandidate link) => throw new NotSupportedException();
+        public void ExpectLinkVersion(PositionCandidate link, uint version) => throw new NotSupportedException();
+        public Task<PositionSaveOutcome> SaveLinkAsync(string auditEventType, PositionCandidate link, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class Actor(bool authenticated, params string[] permissions) : ICurrentActor

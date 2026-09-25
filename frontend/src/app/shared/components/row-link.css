@@ -1,0 +1,21 @@
+/* A table row that opens a record (see `useRowLink`). */
+.row-link-row {
+  cursor: pointer;
+}
+
+.row-link-row:hover td {
+  background: var(--bg-2);
+}
+
+/* The row's keyboard target: reads as the plain bold name, not as a separate link. */
+.row-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.row-link:focus-visible {
+  border-radius: var(--r-sm);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}

@@ -80,14 +80,12 @@ These come from `openspec/config.yaml`. Breaking one is a defect even if tests p
 4. **Least privilege.** DDL runs as `ktl_migrator`; the API runs as `ktl_runtime` with
    DML limited to approved tables. A migration ships its constraints, indexes and runtime
    grants in the same slice.
-5. **No physical deletes.** Candidates and catalog items are retired by deactivation. Do not
-   add `DELETE` endpoints, and do not grant `DELETE` where it was revoked.
-6. **Private documents.** Binaries live outside the webroot under opaque keys, stay
+5. **Private documents.** Binaries live outside the webroot under opaque keys, stay
    quarantined until ClamAV reports `Clean`, and download only via permission-checked API
    responses.
-7. **Search semantics.** Empty filters are ignored; different filter families combine with
+6. **Search semantics.** Empty filters are ignored; different filter families combine with
    AND; multi-value families support ANY and ALL; results never contain duplicate candidates.
-8. **Never commit** `.accdb`/`.mdb` files, `.env`, exported candidate data, CV files,
+7. **Never commit** `.accdb`/`.mdb` files, `.env`, exported candidate data, CV files,
    `backups/`, credentials or private storage paths.
 
 ## Workflow

@@ -7,9 +7,11 @@ import { useErrorToast } from '../../core/services/use-error-toast';
 import { Breadcrumb, type BreadcrumbItem } from '../../shared/components/breadcrumb';
 import { SearchCriteriaSummary } from '../search/components/search-criteria-summary';
 import { SearchResults } from '../search/components/search-results';
-import type { SearchResultPage } from '../search/models/search.models';
+import type { SearchResult, SearchResultPage } from '../search/models/search.models';
+import { PositionCandidatesPanel } from './components/position-candidates-panel';
 import { PositionDescription } from './components/position-description-editor';
 import type { Position } from './position.models';
+import { usePositionCandidates } from './use-position-candidates';
 import './positions.css';
 
 const EMPTY_RESULTS: SearchResultPage = { items: [], page: 1, pageSize: 25, totalCount: 0 };
@@ -21,6 +23,40 @@ export function PositionDetailPage() {
   const canManage = usePermission('positions.manage');
   const canReadCandidates = usePermission('candidates.read');
   const [position, setPosition] = useState<Position>();
+  // KTL-30: the position's persistent links, which also drive the matches' «Añadido» state.
+  const links = usePositionCandidates(position?.id, canReadCandidates);
+  const editableLinks = canManage && position?.status === 'open';
+  const [adding, setAdding] = useState<string | null>(null);
+  const addMatch = async (candidateId: string): Promise<void> => {
+    setAdding(candidateId);
+    try {
+      await links.add(candidateId);
+    } catch (error) {
+      notifyError(error, t('positions.candidates.addError'));
+    } finally {
+      setAdding(null);
+    }
+  };
+  const matchAction = (result: SearchResult) => {
+    const name = `${result.firstName} ${result.lastName}`;
+    return links.linkedIds.has(result.candidateId) ? (
+      <button className="button ghost" type="button" data-testid="added-to-position" disabled>
+        {t('positions.matches.added')}
+      </button>
+    ) : (
+      <button
+        className="button"
+        type="button"
+        name="addToPosition"
+        data-testid="add-to-position"
+        aria-label={t('positions.matches.addToPositionLabel', { name })}
+        disabled={adding !== null || links.status !== 'ready'}
+        onClick={() => void addMatch(result.candidateId)}
+      >
+        {t('positions.matches.addToPosition')}
+      </button>
+    );
+  };
   const [results, setResults] = useState(EMPTY_RESULTS);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -111,6 +147,13 @@ export function PositionDetailPage() {
         <h2>{t('positions.requirements.title')}</h2>
         <SearchCriteriaSummary filters={position.requirements} />
       </div>
+      {canReadCandidates ? (
+        <PositionCandidatesPanel
+          state={links}
+          editable={editableLinks}
+          closed={position.status === 'closed'}
+        />
+      ) : null}
       <div className="panel position-section">
         <h2>{t('positions.matches.title')}</h2>
         {canReadCandidates ? (
@@ -120,6 +163,8 @@ export function PositionDetailPage() {
             failed={failed}
             lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
             onPageChange={(page) => search(page)}
+            renderRowAction={editableLinks ? matchAction : undefined}
+            showOpenCv={false}
           />
         ) : (
           <p>{t('positions.matches.forbidden')}</p>

@@ -61,4 +61,45 @@ describe('PositionService', () => {
       version: 7,
     });
   });
+
+  it('searches positions for a picker without replacing the list page state', async () => {
+    const page = { items: [], page: 1, pageSize: 10, totalCount: 0 };
+    const api = { request: vi.fn().mockResolvedValue(page) };
+    const service = new PositionService(api as never);
+    const before = service.state();
+    const controller = new AbortController();
+
+    await service.search({ status: 'open', text: 'java', pageSize: 10 }, controller.signal);
+
+    const [path, options] = api.request.mock.calls[0] as [string, { signal: AbortSignal }];
+    expect(new URLSearchParams(path.split('?')[1]).get('status')).toBe('open');
+    expect(options.signal).toBe(controller.signal);
+    expect(service.state()).toBe(before);
+  });
+
+  // ---- KTL-30 position candidate links ----
+
+  it('lists, adds, restages and removes links through the API only', async () => {
+    const api = { request: vi.fn().mockResolvedValue({}) };
+    const service = new PositionService(api as never);
+
+    await service.listCandidates('p-1');
+    await service.addCandidate('p-1', 'c-1');
+    await service.changeStage('p-1', 'c-1', 'interview', 3);
+    await service.removeCandidate('p-1', 'c-1');
+    await service.listForCandidate('c-1');
+
+    expect(api.request.mock.calls.map(([path, options]) => [path, options?.method])).toEqual([
+      ['/positions/p-1/candidates', undefined],
+      ['/positions/p-1/candidates', 'POST'],
+      ['/positions/p-1/candidates/c-1/stage', 'PUT'],
+      ['/positions/p-1/candidates/c-1', 'DELETE'],
+      ['/candidates/c-1/positions', undefined],
+    ]);
+    expect(JSON.parse(api.request.mock.calls[1][1].body)).toEqual({ candidateId: 'c-1' });
+    expect(JSON.parse(api.request.mock.calls[2][1].body)).toEqual({
+      stage: 'interview',
+      version: 3,
+    });
+  });
 });

@@ -2,7 +2,7 @@
 --
 -- Every e2e spec builds the names it creates from `Date.now()`, so test data is recognised
 -- by a 13-digit timestamp in a name, title, code, e-mail or file name. Seeded demo data and
--- real records never carry one. The API deliberately has no DELETE endpoints, so this runs
+-- real records never carry one. The API offers no delete for most of these rows, so this runs
 -- as the Compose superuser through `node scripts/e2e-cleanup.js`, never against a shared or
 -- production database. It prints the storage keys of purged binaries for the caller to
 -- remove. All foreign keys are RESTRICT, so a kept row that still references test data
@@ -39,6 +39,10 @@ delete from "CND_CandidatePrograms" where "CandidateId" in (select "Id" from e2e
 delete from "CND_CandidateSkills" where "CandidateId" in (select "Id" from e2e_candidates);
 delete from "CND_CandidateTags" where "CandidateId" in (select "Id" from e2e_candidates);
 delete from "CND_CandidateNotes" where "CandidateId" in (select "Id" from e2e_candidates);
+-- KTL-30 links go when either side is test data, before both of the rows they reference.
+delete from "OPS_PositionCandidates"
+  where "CandidateId" in (select "Id" from e2e_candidates)
+     or "PositionId" in (select "Id" from "OPS_Positions" where "Title" ~ '\d{13}');
 delete from "CND_Candidates" where "Id" in (select "Id" from e2e_candidates);
 delete from "OPS_Positions" where "Title" ~ '\d{13}';
 delete from "CAT_CatalogItems" where "NameEs" ~ '\d{13}' or "Code" ~ '\d{13}';

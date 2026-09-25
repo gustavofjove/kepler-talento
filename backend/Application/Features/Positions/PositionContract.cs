@@ -1,4 +1,5 @@
 using KeplerTalento.Application.Abstractions.Identity;
+using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Abstractions.Positions;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Application.Features.Search;
@@ -18,13 +19,48 @@ public sealed record PositionResponse(
     uint Version);
 
 public sealed record PositionListItemResponse(
-    Guid Id, string Title, string Location, string Status, DateTimeOffset UpdatedAtUtc, uint Version);
+    Guid Id, string Title, string Location, string Status, DateTimeOffset UpdatedAtUtc, uint Version, int CandidateCount);
 
 public sealed record PositionPageResponse(
     IReadOnlyList<PositionListItemResponse> Items, int Page, int PageSize, int TotalCount);
 
+/// <summary>
+/// A position's link to one candidate (KTL-30): the search result's contact columns, never
+/// documents, notes or other candidate fields.
+/// </summary>
+public sealed record PositionCandidateResponse(
+    Guid CandidateId,
+    string FirstName,
+    string LastName,
+    string Email,
+    string Phone,
+    bool HasPrimaryCv,
+    bool CandidateIsActive,
+    string Stage,
+    DateTimeOffset AddedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    uint Version);
+
+/// <summary>A candidate's link to one position (KTL-30). No description or requirements.</summary>
+public sealed record CandidatePositionResponse(
+    Guid PositionId,
+    string Title,
+    string PositionStatus,
+    string Stage,
+    DateTimeOffset AddedAtUtc,
+    DateTimeOffset UpdatedAtUtc,
+    uint Version);
+
 public static class PositionErrors
 {
+    public const string CandidateAlreadyLinked = "position.candidate.already_linked";
+    public const string CandidatePositionClosed = "position.candidate.position_closed";
+    public const string CandidateInactive = "position.candidate.candidate_inactive";
+    public const string CandidateLimitReached = "position.candidate.limit_reached";
+    public const string CandidateStageInvalid = "position.candidate.stage_invalid";
+    public const string CandidateRequired = "position.candidate.candidate_required";
+    public const string CandidateLinkNotFound = "position.candidate.not_found";
+    public const string CandidateConcurrencyConflict = "position.candidate.concurrency_conflict";
     public const string NotFound = "position.not_found";
     public const string TitleRequired = "position.title.required";
     public const string TitleTooLong = "position.title.too_long";
@@ -62,10 +98,42 @@ internal static class PositionGuards
 {
     public static void RequireRead(ICurrentActor actor) => Require(actor, Permissions.PositionsRead);
     public static void RequireManage(ICurrentActor actor) => Require(actor, Permissions.PositionsManage);
-    private static void Require(ICurrentActor actor, string permission)
+
+    // KTL-30: a link names the people a position is considering, so every link operation also
+    // needs candidates.read. Neither permission implies the other.
+    public static void RequireReadCandidates(ICurrentActor actor) => Require(actor, Permissions.PositionsRead, Permissions.CandidatesRead);
+    public static void RequireManageCandidates(ICurrentActor actor) => Require(actor, Permissions.PositionsManage, Permissions.CandidatesRead);
+
+    private static void Require(ICurrentActor actor, params string[] permissions)
     {
-        if (!actor.IsAuthenticated || !actor.HasPermission(permission)) throw new ForbiddenException();
+        if (!actor.IsAuthenticated || !permissions.All(actor.HasPermission)) throw new ForbiddenException();
     }
+}
+
+internal static class PositionCandidateChecks
+{
+    public static async Task RequireOpenPosition(IPositionRepository positions, Guid positionId, CancellationToken cancellationToken)
+    {
+        var open = await positions.IsPositionOpenAsync(positionId, cancellationToken)
+            ?? throw new NotFoundException(PositionErrors.NotFound, "Posición no encontrada.");
+        if (!open) throw new ConflictException(PositionErrors.CandidatePositionClosed, "La posición está cerrada; reábrela para modificar sus candidatos.");
+    }
+
+    public static async Task<PositionCandidate> RequireLink(IPositionRepository positions, Guid positionId, Guid candidateId, CancellationToken cancellationToken) =>
+        await positions.FindLinkAsync(positionId, candidateId, cancellationToken)
+            ?? throw new NotFoundException(PositionErrors.CandidateLinkNotFound, "El candidato no está en esta posición.");
+
+    public static async Task Save(IPositionRepository positions, string eventType, PositionCandidate link, CancellationToken cancellationToken)
+    {
+        var outcome = await positions.SaveLinkAsync(eventType, link, cancellationToken);
+        if (outcome == PositionSaveOutcome.AlreadyLinked) throw new ConflictException(PositionErrors.CandidateAlreadyLinked, "El candidato ya está en esta posición.");
+        if (outcome == PositionSaveOutcome.ConcurrencyConflict) throw new ConflictException(PositionErrors.CandidateConcurrencyConflict, "El candidato ha cambiado en esta posición. Vuelva a cargarla.");
+        // A reference violation means the position or candidate vanished between check and save.
+        if (outcome == PositionSaveOutcome.ConstraintViolation) throw new NotFoundException(PositionErrors.CandidateLinkNotFound, "El candidato no está en esta posición.");
+    }
+
+    public static PositionCandidateResponse ToResponse(this PositionCandidateItem item) => new(
+        item.CandidateId, item.FirstName, item.LastName, item.Email, item.Phone, item.HasPrimaryCv, item.CandidateIsActive, item.Stage, item.AddedAtUtc, item.UpdatedAtUtc, item.Version);
 }
 
 internal static class PositionMapping

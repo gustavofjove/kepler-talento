@@ -52,6 +52,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
                 "CND_Documents",
                 "OPS_MigrationRuns",
                 "OPS_Operations",
+                "OPS_PositionCandidates",
                 "OPS_Positions",
             ],
             names);

@@ -1342,6 +1342,52 @@ namespace Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KeplerTalento.Domain.Positions.PositionCandidate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("AddedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PositionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateId")
+                        .HasDatabaseName("IX_OPS_PositionCandidates_CandidateId");
+
+                    b.HasIndex("PositionId", "CandidateId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_OPS_PositionCandidates_PositionId_CandidateId");
+
+                    b.ToTable("OPS_PositionCandidates", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_OPS_PositionCandidates_Stage", "\"Stage\" IN ('new', 'shortlisted', 'interview', 'hired', 'rejected')");
+
+                            t.HasCheckConstraint("CK_OPS_PositionCandidates_Timestamps", "\"UpdatedAtUtc\" >= \"AddedAtUtc\"");
+                        });
+                });
+
             modelBuilder.Entity("KeplerTalento.Domain.Search.SearchPreset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1577,6 +1623,21 @@ namespace Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("CandidateId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Positions.PositionCandidate", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Candidates.Candidate", null)
+                        .WithMany()
+                        .HasForeignKey("CandidateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("KeplerTalento.Domain.Positions.Position", null)
+                        .WithMany()
+                        .HasForeignKey("PositionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>

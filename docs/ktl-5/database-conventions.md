@@ -41,3 +41,9 @@ application and uses `pg_trgm` GIN indexes named `IX_OPS_Positions_NormalizedTit
 `IX_OPS_Positions_NormalizedLocation_Trgm` for normalized contains filters. The runtime role has
 only `SELECT`, `INSERT`, and `UPDATE`; `DELETE` and `TRUNCATE` are explicitly revoked. The
 `pg_trgm` extension is shared infrastructure and is never removed by a feature rollback.
+
+`OPS_PositionCandidates` (KTL-30) links candidates to positions with a stage. Both foreign keys
+are `ON DELETE RESTRICT`, and the `(PositionId, CandidateId)` pair is unique. It is the one
+position workflow table on which the runtime role holds `DELETE`, because removing a link is a
+correction, not a retirement, and is audited. `TRUNCATE` stays revoked. Operator scripts must
+delete link rows before the positions or candidates they reference.
