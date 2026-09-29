@@ -2,6 +2,12 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!--
+      KTL-32. The API image (Alpine, no ICU) runs .NET in globalization-invariant mode. Unit tests
+      run the same way, so code that needs ICU (named cultures, accent decomposition) fails here
+      rather than only in the container.
+    -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../Application/Application.csproj" />

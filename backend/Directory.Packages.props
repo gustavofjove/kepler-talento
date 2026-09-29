@@ -14,6 +14,12 @@
       against JWKS - would be new security-critical code for no benefit.
     -->
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.4" />
+    <!--
+      KTL-32 (design D7). Phone numbers found in free CV text, across formats (+34, 0034,
+      spaces, dots, foreign numbers). Apache-2.0 port of Google's libphonenumber; a hand
+      regex would be the weakest extracted field.
+    -->
+    <PackageVersion Include="libphonenumber-csharp" Version="9.0.40" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.4" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4" />
@@ -21,6 +27,12 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!--
+      KTL-32 (design D7). PDF text extraction for CV drafts; the BCL has none. Apache-2.0, pure
+      managed code (namespace UglyToad.PdfPig). The alternatives are native pdfium/poppler
+      wrappers or AGPL/commercial libraries.
+    -->
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />

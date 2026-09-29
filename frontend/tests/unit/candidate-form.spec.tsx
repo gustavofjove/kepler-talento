@@ -1,7 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CandidateForm } from '../../src/app/features/candidates/components/candidate-form';
-import { toDraft } from '../../src/app/features/candidates/components/candidate-form.logic';
+import {
+  applySuggestion,
+  toDraft,
+} from '../../src/app/features/candidates/components/candidate-form.logic';
 import {
   type Candidate,
   EMPTY_CANDIDATE_DRAFT,
@@ -82,5 +85,90 @@ describe('CandidateForm', () => {
     expect(screen.getByLabelText('Nombre')).toHaveValue('Ona');
     expect(screen.queryByTestId('candidate-tags')).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'En proceso' })).toBeInTheDocument();
+  });
+});
+
+describe('applySuggestion (KTL-32)', () => {
+  it('fills only the empty fields and reports what it used', () => {
+    const draft = { ...EMPTY_CANDIDATE_DRAFT, firstName: 'Tecleado', phone: '   ' };
+
+    const result = applySuggestion(draft, {
+      firstName: { value: 'Sugerido', confidence: 'high' },
+      lastName: { value: 'Pena', confidence: 'low' },
+      phone: { value: '611 98 76 54', confidence: 'high' },
+    });
+
+    expect(result.draft.firstName).toBe('Tecleado');
+    expect(result.draft.lastName).toBe('Pena');
+    expect(result.draft.phone).toBe('611 98 76 54');
+    expect(Object.keys(result.filled).sort()).toEqual(['lastName', 'phone']);
+  });
+
+  it('ignores a blank suggestion', () => {
+    const result = applySuggestion(EMPTY_CANDIDATE_DRAFT, {
+      email: { value: ' ', confidence: 'high' },
+    });
+
+    expect(result.draft.email).toBe('');
+    expect(result.filled).toEqual({});
+  });
+});
+
+describe('CandidateForm with a CV suggestion (KTL-32)', () => {
+  const suggestion = {
+    nonce: 1,
+    fields: {
+      firstName: { value: 'Ana', confidence: 'high' as const },
+      lastName: { value: 'Ruiz Gil', confidence: 'low' as const },
+      email: { value: 'ana@example.test', confidence: 'high' as const },
+    },
+  };
+
+  it('fills empty fields, marks them, and flags low confidence for review', async () => {
+    const applied = vi.fn();
+    render(
+      <CandidateForm onSave={vi.fn()} suggestion={suggestion} onSuggestionApplied={applied} />,
+    );
+
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Ana');
+    expect(screen.getByLabelText('Apellidos')).toHaveValue('Ruiz Gil');
+    expect(screen.getByLabelText('Email')).toHaveValue('ana@example.test');
+    expect(screen.getByTestId('firstName-suggested')).toHaveTextContent('Sugerido del CV');
+    expect(screen.getByTestId('lastName-suggested')).toHaveTextContent('Revisar');
+    expect(screen.getByTestId('firstName-suggested')).not.toHaveTextContent('Revisar');
+    expect(screen.getByLabelText('Nombre')).toHaveAccessibleDescription(/Sugerido del CV/);
+    expect(screen.queryByTestId('phone-suggested')).not.toBeInTheDocument();
+    expect(applied).toHaveBeenCalledWith(3);
+  });
+
+  it('never overwrites what the user already typed', async () => {
+    const applied = vi.fn();
+    const { rerender } = render(<CandidateForm onSave={vi.fn()} onSuggestionApplied={applied} />);
+    await userEvent.type(screen.getByLabelText('Nombre'), 'Sara');
+
+    rerender(
+      <CandidateForm onSave={vi.fn()} suggestion={suggestion} onSuggestionApplied={applied} />,
+    );
+
+    await waitFor(() => expect(applied).toHaveBeenCalledWith(2));
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Sara');
+    expect(screen.queryByTestId('firstName-suggested')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Apellidos')).toHaveValue('Ruiz Gil');
+  });
+
+  it('drops the mark once the user edits the suggested value, and saves what the user kept', async () => {
+    const onSave = vi.fn();
+    render(<CandidateForm onSave={onSave} suggestion={suggestion} />);
+    const lastName = await screen.findByLabelText('Apellidos');
+
+    await userEvent.clear(lastName);
+    await userEvent.type(lastName, 'Ruiz');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(screen.queryByTestId('lastName-suggested')).not.toBeInTheDocument();
+    expect(screen.getByTestId('firstName-suggested')).toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ firstName: 'Ana', lastName: 'Ruiz', email: 'ana@example.test' }),
+    );
   });
 });

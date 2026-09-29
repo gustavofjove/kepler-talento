@@ -114,6 +114,24 @@ En Catálogos, al hacer clic en una fila se abre su edición en línea (ya no ha
 compactos de 28px. Usuarios solo adopta el estilo, porque sus filas se editan en el sitio. La página de detalle de usuario y la unificación de las páginas de consulta y edición
 quedan para tickets futuros. Consulta la [nota de versión KTL-31](docs/ktl-31/release-notes.md).
 
+## Alta desde un CV KTL-32
+
+En «Nuevo candidato», «Rellenar desde un CV» admite un PDF o DOCX de hasta 20 MB y propone el
+nombre, los apellidos, el email, el teléfono, la localidad y la provincia. Solo rellena los campos
+vacíos, nunca sobrescribe lo que ya se ha escrito, y marca cada valor como «Sugerido del CV» (y
+«Revisar» cuando la confianza es baja). Nada se guarda hasta pulsar «Guardar», y el CV no se
+adjunta al candidato: se sube después desde su ficha.
+
+La API (`POST /api/candidates/draft-from-document`) exige `candidates.create`, analiza el archivo
+con ClamAV antes de leerlo y lo mantiene solo en memoria durante la petición: no se guarda, no se
+registra en los logs ni en la auditoría, que anota únicamente el intento y su resultado. La
+extracción usa reglas fijas, sin IA ni servicios externos. Los límites se configuran en la sección
+`CvDraft` (`MaxConcurrent`, `MaxPdfPages`, `MaxCharacters`, `TimeBudgetSeconds`); los valores por
+defecto son seguros. Consulta el [contrato](docs/ktl-32/cv-draft-contract.md), las
+[reglas de extracción](docs/ktl-32/extraction-rules.md), la
+[hoja de prueba de fiabilidad](docs/ktl-32/extraction-test-sheet.md) y la
+[nota de versión KTL-32](docs/ktl-32/release-notes.md).
+
 ## Ruta de navegación KTL-23
 
 Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de

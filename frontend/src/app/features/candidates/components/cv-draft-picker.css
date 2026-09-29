@@ -1,0 +1,38 @@
+/* KTL-32: the CV picker above the create form, and the marks on the fields it filled. */
+.cv-draft-picker {
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+}
+
+.cv-draft-picker .muted {
+  font-size: 13px;
+  margin: 0;
+}
+
+.cv-draft-status {
+  color: var(--fg-2);
+  margin: 0;
+  min-height: 1.4em;
+}
+
+.cv-draft-status.error {
+  color: var(--danger);
+}
+
+input.suggested {
+  background: var(--fj-orange-pale);
+  border-color: var(--fj-orange-bright);
+}
+
+.suggestion-badge {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.suggestion-badge.review {
+  background: var(--fj-orange-soft);
+}

@@ -4,6 +4,7 @@ import { RoleService } from '../../features/admin/roles/role.service';
 import { ProfileService } from '../../features/admin/users/profile.service';
 import { CandidateRelationsService } from '../../features/candidates/services/candidate-relations.service';
 import { CandidateApi } from '../../features/candidates/services/candidate.api';
+import { CandidateDraftService } from '../../features/candidates/services/candidate-draft.service';
 import { CandidateService } from '../../features/candidates/services/candidate.service';
 import { CandidateNotesService } from '../../features/candidates/services/candidate-notes.service';
 import { CatalogApi } from '../../features/catalogs/services/catalog.api';
@@ -54,6 +55,7 @@ export const services = {
   confirmDialogService: new ConfirmDialogService(),
   candidateService,
   candidateNotesService: new CandidateNotesService(candidateApi),
+  candidateDraftService: new CandidateDraftService(apiTransport),
   catalogService: new CatalogService(new CatalogApi(apiTransport)),
   candidateRelationsService: new CandidateRelationsService(candidateService),
   documentService: new DocumentService(candidateService, apiTransport),

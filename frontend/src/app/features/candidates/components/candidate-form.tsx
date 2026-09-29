@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Candidate, CandidateDraft } from '../models/candidate.models';
-import { toDraft } from './candidate-form.logic';
+import type {
+  CvDraftField,
+  CvDraftFields,
+  CvDraftSuggestion,
+} from '../models/candidate-draft.models';
+import { applySuggestion, toDraft } from './candidate-form.logic';
 
 const STATUSES = ['new', 'available', 'in_process', 'hired', 'rejected'] as const;
 
@@ -14,24 +19,82 @@ interface CandidateFormProps {
    */
   formId?: string;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Values read from a CV (KTL-32). Applied to empty fields only, each time `nonce` changes. */
+  suggestion?: CvDraftSuggestion;
+  /** Called after a suggestion is applied with how many fields it filled. */
+  onSuggestionApplied?: (filled: number) => void;
 }
 
 /** The core record only; the other sections are panels of their own on the candidate page. */
-export function CandidateForm({ candidate, onSave, formId, onDirtyChange }: CandidateFormProps) {
+export function CandidateForm({
+  candidate,
+  onSave,
+  formId,
+  onDirtyChange,
+  suggestion,
+  onSuggestionApplied,
+}: CandidateFormProps) {
   const { t } = useTranslation();
   // Initialiser only. The parent passes `key` so switching candidate remounts
   // and resets the draft, which is what the Angular input setter did.
   const [draft, setDraft] = useState<CandidateDraft>(() => toDraft(candidate));
+  const [suggested, setSuggested] = useState<CvDraftFields>({});
   const [error, setError] = useState('');
   const initial = useMemo(() => JSON.stringify(toDraft(candidate)), [candidate]);
   const dirty = JSON.stringify(draft) !== initial;
 
+  // The latest committed draft, so a suggestion is merged against what the user has typed by now
+  // rather than what they had typed when the CV was picked.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const appliedRef = useRef(onSuggestionApplied);
+  appliedRef.current = onSuggestionApplied;
+
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!suggestion) return;
+    const { draft: next, filled } = applySuggestion(draftRef.current, suggestion.fields);
+    setDraft(next);
+    setSuggested((current) => ({ ...current, ...filled }));
+    appliedRef.current?.(Object.keys(filled).length);
+  }, [suggestion]);
 
   const set =
     (key: keyof CandidateDraft) =>
     (event: { target: { value: string } }): void =>
       setDraft((current) => ({ ...current, [key]: event.target.value }));
+
+  /** A field stays marked only while it still holds the suggested value. */
+  const markOf = (key: CvDraftField) => {
+    const mark = suggested[key];
+    return mark && draft[key] === mark.value ? mark : undefined;
+  };
+
+  const suggestedProps = (key: CvDraftField) => {
+    const mark = markOf(key);
+    return mark
+      ? { className: 'suggested', 'aria-describedby': `${key}-suggested` }
+      : { className: undefined, 'aria-describedby': undefined };
+  };
+
+  const suggestionBadge = (key: CvDraftField) => {
+    const mark = markOf(key);
+    if (!mark) return null;
+    return (
+      <span
+        id={`${key}-suggested`}
+        className={
+          mark.confidence === 'low' ? 'badge suggestion-badge review' : 'badge suggestion-badge'
+        }
+        data-testid={`${key}-suggested`}
+      >
+        {mark.confidence === 'low'
+          ? t('candidate.cvDraft.badgeReview')
+          : t('candidate.cvDraft.badgeSuggested')}
+      </span>
+    );
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -56,7 +119,9 @@ export function CandidateForm({ candidate, onSave, formId, onDirtyChange }: Cand
             value={draft.firstName}
             onChange={set('firstName')}
             required
+            {...suggestedProps('firstName')}
           />
+          {suggestionBadge('firstName')}
         </div>
         <div className="field">
           <label htmlFor="lastName">{t('candidate.form.lastName')}</label>
@@ -66,23 +131,54 @@ export function CandidateForm({ candidate, onSave, formId, onDirtyChange }: Cand
             value={draft.lastName}
             onChange={set('lastName')}
             required
+            {...suggestedProps('lastName')}
           />
+          {suggestionBadge('lastName')}
         </div>
         <div className="field">
           <label htmlFor="phone">{t('candidate.form.phone')}</label>
-          <input id="phone" name="phone" value={draft.phone} onChange={set('phone')} />
+          <input
+            id="phone"
+            name="phone"
+            value={draft.phone}
+            onChange={set('phone')}
+            {...suggestedProps('phone')}
+          />
+          {suggestionBadge('phone')}
         </div>
         <div className="field">
           <label htmlFor="email">{t('candidate.form.email')}</label>
-          <input id="email" name="email" type="email" value={draft.email} onChange={set('email')} />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            value={draft.email}
+            onChange={set('email')}
+            {...suggestedProps('email')}
+          />
+          {suggestionBadge('email')}
         </div>
         <div className="field">
           <label htmlFor="location">{t('candidate.form.location')}</label>
-          <input id="location" name="location" value={draft.location} onChange={set('location')} />
+          <input
+            id="location"
+            name="location"
+            value={draft.location}
+            onChange={set('location')}
+            {...suggestedProps('location')}
+          />
+          {suggestionBadge('location')}
         </div>
         <div className="field">
           <label htmlFor="province">{t('candidate.form.province')}</label>
-          <input id="province" name="province" value={draft.province} onChange={set('province')} />
+          <input
+            id="province"
+            name="province"
+            value={draft.province}
+            onChange={set('province')}
+            {...suggestedProps('province')}
+          />
+          {suggestionBadge('province')}
         </div>
         <div className="field">
           <label htmlFor="availability">{t('candidate.form.availability')}</label>

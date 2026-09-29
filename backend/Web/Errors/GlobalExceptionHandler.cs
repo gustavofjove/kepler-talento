@@ -20,17 +20,30 @@ public sealed class GlobalExceptionHandler(
             ForbiddenException forbidden => (StatusCodes.Status403Forbidden, "Acceso denegado", forbidden.Code),
             NotFoundException notFound => (StatusCodes.Status404NotFound, "Recurso no encontrado", notFound.Code),
             ConflictException conflict => (StatusCodes.Status409Conflict, "Conflicto de concurrencia", conflict.Code),
+            UnprocessableException unprocessable => (StatusCodes.Status422UnprocessableEntity, "Contenido no procesable", unprocessable.Code),
+            TooManyRequestsException busy => (StatusCodes.Status429TooManyRequests, "Demasiadas solicitudes", busy.Code),
+            ServiceUnavailableException unavailable => (StatusCodes.Status503ServiceUnavailable, "Servicio no disponible", unavailable.Code),
             _ => (StatusCodes.Status500InternalServerError, "Error inesperado", "server.unexpected"),
         };
-        if (status >= 500)
+        // A known unavailable dependency is an expected, retryable refusal, not an unhandled failure.
+        var unexpected = status >= 500 && exception is not ServiceUnavailableException;
+        if (unexpected)
         {
             logger.LogError(exception, "Unhandled request failure with code {ErrorCode}", code);
+        }
+        if (exception is TooManyRequestsException)
+        {
+            httpContext.Response.Headers.RetryAfter = "5";
+        }
+        else if (exception is ServiceUnavailableException)
+        {
+            httpContext.Response.Headers.RetryAfter = "30";
         }
         var problem = new ProblemDetails
         {
             Status = status,
             Title = title,
-            Detail = status >= 500 ? "Se ha producido un error inesperado." : exception.Message,
+            Detail = unexpected ? "Se ha producido un error inesperado." : exception.Message,
             Instance = httpContext.Request.Path,
         };
         problem.Extensions["code"] = code;
