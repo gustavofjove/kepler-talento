@@ -161,7 +161,8 @@ characters read, and the total processing time. A request that would exceed the 
 SHALL be refused with a stable, retryable code; a CV that exceeds the page, character or time
 bound SHALL either yield a draft from the bounded portion or be refused with a stable code. The
 request SHALL return within its time budget, and work abandoned at the budget SHALL stop at the
-next page or paragraph boundary.
+next page or paragraph boundary. Work that outlives its request SHALL keep counting against the
+concurrency bound until it has actually stopped.
 
 #### Scenario: Too many extractions at once
 

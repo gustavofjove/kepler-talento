@@ -16,7 +16,7 @@ namespace KeplerTalento.Tests.UnitTests.CvExtraction;
 public sealed class CvTextReaderTests
 {
     private static readonly CvReadBounds Bounds = new(5, 50_000);
-    private static readonly CvTextReader Reader = new(new PdfCvTextReader(), new DocxCvTextReader());
+    private static readonly CvTextReader Reader = new(new PdfCvTextReader(), new DocxCvTextReader(), new CvDraftOptions { MaxConcurrent = 32 });
 
     [Fact]
     public async Task A_pdf_is_read_top_to_bottom_with_point_sizes()
@@ -165,6 +165,60 @@ public sealed class CvTextReaderTests
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => Reader.ReadAsync(CvFileKind.Pdf, new MemoryStream(pdf), Bounds, cancelled.Token));
+    }
+
+    [Fact]
+    public async Task A_timed_out_parser_keeps_its_slot_until_it_really_stops()
+    {
+        using var stuck = new ManualResetEventSlim();
+        using var reader = new CvTextReader(
+            (_, _, _, _) =>
+            {
+                // A parser blocked inside one page: it never looks at the token.
+                stuck.Wait(TimeSpan.FromSeconds(30));
+                return CvText.Empty;
+            },
+            maxConcurrent: 1);
+        using var budget = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => reader.ReadAsync(CvFileKind.Pdf, new MemoryStream(), Bounds, budget.Token));
+
+        // The request gave up, but the worker still runs, so it still holds the only slot.
+        await Assert.ThrowsAsync<CvReaderBusyException>(
+            () => reader.ReadAsync(CvFileKind.Pdf, new MemoryStream(), Bounds, CancellationToken.None));
+
+        stuck.Set();
+        var freed = await RetryUntilFreeAsync(reader);
+        Assert.False(freed.HasText);
+    }
+
+    [Fact]
+    public async Task A_read_cancelled_before_it_starts_releases_its_slot()
+    {
+        using var reader = new CvTextReader((_, _, _, _) => CvText.Empty, maxConcurrent: 1);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => reader.ReadAsync(CvFileKind.Pdf, new MemoryStream(), Bounds, cancelled.Token));
+
+        await RetryUntilFreeAsync(reader);
+    }
+
+    private static async Task<CvText> RetryUntilFreeAsync(CvTextReader reader)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await reader.ReadAsync(CvFileKind.Pdf, new MemoryStream(), Bounds, CancellationToken.None);
+            }
+            catch (CvReaderBusyException) when (attempt < 50)
+            {
+                await Task.Delay(20);
+            }
+        }
     }
 
     private static Task<CvText> ReadAsync(CvFileKind kind, byte[] content) =>

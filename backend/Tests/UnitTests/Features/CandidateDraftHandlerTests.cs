@@ -124,6 +124,17 @@ public sealed class CandidateDraftHandlerTests
     }
 
     [Fact]
+    public async Task Parser_slots_held_by_abandoned_work_refuse_the_request_as_busy()
+    {
+        var (handler, doubles) = Build(reader: new StubReader(throws: new CvReaderBusyException()));
+
+        var failure = await Assert.ThrowsAsync<TooManyRequestsException>(() => handler.Handle(Command(), CancellationToken.None));
+
+        Assert.Equal(CvDraftCodes.Busy, failure.Code);
+        Assert.Equal(CvDraftCodes.Busy, Assert.Single(doubles.Audits.Events).OutcomeCode);
+    }
+
+    [Fact]
     public async Task A_read_over_the_time_budget_is_refused_as_too_complex()
     {
         var (handler, _) = Build(reader: new StubReader(hangs: true), options: new CvDraftOptions { TimeBudgetSeconds = 1 });

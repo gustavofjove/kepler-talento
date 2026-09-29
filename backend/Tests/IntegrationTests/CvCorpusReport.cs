@@ -37,7 +37,7 @@ public sealed class CvCorpusReport(ITestOutputHelper output)
         var expectations = JsonSerializer.Deserialize<List<Dictionary<string, string?>>>(
             await File.ReadAllTextAsync(expectedFile),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-        var reader = new CvTextReader(new PdfCvTextReader(), new DocxCvTextReader());
+        var reader = new CvTextReader(new PdfCvTextReader(), new DocxCvTextReader(), new CvDraftOptions());
         var extractor = new RuleBasedCandidateDraftExtractor(new SpanishPlaces());
         var bounds = new CvDraftOptions().Bounds;
         var tally = Fields.ToDictionary(field => field, _ => new FieldTally());

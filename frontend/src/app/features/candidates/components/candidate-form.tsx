@@ -62,14 +62,20 @@ export function CandidateForm({
 
   const set =
     (key: keyof CandidateDraft) =>
-    (event: { target: { value: string } }): void =>
+    (event: { target: { value: string } }): void => {
       setDraft((current) => ({ ...current, [key]: event.target.value }));
+      // The first edit makes the value the user's: retyping the suggestion later must not mark
+      // it as coming from the CV again.
+      setSuggested((current) => {
+        if (!(key in current)) return current;
+        const next = { ...current };
+        delete next[key as CvDraftField];
+        return next;
+      });
+    };
 
-  /** A field stays marked only while it still holds the suggested value. */
-  const markOf = (key: CvDraftField) => {
-    const mark = suggested[key];
-    return mark && draft[key] === mark.value ? mark : undefined;
-  };
+  /** A field is marked from the moment a suggestion fills it until the user first edits it. */
+  const markOf = (key: CvDraftField) => suggested[key];
 
   const suggestedProps = (key: CvDraftField) => {
     const mark = markOf(key);
