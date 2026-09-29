@@ -26,7 +26,8 @@
 ## Processing order
 
 1. Permission check.
-2. Concurrency slot (`CvDraft:MaxConcurrent`, no queue).
+2. Concurrency slot (`CvDraft:MaxConcurrent`, no queue). Parser work also holds its own slot
+   until it really stops, so a parse abandoned at the time budget still counts.
 3. Size, multipart and empty-file checks.
 4. Extension allowlist, then content inspection (magic bytes and container structure only).
 5. ClamAV scan of the in-memory bytes. Nothing is parsed unless the verdict is `Clean`.

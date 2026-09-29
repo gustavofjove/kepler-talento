@@ -79,7 +79,10 @@ public static class DependencyInjection
         services.AddSingleton(_ => new SpanishPlaces());
         services.AddSingleton<PdfCvTextReader>();
         services.AddSingleton<DocxCvTextReader>();
-        services.AddSingleton<ICvTextReader, CvTextReader>();
+        services.AddSingleton<ICvTextReader>(provider => new CvTextReader(
+            provider.GetRequiredService<PdfCvTextReader>(),
+            provider.GetRequiredService<DocxCvTextReader>(),
+            cvDraftOptions));
         services.AddSingleton<ICandidateDraftExtractor, RuleBasedCandidateDraftExtractor>();
         services.AddScoped<DocumentStorageReconciler>();
         services.AddScoped<IOperationRepository, PostgreSqlOperationRepository>();

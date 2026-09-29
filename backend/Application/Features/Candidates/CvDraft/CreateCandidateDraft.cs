@@ -169,6 +169,10 @@ public sealed class CreateCandidateDraftHandler(
             content.Position = 0;
             text = await reader.ReadAsync(kind, content, options.Bounds, budget.Token);
         }
+        catch (CvReaderBusyException)
+        {
+            throw new TooManyRequestsException(CvDraftCodes.Busy, CvDraftCodes.BusyMessage);
+        }
         catch (CvUnreadableException)
         {
             throw new UnprocessableException(CvDraftCodes.Unreadable, CvDraftCodes.NotProcessableMessage);

@@ -156,6 +156,18 @@ describe('CandidateForm with a CV suggestion (KTL-32)', () => {
     expect(screen.getByLabelText('Apellidos')).toHaveValue('Ruiz Gil');
   });
 
+  it('does not mark a field again when the user retypes the suggested value', async () => {
+    render(<CandidateForm onSave={vi.fn()} suggestion={suggestion} />);
+    const firstName = await screen.findByLabelText('Nombre');
+
+    await userEvent.type(firstName, 'x');
+    await userEvent.type(firstName, '{Backspace}');
+
+    expect(firstName).toHaveValue('Ana');
+    expect(screen.queryByTestId('firstName-suggested')).not.toBeInTheDocument();
+    expect(firstName).not.toHaveClass('suggested');
+  });
+
   it('drops the mark once the user edits the suggested value, and saves what the user kept', async () => {
     const onSave = vi.fn();
     render(<CandidateForm onSave={onSave} suggestion={suggestion} />);

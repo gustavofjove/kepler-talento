@@ -31,6 +31,11 @@ public sealed record CvReadBounds(int MaximumPages, int MaximumCharacters);
 /// </summary>
 public sealed class CvUnreadableException() : Exception("The CV could not be read.");
 
+/// <summary>
+/// Every parser slot is held, possibly by work a timed-out request left behind. Retryable.
+/// </summary>
+public sealed class CvReaderBusyException() : Exception("All CV parser slots are in use.");
+
 public interface ICvTextReader
 {
     /// <summary>Reads the text of a CV that has already been scanned clean.</summary>

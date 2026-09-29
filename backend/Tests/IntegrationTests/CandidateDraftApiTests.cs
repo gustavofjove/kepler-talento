@@ -605,7 +605,7 @@ public sealed class CandidateDraftApiTests(PostgreSqlFixture database) : IClassF
     /// <summary>The real reader, counting its calls and optionally holding them until released.</summary>
     private sealed class CountingReader(bool blockUntilReleased = false) : ICvTextReader
     {
-        private readonly KeplerTalento.Infrastructure.CvExtraction.CvTextReader _inner = new(new(), new());
+        private readonly KeplerTalento.Infrastructure.CvExtraction.CvTextReader _inner = new(new(), new(), new CvDraftOptions());
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _reads;
 
