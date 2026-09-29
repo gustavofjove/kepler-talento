@@ -1,0 +1,245 @@
+## Purpose
+
+Lets a user creating a candidate upload a CV and receive suggested values for the core record
+fields, extracted locally by rules, without the CV or its content being stored, logged or trusted
+before a clean malware scan.
+
+## ADDED Requirements
+
+### Requirement: CV draft extraction operation
+
+The system SHALL expose an operation that accepts a single CV file and returns a draft of
+suggested values for the candidate fields first name, last name, e-mail, phone, location and
+province. Each suggested value SHALL carry a confidence of `high` or `low`. A field with no
+suggestion SHALL be absent from the draft rather than returned empty. The response SHALL also carry
+an opaque draft identifier and a stable outcome code, and SHALL carry nothing else from the file:
+no extracted text, no original filename, no storage key or path.
+
+#### Scenario: CV with a text layer is processed
+
+- **WHEN** a permitted actor submits a clean PDF or DOCX CV that contains a readable name, e-mail
+  and phone
+- **THEN** the response carries suggestions for those fields, each with a `high` or `low`
+  confidence, an opaque draft identifier and the `cv_draft.extracted` outcome
+
+#### Scenario: Field cannot be found
+
+- **WHEN** the CV contains no recognisable value for a field
+- **THEN** that field is absent from the draft and the other suggestions are still returned
+
+#### Scenario: Response carries no file content
+
+- **WHEN** any draft response is inspected
+- **THEN** it contains only the suggested field values, their confidences, the draft identifier
+  and the outcome code, and contains no extracted text, filename, storage key or path
+
+### Requirement: CV draft authorization fails closed
+
+The operation SHALL require the candidate create capability and SHALL check authentication and
+that capability before reading, scanning or parsing the request body. It SHALL fail closed for an
+unauthenticated actor and for an authenticated actor lacking the capability.
+
+#### Scenario: Unauthenticated caller submits a CV
+
+- **WHEN** an unauthenticated caller submits a CV
+- **THEN** the request is refused, the body is not scanned or parsed, and no draft is returned
+
+#### Scenario: Actor may read candidates but not create them
+
+- **WHEN** an actor holding the candidate read capability but not the create capability submits a
+  CV
+- **THEN** the request is refused, the body is not scanned or parsed, and no draft is returned
+
+#### Scenario: Actor may upload documents but not create candidates
+
+- **WHEN** an actor holding the document upload capability but not the candidate create
+  capability submits a CV
+- **THEN** the request is refused and no draft is returned
+
+### Requirement: Accepted CV formats and size
+
+The operation SHALL accept PDF and DOCX files only, whose extension and detected content agree,
+within the same 20 MB limit that applies to candidate documents. Any other file SHALL be refused
+with a stable code before scanning or parsing, and an empty upload or a request with no file SHALL
+be refused with a stable code.
+
+#### Scenario: Allowed format is submitted
+
+- **WHEN** a permitted actor submits a non-empty PDF or DOCX within the size limit whose content
+  matches its extension
+- **THEN** it proceeds to scanning
+
+#### Scenario: Other allowed document format is submitted
+
+- **WHEN** a permitted actor submits a DOC, ODT, RTF, TXT or image file
+- **THEN** the request is refused with a stable unsupported-format code and nothing is parsed
+
+#### Scenario: Extension and content disagree
+
+- **WHEN** a file named as a PDF or DOCX has content that does not match, or is a macro-enabled or
+  encrypted DOCX
+- **THEN** the request is refused with a stable code before scanning, and nothing is parsed
+
+#### Scenario: Encrypted or password-protected PDF
+
+- **WHEN** a permitted actor submits a clean PDF that is encrypted or password-protected
+- **THEN** the request is refused with a stable unreadable code and no text is extracted from it
+
+#### Scenario: File exceeds the limit or is missing
+
+- **WHEN** the upload exceeds 20 MB, is empty, or carries no file
+- **THEN** the request is refused with a stable validation code and nothing is scanned or parsed
+
+### Requirement: Scan before parse
+
+No CV content SHALL be parsed or have text extracted from it until automated malware scanning has
+reported the content clean. An infected verdict, an error, a timeout or an unavailable scanner
+SHALL each refuse the request without parsing, with a stable code that reveals no scanner signature
+or internal detail.
+
+#### Scenario: Clean CV is parsed
+
+- **WHEN** the scanner reports the submitted content clean
+- **THEN** the content is parsed and a draft is returned
+
+#### Scenario: Infected CV is refused
+
+- **WHEN** the scanner reports the submitted content infected
+- **THEN** the request is refused with a stable rejection code, nothing is parsed, and no
+  signature name is disclosed
+
+#### Scenario: Scanner is unavailable
+
+- **WHEN** the scanner is unavailable, errors or times out
+- **THEN** the request is refused with a stable, retryable scanner-unavailable code and nothing is
+  parsed
+
+### Requirement: CV and extracted content are neither stored nor logged
+
+The submitted file, its original filename, the extracted text and the suggested values SHALL NOT
+be written to document storage, the database, application logs or the audit trail. They SHALL
+exist only for the duration of the request. Each attempt that passes the permission and request
+checks (a single non-empty file within the size limit, a free concurrency slot) SHALL record one
+audit event carrying the acting internal user identifier, the draft identifier, the outcome code
+and the correlation identifier, and nothing from the file. Refusals before that point carry no file
+content and are not audited.
+
+#### Scenario: Draft is extracted
+
+- **WHEN** a draft is returned
+- **THEN** no document record, stored object or candidate exists as a result, and one audit event
+  records actor, draft identifier, outcome and correlation only
+
+#### Scenario: Logs are inspected after an extraction
+
+- **WHEN** application logs are inspected after successful, refused and failed extractions
+- **THEN** they contain no filename, extracted text or suggested value, and identify the attempt
+  only by draft and correlation identifiers and an outcome code
+
+#### Scenario: Refused CV leaves nothing behind
+
+- **WHEN** a CV is refused for format, size, infection or an unavailable scanner
+- **THEN** no stored object, document record or candidate exists as a result
+
+### Requirement: CV without a text layer
+
+A CV from which no usable text can be extracted, such as a scanned image-only PDF, SHALL produce
+an empty draft with a distinct outcome code rather than an error, so the user can be told to fill
+the form in by hand.
+
+#### Scenario: Image-only PDF is submitted
+
+- **WHEN** a permitted actor submits a clean PDF with no text layer
+- **THEN** the response is a successful empty draft with the `cv_draft.no_text` outcome
+
+### Requirement: Bounded extraction work
+
+Extraction SHALL be bounded in the number of concurrent extractions, the number of pages and
+characters read, and the total processing time. A request that would exceed the concurrency bound
+SHALL be refused with a stable, retryable code; a CV that exceeds the page, character or time
+bound SHALL either yield a draft from the bounded portion or be refused with a stable code. The
+request SHALL return within its time budget, and work abandoned at the budget SHALL stop at the
+next page or paragraph boundary.
+
+#### Scenario: Too many extractions at once
+
+- **WHEN** more CVs are submitted concurrently than the configured bound allows
+- **THEN** the excess requests are refused with a stable retryable code and nothing from them is
+  scanned or parsed
+
+#### Scenario: Very long CV
+
+- **WHEN** a clean CV has more pages or text than the configured bound
+- **THEN** only the bounded portion is read and the operation completes within its time budget
+
+### Requirement: Suggestion rules and confidence
+
+Suggestions SHALL follow deterministic, local rules with no external service. The e-mail SHALL be a
+syntactically valid address found in the text. The phone SHALL be a number that parses as valid
+with Spain as the default region. The province SHALL be one of the Spanish provinces, and the
+location one of the Spanish municipalities, preferring a postcode line or the contact block over
+the rest of the document. Confidence SHALL be `high` only when the value was corroborated (for
+example a name matching the e-mail's local part, or a municipality consistent with a postcode's
+province) and `low` otherwise.
+
+#### Scenario: Name matches the e-mail
+
+- **WHEN** the most prominent text near the top of the first page is a name whose words appear in
+  the e-mail's local part
+- **THEN** first and last name are suggested with `high` confidence
+
+#### Scenario: Name is uncorroborated
+
+- **WHEN** a probable name is found but cannot be cross-checked
+- **THEN** first and last name are suggested with `low` confidence
+
+#### Scenario: Postcode identifies the province
+
+- **WHEN** the contact block contains a Spanish postcode followed by a known municipality
+- **THEN** the province of that postcode and the municipality are suggested with `high` confidence
+
+#### Scenario: Several e-mails or phones are present
+
+- **WHEN** the CV contains more than one e-mail or phone
+- **THEN** the one nearest the top of the document is suggested
+
+### Requirement: Create form applies a draft without overwriting
+
+The create page SHALL offer a CV picker to a user who can create candidates. Applying a draft SHALL
+fill only fields that are empty at the moment the draft arrives and SHALL NOT change a field the
+user has typed in. Every filled field SHALL stay editable, SHALL be marked as suggested from the CV,
+and a `low` confidence suggestion SHALL additionally be marked for review. Nothing SHALL be saved
+until the user submits the form, and the CV SHALL NOT be attached to the saved candidate.
+
+#### Scenario: Draft fills empty fields
+
+- **WHEN** a user picks a CV on the create page and the draft arrives while every field is empty
+- **THEN** each suggested field is filled and marked as suggested, low-confidence ones are also
+  marked for review, and no candidate has been saved
+
+#### Scenario: Typed values are kept
+
+- **WHEN** a user has typed a first name and then picks a CV whose draft suggests a different one
+- **THEN** the typed first name is kept and only the empty fields are filled
+
+#### Scenario: User edits a suggestion
+
+- **WHEN** the user changes a suggested value
+- **THEN** the new value is kept and the field is no longer marked as suggested
+
+#### Scenario: Empty or refused draft
+
+- **WHEN** the draft is empty because the CV has no text, or the CV is refused
+- **THEN** the form is unchanged and the user sees a localized message explaining what to do,
+  without technical detail
+
+#### Scenario: Draft request is in flight
+
+- **WHEN** the draft request has not yet completed
+- **THEN** the picker shows a busy state and the form remains usable
+
+#### Scenario: Saved candidate has no document
+
+- **WHEN** the user saves a candidate after applying a draft
+- **THEN** the candidate is created exactly as from a manually filled form, with no document
+  attached

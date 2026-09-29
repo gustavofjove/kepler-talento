@@ -243,6 +243,7 @@ builder.Services.AddAuthorization(options =>
         && actor.HasPermission(Permissions.PositionsManage)
         && actor.HasPermission(Permissions.CandidatesRead)));
 });
+builder.Services.AddSingleton<CvDraftGate>();
 builder.Services.AddScoped<CorrelationContext>();
 builder.Services.AddScoped<ICorrelationContext>(provider => provider.GetRequiredService<CorrelationContext>());
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -386,6 +387,7 @@ app.MapGet("/api/health/scanner", async (
     .Produces(StatusCodes.Status503ServiceUnavailable);
 app.MapCatalogEndpoints();
 app.MapCandidateEndpoints();
+app.MapCandidateDraftEndpoints();
 app.MapDocumentEndpoints();
 app.MapImportEndpoints();
 app.MapSearchEndpoints();

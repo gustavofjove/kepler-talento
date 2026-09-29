@@ -25,4 +25,10 @@ public static class CandidateAuditEvents
     public const string NoteRetired = "candidate.note_retired";
     public const string DocumentsChanged = "candidate.documents_changed";
     public const string Read = "candidate.read";
+
+    /// <summary>
+    /// A CV draft extraction attempt (KTL-32). The subject is the opaque draft id, never a
+    /// candidate id, and the outcome is a code: nothing from the file is recorded.
+    /// </summary>
+    public const string CvDraftExtracted = "candidate.cv_draft.extracted";
 }

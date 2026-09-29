@@ -57,6 +57,7 @@ export const AUDIT_EVENT_TYPES = [
   'candidate.note_retired',
   'candidate.documents_changed',
   'candidate.read',
+  'candidate.cv_draft.extracted',
   'catalog.created',
   'catalog.updated',
   'catalog.reordered',

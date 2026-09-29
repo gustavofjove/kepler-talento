@@ -29,6 +29,7 @@ public static class AuditEventTypes
         CandidateAuditEvents.NoteRetired,
         CandidateAuditEvents.DocumentsChanged,
         CandidateAuditEvents.Read,
+        CandidateAuditEvents.CvDraftExtracted,
         CatalogAuditEvents.Created,
         CatalogAuditEvents.Updated,
         CatalogAuditEvents.Reordered,

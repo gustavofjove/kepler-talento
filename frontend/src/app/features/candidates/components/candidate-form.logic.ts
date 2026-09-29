@@ -4,6 +4,26 @@ import {
   type CandidateStatus,
   EMPTY_CANDIDATE_DRAFT,
 } from '../models/candidate.models';
+import { CV_DRAFT_FIELDS, type CvDraftFields } from '../models/candidate-draft.models';
+
+/**
+ * Fills the draft from a CV suggestion (KTL-32), but only where the field is still empty: a value
+ * the user typed is never overwritten. Returns the new draft and the suggestions actually used.
+ */
+export function applySuggestion(
+  draft: CandidateDraft,
+  fields: CvDraftFields,
+): { draft: CandidateDraft; filled: CvDraftFields } {
+  const next = { ...draft };
+  const filled: CvDraftFields = {};
+  for (const key of CV_DRAFT_FIELDS) {
+    const suggestion = fields[key];
+    if (!suggestion?.value.trim() || draft[key].trim()) continue;
+    next[key] = suggestion.value;
+    filled[key] = suggestion;
+  }
+  return { draft: next, filled };
+}
 
 /**
  * Pure equivalent of the old `@Input set candidate(...)`. Extracted so it can be

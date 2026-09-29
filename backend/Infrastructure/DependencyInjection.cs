@@ -1,8 +1,10 @@
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Infrastructure.Persistence;
+using KeplerTalento.Application.Abstractions.CvExtraction;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Abstractions.Import;
 using KeplerTalento.Application.Abstractions.Operations;
+using KeplerTalento.Infrastructure.CvExtraction;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Import;
 using KeplerTalento.Infrastructure.Operations;
@@ -71,6 +73,14 @@ public static class DependencyInjection
         services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportValidationHandler>());
         services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportCommitHandler>());
         services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ImportPurgeHandler>());
+        var cvDraftOptions = configuration.GetSection(CvDraftOptions.SectionName).Get<CvDraftOptions>() ?? new();
+        cvDraftOptions.Validate();
+        services.AddSingleton(cvDraftOptions);
+        services.AddSingleton(_ => new SpanishPlaces());
+        services.AddSingleton<PdfCvTextReader>();
+        services.AddSingleton<DocxCvTextReader>();
+        services.AddSingleton<ICvTextReader, CvTextReader>();
+        services.AddSingleton<ICandidateDraftExtractor, RuleBasedCandidateDraftExtractor>();
         services.AddScoped<DocumentStorageReconciler>();
         services.AddScoped<IOperationRepository, PostgreSqlOperationRepository>();
         services.AddHostedService<DurableOperationWorker>();
