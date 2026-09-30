@@ -262,7 +262,9 @@ describe('CandidateListPage', () => {
       'href',
       'mailto:ana@example.test',
     );
-    expect(within(row).getByText('+34 600 111 222').closest('a')).toBeNull();
+    // KTL-34: shown without the Spanish prefix.
+    expect(within(row).getByText('600 111 222').closest('a')).toBeNull();
+    expect(within(row).queryByText(/\+34/)).toBeNull();
     expect(within(row).getAllByRole('link')).toHaveLength(2);
     expect(within(row).queryByRole('link', { name: 'Abrir' })).toBeNull();
     expect(document.querySelector('a[href^="tel:"]')).toBeNull();

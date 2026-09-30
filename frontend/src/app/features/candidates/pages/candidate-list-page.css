@@ -24,6 +24,10 @@
   margin-left: 6px;
   opacity: 0.75;
 }
+/* The selection count is plain text beside buttons: centre it on their line. */
+.bulk-actions {
+  align-items: center;
+}
 .results-footer {
   justify-content: space-between;
 }

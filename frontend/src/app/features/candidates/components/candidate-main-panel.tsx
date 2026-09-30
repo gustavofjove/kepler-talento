@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
+import { formatDay } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { candidateLocation } from '../candidate-location';
 import type { Candidate, CandidateDraft } from '../models/candidate.models';
 import { useCandidates } from '../use-candidates';
 import { CandidateForm } from './candidate-form';
@@ -62,13 +64,19 @@ export function CandidateMainPanel({ candidate, control }: Props) {
             <dt>{t('candidate.detail.availability')}</dt>
             <dd>{candidate.availability}</dd>
             <dt>{t('candidate.detail.location')}</dt>
-            <dd>
-              {candidate.location} {candidate.province}
-            </dd>
+            <dd>{candidateLocation(candidate)}</dd>
             <dt>{t('candidate.detail.receivedAt')}</dt>
-            <dd>{candidate.receivedAt || t('candidate.detail.pending')}</dd>
+            <dd>
+              {candidate.receivedAt
+                ? formatDay(candidate.receivedAt)
+                : t('candidate.detail.pending')}
+            </dd>
             <dt>{t('candidate.detail.reviewDueAt')}</dt>
-            <dd>{candidate.reviewDueAt || t('candidate.detail.pending')}</dd>
+            <dd>
+              {candidate.reviewDueAt
+                ? formatDay(candidate.reviewDueAt)
+                : t('candidate.detail.pending')}
+            </dd>
           </dl>
           {candidate.notes ? <p>{candidate.notes}</p> : null}
         </>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FormError } from '../../../shared/components/form-error';
 import type { Candidate, CandidateDraft } from '../models/candidate.models';
 import type {
   CvDraftField,
@@ -113,9 +114,10 @@ export function CandidateForm({
   };
 
   return (
-    // noValidate: the browser must not block submit, so the Spanish message above is
+    // noValidate: the browser must not block submit, so the Spanish message at the top is
     // what users (and the e2e spec) see.
     <form id={formId} className="section-block" onSubmit={submit} noValidate>
+      <FormError message={error} />
       <div className="grid two">
         <div className="field">
           <label htmlFor="firstName">{t('candidate.form.firstName')}</label>
@@ -230,7 +232,6 @@ export function CandidateForm({
         <label htmlFor="notes">{t('candidate.form.notes')}</label>
         <textarea id="notes" name="notes" rows={4} value={draft.notes} onChange={set('notes')} />
       </div>
-      {error ? <p className="empty-state">{error}</p> : null}
       {formId ? null : (
         <div className="form-actions">
           <button className="button" type="submit">

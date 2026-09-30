@@ -18,3 +18,14 @@
 .candidate-panel__body {
   min-width: 0;
 }
+
+/* The «Nueva …» form under a panel's entries (KTL-34): a light rule and a title set it apart
+ * from the list above, so it reads as adding an entry rather than editing the last one. */
+.candidate-add-form {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.candidate-add-form > h3 {
+  margin: 0;
+}

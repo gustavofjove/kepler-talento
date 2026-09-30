@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useRoles, useServices, useUsers } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import '../../../shared/components/data-table.css';
+import { FormError } from '../../../shared/components/form-error';
 import { AppError } from '../../../shared/models/error.models';
 import type { AdminUser } from './profile.service';
 
@@ -70,6 +71,7 @@ export function AdminUsersPage() {
         <p className="muted">{t('admin.users.subtitle')}</p>
       </div>
       <form className="panel grid two" onSubmit={create} noValidate>
+        <FormError message={error} className="span-all" />
         <div className="field">
           <label htmlFor="displayName">{t('admin.users.name')}</label>
           <input
@@ -111,11 +113,6 @@ export function AdminUsersPage() {
               ))}
           </select>
         </div>
-        {error ? (
-          <p className="muted span-all" role="alert">
-            {error}
-          </p>
-        ) : null}
         <div className="form-actions span-all">
           <button className="button" type="submit" data-testid="create-user">
             {t('admin.users.create')}

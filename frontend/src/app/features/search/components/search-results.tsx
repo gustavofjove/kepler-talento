@@ -4,9 +4,10 @@ import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { CvIndicator } from '../../../shared/components/cv-indicator';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
-import { mailtoHref } from '../../candidates/contact-links';
+import { displayPhone, mailtoHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
 
 interface SearchResultsProps {
@@ -98,16 +99,12 @@ export function SearchResults({
                       </div>
                     ) : null}
                   </td>
-                  <td>{result.phone}</td>
+                  <td>{displayPhone(result.phone)}</td>
                   <td>
                     <span className="badge">{result.status}</span>
                   </td>
                   <td>
-                    {t(
-                      result.hasPrimaryCv
-                        ? 'search.results.cvAvailable'
-                        : 'search.results.cvPending',
-                    )}
+                    <CvIndicator hasCv={result.hasPrimaryCv} />
                   </td>
                   <td>
                     {formatDate(result.updatedAt, {

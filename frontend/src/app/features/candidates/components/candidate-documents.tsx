@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import { useTranslation } from 'react-i18next';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { FormError } from '../../../shared/components/form-error';
 import type { Candidate, CandidateDocument } from '../models/candidate.models';
 
 const ACCEPTED_FILES = '.pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png,.tif,.tiff,.bmp';
@@ -256,6 +257,7 @@ export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange 
       ) : null}
       {canUpload ? (
         <form className="section-block" onSubmit={upload} noValidate>
+          <FormError message={uploadError} testId="document-upload-error" />
           <div className="grid two">
             <div className="field">
               <label htmlFor="file">{t('candidate.profile.documents.file')}</label>
@@ -282,11 +284,6 @@ export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange 
               </label>
             </div>
           </div>
-          {uploadError ? (
-            <p className="empty-state" role="alert" data-testid="document-upload-error">
-              {uploadError}
-            </p>
-          ) : null}
           <div className="form-actions">
             <button
               className="button"

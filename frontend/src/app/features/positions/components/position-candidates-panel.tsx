@@ -4,9 +4,10 @@ import { Link } from 'react-router';
 import { useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { CvIndicator } from '../../../shared/components/cv-indicator';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
-import { mailtoHref } from '../../candidates/contact-links';
+import { displayPhone, mailtoHref } from '../../candidates/contact-links';
 import type { PositionCandidate } from '../position.models';
 import type { PositionCandidatesState } from '../use-position-candidates';
 import { PositionCandidatePicker } from './position-candidate-picker';
@@ -125,7 +126,7 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
                         </div>
                       ) : null}
                     </td>
-                    <td>{link.phone}</td>
+                    <td>{displayPhone(link.phone)}</td>
                     <td>
                       {editable ? (
                         <PositionStageSelect
@@ -138,11 +139,7 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
                       )}
                     </td>
                     <td>
-                      {t(
-                        link.hasPrimaryCv
-                          ? 'positions.candidates.cvAvailable'
-                          : 'positions.candidates.cvPending',
-                      )}
+                      <CvIndicator hasCv={link.hasPrimaryCv} />
                     </td>
                     <td>{formatDate(link.addedAtUtc, { dateStyle: 'medium' })}</td>
                     <td>

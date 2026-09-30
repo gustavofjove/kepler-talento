@@ -160,8 +160,14 @@
   outline-offset: 1px;
 }
 
-.catalog-picker-empty-state {
-  margin: 0;
+/* A read-only family without values: one quiet line beside the label, as tall as a chip so
+ * empty and filled rows line up (KTL-34). */
+.catalog-picker-empty {
+  align-items: center;
+  color: var(--fg-3);
+  display: inline-flex;
+  font-size: 13px;
+  min-height: 28px;
 }
 
 .catalog-picker-errors {

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
+import { FormError } from '../../../shared/components/form-error';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -122,7 +123,15 @@ export function CandidateEducation({ candidate, control }: Props) {
           ))}
         </div>
         {canEdit ? (
-          <form className="section-block" onSubmit={add} noValidate>
+          <form
+            className="section-block candidate-add-form"
+            aria-labelledby="education-add-title"
+            data-testid="education-add-form"
+            onSubmit={add}
+            noValidate
+          >
+            <h3 id="education-add-title">{t('candidate.profile.education.newTitle')}</h3>
+            <FormError message={error} />
             <CatalogStatusNotice status={catalogStatus} />
             <div className="grid two">
               <div className="field">
@@ -207,7 +216,6 @@ export function CandidateEducation({ candidate, control }: Props) {
                 </select>
               </div>
             </div>
-            {error ? <p className="empty-state">{error}</p> : null}
             <div className="form-actions">
               <button className="button" type="submit" disabled={!!catalogStatus.message}>
                 {t('candidate.profile.education.add')}

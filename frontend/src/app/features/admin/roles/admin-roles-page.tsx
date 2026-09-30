@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRoles, useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
+import { FormError } from '../../../shared/components/form-error';
 import { AppError } from '../../../shared/models/error.models';
 import type { Permission } from '../../../shared/models/auth.models';
 import type { AdminRole } from './role.service';
@@ -76,6 +77,7 @@ export function AdminRolesPage() {
         <p className="muted">{t('admin.roles.subtitle')}</p>
       </div>
       <form className="panel grid two" onSubmit={create} noValidate>
+        <FormError message={error} className="span-all" />
         <div className="field">
           <label htmlFor="role-name">{t('admin.roles.name')}</label>
           <input
@@ -96,11 +98,6 @@ export function AdminRolesPage() {
             onChange={(e) => setLabel(e.target.value)}
           />
         </div>
-        {error ? (
-          <p className="muted span-all" role="alert">
-            {error}
-          </p>
-        ) : null}
         <div className="form-actions span-all">
           <button className="button" type="submit" data-testid="create-role">
             {t('admin.roles.create')}

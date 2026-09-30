@@ -94,7 +94,8 @@ describe('CandidateDetailPage', () => {
     await loaded();
 
     const contact = within(screen.getByTestId('candidate-contact'));
-    expect(contact.getByTestId('candidate-phone')).toHaveTextContent('+34 600 111 222');
+    // KTL-34: the Spanish prefix is not shown.
+    expect(contact.getByTestId('candidate-phone')).toHaveTextContent(/^600 111 222$/);
     expect(contact.getByTestId('candidate-phone').closest('a')).toBeNull();
     expect(contact.getByRole('link', { name: 'ona@example.test' })).toHaveAttribute(
       'href',
@@ -184,6 +185,28 @@ describe('CandidateDetailPage', () => {
     const panel = within(screen.getByTestId('candidate-competencies'));
     expect(panel.queryByRole('button')).toBeNull();
     expect(panel.getByText('Sin programas asociados.')).toBeInTheDocument();
+  });
+
+  it('puts Datos principales and Auditoría side by side, and gives the editor the whole row (KTL-34)', async () => {
+    asEditor();
+    await renderAt('/app/candidates/c1');
+    await loaded();
+
+    const row = screen.getByTestId('candidate-summary-row');
+    expect(row).toHaveClass('grid', 'two');
+    expect(row.children).toHaveLength(2);
+    const audit = within(row).getByTestId('candidate-audit');
+    expect(audit).toHaveTextContent('Auditoría');
+    // Readable Spanish date and time, never the raw ISO timestamp.
+    expect(audit).not.toHaveTextContent(/\d{4}-\d{2}-\d{2}T/);
+    expect(audit).toHaveTextContent(/\d{1,2} \p{L}+\.? \d{4}, \d{1,2}:\d{2}/u);
+    expect(within(row).getByRole('heading', { name: 'Datos principales' })).toBeInTheDocument();
+
+    await userEvent.click(editButton('main')!);
+    expect(row).not.toHaveClass('two');
+
+    await userEvent.click(editButton('education')!);
+    expect(row).toHaveClass('two');
   });
 
   describe('CV preview (KTL-28)', () => {
@@ -292,6 +315,25 @@ describe('CandidateDetailPage', () => {
       expect(editButton('education')).toBeNull();
     });
 
+    it('titles the add forms and sets them apart after the entries (KTL-34)', async () => {
+      await renderAt('/app/candidates/c1');
+      await loaded();
+
+      for (const [panel, title] of [
+        ['education', 'Nueva formación'],
+        ['experience', 'Nueva experiencia'],
+      ] as const) {
+        await userEvent.click(editButton(panel)!);
+        const section = screen.getByTestId(`candidate-${panel}`);
+        const form = within(section).getByRole('form', { name: title });
+        expect(form).toHaveClass('candidate-add-form');
+        expect(within(form).getByRole('heading', { level: 3, name: title })).toBeInTheDocument();
+        // After the entries, not before them.
+        expect(section.lastElementChild).toBe(form);
+        await userEvent.click(screen.getByTestId(`candidate-panel-${panel}-cancel`));
+      }
+    });
+
     it('stages education and writes it once on «Guardar»', async () => {
       const setEducation = vi.spyOn(bed.api, 'setEducation');
       await renderAt('/app/candidates/c1');
@@ -389,6 +431,15 @@ describe('CandidateDetailPage', () => {
 
       expect(await screen.findByText(/nombre y apellidos/i)).toBeInTheDocument();
       expect(update).not.toHaveBeenCalled();
+
+      // KTL-34: shown in red at the top of the form, before its first field.
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveClass('form-error');
+      expect(alert.closest('form')?.firstElementChild).toBe(alert);
+      expect(
+        alert.compareDocumentPosition(screen.getByLabelText('Nombre')) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
     });
 
     it('keeps the draft when someone else changed the candidate', async () => {
