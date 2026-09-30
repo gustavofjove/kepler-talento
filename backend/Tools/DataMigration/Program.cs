@@ -4,6 +4,13 @@ using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Tools.DataMigration;
 using Microsoft.EntityFrameworkCore;
 
+// KTL-33: field encryption keys, backfill, rotation and verification.
+if (args.Length > 0 && args[0] == "encryption")
+{
+    return await KeplerTalento.Tools.DataMigration.Encryption.EncryptionCommands.RunAsync(
+        args[1..], Console.Out, Console.Error, CancellationToken.None);
+}
+
 if (args.Length == 1 && (args[0] == "--help" || args[0] == "-h"))
 {
     Console.WriteLine(MigrationCommandLine.Usage);
@@ -18,9 +25,7 @@ if (!MigrationCommandLine.TryParse(args, out var commandLine, out var parseError
     return ExitCodes.UsageError;
 }
 
-var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-    .UseNpgsql(commandLine.ConnectionString)
-    .Options;
+var options = ToolFieldEncryption.ContextOptions(commandLine.ConnectionString);
 
 var run = new MigrationRun(
     Guid.CreateVersion7(),

@@ -35,7 +35,7 @@ public sealed class MigrationSecurityEvidenceTests(PostgreSqlFixture database)
     }
 
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private ApplicationDbContext NewContext() => new(Options);
 

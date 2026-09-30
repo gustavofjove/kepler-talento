@@ -250,6 +250,7 @@ public static class CandidateErrors
     public const string RemovedCandidate = "candidate.removed";
     public const string DocumentPrimaryAmbiguous = "candidate.document.primary_ambiguous";
     public const string ConstraintViolation = "candidate.constraint.violation";
+    public const string FieldTooLong = "candidate.field.too_long";
 
     public const string NotFoundMessage = "Candidato no encontrado.";
     public const string FirstNameRequiredMessage = "El nombre es obligatorio.";
@@ -266,6 +267,7 @@ public static class CandidateErrors
     public const string DocumentPrimaryAmbiguousMessage =
         "Solo puede haber un documento principal por candidato.";
     public const string ConstraintViolationMessage = "La solicitud contiene datos no válidos.";
+    public const string FieldTooLongMessage = "El valor supera la longitud máxima permitida.";
     public const string NoteConcurrencyConflictMessage =
         "La nota ha cambiado desde que se cargó. Vuelva a cargarla e inténtelo de nuevo.";
 }
@@ -345,6 +347,24 @@ internal static class CandidateValidators
         rule.Must(CandidateStatuses.IsKnown)
             .WithErrorCode(CandidateErrors.StatusInvalid)
             .WithMessage(CandidateErrors.StatusInvalidMessage);
+
+    /// <summary>
+    /// A text limit (KTL-33). The column width used to enforce it; once the column holds
+    /// ciphertext the application must. Null is not this rule's concern.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> MustFitWithin<T>(this IRuleBuilder<T, string?> rule, int maximum) =>
+        rule.Must(value => value is null || value.Length <= maximum)
+            .WithErrorCode(CandidateErrors.FieldTooLong)
+            .WithMessage(CandidateErrors.FieldTooLongMessage);
+
+    /// <summary>
+    /// Replaces a <c>char_length(...) &gt; 0</c> check that cannot see through ciphertext
+    /// (KTL-33). Keeps the code that check produced, so callers see the same refusal.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> MustHaveText<T>(this IRuleBuilder<T, string?> rule) =>
+        rule.Must(value => !string.IsNullOrWhiteSpace(value))
+            .WithErrorCode(CandidateErrors.ConstraintViolation)
+            .WithMessage(CandidateErrors.ConstraintViolationMessage);
 
     public static IRuleBuilderOptions<T, string> MustBeAWireDate<T>(this IRuleBuilder<T, string?> rule) =>
         rule.Must(value => CandidateDates.TryFromWire(value, out _))

@@ -34,6 +34,21 @@ Authorization is enforced at the API/application actor boundary rather than by S
 RLS. Production business routes stay unregistered until the real identity adapter is
 selected; a Development/Test actor cannot be enabled in Production.
 
+## Encrypted columns (KTL-33)
+
+Candidate free-text columns hold AES-GCM envelopes (`ktl1.<keyId>.<payload>`), not plaintext. See
+[`../ktl-33/field-encryption.md`](../ktl-33/field-encryption.md). Rules for any slice touching them:
+
+- Mark the property `.IsEncrypted(Table, limit)` in its configuration. The column becomes `text`;
+  the length limit moves to `CandidateTextLimits` and the validators.
+- Ship a `CK_<Table>_<Column>_Encrypted` check (`LIKE 'ktl1.%'`, `IS NULL OR` when nullable) in the
+  same migration. Do not add `char_length` checks or indexes on encrypted columns: they would see
+  ciphertext.
+- Never filter, order, group, join or pattern-match on an encrypted column. `EncryptedColumnQueryGuard`
+  throws when a query does. Equality on the e-mail uses `EmailHash`.
+- Operator SQL cannot read these columns. Scripts that must recognise candidates by content decrypt
+  with the key file (see `scripts/e2e-cleanup.js`) or go through `ktl-migrate encryption`.
+
 # Position workflow ownership (KTL-15)
 
 Recruitment workflow records use the registered `OPS_` prefix. `OPS_Positions` is owned by the

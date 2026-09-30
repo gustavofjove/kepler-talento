@@ -448,7 +448,7 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
     }
     private async Task ResetAsync() { await using var db = NewDbContext(); await db.Database.EnsureDeletedAsync(); await DatabaseInitializer.MigrateAsync(db, CancellationToken.None); await DatabaseInitializer.SeedCatalogsAsync(db, CancellationToken.None); }
     private async Task AddUserAsync(string subject, string email, string roleName) { await using var db = NewDbContext(); db.Users.Add(new User(Guid.CreateVersion7(), subject, "Integration User", email, roleName, DateTimeOffset.UtcNow)); await db.SaveChangesAsync(); }
-    private ApplicationDbContext NewDbContext() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+    private ApplicationDbContext NewDbContext() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
     private WebApplicationFactory<Program> CreateFactory()
     {
         Environment.SetEnvironmentVariable("ConnectionStrings__ApplicationDatabase", database.ConnectionString); Environment.SetEnvironmentVariable("DevelopmentActor__Enabled", "false"); Environment.SetEnvironmentVariable("OperationWorker__Enabled", "false"); Environment.SetEnvironmentVariable("Authentication__SubjectClaim", "oid"); Environment.SetEnvironmentVariable("Authentication__DevelopmentIssuer__Enabled", "true"); Environment.SetEnvironmentVariable("Authentication__DevelopmentIssuer__SigningKey", SigningKey); Environment.SetEnvironmentVariable("Authentication__DevelopmentIssuer__Issuer", Issuer); Environment.SetEnvironmentVariable("Authentication__DevelopmentIssuer__Audience", Audience);

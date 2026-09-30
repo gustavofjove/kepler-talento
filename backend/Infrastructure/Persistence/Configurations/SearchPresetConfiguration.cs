@@ -1,4 +1,5 @@
 using KeplerTalento.Domain.Search;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -46,7 +47,8 @@ public sealed class SearchPresetConfiguration : IEntityTypeConfiguration<SearchP
         builder.Property(preset => preset.NormalizedName)
             .HasMaxLength(SearchPresetName.MaximumLength)
             .IsRequired();
-        builder.Property(preset => preset.Filters).HasColumnType("jsonb").IsRequired();
+        // KTL-33: a saved search term can be a candidate's name, so it is stored encrypted.
+        builder.Property(preset => preset.Filters).HasColumnType("jsonb").IsRequired().HasEncryptedFilterText(Table);
         builder.Property(preset => preset.FilterSchemaVersion).IsRequired();
         builder.Property(preset => preset.CreatedAtUtc).IsRequired();
         builder.Property(preset => preset.UpdatedAtUtc).IsRequired();

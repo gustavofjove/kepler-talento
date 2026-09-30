@@ -9,7 +9,7 @@ namespace KeplerTalento.Tests.IntegrationTests;
 public sealed class MigrationRunTests(PostgreSqlFixture database) : IClassFixture<PostgreSqlFixture>
 {
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private async Task<ApplicationDbContext> PrepareAsync()
     {

@@ -29,7 +29,7 @@ public sealed class ReconciliationReportTests(PostgreSqlFixture database)
     private string StorageRoot => Path.Combine(_workspace, "storage");
 
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private ApplicationDbContext NewContext() => new(Options);
 

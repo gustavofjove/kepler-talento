@@ -4,7 +4,9 @@ using KeplerTalento.Application.Abstractions.CvExtraction;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Abstractions.Import;
 using KeplerTalento.Application.Abstractions.Operations;
+using KeplerTalento.Application.Abstractions.Encryption;
 using KeplerTalento.Infrastructure.CvExtraction;
+using KeplerTalento.Infrastructure.Encryption;
 using KeplerTalento.Infrastructure.Documents;
 using KeplerTalento.Infrastructure.Import;
 using KeplerTalento.Infrastructure.Operations;
@@ -22,7 +24,10 @@ public static class DependencyInjection
     {
         var connectionString = configuration.GetConnectionString("ApplicationDatabase")
             ?? throw new InvalidOperationException("ConnectionStrings:ApplicationDatabase is required.");
-        services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddFieldEncryption();
+        services.AddDbContext<ApplicationDbContext>((provider, options) => options
+            .UseNpgsql(connectionString)
+            .UseFieldEncryption(provider.GetRequiredService<IFieldProtector>(), provider.GetRequiredService<IBlindIndex>()));
         services.AddScoped<ICandidateRepository, CandidateRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<ICatalogRepository, CatalogRepository>();
@@ -88,6 +93,36 @@ public static class DependencyInjection
         services.AddScoped<IOperationRepository, PostgreSqlOperationRepository>();
         services.AddHostedService<DurableOperationWorker>();
         services.AddHostedService<ImportMaintenanceService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Field encryption (KTL-33). Keys are read on first use, so registering them never fails;
+    /// the serving path validates them at startup and refuses to run without them.
+    /// </summary>
+    public static IServiceCollection AddFieldEncryption(this IServiceCollection services)
+    {
+        // Resolved from the final configuration, not the one visible at registration time, so a
+        // host's configuration overrides reach it.
+        services.AddSingleton(provider =>
+            provider.GetRequiredService<IConfiguration>().GetSection(FieldEncryptionOptions.SectionName).Get<FieldEncryptionOptions>()
+            ?? new FieldEncryptionOptions());
+        services.AddSingleton(provider =>
+        {
+            var options = provider.GetRequiredService<FieldEncryptionOptions>();
+            return new Lazy<FieldKeySet>(() => FieldKeySet.Load(options.KeyFile), LazyThreadSafetyMode.ExecutionAndPublication);
+        });
+        services.AddSingleton(provider =>
+        {
+            var keys = provider.GetRequiredService<Lazy<FieldKeySet>>();
+            return new AesGcmFieldProtector(() => keys.Value);
+        });
+        services.AddSingleton<IFieldProtector>(provider => provider.GetRequiredService<AesGcmFieldProtector>());
+        services.AddSingleton<IBlindIndex>(provider =>
+        {
+            var keys = provider.GetRequiredService<Lazy<FieldKeySet>>();
+            return new HmacBlindIndex(() => keys.Value);
+        });
         return services;
     }
 }

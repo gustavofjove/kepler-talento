@@ -1,3 +1,4 @@
+using FluentValidation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Domain.Candidates;
@@ -75,6 +76,38 @@ public sealed record SetCandidateTagsCommand(
     Guid Id,
     IReadOnlyList<CandidateTagInput> Tags,
     uint Version) : IRequest<CandidateResponse>;
+
+/// <summary>
+/// Text limits on relation items (KTL-33): the column widths the encrypted columns no longer
+/// enforce.
+/// </summary>
+public sealed class SetCandidateLanguagesValidator : AbstractValidator<SetCandidateLanguagesCommand>
+{
+    public SetCandidateLanguagesValidator() =>
+        RuleForEach(command => command.Languages).ChildRules(item =>
+            item.RuleFor(language => language.Certification).MustFitWithin(CandidateTextLimits.Certification));
+}
+
+public sealed class SetCandidateEducationValidator : AbstractValidator<SetCandidateEducationCommand>
+{
+    public SetCandidateEducationValidator() =>
+        RuleForEach(command => command.Education).ChildRules(item =>
+        {
+            item.RuleFor(education => education.Degree).MustHaveText().MustFitWithin(CandidateTextLimits.Degree);
+            item.RuleFor(education => education.Specialty).MustFitWithin(CandidateTextLimits.Specialty);
+            item.RuleFor(education => education.Institution).MustHaveText().MustFitWithin(CandidateTextLimits.Institution);
+        });
+}
+
+public sealed class SetCandidateExperienceValidator : AbstractValidator<SetCandidateExperienceCommand>
+{
+    public SetCandidateExperienceValidator() =>
+        RuleForEach(command => command.Experience).ChildRules(item =>
+        {
+            item.RuleFor(experience => experience.Company).MustHaveText().MustFitWithin(CandidateTextLimits.Company);
+            item.RuleFor(experience => experience.Position).MustHaveText().MustFitWithin(CandidateTextLimits.Position);
+        });
+}
 
 /// <summary>
 /// Shared execution for the five collection-replacement slices.

@@ -450,7 +450,10 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.Equal(2, committed.LoadedRows);
 
         await using var db = NewDbContext();
-        var candidates = await db.Candidates.AsNoTracking().OrderBy(candidate => candidate.Email).ToListAsync();
+        // Ordered after decryption: in SQL the e-mail is ciphertext (KTL-33).
+        var candidates = (await db.Candidates.AsNoTracking().ToListAsync())
+            .OrderBy(candidate => candidate.Email, StringComparer.Ordinal)
+            .ToList();
         Assert.Equal(["ana@example.test", "luis@example.test"], candidates.Select(candidate => candidate.Email));
         var ana = candidates[0];
         Assert.Null(ana.SourceKey);
@@ -824,7 +827,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
     }
 
     private ApplicationDbContext NewDbContext() => new(
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private void SetSharedEnvironment()
     {

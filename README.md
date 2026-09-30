@@ -132,6 +132,22 @@ defecto son seguros. Consulta el [contrato](docs/ktl-32/cv-draft-contract.md), l
 [hoja de prueba de fiabilidad](docs/ktl-32/extraction-test-sheet.md) y la
 [nota de versión KTL-32](docs/ktl-32/release-notes.md).
 
+## Cifrado de datos personales KTL-33
+
+Los nombres, datos de contacto, notas, experiencia, formación, nombres de archivo de CV y textos de
+búsquedas guardadas de los candidatos se guardan cifrados en PostgreSQL (AES-256-GCM). Una copia de
+la base de datos o de un backup no se puede leer sin el archivo de claves, que vive fuera de la base
+de datos y de `backups/`. Para los usuarios no cambia nada: la búsqueda de texto y el orden por
+apellidos se hacen en la API con los mismos resultados, hasta un máximo documentado de 12.000
+candidatos.
+
+**Si se pierde el archivo de claves, se pierden los datos, backups incluidos.** Guarda una copia
+custodiada por dos personas. Las operaciones (`generate-keys`, `add-key`, `retire-key`, `backfill`,
+`report`) están en `ktl-migrate encryption`. Los archivos de CV en disco aún no se cifran. Consulta
+el [resumen técnico](docs/ktl-33/field-encryption.md), el [manual de claves](docs/ktl-33/key-runbook.md),
+el [procedimiento de despliegue](docs/ktl-33/rollout-runbook.md) y la
+[nota de versión KTL-33](docs/ktl-33/release-notes.md).
+
 ## Ruta de navegación KTL-23
 
 Las páginas de detalle, alta y edición de candidatos, posiciones y presets muestran una ruta de
@@ -368,8 +384,14 @@ herramienta `dotnet-ef` queda fijada mediante `.config/dotnet-tools.json`.
 
 ```powershell
 Copy-Item .env.example .env
+dotnet run --project backend/Tools/DataMigration -- encryption generate-keys --out secrets/field-keys.json
 docker compose up --build
 ```
+
+La API necesita el archivo de claves de cifrado (KTL-33) y no arranca sin él. El segundo comando lo
+genera una sola vez en `secrets/`, carpeta ignorada por git; `KTL_FIELD_KEYS_FILE` indica su ruta.
+Si ya tienes una base de datos de desarrollo con datos en claro, la API se negará a arrancar hasta
+cifrarlos: sigue el [procedimiento de despliegue](docs/ktl-33/rollout-runbook.md).
 
 El migrador termina antes de que arranque la API. Nginx sirve la SPA y reenvía `/api` al
 backend con el mismo origen. PostgreSQL, ClamAV y los directorios de documentos no

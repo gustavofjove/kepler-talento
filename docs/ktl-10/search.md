@@ -151,9 +151,17 @@ column rather than a correlated text join repeated per candidate. Inactive catal
 included deliberately: a value an administrator retired stays meaningful for the candidates who
 already hold it.
 
-Free text is an `ILIKE` over first name, last name, email, phone and notes, with `%`, `_` and
-the escape character escaped first — so a search for `100%` matches that text rather than
-behaving as wildcard syntax.
+Free text is a case-insensitive literal substring over first name, last name, email, phone and
+notes — so a search for `100%` matches that text rather than behaving as wildcard syntax.
+
+**Since KTL-33** those five fields, like the last name used for sorting, are ciphertext. When a
+search has free text or sorts by last name, SQL applies every other family and returns the
+candidates that can still match; the API decrypts them, matches and orders exactly as PostgreSQL
+did (`ILIKE` folding, code-point order; see
+[`../ktl-33/design-notes.md`](../ktl-33/design-notes.md)), counts and pages. Other searches are
+unchanged and stay entirely in SQL. The documented ceiling for the in-API stage is 12,000
+candidates at p95 ≤ 300 ms ([`../ktl-33/performance.md`](../ktl-33/performance.md)). The
+`IX_CND_Candidates_IsActive_LastName_FirstName_Id` index was removed with it.
 
 ## Indexes
 

@@ -25,10 +25,7 @@ public sealed class MigrationRunner(
     TextWriter output,
     TextWriter error)
 {
-    private ApplicationDbContext NewContext() =>
-        new(new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(commandLine.ConnectionString)
-            .Options);
+    private ApplicationDbContext NewContext() => new(ToolFieldEncryption.ContextOptions(commandLine.ConnectionString));
 
     public async Task<int> RunAsync(MigrationRun run, CancellationToken cancellationToken)
     {

@@ -124,6 +124,9 @@ id_rsa
 id_rsa.pub
 id_ed25519
 id_ed25519.pub
+# KTL-33 field encryption key files. Losing one loses the data; committing one exposes it.
+/secrets/
+*field-keys*.json
 
 # Docker / local infra
 .docker/

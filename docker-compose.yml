@@ -82,6 +82,10 @@ services:
       ClamAv__Host: clamav
       ClamAv__Port: 3310
       OperationWorker__Enabled: 'true'
+    # KTL-33: the field encryption keys, mounted at /run/secrets/ktl_field_keys (the API's
+    # default FieldEncryption:KeyFile). Given to the api only; the migrator never holds them.
+    # The API refuses to start without them.
+    secrets: [ktl_field_keys]
     volumes:
       - documents:/var/lib/kepler-talento/documents
     depends_on:
@@ -142,3 +146,9 @@ volumes:
   postgres-data:
   documents:
   clamav-signatures:
+
+secrets:
+  # Generate with `ktl-migrate encryption generate-keys --out <file>` (docs/ktl-33/). Keep it
+  # outside backups; losing it loses every candidate's data.
+  ktl_field_keys:
+    file: ${KTL_FIELD_KEYS_FILE:-./secrets/field-keys.json}

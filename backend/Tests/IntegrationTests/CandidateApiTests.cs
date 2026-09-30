@@ -893,7 +893,7 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     private ApplicationDbContext NewDbContext() => new(
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private WebApplicationFactory<Program> CreateFactory(ICurrentActor actor, IMalwareScanner? scanner = null)
     {
