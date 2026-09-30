@@ -143,6 +143,8 @@ legacy import, is shown as stored instead of breaking the panel. Empty values st
 
 - `2026-09-01` shows as «1 sept 2026» in every time zone.
 - A malformed stored value is shown unchanged and the page still renders.
+- An impossible day in the right shape (`2026-02-30`, `2025-02-29`) is shown as stored, not rolled
+  over to the next month by the browser's date parser.
 
 ### 7. Validation errors in red at the top of the form
 

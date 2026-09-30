@@ -149,4 +149,12 @@ describe('i18n foundation', () => {
     expect(formatDay('01/09/2026')).toBe('01/09/2026');
     expect(formatDay('2026-13-45')).toBe('2026-13-45');
   });
+
+  it('keeps an impossible day as stored instead of rolling it over (KTL-34)', () => {
+    // V8 parses these as 2 March, 1 March and 1 May; they must not show as another date.
+    for (const value of ['2026-02-30', '2025-02-29', '2026-04-31', '2026-06-00'])
+      expect(formatDay(value)).toBe(value);
+    // A real 29 February still formats.
+    expect(formatDay('2024-02-29')).toBe('29 feb 2024');
+  });
 });
