@@ -173,10 +173,10 @@ public sealed class PositionQueryPlanTests(PostgreSqlFixture database, ITestOutp
     }
 
     private ApplicationDbContext NewContext() =>
-        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private ApplicationDbContext NewContext(CommandCapture capture) => new(
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).AddInterceptors(capture).Options);
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().AddInterceptors(capture).Options);
 
     private static string RepositoryRoot()
     {

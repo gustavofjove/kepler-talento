@@ -136,7 +136,7 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task Each_contracted_sort_field_has_an_index_ending_in_the_identifier_tie_breaker()
+    public async Task The_status_sort_has_an_index_ending_in_the_identifier_tie_breaker()
     {
         await MigrateAsync();
 
@@ -144,16 +144,28 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
             """
             SELECT indexdef FROM pg_indexes
             WHERE schemaname = 'public'
-              AND indexname IN (
-                'IX_CND_Candidates_IsActive_LastName_FirstName_Id',
-                'IX_CND_Candidates_IsActive_Status_Id')
-            ORDER BY indexname
+              AND indexname = 'IX_CND_Candidates_IsActive_Status_Id'
             """);
 
-        // KTL-18: sorting the list by last name or status stays bounded at deep offsets.
-        Assert.Equal(2, definitions.Count);
-        Assert.Contains("(\"IsActive\", \"LastName\", \"FirstName\", \"Id\")", definitions[0], StringComparison.Ordinal);
-        Assert.Contains("(\"IsActive\", \"Status\", \"Id\")", definitions[1], StringComparison.Ordinal);
+        // KTL-18: sorting the list by status stays bounded at deep offsets.
+        Assert.Contains("(\"IsActive\", \"Status\", \"Id\")", Assert.Single(definitions), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task No_index_orders_or_filters_on_an_encrypted_name()
+    {
+        await MigrateAsync();
+
+        // KTL-33: names are ciphertext. An index over them would sort random bytes, and the
+        // last-name sort runs in the API instead (docs/ktl-33/design-notes.md).
+        var definitions = await QueryAsync(
+            """
+            SELECT indexdef FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = 'CND_Candidates'
+              AND (indexdef LIKE '%"LastName"%' OR indexdef LIKE '%"FirstName"%' OR indexdef LIKE '%"Email"%')
+            """);
+
+        Assert.Empty(definitions);
     }
 
     [Fact]
@@ -282,7 +294,7 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private ApplicationDbContext NewContext() => new(Options);
 

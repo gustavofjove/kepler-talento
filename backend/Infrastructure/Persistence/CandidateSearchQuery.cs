@@ -1,5 +1,9 @@
 using System.Linq.Expressions;
+using KeplerTalento.Application.Abstractions.Encryption;
 using KeplerTalento.Application.Features.Search;
+using KeplerTalento.Infrastructure.Encryption;
+using KeplerTalento.Infrastructure.Persistence.Configurations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using Microsoft.EntityFrameworkCore;
@@ -49,21 +53,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
             query = query.Where(candidate => statuses.Contains(candidate.Status));
         }
 
-        if (filters.Text.Length > 0)
-        {
-            // A literal, case-insensitive substring over the same five fields the browser
-            // evaluator read. The pattern is escaped, so a name containing % or _ matches
-            // those characters instead of behaving as wildcard syntax, and the escape
-            // character is declared to PostgreSQL rather than assumed.
-            var pattern = SearchTextPattern.Contains(filters.Text);
-            var escape = SearchTextPattern.EscapeCharacter.ToString();
-            query = query.Where(candidate =>
-                EF.Functions.ILike(candidate.FirstName, pattern, escape)
-                || EF.Functions.ILike(candidate.LastName, pattern, escape)
-                || EF.Functions.ILike(candidate.Email, pattern, escape)
-                || EF.Functions.ILike(candidate.Phone, pattern, escape)
-                || EF.Functions.ILike(candidate.Notes, pattern, escape));
-        }
+        // Free text is not applied here. The five fields it reads are ciphertext since KTL-33, so
+        // the match runs in the API over the rows this predicate selects (SearchAsync).
 
         query = filters.HasCv switch
         {
@@ -107,6 +98,164 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     }
 
     /// <summary>
+    /// Whether a search needs the encrypted fields: a free-text term, or the last-name order.
+    /// Everything else stays entirely in SQL.
+    /// </summary>
+    public static bool NeedsEncryptedStage(SearchFiltersValue filters, SearchOptions options) =>
+        filters.Text.Length > 0 || options.Sort.Field == SearchSortField.LastName;
+
+    /// <summary>One page of results and the total, by whichever path the search needs.</summary>
+    public async Task<SearchPage<CandidateSearchItem>> SearchAsync(
+        SearchFiltersValue filters,
+        SearchOptions options,
+        CancellationToken cancellationToken)
+    {
+        var matching = await MatchingAsync(filters, options.IncludeInactive, cancellationToken);
+        if (!NeedsEncryptedStage(filters, options))
+        {
+            var totalCount = await matching.CountAsync(cancellationToken);
+            var items = await Page(matching, options).ToListAsync(cancellationToken);
+            return new SearchPage<CandidateSearchItem>(items, options.Page, options.PageSize, totalCount);
+        }
+        return await EncryptedStageAsync(matching, filters.Text, options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Text match and name order over decrypted values (KTL-33 design decision 6).
+    /// </summary>
+    /// <remarks>
+    /// SQL has already applied every other family, so this reads only the rows that can still
+    /// match (<c>"Id" IN (the same predicate)</c>), and only the fields the match and the order
+    /// need, as stored envelopes. Rows are decrypted in parallel, and a row's remaining fields are
+    /// skipped as soon as one matches. The page's items are then loaded by identifier through the
+    /// same projection as the SQL path. Decrypted values live only for this call; nothing is cached.
+    /// </remarks>
+    private async Task<SearchPage<CandidateSearchItem>> EncryptedStageAsync(
+        IQueryable<Candidate> matching,
+        string text,
+        SearchOptions options,
+        CancellationToken cancellationToken)
+    {
+        var protector = FieldEncryptionModel.ProtectorFrom(dbContext.GetService<IDbContextOptions>());
+        var ids = matching.Select(candidate => candidate.Id);
+        var stored = dbContext.CandidateCiphertexts.AsNoTracking().Where(row => ids.Contains(row.Id));
+        var raw = text.Length > 0
+            ? await stored
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, row.Email, row.Phone, row.Notes, row.Status, row.UpdatedAtUtc))
+                .ToListAsync(cancellationToken)
+            : await stored
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, null, null, null, row.Status, row.UpdatedAtUtc))
+                .ToListAsync(cancellationToken);
+
+        var term = EncryptedSearchSemantics.Fold(text);
+        var byName = options.Sort.Field == SearchSortField.LastName;
+        var decided = new EncryptedSearchRow?[raw.Count];
+        Parallel.For(
+            0,
+            raw.Count,
+            new ParallelOptions { CancellationToken = cancellationToken, MaxDegreeOfParallelism = Environment.ProcessorCount },
+            index =>
+            {
+                var row = raw[index];
+                string? first = null;
+                string? last = null;
+                string First() => first ??= protector.Unprotect(row.FirstName, FirstNameContext);
+                string Last() => last ??= protector.Unprotect(row.LastName, LastNameContext);
+                if (term.Length > 0
+                    && !EncryptedSearchSemantics.Contains(First(), term)
+                    && !EncryptedSearchSemantics.Contains(Last(), term)
+                    && !EncryptedSearchSemantics.Contains(protector.Unprotect(row.Email!, EmailContext), term)
+                    && !EncryptedSearchSemantics.Contains(protector.Unprotect(row.Phone!, PhoneContext), term)
+                    && !EncryptedSearchSemantics.Contains(protector.Unprotect(row.Notes!, NotesContext), term))
+                {
+                    return;
+                }
+                decided[index] = new EncryptedSearchRow(
+                    row.Id,
+                    byName ? First() : string.Empty,
+                    byName ? Last() : string.Empty,
+                    row.Status,
+                    row.UpdatedAtUtc);
+            });
+        var rows = new List<EncryptedSearchRow>(raw.Count);
+        foreach (var row in decided)
+        {
+            if (row is not null)
+            {
+                rows.Add(row);
+            }
+        }
+
+        rows.Sort(Comparer(options.Sort));
+        var pageIds = rows
+            .Skip((options.Page - 1) * options.PageSize)
+            .Take(options.PageSize)
+            .Select(row => row.Id)
+            .ToList();
+        var loaded = await Project(dbContext.Candidates.AsNoTracking().Where(candidate => pageIds.Contains(candidate.Id)))
+            .ToListAsync(cancellationToken);
+        var byId = loaded.ToDictionary(item => item.CandidateId);
+        return new SearchPage<CandidateSearchItem>(
+            [.. pageIds.Select(id => byId[id])],
+            options.Page,
+            options.PageSize,
+            rows.Count);
+    }
+
+    private static readonly FieldContext FirstNameContext = FieldContext.For(CandidateConfiguration.Table, nameof(Candidate.FirstName));
+    private static readonly FieldContext LastNameContext = FieldContext.For(CandidateConfiguration.Table, nameof(Candidate.LastName));
+    private static readonly FieldContext EmailContext = FieldContext.For(CandidateConfiguration.Table, nameof(Candidate.Email));
+    private static readonly FieldContext PhoneContext = FieldContext.For(CandidateConfiguration.Table, nameof(Candidate.Phone));
+    private static readonly FieldContext NotesContext = FieldContext.For(CandidateConfiguration.Table, nameof(Candidate.Notes));
+
+    /// <summary>Envelopes as stored; the unused fields are null when only the name order is needed.</summary>
+    private sealed record StoredRow(
+        Guid Id,
+        string FirstName,
+        string LastName,
+        string? Email,
+        string? Phone,
+        string? Notes,
+        string Status,
+        DateTimeOffset UpdatedAtUtc);
+
+    /// <summary>A row that matched, with the decrypted names only when the order needs them.</summary>
+    private sealed record EncryptedSearchRow(
+        Guid Id,
+        string FirstName,
+        string LastName,
+        string Status,
+        DateTimeOffset UpdatedAtUtc)
+    {
+        // Precomputed once per row: sorting compares identifiers many times.
+        public string IdKey { get; } = Id.ToString("D");
+    }
+
+    /// <summary>
+    /// The SQL ordering, reproduced: the chosen field in the chosen direction, then the
+    /// identifier ascending in both directions.
+    /// </summary>
+    private static Comparison<EncryptedSearchRow> Comparer(SearchSort sort)
+    {
+        var sign = sort.Direction == SearchSortDirection.Ascending ? 1 : -1;
+        Comparison<EncryptedSearchRow> field = sort.Field switch
+        {
+            SearchSortField.LastName => (left, right) =>
+            {
+                var byLast = EncryptedSearchSemantics.NameOrder.Compare(left.LastName, right.LastName);
+                return byLast != 0 ? byLast : EncryptedSearchSemantics.NameOrder.Compare(left.FirstName, right.FirstName);
+            },
+            SearchSortField.Status => (left, right) => string.CompareOrdinal(left.Status, right.Status),
+            _ => (left, right) => left.UpdatedAtUtc.UtcTicks.CompareTo(right.UpdatedAtUtc.UtcTicks),
+        };
+        return (left, right) =>
+        {
+            var byField = sign * field(left, right);
+            return byField != 0 ? byField : string.CompareOrdinal(left.IdKey, right.IdKey);
+        };
+    }
+
+    /// <summary>
     /// Orders, pages and projects the matching candidates into search items.
     /// </summary>
     /// <remarks>
@@ -118,10 +267,13 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         // The identifier ascending is always the final term, whichever field is chosen:
         // without it, two candidates sharing a sort value could appear on both of two
         // adjacent pages, or on neither.
-        Order(matching, options.Sort)
+        Project(Order(matching, options.Sort)
             .ThenBy(candidate => candidate.Id)
             .Skip((options.Page - 1) * options.PageSize)
-            .Take(options.PageSize)
+            .Take(options.PageSize));
+
+    private IQueryable<CandidateSearchItem> Project(IQueryable<Candidate> candidates) =>
+        candidates
             .Select(candidate => new CandidateSearchItem(
                 candidate.Id,
                 candidate.FirstName,
@@ -143,18 +295,17 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     /// members only; no caller text reaches this point.
     /// </summary>
     /// <remarks>
-    /// <c>lastName</c> orders by last name then first name, as the list always has.
     /// <c>status</c> orders by the status code, matching the previous browser ordering.
+    /// <c>lastName</c> never reaches SQL: names are ciphertext, so that order is applied by
+    /// <see cref="EncryptedStageAsync"/>.
     /// </remarks>
     private static IOrderedQueryable<Candidate> Order(IQueryable<Candidate> query, SearchSort sort)
     {
         var ascending = sort.Direction == SearchSortDirection.Ascending;
         return sort.Field switch
         {
-            SearchSortField.LastName => ascending
-                ? query.OrderBy(candidate => candidate.LastName).ThenBy(candidate => candidate.FirstName)
-                : query.OrderByDescending(candidate => candidate.LastName)
-                    .ThenByDescending(candidate => candidate.FirstName),
+            SearchSortField.LastName => throw new InvalidOperationException(
+                "The last-name order is applied over decrypted values, never in SQL."),
             SearchSortField.Status => ascending
                 ? query.OrderBy(candidate => candidate.Status)
                 : query.OrderByDescending(candidate => candidate.Status),

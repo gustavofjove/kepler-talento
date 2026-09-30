@@ -320,7 +320,7 @@ public sealed class PositionSchemaTests(PostgreSqlFixture database) : IClassFixt
     }
 
     private ApplicationDbContext NewDbContext() =>
-        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private sealed class SystemActor : ICurrentActor
     {

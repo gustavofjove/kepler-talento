@@ -1,5 +1,6 @@
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -19,17 +20,16 @@ public sealed class CandidateEducationConfiguration : IEntityTypeConfiguration<C
             table.HasCheckConstraint(
                 $"CK_{Table}_StatusFamily",
                 CandidateRelationMapping.FamilyCheck("StatusFamily", CatalogFamilies.EducationStatus));
-            table.HasCheckConstraint(
-                $"CK_{Table}_Degree",
-                "char_length(\"Degree\") > 0 AND char_length(\"Institution\") > 0");
+            // KTL-33: Degree and Institution are ciphertext; their non-empty rule moved to the
+            // validator and the encryption converter.
             table.HasCheckConstraint(
                 $"CK_{Table}_EndYear",
                 "\"EndYear\" IS NULL OR (\"EndYear\" BETWEEN 1900 AND 2200)");
         });
         builder.ConfigureRelation(Table, candidate => candidate.Education);
-        builder.Property(education => education.Degree).HasMaxLength(200).IsRequired();
-        builder.Property(education => education.Specialty).HasMaxLength(200);
-        builder.Property(education => education.Institution).HasMaxLength(200).IsRequired();
+        builder.Property(education => education.Degree).IsEncrypted(Table, CandidateTextLimits.Degree, requireText: true).IsRequired();
+        builder.Property(education => education.Specialty).IsEncrypted(Table, CandidateTextLimits.Specialty);
+        builder.Property(education => education.Institution).IsEncrypted(Table, CandidateTextLimits.Institution, requireText: true).IsRequired();
         builder.HasCatalogReference(
             education => new { education.EducationTypeId, education.EducationTypeFamily },
             education => education.EducationTypeFamily);

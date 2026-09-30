@@ -8,6 +8,20 @@ platform.
 Legacy paths still on Supabase are unchanged by KTL-5 and must keep their existing backup
 until their own migration and cutover are validated.
 
+## Encrypted candidate data (KTL-33)
+
+Since KTL-33 the database part of a recovery set holds candidate personal data only as
+ciphertext. Two consequences:
+
+- **A restore needs the key file.** A recovery set is useless without the key file in force when it
+  was taken. Keep an escrowed copy of every key file until the last recovery set that needs it has
+  been retired. See [`ktl-33/key-runbook.md`](ktl-33/key-runbook.md), including the restore drill.
+- **Recovery sets from before the rollout are plaintext.** Retire them, and any older volume or VM
+  snapshots, as described in [`ktl-33/rollout-runbook.md`](ktl-33/rollout-runbook.md).
+
+`documents.tar.gz` is **not** encrypted by KTL-33: CV and import files are still stored as
+uploaded. Keep recovery sets under the same access control as before.
+
 ## After the Access migration
 
 Once KTL-7 has loaded the candidate dataset, the recovery set contains real candidate

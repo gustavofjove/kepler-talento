@@ -29,6 +29,7 @@ namespace KeplerTalento.Tests.IntegrationTests;
 /// The captured plans are written to <c>docs/ktl-10/query-plans.md</c> so the evidence
 /// outlives the test run, as the design requires.
 /// </remarks>
+[Collection(TimingCollection.Name)]
 public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<PostgreSqlFixture>
 {
@@ -49,6 +50,12 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         report.AppendLine(
             "relations and primary documents — the scale KTL-7 reconciled. Regenerate by running");
         report.AppendLine("`dotnet test backend/Tests/IntegrationTests/IntegrationTests.csproj`.");
+        report.AppendLine();
+        report.AppendLine(
+            "Since KTL-33, free text and the last-name order run in the API over decrypted values, so");
+        report.AppendLine(
+            "they issue no SQL of their own worth a plan here. Their evidence is");
+        report.AppendLine("[`docs/ktl-33/performance.md`](../ktl-33/performance.md).");
         report.AppendLine();
 
         foreach (var (name, filters, options) in Cases(catalog))
@@ -77,8 +84,11 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
             if (name == "Skill ALL across three values")
             {
                 Assert.Contains("\"LevelId\" = ANY", plan, StringComparison.Ordinal);
-                Assert.Contains("Index Scan using \"UX_CND_CandidateSkills_CandidateId_SkillId\"", plan,
-                    StringComparison.Ordinal);
+                // Either index led by CandidateId serves the correlated lookup; they cost the same,
+                // so the planner's pick between them varies with the run's statistics.
+                Assert.Matches(
+                    "Index Scan using \"(IX_CND_CandidateSkills_CandidateId|UX_CND_CandidateSkills_CandidateId_SkillId)\"",
+                    plan);
                 Assert.DoesNotContain("\"CAT_CatalogItems\"", plan, StringComparison.Ordinal);
             }
         }
@@ -93,10 +103,11 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         var firstPage = new SearchOptions(1, SearchPaging.DefaultPageSize, SearchSort.Default, false);
         var unfiltered = SearchFilterNormalization.Normalize(null, "Filters");
 
-        // KTL-18: every contracted sort field, both directions, at a deep offset — the last
-        // page of the scale dataset — with removed candidates included, as the list issues it.
+        // KTL-18: every contracted sort field SQL still orders by, both directions, at a deep
+        // offset — the last page of the scale dataset — with removed candidates included, as the
+        // list issues it. The last-name order runs in the API since KTL-33.
         var deepPage = CandidateCount / SearchPaging.MaximumPageSize;
-        foreach (var field in Enum.GetValues<SearchSortField>())
+        foreach (var field in Enum.GetValues<SearchSortField>().Where(field => field != SearchSortField.LastName))
         {
             foreach (var direction in Enum.GetValues<SearchSortDirection>())
             {
@@ -121,9 +132,6 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
         yield return (
             "Unfiltered first page",
             Build(new SearchFiltersInput(null, null, null, null, null, null, null, null, null)));
-        yield return (
-            "Free text (leading wildcard)",
-            Build(new SearchFiltersInput("ez 1234", null, null, null, null, null, null, null, null)));
         yield return (
             "Status subset and primary CV",
             Build(new SearchFiltersInput(
@@ -155,10 +163,12 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                 ],
                 "ALL",
                 null, null, null, null, null)));
+        // Free text is left out: it is matched in the API after this statement (KTL-33), so the
+        // statement is the same one this case captures.
         yield return (
-            "Every family combined",
+            "Every SQL family combined",
             Build(new SearchFiltersInput(
-                "ez",
+                null,
                 [CandidateStatuses.Available],
                 [new SearchCriterionInput(catalog.Skills[0], "")],
                 "ANY",
@@ -358,13 +368,14 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
     }
 
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private ApplicationDbContext NewContext() => new(Options);
 
     private ApplicationDbContext NewContext(CommandCapture capture) => new(
         new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(database.ConnectionString)
+            .UseTestFieldEncryption()
             .AddInterceptors(capture)
             .Options);
 

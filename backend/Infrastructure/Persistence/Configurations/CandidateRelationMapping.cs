@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -41,6 +42,8 @@ internal static class CandidateRelationMapping
     {
         builder.HasKey(relation => relation.Id);
         builder.Property(relation => relation.SourceKey).HasMaxLength(200);
+        // KTL-33: free-text notes on every relation are personal data.
+        builder.Property(relation => relation.Notes).IsEncrypted(tableName);
         builder.HasIndex(relation => relation.CandidateId)
             .HasDatabaseName($"IX_{tableName}_CandidateId");
         builder.HasIndex(relation => relation.SourceKey)

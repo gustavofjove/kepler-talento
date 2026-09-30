@@ -1,5 +1,6 @@
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -24,7 +25,7 @@ public sealed class CandidateLanguageConfiguration : IEntityTypeConfiguration<Ca
         builder.HasIndex(language => new { language.CandidateId, language.LanguageId })
             .IsUnique()
             .HasDatabaseName("UX_CND_CandidateLanguages_CandidateId_LanguageId");
-        builder.Property(language => language.Certification).HasMaxLength(160);
+        builder.Property(language => language.Certification).IsEncrypted(Table, CandidateTextLimits.Certification);
         builder.HasCatalogReference(
             language => new { language.LanguageId, language.LanguageFamily },
             language => language.LanguageFamily);

@@ -18,6 +18,7 @@ using KeplerTalento.Web.Identity;
 using KeplerTalento.Web.Observability;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Infrastructure.Documents;
+using KeplerTalento.Infrastructure.Encryption;
 using KeplerTalento.Web.Features.Identity;
 using KeplerTalento.Web.Features.Positions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -308,6 +309,17 @@ if (args.Contains("--migrate", StringComparer.Ordinal))
         app.Lifetime.ApplicationStopping);
     return;
 }
+// KTL-33: the serving path refuses to start without valid keys, while any encrypted column still
+// holds plaintext, or while the legacy staging schema exists. Placed after the --migrate branch
+// on purpose: the migrator never holds the keys.
+await using (var encryptionScope = app.Services.CreateAsyncScope())
+{
+    await FieldEncryptionStartupCheck.RunAsync(
+        encryptionScope.ServiceProvider.GetRequiredService<AesGcmFieldProtector>(),
+        encryptionScope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
+        app.Lifetime.ApplicationStopping);
+}
+
 app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationMiddleware>();
 app.UseExceptionHandler();

@@ -1,5 +1,6 @@
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Documents;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -7,13 +8,16 @@ namespace KeplerTalento.Infrastructure.Persistence.Configurations;
 
 public sealed class DocumentConfiguration : IEntityTypeConfiguration<CandidateDocument>
 {
+    public const string Table = "CND_Documents";
+
     public void Configure(EntityTypeBuilder<CandidateDocument> builder)
     {
-        builder.ToTable("CND_Documents", table => table.HasCheckConstraint("CK_CND_Documents_Size", "\"Size\" > 0 AND \"Size\" <= 20971520"));
+        builder.ToTable(Table, table => table.HasCheckConstraint("CK_CND_Documents_Size", "\"Size\" > 0 AND \"Size\" <= 20971520"));
         builder.HasKey(document => document.Id);
         builder.Property(document => document.StorageKey).HasMaxLength(240).IsRequired();
         builder.HasIndex(document => document.StorageKey).IsUnique();
-        builder.Property(document => document.OriginalFileName).HasMaxLength(255).IsRequired();
+        // KTL-33: a CV's file name usually carries the candidate's name.
+        builder.Property(document => document.OriginalFileName).IsEncrypted(Table, CandidateTextLimits.DocumentFileName).IsRequired();
         builder.Property(document => document.ContentType).HasMaxLength(120).IsRequired();
         builder.Property(document => document.Sha256).HasMaxLength(64).IsRequired();
         builder.Property(document => document.DocumentType).HasMaxLength(80).IsRequired();

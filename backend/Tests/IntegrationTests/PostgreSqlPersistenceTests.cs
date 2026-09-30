@@ -19,6 +19,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(database.ConnectionString)
+            .UseTestFieldEncryption()
             .Options;
         await using var dbContext = new ApplicationDbContext(options);
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
@@ -71,7 +72,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Operation_claim_is_single_owner_recoverable_and_idempotent()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         await using (var setup = new ApplicationDbContext(options))
         {
             await DatabaseInitializer.MigrateAsync(setup, CancellationToken.None);
@@ -98,7 +99,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Scanner_outage_keeps_new_document_unavailable_but_existing_clean_download_works()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         var storageRoot = Path.Combine(Path.GetTempPath(), $"ktl-scanner-outage-{Guid.NewGuid():N}");
         try
         {
@@ -151,7 +152,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Download_refuses_every_non_available_state_and_a_missing_binary()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         var storageRoot = Path.Combine(Path.GetTempPath(), $"ktl-download-states-{Guid.NewGuid():N}");
         try
         {
@@ -207,7 +208,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Expired_work_is_reclaimed_once_then_fails_at_the_retry_limit()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         Guid operationId;
         await using (var setup = new ApplicationDbContext(options))
         {
@@ -246,7 +247,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Operations_are_queryable_by_exact_correlation_identifier()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         await using var dbContext = new ApplicationDbContext(options);
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
         var repository = new PostgreSqlOperationRepository(dbContext);
@@ -268,7 +269,7 @@ public sealed class PostgreSqlPersistenceTests(PostgreSqlFixture database) : ICl
     [Fact]
     public async Task Reconciliation_reports_missing_orphaned_and_stale_objects_with_redacted_audits()
     {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
         var storageRoot = Path.Combine(Path.GetTempPath(), $"ktl-reconciliation-{Guid.NewGuid():N}");
         try
         {

@@ -239,10 +239,10 @@ public sealed class PositionCandidateSchemaTests(PostgreSqlFixture database) : I
     }
 
     private ApplicationDbContext NewDbContext() =>
-        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private ApplicationDbContext NewDbContext(CommandCapture capture) =>
-        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).AddInterceptors(capture).Options);
+        new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().AddInterceptors(capture).Options);
 
     /// <summary>Records every reader command EF sends, so EXPLAIN runs on the exact statements.</summary>
     private sealed class CommandCapture : DbCommandInterceptor

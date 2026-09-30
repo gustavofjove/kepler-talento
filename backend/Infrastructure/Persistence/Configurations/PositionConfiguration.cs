@@ -1,4 +1,5 @@
 using KeplerTalento.Domain.Positions;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -27,7 +28,8 @@ public sealed class PositionConfiguration : IEntityTypeConfiguration<Position>
         builder.Property(position => position.Location).HasMaxLength(PositionText.MaximumLocationLength).IsRequired();
         builder.Property(position => position.NormalizedLocation).HasMaxLength(PositionText.MaximumLocationLength).IsRequired();
         builder.Property(position => position.Status).HasMaxLength(10).IsRequired();
-        builder.Property(position => position.Requirements).HasColumnType("jsonb").IsRequired();
+        // KTL-33: the requirements' search term can be a candidate's name, so it is stored encrypted.
+        builder.Property(position => position.Requirements).HasColumnType("jsonb").IsRequired().HasEncryptedFilterText(Table);
         builder.Property(position => position.Version).IsRowVersion();
         builder.HasIndex(position => position.NormalizedTitle).IsUnique().HasDatabaseName("UX_OPS_Positions_NormalizedTitle");
         builder.HasIndex(position => new { position.Status, position.UpdatedAtUtc, position.Id }).HasDatabaseName("IX_OPS_Positions_Status_UpdatedAtUtc_Id");

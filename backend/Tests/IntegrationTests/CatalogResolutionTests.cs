@@ -19,6 +19,7 @@ public sealed class CatalogResolutionTests(PostgreSqlFixture database) : IClassF
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(database.ConnectionString)
+            .UseTestFieldEncryption()
             .Options;
         await using var dbContext = new ApplicationDbContext(options);
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);
@@ -96,6 +97,7 @@ public sealed class CatalogResolutionTests(PostgreSqlFixture database) : IClassF
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(database.ConnectionString)
+            .UseTestFieldEncryption()
             .Options;
         await using var dbContext = new ApplicationDbContext(options);
         await DatabaseInitializer.MigrateAsync(dbContext, CancellationToken.None);

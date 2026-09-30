@@ -16,7 +16,7 @@ namespace KeplerTalento.Tests.IntegrationTests;
 public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFixture<PostgreSqlFixture>
 {
     private DbContextOptions<ApplicationDbContext> Options =>
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options;
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options;
 
     private ApplicationDbContext NewContext() => new(Options);
 
@@ -180,6 +180,99 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
             raw.Database.ExecuteSqlInterpolatedAsync(
                 $"UPDATE \"CND_Candidates\" SET \"Status\" = 'promoted' WHERE \"Id\" = {candidateId}"));
         Assert.Equal("CK_CND_Candidates_Status", failure.ConstraintName);
+    }
+
+    [Theory]
+    [InlineData("FirstName")]
+    [InlineData("Email")]
+    [InlineData("Notes")]
+    public async Task A_direct_plaintext_update_of_an_encrypted_column_is_rejected_by_the_database(string column)
+    {
+        await PrepareAsync();
+        var candidateId = Guid.NewGuid();
+        await using (var seed = NewContext())
+        {
+            seed.Candidates.Add(NewCandidate(candidateId, DateTimeOffset.UtcNow));
+            await seed.SaveChangesAsync();
+        }
+
+        // KTL-33: a bulk writer that bypasses the API cannot put plaintext back.
+        var sql = column switch
+        {
+            "FirstName" => """UPDATE "CND_Candidates" SET "FirstName" = 'Texto en claro' WHERE "Id" = {0}""",
+            "Email" => """UPDATE "CND_Candidates" SET "Email" = 'Texto en claro' WHERE "Id" = {0}""",
+            _ => """UPDATE "CND_Candidates" SET "Notes" = 'Texto en claro' WHERE "Id" = {0}""",
+        };
+        await using var raw = NewContext();
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => raw.Database.ExecuteSqlRawAsync(sql, candidateId));
+        Assert.Equal($"CK_CND_Candidates_{column}_Encrypted", failure.ConstraintName);
+    }
+
+    [Fact]
+    public async Task A_direct_plaintext_insert_is_rejected_by_the_database()
+    {
+        await PrepareAsync();
+
+        await using var raw = NewContext();
+        var failure = await Assert.ThrowsAsync<PostgresException>(() =>
+            raw.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                INSERT INTO "CND_Candidates"
+                    ("Id", "FirstName", "LastName", "Phone", "Email", "Location", "Province", "Country",
+                     "Availability", "Status", "Source", "Notes", "IsActive", "CreatedAtUtc", "UpdatedAtUtc", "EmailHash")
+                VALUES ({Guid.NewGuid()}, 'Ana', 'López', '', '', '', '', '', '', 'available', '', '', true, now(), now(), '')
+                """));
+        Assert.StartsWith("CK_CND_Candidates_", failure.ConstraintName, StringComparison.Ordinal);
+        Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
+    }
+
+    [Fact]
+    public async Task Nullable_encrypted_columns_still_accept_null()
+    {
+        var catalog = await PrepareAsync();
+        var now = DateTimeOffset.UtcNow;
+        var candidateId = Guid.NewGuid();
+        await using (var seed = NewContext())
+        {
+            seed.Candidates.Add(NewCandidate(candidateId, now));
+            var language = new CandidateLanguage(
+                Guid.NewGuid(), candidateId, catalog.First(CatalogFamilies.Language), catalog.First(CatalogFamilies.LanguageLevel));
+            seed.CandidateLanguages.Add(language);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var read = NewContext();
+        var stored = await read.CandidateLanguages.AsNoTracking().SingleAsync(language => language.CandidateId == candidateId);
+        Assert.Null(stored.Certification);
+        Assert.Null(stored.Notes);
+    }
+
+    [Fact]
+    public async Task Every_encrypted_column_carries_its_envelope_check()
+    {
+        await PrepareAsync();
+
+        await using var dbContext = NewContext();
+        var connection = (NpgsqlConnection)dbContext.Database.GetDbConnection();
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            """SELECT conname FROM pg_constraint WHERE contype = 'c' AND conname LIKE '%\_Encrypted' ESCAPE '\'""",
+            connection);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                names.Add(reader.GetString(0));
+            }
+        }
+
+        // Read from the EF model, so a column marked encrypted later without a check fails here.
+        var expected = KeplerTalento.Infrastructure.Encryption.FieldEncryptionModel
+            .EncryptedProperties(dbContext.Model)
+            .Select(property => $"CK_{((Microsoft.EntityFrameworkCore.Metadata.IReadOnlyEntityType)property.DeclaringType).GetTableName()}_{property.Name}_Encrypted")
+            .ToHashSet(StringComparer.Ordinal);
+        Assert.Subset(names, expected);
     }
 
     [Fact]

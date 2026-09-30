@@ -2,6 +2,7 @@ using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Documents;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Operations;
+using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Documents;
 using MediatR;
 
@@ -32,6 +33,13 @@ public sealed class UploadCandidateDocumentHandler(
         if (!await documents.CandidateExistsAsync(request.CandidateId, cancellationToken))
         {
             throw DocumentErrors.Missing();
+        }
+        // KTL-33: the stored name is encrypted, so the column no longer enforces its width.
+        if (request.OriginalFileName.Length > CandidateTextLimits.DocumentFileName)
+        {
+            throw DocumentErrors.Validation(
+                "document.file_name.too_long",
+                "El nombre del archivo supera la longitud máxima permitida.");
         }
 
         var documentId = Guid.CreateVersion7();

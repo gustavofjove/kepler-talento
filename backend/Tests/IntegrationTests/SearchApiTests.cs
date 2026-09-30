@@ -1136,7 +1136,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     }
 
     private ApplicationDbContext NewDbContext() => new(
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private WebApplicationFactory<Program> CreateFactory(ICurrentActor actor)
     {

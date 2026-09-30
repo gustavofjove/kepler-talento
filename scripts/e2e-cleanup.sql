@@ -11,9 +11,12 @@
 \set QUIET on
 begin;
 
-create temp table e2e_candidates on commit drop as
-  select "Id" from "CND_Candidates"
-  where "FirstName" ~ '\d{13}' or "LastName" ~ '\d{13}' or coalesce("Email", '') ~ '\d{13}';
+-- KTL-33: candidate names and e-mails are ciphertext, so the marker cannot be matched here.
+-- e2e-cleanup.js decrypts them with the development key file and substitutes the matching
+-- identifiers (validated as UUIDs) for the placeholder below.
+create temp table e2e_candidates ("Id" uuid) on commit drop;
+insert into e2e_candidates ("Id")
+  select "Id" from "CND_Candidates" where "Id" in (/*E2E_CANDIDATE_IDS*/);
 
 create temp table e2e_batches on commit drop as
   select "Id" from "ADM_ImportBatches"

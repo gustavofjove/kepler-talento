@@ -495,7 +495,7 @@ public sealed class CandidateDraftApiTests(PostgreSqlFixture database) : IClassF
     }
 
     private ApplicationDbContext NewDbContext() => new(
-        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).Options);
+        new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(database.ConnectionString).UseTestFieldEncryption().Options);
 
     private void SetSharedEnvironment(int? maxConcurrent)
     {

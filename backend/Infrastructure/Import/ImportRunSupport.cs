@@ -1,9 +1,11 @@
 using KeplerTalento.Application.Abstractions.Documents;
+using KeplerTalento.Application.Abstractions.Encryption;
 using KeplerTalento.Application.Abstractions.Import;
 using KeplerTalento.Application.Import;
 using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Import;
 using KeplerTalento.Infrastructure.Persistence;
+using KeplerTalento.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace KeplerTalento.Infrastructure.Import;
@@ -18,7 +20,8 @@ public sealed class ImportRunSupport(
     IDocumentStorage storage,
     IImportFileInspector inspector,
     IImportRowReader reader,
-    ImportOptions options)
+    ImportOptions options,
+    IBlindIndex blindIndex)
 {
     /// <summary>
     /// Opens the promoted file. Only the promoted copy is ever read: a file still in quarantine is
@@ -105,15 +108,28 @@ public sealed class ImportRunSupport(
         IReadOnlyCollection<Guid> createdByThisBatch,
         CancellationToken cancellationToken)
     {
+        // KTL-33: e-mails are ciphertext, so they are matched through the blind index. Each
+        // address is hashed under every configured blind-index key, so a rotation in progress
+        // still finds rows hashed under the previous key.
+        var emailByHash = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var email in emails)
+        {
+            foreach (var hash in blindIndex.ComputeAll(email))
+            {
+                emailByHash[hash] = email;
+            }
+        }
         var existing = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var chunk in emails.Chunk(500))
+        foreach (var chunk in emailByHash.Keys.Chunk(500))
         {
             var found = await dbContext.Candidates
                 .AsNoTracking()
-                .Where(candidate => chunk.Contains(candidate.Email.ToLower()) && !createdByThisBatch.Contains(candidate.Id))
-                .Select(candidate => candidate.Email.ToLower())
+                .Where(candidate =>
+                    chunk.Contains(EF.Property<string>(candidate, CandidateConfiguration.EmailHash))
+                    && !createdByThisBatch.Contains(candidate.Id))
+                .Select(candidate => EF.Property<string>(candidate, CandidateConfiguration.EmailHash))
                 .ToListAsync(cancellationToken);
-            existing.UnionWith(found);
+            existing.UnionWith(found.Select(hash => emailByHash[hash]));
         }
         return existing;
     }

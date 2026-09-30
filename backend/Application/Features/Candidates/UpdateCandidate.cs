@@ -36,6 +36,15 @@ public sealed class UpdateCandidateValidator : AbstractValidator<UpdateCandidate
             .Must(value => !string.IsNullOrWhiteSpace(value))
             .WithErrorCode(CandidateErrors.LastNameRequired)
             .WithMessage(CandidateErrors.LastNameRequiredMessage);
+        RuleFor(command => command.FirstName).MustFitWithin(CandidateTextLimits.FirstName);
+        RuleFor(command => command.LastName).MustFitWithin(CandidateTextLimits.LastName);
+        RuleFor(command => command.Phone).MustFitWithin(CandidateTextLimits.Phone);
+        RuleFor(command => command.Email).MustFitWithin(CandidateTextLimits.Email);
+        RuleFor(command => command.Location).MustFitWithin(CandidateTextLimits.Location);
+        RuleFor(command => command.Province).MustFitWithin(CandidateTextLimits.Province);
+        RuleFor(command => command.Country).MustFitWithin(CandidateTextLimits.Country);
+        RuleFor(command => command.Availability).MustFitWithin(CandidateTextLimits.Availability);
+        RuleFor(command => command.Source).MustFitWithin(CandidateTextLimits.Source);
         RuleFor(command => command.Status).MustBeAPermittedStatus();
         RuleFor(command => command.ReceivedAt).MustBeAWireDate();
         RuleFor(command => command.ConsentAt).MustBeAWireDate();

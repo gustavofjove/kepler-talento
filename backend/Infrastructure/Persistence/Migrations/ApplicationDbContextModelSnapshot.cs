@@ -91,16 +91,18 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Availability")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Availability")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 120);
 
                     b.Property<DateOnly?>("ConsentAt")
                         .HasColumnType("date");
 
                     b.Property<string>("Country")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Country")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 120);
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -110,40 +112,54 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Email")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 255);
+
+                    b.Property<string>("EmailHash")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.FirstName")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 120)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<string>("LastName")
                         .IsRequired()
-                        .HasMaxLength(180)
-                        .HasColumnType("character varying(180)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.LastName")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 180)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<string>("Location")
                         .IsRequired()
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Location")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 160);
 
                     b.Property<string>("Notes")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Notes");
 
                     b.Property<string>("Phone")
                         .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Phone")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 40);
 
                     b.Property<string>("Province")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Province")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 120);
 
                     b.Property<DateOnly?>("ReceivedAt")
                         .HasColumnType("date");
@@ -153,8 +169,9 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Source")
                         .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Source")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 120);
 
                     b.Property<string>("SourceKey")
                         .HasMaxLength(200)
@@ -179,6 +196,9 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EmailHash")
+                        .HasDatabaseName("IX_CND_Candidates_EmailHash");
+
                     b.HasIndex("SourceKey")
                         .IsUnique()
                         .HasDatabaseName("UX_CND_Candidates_SourceKey")
@@ -187,19 +207,12 @@ namespace Infrastructure.Persistence.Migrations
                     b.HasIndex("IsActive", "UpdatedAtUtc")
                         .HasDatabaseName("IX_CND_Candidates_IsActive_UpdatedAtUtc");
 
-                    b.HasIndex("LastName", "FirstName");
-
                     b.HasIndex("IsActive", "Status", "Id")
                         .HasDatabaseName("IX_CND_Candidates_IsActive_Status_Id");
-
-                    b.HasIndex("IsActive", "LastName", "FirstName", "Id")
-                        .HasDatabaseName("IX_CND_Candidates_IsActive_LastName_FirstName_Id");
 
                     b.ToTable("CND_Candidates", null, t =>
                         {
                             t.HasCheckConstraint("CK_CND_Candidates_Deleted", "(\"IsActive\" AND \"DeletedAtUtc\" IS NULL) OR (NOT \"IsActive\" AND \"DeletedAtUtc\" IS NOT NULL)");
-
-                            t.HasCheckConstraint("CK_CND_Candidates_Name", "char_length(\"FirstName\") > 0 AND char_length(\"LastName\") > 0");
 
                             t.HasCheckConstraint("CK_CND_Candidates_SourceLoaded", "\"SourceLoadedAtUtc\" IS NULL OR \"SourceKey\" IS NOT NULL");
 
@@ -218,8 +231,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Degree")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateEducation.Degree")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 200)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<string>("EducationTypeFamily")
                         .IsRequired()
@@ -234,19 +249,23 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Institution")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateEducation.Institution")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 200)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateEducation.Notes");
 
                     b.Property<string>("SourceKey")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("Specialty")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateEducation.Specialty")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 200);
 
                     b.Property<string>("StatusFamily")
                         .IsRequired()
@@ -272,8 +291,6 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.ToTable("CND_CandidateEducation", null, t =>
                         {
-                            t.HasCheckConstraint("CK_CND_CandidateEducation_Degree", "char_length(\"Degree\") > 0 AND char_length(\"Institution\") > 0");
-
                             t.HasCheckConstraint("CK_CND_CandidateEducation_EducationTypeFamily", "\"EducationTypeFamily\" = 'education_type'");
 
                             t.HasCheckConstraint("CK_CND_CandidateEducation_EndYear", "\"EndYear\" IS NULL OR (\"EndYear\" BETWEEN 1900 AND 2200)");
@@ -293,25 +310,31 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Company")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateExperience.Company")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 200)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<DateOnly?>("EndDate")
                         .HasColumnType("date");
 
                     b.Property<string>("Functions")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateExperience.Functions");
 
                     b.Property<bool>("IsCurrent")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateExperience.Notes");
 
                     b.Property<string>("Position")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateExperience.Position")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 200)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<string>("SectorFamily")
                         .IsRequired()
@@ -345,8 +368,6 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.ToTable("CND_CandidateExperience", null, t =>
                         {
-                            t.HasCheckConstraint("CK_CND_CandidateExperience_Company", "char_length(\"Company\") > 0 AND char_length(\"Position\") > 0");
-
                             t.HasCheckConstraint("CK_CND_CandidateExperience_Period", "(\"StartDate\" IS NULL OR \"EndDate\" IS NULL OR \"EndDate\" >= \"StartDate\") AND (NOT \"IsCurrent\" OR \"EndDate\" IS NULL)");
 
                             t.HasCheckConstraint("CK_CND_CandidateExperience_SectorFamily", "\"SectorFamily\" = 'sector'");
@@ -365,8 +386,9 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Certification")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateLanguages.Certification")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 160);
 
                     b.Property<string>("LanguageFamily")
                         .IsRequired()
@@ -385,7 +407,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateLanguages.Notes");
 
                     b.Property<string>("SourceKey")
                         .HasMaxLength(200)
@@ -428,8 +451,10 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Body")
                         .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateNotes.Body")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 4000)
+                        .HasAnnotation("Ktl:EncryptedRequireText", true);
 
                     b.Property<Guid>("CandidateId")
                         .HasColumnType("uuid");
@@ -463,8 +488,6 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.ToTable("CND_CandidateNotes", null, t =>
                         {
-                            t.HasCheckConstraint("CK_CND_CandidateNotes_Body", "char_length(btrim(\"Body\")) BETWEEN 1 AND 4000");
-
                             t.HasCheckConstraint("CK_CND_CandidateNotes_Deleted", "(\"IsActive\" AND \"DeletedAtUtc\" IS NULL) OR (NOT \"IsActive\" AND \"DeletedAtUtc\" IS NOT NULL)");
                         });
                 });
@@ -487,7 +510,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidatePrograms.Notes");
 
                     b.Property<string>("ProgramFamily")
                         .IsRequired()
@@ -550,7 +574,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateSkills.Notes");
 
                     b.Property<string>("SkillFamily")
                         .IsRequired()
@@ -600,7 +625,8 @@ namespace Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_CandidateTags.Notes");
 
                     b.Property<string>("SourceKey")
                         .HasMaxLength(200)
@@ -736,8 +762,9 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("text")
+                        .HasAnnotation("Ktl:EncryptedContext", "CND_Documents.OriginalFileName")
+                        .HasAnnotation("Ktl:EncryptedMaxLength", 255);
 
                     b.Property<string>("ScanFailureCode")
                         .HasColumnType("text");

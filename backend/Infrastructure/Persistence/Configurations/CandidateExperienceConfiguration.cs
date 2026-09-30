@@ -1,5 +1,6 @@
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Infrastructure.Encryption;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,9 +17,8 @@ public sealed class CandidateExperienceConfiguration : IEntityTypeConfiguration<
             table.HasCheckConstraint(
                 $"CK_{Table}_SectorFamily",
                 CandidateRelationMapping.FamilyCheck("SectorFamily", CatalogFamilies.Sector));
-            table.HasCheckConstraint(
-                $"CK_{Table}_Company",
-                "char_length(\"Company\") > 0 AND char_length(\"Position\") > 0");
+            // KTL-33: Company and Position are ciphertext; their non-empty rule moved to the
+            // validator and the encryption converter.
             table.HasCheckConstraint(
                 $"CK_{Table}_Period",
                 "(\"StartDate\" IS NULL OR \"EndDate\" IS NULL OR \"EndDate\" >= \"StartDate\") "
@@ -28,8 +28,9 @@ public sealed class CandidateExperienceConfiguration : IEntityTypeConfiguration<
                 "\"YearsExperience\" IS NULL OR \"YearsExperience\" >= 0");
         });
         builder.ConfigureRelation(Table, candidate => candidate.Experience);
-        builder.Property(experience => experience.Company).HasMaxLength(200).IsRequired();
-        builder.Property(experience => experience.Position).HasMaxLength(200).IsRequired();
+        builder.Property(experience => experience.Company).IsEncrypted(Table, CandidateTextLimits.Company, requireText: true).IsRequired();
+        builder.Property(experience => experience.Position).IsEncrypted(Table, CandidateTextLimits.Position, requireText: true).IsRequired();
+        builder.Property(experience => experience.Functions).IsEncrypted(Table);
         builder.HasCatalogReference(
             experience => new { experience.SectorId, experience.SectorFamily },
             experience => experience.SectorFamily);
