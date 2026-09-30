@@ -79,15 +79,19 @@ The candidate page SHALL present skills, languages, programs and tags together i
 Habilidades, Idiomas, Programas, Etiquetas. When catalogs cannot be loaded, the catalog status
 notice SHALL appear once for the panel while it is in edit mode.
 
-Every panel SHALL span the full width of the sections column and be stacked vertically, in the
-order Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas, Documentos. A
-panel in edit mode SHALL keep its position in that order.
+Panels SHALL be stacked vertically in the order Datos principales, Auditoría, Competencias,
+Educación, Experiencia, Notas, Documentos, and every panel SHALL span the full width of the
+sections column, with one exception. Datos principales and Auditoría SHALL share the first row,
+side by side in two equal columns, while the sections column is wide enough for two. They SHALL
+stack, Datos principales first, when the column is too narrow for two, and while Datos principales
+is in edit mode, so that its editor takes the full width. A panel in edit mode SHALL keep its
+position in that order.
 
 The sections column SHALL be the full content width, unless the CV preview is shown beside it as
 the CV preview requirement describes.
 
-When Competencias is read-only, its rows SHALL show chips only, and each family without entries
-SHALL show its empty-state text in its row.
+When Competencias is read-only, its rows SHALL show chips only. Each family without entries SHALL
+show its empty-state text on the row's label line, where its chips would be.
 
 #### Scenario: Edit page layout
 
@@ -97,15 +101,29 @@ SHALL show its empty-state text in its row.
 
 #### Scenario: Detail page layout
 
-- **WHEN** any reader opens a candidate page
-- **THEN** Datos principales, Auditoría, Competencias, Educación, Experiencia, Notas and Documentos
-  are shown across the sections column, one below another, and Competencias shows the rows
-  Habilidades, Idiomas, Programas and Etiquetas in that order, read-only
+- **WHEN** any reader opens a candidate page on a wide screen
+- **THEN** Datos principales and Auditoría are shown side by side in the first row, Competencias,
+  Educación, Experiencia, Notas and Documentos follow across the sections column, one below
+  another, and Competencias shows the rows Habilidades, Idiomas, Programas and Etiquetas in that
+  order, read-only
+
+#### Scenario: Main data editor takes the full row
+
+- **WHEN** an editor puts Datos principales in edit mode
+- **THEN** its editor spans the sections column and Auditoría is shown below it, and both return
+  to one row when the panel closes
+
+#### Scenario: Main data and audit on a narrow column
+
+- **WHEN** the candidate page is shown at 390 pixels wide, or with the CV preview beside a sections
+  column too narrow for two
+- **THEN** Datos principales and Auditoría are stacked, Datos principales first
 
 #### Scenario: Family without entries on the detail page
 
 - **WHEN** a candidate has no programs and a reader opens the candidate page
-- **THEN** the Programas row shows its empty-state text
+- **THEN** the Programas row shows its empty-state text on its label line, as tall as a row with
+  chips
 
 #### Scenario: Catalogs are unavailable on the edit page
 
@@ -228,6 +246,17 @@ family, and a further «Guardar» SHALL write only the families still unsaved.
 Validation that refuses an entry (duplicate value, missing required field, out-of-range year or
 date, negative years) SHALL be reported in the panel without saving it.
 
+A validation or save error of a candidate form SHALL be shown in the error style (the danger
+colour, not the muted or empty-state style), exposed as an alert, and placed at the top of the form
+it refers to, before its first field. This applies to the core record form on both pages, the
+Educación and Experiencia add forms, and the document upload form. Errors of Notas SHALL be shown
+at the top of the Notas panel, since they can come from adding, editing or retiring a note. A
+Competencias family error SHALL stay on that family's row.
+
+In edit mode, Educación and Experiencia SHALL show the form for a new entry after the existing
+entries, set apart from them by a visible rule. The form SHALL be titled «Nueva formación» or
+«Nueva experiencia», and that title SHALL be its accessible name.
+
 #### Scenario: Staged changes are saved together
 
 - **WHEN** an editor, with Educación in edit mode, adds one entry and removes another and then
@@ -248,7 +277,13 @@ date, negative years) SHALL be reported in the panel without saving it.
 #### Scenario: Core record without a name
 
 - **WHEN** an editor clears the first name in Datos principales and activates «Guardar»
-- **THEN** a Spanish validation message is shown and nothing is written
+- **THEN** a Spanish validation message is shown in the error style at the top of the form, before
+  its first field, and nothing is written
+
+#### Scenario: Add form is set apart from the entries
+
+- **WHEN** an editor puts Educación in edit mode on a candidate with education entries
+- **THEN** the entries are listed first, then a rule, then a form titled «Nueva formación»
 
 #### Scenario: Only changed families are written
 
@@ -443,6 +478,37 @@ the panel permission rules.
 
 - **WHEN** a user opens the create page
 - **THEN** only the CV picker, the core record form and the post-save note are shown
+
+### Requirement: Candidate values are shown in readable form
+
+The candidate page SHALL show stored values in the active language's readable form, not in their
+storage format:
+
+- Auditoría's creation and update times SHALL show a date and a time to the minute, in the viewer's
+  time zone (for example «30 sept 2026, 11:49»), never an ISO timestamp.
+- Datos principales' reception and review dates are calendar days. They SHALL show a date without a
+  time (for example «1 sept 2026»), and SHALL show the stored day in every time zone. A stored value
+  that is not a valid calendar day SHALL be shown as stored, and an empty one as «Pendiente».
+- The location SHALL show as «Location (Province)». When only one of the two is stored, it SHALL
+  show that one alone, with no empty parentheses.
+
+These are display rules only: the stored values and the edit forms are unchanged.
+
+#### Scenario: Audit times are readable
+
+- **WHEN** a reader opens a candidate created at 2026-09-30T09:49:00Z from Spain in summer time
+- **THEN** Auditoría shows the creation time as «30 sept 2026, 11:49»
+
+#### Scenario: Calendar day in a western time zone
+
+- **WHEN** a candidate received on 2026-09-01 is viewed from a time zone behind UTC
+- **THEN** the reception date shows «1 sept 2026», not the day before
+
+#### Scenario: Location with and without province
+
+- **WHEN** a candidate has location Alcobendas and province Madrid, and another has only the
+  province Madrid
+- **THEN** the first shows «Alcobendas (Madrid)» and the second shows «Madrid»
 
 ### Requirement: Positions panel on the candidate page
 

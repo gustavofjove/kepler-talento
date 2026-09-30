@@ -134,7 +134,9 @@ retry. The failure SHALL leave the other chips unchanged.
 ### Requirement: Read-only and disabled pickers
 
 A read-only picker SHALL show its chips only, with no add control, input, remove control or editor;
-when it holds no items it SHALL show its Spanish empty-state text instead. An editable picker SHALL
+when it holds no items it SHALL show its Spanish empty-state text instead, as one line of plain
+muted text on the label's line where its chips would be, as tall as a chip, and not as a separate
+empty-state block. An editable picker SHALL
 NOT show an empty-state text, since its add control already stands for the empty list. A disabled
 picker, used while its catalogs cannot be loaded, SHALL show its chips and a disabled add control.
 A picker whose level is required SHALL also be disabled in the same way while its level family has
@@ -149,7 +151,8 @@ the page SHALL show the existing catalog status notice.
 #### Scenario: Empty read-only picker
 
 - **WHEN** a read-only picker holds no items
-- **THEN** it shows its empty-state text
+- **THEN** it shows its empty-state text beside its label, on the same line, and its row is as tall
+  as one holding chips
 
 #### Scenario: Catalogs are unavailable
 

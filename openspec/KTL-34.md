@@ -9,6 +9,19 @@ A set of small, independent UI adjustments collected after the KTL-30 to KTL-33 
 tweak is listed below with its scope and acceptance criteria. None of them changes the API
 contract, permissions or stored data.
 
+## Specs updated
+
+- `openspec/specs/candidate-profile-pages/spec.md`: main data and audit side by side (tweak 3);
+  readable audit dates, calendar days and location (tweaks 4–6); form errors in the error style at
+  the top of the form (tweak 7); empty competency families on the label line (tweak 8); titled,
+  separated add forms (tweak 9).
+- `openspec/specs/data-tables/spec.md`: CV presence shown as a tick (tweak 1); phones without the
+  Spanish prefix (tweak 10).
+- `openspec/specs/catalog-value-picker/spec.md`: read-only empty text on the label line (tweak 8).
+
+Tweak 2 (selection count alignment) changes no specified behaviour. `frontend-localization`,
+`position-candidates` and `identity-and-access-control` state nothing these tweaks contradict.
+
 ## Tweaks
 
 ### 1. CV column shows a tick instead of text

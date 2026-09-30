@@ -120,7 +120,37 @@ Dropdowns and buttons outside these tables SHALL keep their current size.
 Candidate phone numbers SHALL be rendered as plain text, not as `tel:` links, in every table and
 on the candidate page header. E-mail addresses SHALL remain `mailto:` links.
 
+Wherever a phone is shown, a leading Spanish country code (`+34`, `0034`, `(+34)` or `(34)`) SHALL
+be left out when what follows is a nine-digit Spanish number, keeping the rest as stored. Any other
+number SHALL be shown as stored. This is a display rule only: the stored value, the edit form, the
+text search and the export keep the number as entered.
+
 #### Scenario: Phone is shown
 
 - **WHEN** a candidate with a phone and an e-mail appears in the candidate list or on the candidate page
 - **THEN** the phone is plain text and the e-mail is a mail link
+
+#### Scenario: Spanish prefix is left out
+
+- **WHEN** a candidate whose phone is stored as `+34 600 111 222` appears in the candidate list, the
+  search results, a position's candidates or the candidate page header
+- **THEN** the phone is shown as `600 111 222`
+
+#### Scenario: Other numbers are shown as stored
+
+- **WHEN** a candidate's phone is stored as `+33 6 12 34 56 78` or `+34 600`
+- **THEN** it is shown exactly as stored
+
+### Requirement: CV presence is shown as a tick
+
+The CV column of the candidate list, the advanced search results (including the matches on a
+position page) and a position's candidates SHALL show a tick when the candidate has a primary CV,
+and no visible content when they do not. The tick SHALL have the accessible name «Con CV», and the
+empty cell SHALL expose «Sin CV» to assistive technology only. The column SHALL NOT show
+«Disponible» or «Pendiente».
+
+#### Scenario: Candidate with and without a CV
+
+- **WHEN** the candidate list shows one candidate with a primary CV and one without
+- **THEN** the first row's CV cell shows a tick named «Con CV» and the second shows nothing
+  visible, with «Sin CV» available to a screen reader
