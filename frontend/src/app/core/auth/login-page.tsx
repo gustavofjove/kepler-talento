@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
+import { FormError } from '../../shared/components/form-error';
 import { useServices } from '../di/services-context';
 import { useErrorToast } from '../services/use-error-toast';
 import './login-page.css';
@@ -33,7 +34,7 @@ export function LoginPage() {
         <h1>{t('app.title')}</h1>
         <p className="muted">{t('auth.login.intro')}</p>
         <div className="grid">
-          {error ? <p className="muted">{error}</p> : null}
+          <FormError message={error} />
           <button className="button" type="submit" disabled={busy} data-testid="sign-in">
             {t('auth.login.submit')}
           </button>

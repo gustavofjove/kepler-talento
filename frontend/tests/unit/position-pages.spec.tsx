@@ -682,7 +682,7 @@ describe('Position pages', () => {
         'mailto:ana@example.test',
       );
       expect(within(row).getByText('600111222').closest('a')).toBeNull();
-      expect(within(row).getByText('Disponible')).toBeVisible();
+      expect(within(row).getByRole('img', { name: 'Con CV' })).toBeVisible();
       expect(within(row).queryByRole('link', { name: /^Ver/ })).toBeNull();
 
       await userEvent.click(within(row).getByText('600111222'));

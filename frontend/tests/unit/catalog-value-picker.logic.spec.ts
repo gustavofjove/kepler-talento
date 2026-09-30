@@ -44,6 +44,7 @@ describe('catalog value picker logic', () => {
       editor: 'search-skill-editor',
       mode: 'search-skill-mode',
       retry: 'search-skill-retry',
+      empty: 'search-skill-empty',
     });
   });
 });

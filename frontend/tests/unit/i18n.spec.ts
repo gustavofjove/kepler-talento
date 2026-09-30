@@ -1,5 +1,5 @@
 import { i18n } from '../../src/app/core/i18n/i18n';
-import { formatDate, formatNumber } from '../../src/app/core/i18n/format';
+import { formatDate, formatDay, formatNumber } from '../../src/app/core/i18n/format';
 import { errorText, TranslatableError } from '../../src/app/core/i18n/translatable-error';
 import { catalogLabel } from '../../src/app/features/catalogs/catalog-label';
 
@@ -140,5 +140,13 @@ describe('i18n foundation', () => {
       }),
     ).toBe('1 de junio de 2024');
     expect(formatNumber(12345.5)).toBe('12.345,5');
+  });
+
+  it('formats a calendar day in Spanish without shifting it by time zone (KTL-34)', () => {
+    expect(formatDay('2026-09-01')).toBe('1 sept 2026');
+    expect(formatDay('2026-09-01', { dateStyle: 'short' })).toBe('1/9/26');
+    // A malformed or impossible value is shown as stored instead of throwing.
+    expect(formatDay('01/09/2026')).toBe('01/09/2026');
+    expect(formatDay('2026-13-45')).toBe('2026-13-45');
   });
 });

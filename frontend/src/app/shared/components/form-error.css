@@ -1,0 +1,10 @@
+.form-error {
+  background: color-mix(in srgb, var(--danger) 8%, var(--bg-1));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--r-md);
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}

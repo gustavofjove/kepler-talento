@@ -269,7 +269,7 @@ export function CandidateListPage() {
         </p>
         {!canEdit ? <p className="empty-state">{t('candidates.list.readOnly')}</p> : null}
         {canEdit ? (
-          <div className="form-actions">
+          <div className="form-actions bulk-actions">
             <span className="muted" data-testid="candidate-selection-count">
               {t('candidates.list.selectedOnPage', { count: selectedIds.size })}
             </span>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useBlocker, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
+import { formatDate } from '../../../core/i18n/format';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { CandidateCvPreview } from '../components/candidate-cv-preview';
@@ -15,8 +16,11 @@ import { CandidatePositionsPanel } from '../components/candidate-positions-panel
 import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
-import { mailtoHref } from '../contact-links';
+import { displayPhone, mailtoHref } from '../contact-links';
 import { useCandidate } from '../use-candidates';
+
+/** «30 sept 2026, 11:49» in the active language and the viewer's time zone (KTL-34). */
+const AUDIT_DATE_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
 
 export function CandidateDetailPage() {
   const { t } = useTranslation();
@@ -193,7 +197,9 @@ export function CandidateDetailPage() {
           <p className="muted contact-links" data-testid="candidate-contact">
             {item.email ? <a href={mailtoHref(item.email)}>{item.email}</a> : null}
             {item.email && item.phone ? ' · ' : null}
-            {item.phone ? <span data-testid="candidate-phone">{item.phone}</span> : null}
+            {item.phone ? (
+              <span data-testid="candidate-phone">{displayPhone(item.phone)}</span>
+            ) : null}
           </p>
         </div>
         <div className="toolbar">
@@ -219,27 +225,33 @@ export function CandidateDetailPage() {
           {t('candidate.detail.removedHint')}
         </p>
       ) : null}
-      {/* One full-width panel per row, in reading order (KTL-27). Each editable panel switches
-          to its editor in place (KTL-29). The CV preview sits beside the panels on wide
-          screens and after them otherwise (KTL-28). */}
+      {/* One full-width panel per row, in reading order (KTL-27), except the main data and
+          audit panels, which share a row while there is room (KTL-34); the main panel's editor
+          takes the whole row. Each editable panel switches to its editor in place (KTL-29). The
+          CV preview sits beside the panels on wide screens and after them otherwise (KTL-28). */}
       <div className="page-split">
         <div className="page-split__layout">
           <div className="page-split__main">
             <div className="grid">
-              <CandidateMainPanel candidate={item} control={control('main')} />
-              <article className="panel">
-                <h2>{t('candidate.detail.audit')}</h2>
-                <dl className="prop-list">
-                  <dt>{t('candidate.detail.created')}</dt>
-                  <dd>{item.createdAt.slice(0, 19)}</dd>
-                  <dt>{t('candidate.detail.updated')}</dt>
-                  <dd>{item.updatedAt.slice(0, 19)}</dd>
-                  <dt>{t('candidate.detail.active')}</dt>
-                  <dd data-testid="candidate-active">
-                    {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
-                  </dd>
-                </dl>
-              </article>
+              <div
+                className={editing === 'main' ? 'grid' : 'grid two'}
+                data-testid="candidate-summary-row"
+              >
+                <CandidateMainPanel candidate={item} control={control('main')} />
+                <article className="panel" data-testid="candidate-audit">
+                  <h2>{t('candidate.detail.audit')}</h2>
+                  <dl className="prop-list">
+                    <dt>{t('candidate.detail.created')}</dt>
+                    <dd>{formatDate(item.createdAt, AUDIT_DATE_TIME)}</dd>
+                    <dt>{t('candidate.detail.updated')}</dt>
+                    <dd>{formatDate(item.updatedAt, AUDIT_DATE_TIME)}</dd>
+                    <dt>{t('candidate.detail.active')}</dt>
+                    <dd data-testid="candidate-active">
+                      {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
+                    </dd>
+                  </dl>
+                </article>
+              </div>
               <CandidateCompetencies candidate={item} control={control('competencies')} />
               <CandidateEducation candidate={item} control={control('education')} />
               <CandidateExperience candidate={item} control={control('experience')} />

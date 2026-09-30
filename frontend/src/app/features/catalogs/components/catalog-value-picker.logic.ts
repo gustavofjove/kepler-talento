@@ -48,4 +48,5 @@ export const pickerTestIds = (idPrefix: string) => ({
   editor: `${idPrefix}-editor`,
   mode: `${idPrefix}-mode`,
   retry: `${idPrefix}-retry`,
+  empty: `${idPrefix}-empty`,
 });

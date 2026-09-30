@@ -4,6 +4,7 @@ import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { FormError } from '../../../shared/components/form-error';
 import type { CandidateNote } from '../models/candidate.models';
 import { useCandidateNotes } from '../use-candidate-notes';
 import './candidate-notes.css';
@@ -97,6 +98,7 @@ export function CandidateNotes({
 
   return (
     <section className="section-block candidate-notes" data-testid="candidate-notes">
+      <FormError message={error} />
       {!notes.length ? <p className="empty-state">{t('candidate.profile.notes.empty')}</p> : null}
       <div className="item-list">
         {notes.map((note) => (
@@ -169,7 +171,6 @@ export function CandidateNotes({
           </button>
         </form>
       ) : null}
-      {error ? <p className="empty-state">{error}</p> : null}
     </section>
   );
 }

@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { formatDate } from '../../../core/i18n/format';
+import { CvIndicator } from '../../../shared/components/cv-indicator';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
-import { mailtoHref } from '../contact-links';
+import { displayPhone, mailtoHref } from '../contact-links';
 import type { CandidateListItem } from '../models/candidate.models';
 import {
   type ListSort,
@@ -113,7 +114,7 @@ export function CandidateTable({
                     </div>
                   ) : null}
                 </td>
-                <td>{candidate.phone}</td>
+                <td>{displayPhone(candidate.phone)}</td>
                 <td>
                   <span className="badge">{statusLabel(candidate.status, t)}</span>
                   {!candidate.isActive ? (
@@ -121,9 +122,7 @@ export function CandidateTable({
                   ) : null}
                 </td>
                 <td>
-                  {candidate.hasPrimaryCv
-                    ? t('candidates.list.cv.available')
-                    : t('candidates.list.cv.pending')}
+                  <CvIndicator hasCv={candidate.hasPrimaryCv} />
                 </td>
                 <td>{formatDate(candidate.updatedAt)}</td>
               </tr>

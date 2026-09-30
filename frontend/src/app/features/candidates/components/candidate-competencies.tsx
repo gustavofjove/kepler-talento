@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
+import { FormError } from '../../../shared/components/form-error';
 import { CatalogFamilyRows } from '../../catalogs/components/catalog-family-rows';
 import { CATALOG_FAMILY_ORDER } from '../../catalogs/components/catalog-family-rows.logic';
 import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
@@ -134,15 +135,11 @@ export function CandidateCompetencies({ candidate, control }: Props) {
               editing={control.editing}
               onItemsChange={(items, changed) => change(kind, items, changed)}
             />
-            {control.editing && errors[kind] ? (
-              <p
-                className="empty-state"
-                role="alert"
-                data-testid={`${RELATION_DEFINITIONS[kind].idPrefix}-error`}
-              >
-                {errors[kind]}
-              </p>
-            ) : null}
+            {/* Stays beside its own family row: it names a value in that row, not the form. */}
+            <FormError
+              message={control.editing ? errors[kind] : null}
+              testId={`${RELATION_DEFINITIONS[kind].idPrefix}-error`}
+            />
           </>
         )}
       />

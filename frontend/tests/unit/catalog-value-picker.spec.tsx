@@ -207,7 +207,11 @@ describe('CatalogValuePicker', () => {
       unmount();
 
       render(<Host readOnly />);
-      expect(screen.getByText('Sin idiomas.')).toBeInTheDocument();
+      const empty = screen.getByText('Sin idiomas.');
+      // KTL-34: on the label's line, as plain text rather than an empty-state box.
+      expect(empty.parentElement).toHaveClass('catalog-picker-row');
+      expect(empty).toHaveClass('catalog-picker-empty');
+      expect(empty).not.toHaveClass('empty-state');
     });
   });
 

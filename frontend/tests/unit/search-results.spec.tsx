@@ -68,7 +68,8 @@ describe('SearchResults (KTL-30)', () => {
 
     for (const header of ['Candidato', 'Teléfono', 'Estado', 'CV', 'Actualizado'])
       expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
-    expect(screen.getByText('Disponible')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Con CV' })).toBeInTheDocument();
+    expect(screen.queryByText('Disponible')).toBeNull();
     expect(screen.getByRole('button', { name: 'Abrir CV' })).toBeDisabled();
     expect(screen.getByTestId('search-total')).toHaveTextContent(
       '1 candidato encontrado · Página 1 de 1',

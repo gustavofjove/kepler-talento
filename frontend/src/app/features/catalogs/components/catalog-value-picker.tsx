@@ -270,6 +270,12 @@ export function CatalogValuePicker({
               )}
             </TagList>
           </TagGroup>
+        ) : readOnly && emptyText ? (
+          // Where values can be added the (+) says enough; a read-only empty picker says why,
+          // on the label's line where its chips would be (KTL-34).
+          <span className="catalog-picker-empty" data-testid={ids.empty}>
+            {emptyText}
+          </span>
         ) : null}
 
         {readOnly ? null : adding ? (
@@ -331,11 +337,6 @@ export function CatalogValuePicker({
           </button>
         )}
       </div>
-
-      {/* Where values can be added the (+) says enough; a read-only empty picker says why. */}
-      {!items.length && readOnly && emptyText ? (
-        <p className="empty-state catalog-picker-empty-state">{emptyText}</p>
-      ) : null}
 
       {failed.length ? (
         <ul className="catalog-picker-errors">
