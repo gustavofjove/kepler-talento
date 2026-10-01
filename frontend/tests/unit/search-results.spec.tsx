@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
+import { RowCvPreviewProvider } from '../../src/app/features/candidates/components/row-cv-preview/row-cv-preview';
 import { SearchResults } from '../../src/app/features/search/components/search-results';
 import type {
   SearchResult,
@@ -18,13 +19,26 @@ const result: SearchResult = {
   email: 'ana@example.test',
   status: 'in_process',
   hasPrimaryCv: true,
-  primaryCvDocumentId: 'd-1',
+  primaryCvPreviewable: true,
+  primaryCvDownloadable: true,
   updatedAt: '2026-09-20T09:00:00Z',
   isActive: true,
 };
 const onePage: SearchResultPage = { items: [result], page: 1, pageSize: 25, totalCount: 1 };
 
 describe('SearchResults (KTL-30)', () => {
+  const documentService = {
+    list: vi.fn(),
+    download: vi.fn(),
+    openPreview: vi.fn(),
+    observeUntilSettled: vi.fn(),
+  };
+  const toastService = { show: vi.fn() };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    documentService.list.mockResolvedValue([]);
+  });
+
   const renderResults = (
     results: SearchResultPage,
     renderRowAction?: (item: SearchResult) => React.ReactNode,
@@ -35,6 +49,8 @@ describe('SearchResults (KTL-30)', () => {
         value={
           {
             ...services,
+            documentService,
+            toastService,
             authService: {
               profile: signal(null),
               hasPermission: (permission: string) => granted.includes(permission),
@@ -47,14 +63,16 @@ describe('SearchResults (KTL-30)', () => {
             <Route
               path="/search"
               element={
-                <SearchResults
-                  results={results}
-                  loading={false}
-                  failed={false}
-                  lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
-                  onPageChange={() => undefined}
-                  renderRowAction={renderRowAction}
-                />
+                <RowCvPreviewProvider>
+                  <SearchResults
+                    results={results}
+                    loading={false}
+                    failed={false}
+                    lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
+                    onPageChange={() => undefined}
+                    renderRowAction={renderRowAction}
+                  />
+                </RowCvPreviewProvider>
               }
             />
             <Route path="/app/candidates/:id" element={<p data-testid="candidate-page" />} />
@@ -66,17 +84,39 @@ describe('SearchResults (KTL-30)', () => {
   it('renders the same Spanish copy as before, from the catalogue', () => {
     renderResults(onePage, undefined, []);
 
-    for (const header of ['Candidato', 'Teléfono', 'Estado', 'CV', 'Actualizado'])
+    for (const header of ['Candidato', 'Teléfono', 'Estado', 'Actualizado'])
       expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Con CV' })).toBeInTheDocument();
     expect(screen.queryByText('Disponible')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Abrir CV' })).toBeDisabled();
     expect(screen.getByTestId('search-total')).toHaveTextContent(
       '1 candidato encontrado · Página 1 de 1',
     );
-    expect(screen.getByText('Tu rol no permite abrir CVs desde resultados.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  });
+
+  it('has no CV column, «Ver» or «Abrir CV» without the download permission (KTL-35)', () => {
+    renderResults(onePage, undefined, []);
+
+    expect(screen.queryByRole('columnheader', { name: 'CV' })).toBeNull();
+    expect(screen.queryByTestId('row-cv-toggle')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Abrir CV' })).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Con CV' })).toBeNull();
+  });
+
+  it('ends with a «CV» column offering «Ver» only for a previewable CV (KTL-35)', () => {
+    renderResults({
+      ...onePage,
+      items: [result, { ...result, candidateId: 'c-2', primaryCvPreviewable: false }],
+      totalCount: 2,
+    });
+
+    const headers = screen.getAllByRole('columnheader');
+    expect(headers.at(-1)).toHaveTextContent('CV');
+    const [first, second] = screen.getAllByRole('row').slice(1);
+    expect(
+      within(first).getByRole('button', { name: 'Ver el CV de Ana García' }),
+    ).toHaveTextContent('↓');
+    expect(within(second).queryByTestId('row-cv-toggle')).toBeNull();
   });
 
   it('keeps the empty state and zero count unchanged', () => {
@@ -117,7 +157,21 @@ describe('SearchResults (KTL-30)', () => {
     ));
 
     await userEvent.click(screen.getByTestId('row-action'));
-    await userEvent.click(screen.getByRole('button', { name: 'Abrir CV' }));
+    await userEvent.click(screen.getByTestId('row-cv-toggle'));
+
+    expect(screen.queryByTestId('candidate-page')).toBeNull();
+  });
+
+  it('ignores a near-miss next to the row action or the CV buttons (KTL-35)', async () => {
+    renderResults(onePage, () => (
+      <button type="button" data-testid="row-action">
+        Añadir
+      </button>
+    ));
+    const cells = within(screen.getAllByRole('row')[1]).getAllByRole('cell');
+
+    await userEvent.click(cells.at(-2)!);
+    await userEvent.click(cells.at(-1)!);
 
     expect(screen.queryByTestId('candidate-page')).toBeNull();
   });
@@ -136,7 +190,7 @@ describe('SearchResults (KTL-30)', () => {
     open.mockRestore();
   });
 
-  it('renders the row action first in the actions cell', () => {
+  it('renders the row action in its own cell, before the «CV» column', () => {
     renderResults(onePage, (item) => (
       <button type="button" data-testid="row-action">
         {item.candidateId}
@@ -145,7 +199,66 @@ describe('SearchResults (KTL-30)', () => {
 
     const action = screen.getByTestId('row-action');
     expect(action).toHaveTextContent('c-1');
-    expect(action.nextElementSibling).toBe(screen.getByRole('button', { name: 'Abrir CV' }));
-    expect(within(action.parentElement!).getAllByRole('button')).toHaveLength(2);
+    expect(within(action.parentElement!).getAllByRole('button')).toHaveLength(1);
+    const cells = within(screen.getAllByRole('row')[1]).getAllByRole('cell');
+    expect(cells.at(-2)).toContainElement(action);
+    expect(cells.at(-1)).toContainElement(screen.getByTestId('row-cv-toggle'));
+  });
+
+  it('offers a download, left of «Ver», and only a download for a CV that cannot be previewed (KTL-35)', async () => {
+    documentService.list.mockResolvedValue([
+      {
+        id: 'doc-1',
+        isPrimary: true,
+        availabilityState: 'Available',
+        originalFilename: 'cv.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      },
+    ]);
+    renderResults({
+      ...onePage,
+      items: [
+        result,
+        { ...result, candidateId: 'c-2', lastName: 'Word', primaryCvPreviewable: false },
+        {
+          ...result,
+          candidateId: 'c-3',
+          lastName: 'Pendiente',
+          primaryCvPreviewable: false,
+          primaryCvDownloadable: false,
+        },
+      ],
+      totalCount: 3,
+    });
+    const [pdfRow, wordRow, pendingRow] = screen.getAllByRole('row').slice(1);
+
+    const pdfButtons = within(pdfRow).getAllByRole('button');
+    expect(pdfButtons.map((button) => button.getAttribute('data-testid'))).toEqual([
+      'row-cv-download',
+      'row-cv-toggle',
+    ]);
+    expect(within(wordRow).queryByTestId('row-cv-toggle')).toBeNull();
+    expect(within(pendingRow).queryAllByRole('button')).toHaveLength(0);
+
+    await userEvent.click(
+      within(wordRow).getByRole('button', { name: 'Descargar el CV de Ana Word' }),
+    );
+
+    expect(documentService.list).toHaveBeenCalledWith('c-2');
+    expect(documentService.download).toHaveBeenCalledWith('c-2', 'doc-1', 'cv.docx');
+    expect(screen.queryByTestId('candidate-page')).toBeNull();
+  });
+
+  it('warns instead of downloading when the CV is no longer available', async () => {
+    documentService.list.mockResolvedValue([]);
+    renderResults(onePage);
+
+    await userEvent.click(screen.getByTestId('row-cv-download'));
+
+    expect(documentService.download).not.toHaveBeenCalled();
+    expect(toastService.show).toHaveBeenCalledWith(
+      'El CV de este candidato ya no se puede descargar.',
+      'warning',
+    );
   });
 });

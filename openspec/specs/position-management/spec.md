@@ -159,11 +159,38 @@ The position editor SHALL let an actor permitted by the saved-search capability 
 
 ### Requirement: Live candidate matching preserves privacy boundaries
 
-The position detail experience SHALL evaluate its stored requirements through the existing candidate-search behavior when, and only when, the actor also holds `candidates.read`. Results SHALL remain live for open and closed positions, SHALL be paged and SHALL use the existing minimal candidate projection, deterministic order, filter semantics and no-duplicate guarantee. The system SHALL NOT persist match snapshots or match counts on positions, and evaluating matches SHALL NOT create, change or remove any position candidate link. Links are recorded only through the explicit position candidate operations.
+The position detail experience SHALL evaluate its stored requirements through the existing
+candidate-search behavior when, and only when, the actor also holds `candidates.read`. Results
+SHALL:
 
-For an actor holding `positions.manage` on an open position, each match row SHALL offer «Añadir». For a candidate already linked to the position, the row SHALL show a disabled «Añadido» instead, determined from the position's complete link list. After a successful add, the row SHALL switch to «Añadido» and the linked candidates panel SHALL show the candidate without a page reload. The match action SHALL NOT appear on the advanced search page. Match rows on the position page SHALL NOT offer «Abrir CV»; the advanced search page keeps it. On both pages, a click on a result row outside its links and controls SHALL open the candidate. The candidate's name SHALL remain a keyboard-reachable link, phones SHALL be plain text, and there SHALL be no separate «Detalle» action.
+- remain live for open and closed positions;
+- be paged;
+- use the existing minimal candidate projection, deterministic order, filter semantics and
+  no-duplicate guarantee.
 
-An actor holding `positions.read` without `candidates.read` SHALL receive the position but SHALL receive no candidate item, count or match-derived fact and the client SHALL NOT initiate a candidate search. Candidate values, requirements and match counts SHALL NOT appear in URLs, logs or audit payloads.
+The system SHALL NOT persist match snapshots or match counts on positions, and evaluating matches
+SHALL NOT create, change or remove any position candidate link. Links are recorded only through the
+explicit position candidate operations.
+
+For an actor holding `positions.manage` on an open position, each match row SHALL offer «Añadir».
+For a candidate already linked to the position, the row SHALL show a disabled «Añadido» instead,
+determined from the position's complete link list. After a successful add, the row SHALL switch to
+«Añadido» and the linked candidates panel SHALL show the candidate without a page reload. The match
+action SHALL NOT appear on the advanced search page.
+
+Match rows on the position page and result rows on the advanced search page SHALL offer the «CV»
+column's «Ver», as the data-tables row CV preview specifies, and SHALL NOT offer «Abrir CV». On
+both pages:
+
+- a click on a result row outside its links and controls SHALL open the candidate;
+- the candidate's name SHALL remain a keyboard-reachable link;
+- phones SHALL be plain text;
+- there SHALL be no separate «Detalle» action.
+
+An actor holding `positions.read` without `candidates.read` SHALL receive the position but SHALL
+receive no candidate item, count or match-derived fact, and the client SHALL NOT initiate a
+candidate search. Candidate values, requirements and match counts SHALL NOT appear in URLs, logs or
+audit payloads.
 
 #### Scenario: Candidate newly satisfies requirements
 
@@ -197,13 +224,16 @@ An actor holding `positions.read` without `candidates.read` SHALL receive the po
 
 #### Scenario: Candidate result offers a CV action
 
-- **WHEN** a matching candidate has a primary CV and the actor holds `documents.download`
-- **THEN** the position page offers no «Abrir CV» action for that row, while the advanced search page keeps its permission-checked document action
+- **WHEN** a matching candidate's primary CV can be previewed and the actor holds
+  `documents.download`
+- **THEN** its row offers «Ver» in the «CV» column, on the position page and on the advanced search
+  page, and neither page offers «Abrir CV»
 
 #### Scenario: Advanced search results are unchanged
 
 - **WHEN** results are shown on the advanced search page
-- **THEN** no add-to-position action appears, «Abrir CV» remains, and the rest of the copy is unchanged apart from the removed «Detalle»
+- **THEN** no add-to-position action appears, and the copy is unchanged apart from the removed
+  «Detalle» and «Abrir CV» and the «CV» column's «Ver»
 
 #### Scenario: Result row opens the candidate
 

@@ -1,6 +1,7 @@
 import { AppError } from '../../../src/app/shared/models/error.models';
 import type { CandidateGateway } from '../../../src/app/features/candidates/services/candidate.api';
 import { CandidateService } from '../../../src/app/features/candidates/services/candidate.service';
+import { isPreviewable } from '../../../src/app/features/candidates/components/candidate-cv-preview.logic';
 import type {
   Candidate,
   CandidateDraft,
@@ -89,7 +90,13 @@ export class FakeCandidateApi implements CandidateGateway {
         email: candidate.email,
         status: candidate.status,
         hasPrimaryCv: Boolean(candidate.primaryDocumentId),
-        primaryCvDocumentId: candidate.primaryDocumentId,
+        // The server's rule (KTL-35), unmasked: the fake serves an actor who may download.
+        primaryCvPreviewable: candidate.documents.some(
+          (document) => document.isPrimary && isPreviewable(document),
+        ),
+        primaryCvDownloadable: candidate.documents.some(
+          (document) => document.isPrimary && document.availabilityState === 'Available',
+        ),
         updatedAt: candidate.updatedAt,
         isActive: candidate.isActive,
       })),

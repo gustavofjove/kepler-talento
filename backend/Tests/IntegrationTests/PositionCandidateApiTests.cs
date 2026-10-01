@@ -6,6 +6,7 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Features.Candidates;
 using KeplerTalento.Application.Features.Positions;
 using KeplerTalento.Domain.Candidates;
+using KeplerTalento.Domain.Documents;
 using KeplerTalento.Domain.Identity;
 using KeplerTalento.Domain.Positions;
 using KeplerTalento.Infrastructure.Persistence;
@@ -72,6 +73,38 @@ public sealed class PositionCandidateApiTests(PostgreSqlFixture database) : ICla
     }
 
     [Fact]
+    public async Task Previewable_cv_flag_follows_the_document_and_the_download_permission()
+    {
+        await ResetAsync();
+        await AddUserAsync("manager", "rrhh_user");
+        await AddRoleAsync("position_reader_no_documents", Permissions.PositionsRead, Permissions.CandidatesRead);
+        await AddUserAsync("reader", "position_reader_no_documents");
+        var pdf = await AddCandidateAsync("Pdf", "Limpio");
+        var word = await AddCandidateAsync("Word", "Limpio");
+        var pending = await AddCandidateAsync("Pdf", "Pendiente");
+        var none = await AddCandidateAsync("Sin", "Documentos");
+        await AddPrimaryDocumentAsync(pdf, "application/pdf", clean: true);
+        await AddPrimaryDocumentAsync(word, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", clean: true);
+        await AddPrimaryDocumentAsync(pending, "application/pdf", clean: false);
+        await using var factory = CreateFactory();
+        using var manager = await ClientAsync(factory, "manager");
+        using var reader = await ClientAsync(factory, "reader");
+        var position = await CreatePositionAsync(manager, "Previsualizable");
+        foreach (var id in new[] { pdf, word, pending, none }) await AddAsync(manager, position.Id, id);
+
+        var forDownloader = (await manager.GetFromJsonAsync<List<PositionCandidateResponse>>($"/api/positions/{position.Id}/candidates"))!;
+        var forReader = (await reader.GetFromJsonAsync<List<PositionCandidateResponse>>($"/api/positions/{position.Id}/candidates"))!;
+
+        Assert.Equal([pdf], forDownloader.Where(link => link.PrimaryCvPreviewable).Select(link => link.CandidateId));
+        Assert.Equal(3, forDownloader.Count(link => link.HasPrimaryCv));
+        // A clean .docx downloads but does not preview; a pending PDF does neither.
+        Assert.Equal(new HashSet<Guid> { pdf, word }, forDownloader.Where(link => link.PrimaryCvDownloadable).Select(link => link.CandidateId).ToHashSet());
+        Assert.All(forReader, link => Assert.False(link.PrimaryCvPreviewable));
+        Assert.All(forReader, link => Assert.False(link.PrimaryCvDownloadable));
+        Assert.Equal(3, forReader.Count(link => link.HasPrimaryCv));
+    }
+
+    [Fact]
     public async Task Lists_are_ordered_and_carry_only_the_minimal_projection()
     {
         await ResetAsync(); await AddUserAsync("manager", "rrhh_user");
@@ -102,7 +135,7 @@ public sealed class PositionCandidateApiTests(PostgreSqlFixture database) : ICla
         using var raw = await client.GetAsync($"/api/positions/{open.Id}/candidates");
         using var json = JsonDocument.Parse(await raw.Content.ReadAsStringAsync());
         foreach (var item in json.RootElement.EnumerateArray())
-            Assert.Equal(["addedAtUtc", "candidateId", "candidateIsActive", "email", "firstName", "hasPrimaryCv", "lastName", "phone", "stage", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
+            Assert.Equal(["addedAtUtc", "candidateId", "candidateIsActive", "email", "firstName", "hasPrimaryCv", "lastName", "phone", "primaryCvDownloadable", "primaryCvPreviewable", "stage", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
         using var rawCandidate = await client.GetAsync($"/api/candidates/{first}/positions");
         using var candidateJson = JsonDocument.Parse(await rawCandidate.Content.ReadAsStringAsync());
         foreach (var item in candidateJson.RootElement.EnumerateArray())
@@ -292,6 +325,18 @@ public sealed class PositionCandidateApiTests(PostgreSqlFixture database) : ICla
         db.Candidates.Add(candidate);
         await db.SaveChangesAsync();
         return candidate.Id;
+    }
+
+    private async Task AddPrimaryDocumentAsync(Guid candidateId, string contentType, bool clean)
+    {
+        await using var db = NewDbContext();
+        var now = DateTimeOffset.UtcNow;
+        var id = Guid.CreateVersion7();
+        var document = new CandidateDocument(id, candidateId, $"{candidateId:N}/{id:N}.bin", "cv", contentType, 1024, new string('a', 64), now);
+        document.SetPrimary(true, now);
+        if (clean) document.MarkClean("fixture", now);
+        db.Documents.Add(document);
+        await db.SaveChangesAsync();
     }
 
     private static async Task<string?> CodeAsync(HttpResponseMessage response)

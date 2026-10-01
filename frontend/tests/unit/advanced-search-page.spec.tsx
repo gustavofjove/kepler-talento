@@ -24,7 +24,8 @@ describe('AdvancedSearchPage', () => {
     email: `${id}@ejemplo.test`,
     status: 'available' as const,
     hasPrimaryCv: true,
-    primaryCvDocumentId: 'd-1',
+    primaryCvPreviewable: true,
+    primaryCvDownloadable: true,
     updatedAt: '2026-03-01T09:01:00Z',
     isActive: true,
   });

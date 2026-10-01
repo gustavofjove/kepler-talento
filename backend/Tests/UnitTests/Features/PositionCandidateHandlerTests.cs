@@ -98,6 +98,43 @@ public sealed class PositionCandidateHandlerTests
         Assert.Empty(repository.AuditEvents);
     }
 
+    // ---- previewable CV flag (KTL-35) ----
+
+    [Fact]
+    public async Task List_reports_a_previewable_cv_only_to_an_actor_who_can_download()
+    {
+        var repository = new StubRepository();
+        repository.Seed(repository.OpenPosition, repository.ActiveCandidate);
+
+        var withDownload = await new ListPositionCandidatesHandler(repository, Actor.DownloadingReader)
+            .Handle(new(repository.OpenPosition), CancellationToken.None);
+        var withoutDownload = await new ListPositionCandidatesHandler(repository, Actor.Reader)
+            .Handle(new(repository.OpenPosition), CancellationToken.None);
+
+        Assert.True(Assert.Single(withDownload).PrimaryCvPreviewable);
+        Assert.True(Assert.Single(withDownload).PrimaryCvDownloadable);
+        Assert.False(Assert.Single(withoutDownload).PrimaryCvPreviewable);
+        Assert.False(Assert.Single(withoutDownload).PrimaryCvDownloadable);
+        Assert.True(Assert.Single(withoutDownload).HasPrimaryCv);
+    }
+
+    [Fact]
+    public async Task Add_and_stage_change_responses_mask_the_previewable_flag_the_same_way()
+    {
+        var repository = new StubRepository();
+
+        var added = await new AddPositionCandidateHandler(repository, Actor.Manager)
+            .Handle(new(repository.OpenPosition, repository.ActiveCandidate), CancellationToken.None);
+        var link = Assert.Single(repository.Links);
+        var changed = await new ChangePositionCandidateStageHandler(repository, Actor.DownloadingManager)
+            .Handle(new(repository.OpenPosition, repository.ActiveCandidate, PositionCandidateStages.Interview, link.Version + 1), CancellationToken.None);
+
+        Assert.False(added.PrimaryCvPreviewable);
+        Assert.False(added.PrimaryCvDownloadable);
+        Assert.True(changed.PrimaryCvPreviewable);
+        Assert.True(changed.PrimaryCvDownloadable);
+    }
+
     // ---- add ----
 
     [Fact]
@@ -278,7 +315,7 @@ public sealed class PositionCandidateHandlerTests
     public void List_projections_carry_only_search_contact_columns_and_no_description_or_requirements()
     {
         Assert.Equal(
-            ["AddedAtUtc", "CandidateId", "CandidateIsActive", "Email", "FirstName", "HasPrimaryCv", "LastName", "Phone", "Stage", "UpdatedAtUtc", "Version"],
+            ["AddedAtUtc", "CandidateId", "CandidateIsActive", "Email", "FirstName", "HasPrimaryCv", "LastName", "Phone", "PrimaryCvDownloadable", "PrimaryCvPreviewable", "Stage", "UpdatedAtUtc", "Version"],
             typeof(PositionCandidateResponse).GetProperties().Select(property => property.Name).Order());
         Assert.Equal(
             ["AddedAtUtc", "PositionId", "PositionStatus", "Stage", "Title", "UpdatedAtUtc", "Version"],
@@ -362,7 +399,8 @@ public sealed class PositionCandidateHandlerTests
                 .ToList());
 
         private PositionCandidateItem ToItem(PositionCandidate link) =>
-            new(link.CandidateId, "Ana", "García", "ana@example.test", "600000000", false, link.CandidateId != RemovedCandidate, link.Stage, link.AddedAtUtc, link.UpdatedAtUtc, link.Version);
+            // Every stub link has a previewable primary CV, so the response shows the masking alone.
+            new(link.CandidateId, "Ana", "García", "ana@example.test", "600000000", true, true, true, link.CandidateId != RemovedCandidate, link.Stage, link.AddedAtUtc, link.UpdatedAtUtc, link.Version);
 
         // Position members belong to PositionHandlerTests; these handlers never call them.
         public Task<PositionPage> ListAsync(PositionListOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -376,6 +414,8 @@ public sealed class PositionCandidateHandlerTests
     {
         public static Actor Manager => new(true, Permissions.PositionsRead, Permissions.PositionsManage, Permissions.CandidatesRead);
         public static Actor Reader => new(true, Permissions.PositionsRead, Permissions.CandidatesRead);
+        public static Actor DownloadingReader => new(true, Permissions.PositionsRead, Permissions.CandidatesRead, Permissions.DocumentsDownload);
+        public static Actor DownloadingManager => new(true, Permissions.PositionsRead, Permissions.PositionsManage, Permissions.CandidatesRead, Permissions.DocumentsDownload);
 
         public static Actor Named(string name) => name switch
         {

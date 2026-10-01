@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { CandidateCvPreview } from '../../src/app/features/candidates/components/candidate-cv-preview';
@@ -62,7 +63,11 @@ describe('CandidateCvPreview', () => {
   const createObjectURL = vi.fn(() => 'blob:preview');
   const revokeObjectURL = vi.fn();
 
-  const renderPreview = (documents: CandidateDocument[], permitted = true) => {
+  const renderPreview = (
+    documents: CandidateDocument[],
+    permitted = true,
+    options: Partial<ComponentProps<typeof CandidateCvPreview>> = {},
+  ) => {
     services.authService.profile.set({
       id: 'user',
       displayName: 'User',
@@ -81,7 +86,11 @@ describe('CandidateCvPreview', () => {
     } as unknown as DocumentService;
     const renderCandidate = (current: CandidateDocument[]) => (
       <ServicesProvider value={{ ...services, documentService } as Services}>
-        <CandidateCvPreview candidate={candidate(current)} />
+        <CandidateCvPreview
+          candidateId={candidate(current).id}
+          initialDocuments={current}
+          {...options}
+        />
       </ServicesProvider>
     );
     const view = render(renderCandidate(documents));
@@ -244,6 +253,98 @@ describe('CandidateCvPreview', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
     await screen.findByTestId('cv-preview-viewer');
     expect(openPreview).toHaveBeenCalledTimes(2);
+  });
+
+  describe('candidate page gate (KTL-35)', () => {
+    const gated = { requirePreviewablePrimary: true };
+
+    it('shows a clean PDF primary', async () => {
+      renderPreview([pdf()], true, gated);
+      expect(await screen.findByTestId('cv-preview-viewer')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['a clean .docx primary', [pdf({ mimeType: 'application/msword' })]],
+      ['a refused primary', [pdf({ availabilityState: 'Refused' })]],
+      ['a legacy primary without a binary', [pdf({ availabilityState: 'LegacyUnavailable' })]],
+      ['only non-primary documents', [pdf({ isPrimary: false })]],
+    ])('shows nothing and requests no content for %s', async (_case, documents) => {
+      renderPreview(documents, true, gated);
+      await waitFor(() => expect(list).toHaveBeenCalledOnce());
+      expect(screen.queryByTestId('candidate-cv-preview')).not.toBeInTheDocument();
+      expect(openPreview).not.toHaveBeenCalled();
+    });
+
+    it('appears once a pending primary settles clean', async () => {
+      const pending = pdf({ availabilityState: 'Pending' });
+      observeUntilSettled.mockImplementationOnce(
+        async (
+          _candidateId: string,
+          _documentId: string,
+          onUpdate: (document: CandidateDocument) => void,
+        ) => {
+          await Promise.resolve();
+          const available = { ...pending, availabilityState: 'Available' as const };
+          onUpdate(available);
+          return available;
+        },
+      );
+      renderPreview([pending], true, gated);
+      expect(screen.queryByTestId('candidate-cv-preview')).not.toBeInTheDocument();
+      expect(await screen.findByTestId('cv-preview-viewer')).toBeInTheDocument();
+      expect(openPreview).toHaveBeenCalledOnce();
+    });
+
+    it('previews the primary even when a newer non-primary PDF exists', async () => {
+      renderPreview(
+        [pdf(), pdf({ id: 'newer', isPrimary: false, uploadedAt: '2026-06-01T00:00:00Z' })],
+        true,
+        gated,
+      );
+      await screen.findByTestId('cv-preview-viewer');
+      expect(openPreview.mock.calls[0]?.[1]).toBe('pdf');
+    });
+  });
+
+  describe('row CV mode (KTL-35)', () => {
+    it('shows its empty message rather than nothing once the list is known to be empty', async () => {
+      list.mockResolvedValue([]);
+      services.authService.profile.set({
+        id: 'user',
+        displayName: 'User',
+        email: 'user@example.test',
+        role: 'recruiter',
+        roleLabel: 'Recruiter',
+        isActive: true,
+        permissions: ['documents.download'],
+      });
+      render(
+        <ServicesProvider
+          value={
+            {
+              ...services,
+              documentService: { openPreview, download, list, observeUntilSettled },
+            } as unknown as Services
+          }
+        >
+          <CandidateCvPreview candidateId="candidate" emptyMessage="Sin CV" />
+        </ServicesProvider>,
+      );
+      expect(await screen.findByTestId('cv-preview-empty')).toHaveTextContent('Sin CV');
+      expect(openPreview).not.toHaveBeenCalled();
+    });
+
+    it('reuses content from an external cache without a new request', async () => {
+      const cache = new Map<string, Blob>([['pdf', new Blob(['cached'])]]);
+      renderPreview([pdf()], true, {
+        contentCache: {
+          get: (id) => cache.get(id),
+          set: (id, blob) => void cache.set(id, blob),
+        },
+      });
+      expect(await screen.findByTestId('cv-preview-viewer')).toBeInTheDocument();
+      expect(openPreview).not.toHaveBeenCalled();
+    });
   });
 
   it('aborts an in-flight request on unmount', () => {

@@ -7,6 +7,7 @@ public enum PositionSaveOutcome { Saved, TitleConflict, ConcurrencyConflict, Con
 /// <summary>
 /// One link as a position lists it (KTL-30): the same contact columns candidate search shows, since
 /// reading it already requires <c>candidates.read</c>; never documents, notes or other fields.
+/// <see cref="PrimaryCvPreviewable"/> is unmasked here; the response mapping masks it (KTL-35).
 /// </summary>
 public sealed record PositionCandidateItem(
     Guid CandidateId,
@@ -15,6 +16,8 @@ public sealed record PositionCandidateItem(
     string Email,
     string Phone,
     bool HasPrimaryCv,
+    bool PrimaryCvPreviewable,
+    bool PrimaryCvDownloadable,
     bool CandidateIsActive,
     string Stage,
     DateTimeOffset AddedAtUtc,

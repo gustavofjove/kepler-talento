@@ -7,6 +7,7 @@ import { AppError, toAppError } from '../../../shared/models/error.models';
 import { Pagination } from '../../../shared/components/pagination';
 import { CandidateFiltersBar } from '../components/candidate-filters-bar';
 import { CandidateTable } from '../components/candidate-table';
+import { RowCvPreviewProvider, RowCvSplit } from '../components/row-cv-preview/row-cv-preview';
 import type { CandidateListPage as ListPage } from '../models/candidate.models';
 import {
   buildFilterChips,
@@ -226,112 +227,120 @@ export function CandidateListPage() {
   };
 
   return (
-    <section className="page">
-      <div className="toolbar">
-        <div className="page-header">
-          <h1>{t('candidates.list.title')}</h1>
-          <p className="muted">{t('candidates.list.subtitle')}</p>
-        </div>
-        {canCreate ? (
-          <Link className="button" to="/app/candidates/new">
-            {t('candidates.list.new')}
-          </Link>
-        ) : null}
-      </div>
-
-      <CandidateFiltersBar
-        filters={filters}
-        chips={chips}
-        canIncludeInactive={canIncludeRemoved}
-        onPatch={patchFilters}
-        onClear={() => {
-          setText('');
-          setAppliedText('');
-          navigate((current) => ({ ...current, filters: EMPTY_FILTERS, page: 1 }));
-        }}
-        onRemoveChip={(key) => {
-          if (key === 'text') {
-            setText('');
-            return;
-          }
-          navigate((current) => ({
-            ...current,
-            filters: removeFilter(current.filters, key),
-            page: 1,
-          }));
-        }}
-      />
-
-      <div className="toolbar">
-        <p className="muted" data-testid="candidate-list-total">
-          {t('candidates.list.total', { shown: items.length, count: totalCount })}
-          {!view.filters.includeInactive ? ` · ${t('candidates.list.inactiveHidden')}` : ''}
-        </p>
-        {!canEdit ? <p className="empty-state">{t('candidates.list.readOnly')}</p> : null}
-        {canEdit ? (
-          <div className="form-actions bulk-actions">
-            <span className="muted" data-testid="candidate-selection-count">
-              {t('candidates.list.selectedOnPage', { count: selectedIds.size })}
-            </span>
-            <button
-              className="button danger"
-              type="button"
-              disabled={selectedIds.size === 0}
-              onClick={() => void runBulk('deactivate')}
-            >
-              {t('candidates.list.bulk.deactivate', { count: selectedIds.size })}
-            </button>
-            <button
-              className="button secondary"
-              type="button"
-              disabled={selectedIds.size === 0}
-              onClick={() => void runBulk('reactivate')}
-            >
-              {t('candidates.list.bulk.reactivate', { count: selectedIds.size })}
-            </button>
+    <RowCvPreviewProvider>
+      <section className="page">
+        <div className="toolbar">
+          <div className="page-header">
+            <h1>{t('candidates.list.title')}</h1>
+            <p className="muted">{t('candidates.list.subtitle')}</p>
           </div>
-        ) : null}
-      </div>
-
-      {load.status === 'loading' && !page ? (
-        <div className="empty-state">{t('candidates.list.loading')}</div>
-      ) : load.status === 'error' ? (
-        <div className="empty-state" data-testid="candidate-list-error">
-          {load.error.message || t('candidates.list.error')}
+          {canCreate ? (
+            <Link className="button" to="/app/candidates/new">
+              {t('candidates.list.new')}
+            </Link>
+          ) : null}
         </div>
-      ) : !totalCount ? (
-        <div className="empty-state" data-testid="candidate-list-empty">
-          {t('candidates.list.empty')}
-        </div>
-      ) : !items.length ? (
-        <div className="empty-state" data-testid="candidate-list-past-end">
-          {t('candidates.list.pastEnd')}
-        </div>
-      ) : null}
 
-      <CandidateTable
-        candidates={items}
-        canEdit={canEdit}
-        sort={view.sort}
-        onSort={(field) =>
-          navigate((current) => ({ ...current, sort: nextSort(current.sort, field), page: 1 }))
-        }
-        selectedIds={selectedIds}
-        allVisibleSelected={allVisibleSelected}
-        onToggleSelected={toggleSelected}
-        onToggleSelectAll={toggleSelectAll}
-      />
+        <CandidateFiltersBar
+          filters={filters}
+          chips={chips}
+          canIncludeInactive={canIncludeRemoved}
+          onPatch={patchFilters}
+          onClear={() => {
+            setText('');
+            setAppliedText('');
+            navigate((current) => ({ ...current, filters: EMPTY_FILTERS, page: 1 }));
+          }}
+          onRemoveChip={(key) => {
+            if (key === 'text') {
+              setText('');
+              return;
+            }
+            navigate((current) => ({
+              ...current,
+              filters: removeFilter(current.filters, key),
+              page: 1,
+            }));
+          }}
+        />
 
-      <Pagination
-        page={view.page}
-        pageCount={pageCount}
-        pageSize={view.pageSize}
-        pageSizes={PAGE_SIZE_OPTIONS}
-        onPageChange={(next) => navigate((current) => ({ ...current, page: Math.max(next, 1) }))}
-        onPageSizeChange={(next) =>
-          navigate((current) => ({ ...current, pageSize: next, page: 1 }))
-        }
-      />
-    </section>
+        <div className="toolbar">
+          <p className="muted" data-testid="candidate-list-total">
+            {t('candidates.list.total', { shown: items.length, count: totalCount })}
+            {!view.filters.includeInactive ? ` · ${t('candidates.list.inactiveHidden')}` : ''}
+          </p>
+          {!canEdit ? <p className="empty-state">{t('candidates.list.readOnly')}</p> : null}
+          {canEdit ? (
+            <div className="form-actions bulk-actions">
+              <span className="muted" data-testid="candidate-selection-count">
+                {t('candidates.list.selectedOnPage', { count: selectedIds.size })}
+              </span>
+              <button
+                className="button danger"
+                type="button"
+                disabled={selectedIds.size === 0}
+                onClick={() => void runBulk('deactivate')}
+              >
+                {t('candidates.list.bulk.deactivate', { count: selectedIds.size })}
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                disabled={selectedIds.size === 0}
+                onClick={() => void runBulk('reactivate')}
+              >
+                {t('candidates.list.bulk.reactivate', { count: selectedIds.size })}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {/* KTL-35: the table region splits to show a candidate's CV beside it; the filters and
+          bulk actions above keep the full width. */}
+        <RowCvSplit>
+          {load.status === 'loading' && !page ? (
+            <div className="empty-state">{t('candidates.list.loading')}</div>
+          ) : load.status === 'error' ? (
+            <div className="empty-state" data-testid="candidate-list-error">
+              {load.error.message || t('candidates.list.error')}
+            </div>
+          ) : !totalCount ? (
+            <div className="empty-state" data-testid="candidate-list-empty">
+              {t('candidates.list.empty')}
+            </div>
+          ) : !items.length ? (
+            <div className="empty-state" data-testid="candidate-list-past-end">
+              {t('candidates.list.pastEnd')}
+            </div>
+          ) : null}
+
+          <CandidateTable
+            candidates={items}
+            canEdit={canEdit}
+            sort={view.sort}
+            onSort={(field) =>
+              navigate((current) => ({ ...current, sort: nextSort(current.sort, field), page: 1 }))
+            }
+            selectedIds={selectedIds}
+            allVisibleSelected={allVisibleSelected}
+            onToggleSelected={toggleSelected}
+            onToggleSelectAll={toggleSelectAll}
+          />
+
+          <Pagination
+            page={view.page}
+            pageCount={pageCount}
+            pageSize={view.pageSize}
+            pageSizes={PAGE_SIZE_OPTIONS}
+            onPageChange={(next) =>
+              navigate((current) => ({ ...current, page: Math.max(next, 1) }))
+            }
+            onPageSizeChange={(next) =>
+              navigate((current) => ({ ...current, pageSize: next, page: 1 }))
+            }
+          />
+        </RowCvSplit>
+      </section>
+    </RowCvPreviewProvider>
   );
 }

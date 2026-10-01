@@ -21,6 +21,6 @@ public sealed class ListPositionCandidatesHandler(IPositionRepository positions,
         _ = await positions.IsPositionOpenAsync(request.PositionId, cancellationToken)
             ?? throw new NotFoundException(PositionErrors.NotFound, "Posición no encontrada.");
         var items = await positions.ListCandidatesAsync(request.PositionId, cancellationToken);
-        return items.Select(item => item.ToResponse()).ToList();
+        return items.Select(item => item.ToResponse(actor)).ToList();
     }
 }

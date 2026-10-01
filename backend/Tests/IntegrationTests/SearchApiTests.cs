@@ -5,6 +5,7 @@ using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Features.Search;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Domain.Documents;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -363,7 +364,77 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         var found = Assert.Single(page.Items);
         Assert.Equal(firstName, found.FirstName);
         Assert.Equal(expected, found.HasPrimaryCv);
-        Assert.Equal(expected, found.PrimaryCvDocumentId is not null);
+    }
+
+    [Theory]
+    [InlineData("Duplicada", true, true)]
+    [InlineData("Completo", false, false)]
+    [InlineData("Parcial", false, false)]
+    [InlineData("Rechazado", false, false)]
+    [InlineData("SinPrincipal", false, false)]
+    [InlineData("SinDocumentos", false, false)]
+    [InlineData("Ofimatico", false, true)]
+    [InlineData("SinBinario", false, false)]
+    public async Task Primary_cv_is_previewable_only_as_a_clean_pdf_and_downloadable_when_clean_with_its_binary(
+        string lastName, bool expected, bool downloadable)
+    {
+        // By unique surname, since first names overlap (Elena, Helena). Ana Duplicada: clean
+        // PDF. Bruno: pending. Carla: infected. Diego: scan failed. Elena: only non-primary
+        // documents. Fermín: none. Word Ofimatico: a clean .docx. Legado SinBinario: a clean PDF
+        // from the legacy import whose binary never arrived (KTL-35).
+        await SeedAsync();
+        await SeedPreviewEdgeCasesAsync();
+        using var factory = CreateFactory(TestActor.Downloader);
+        using var client = factory.CreateClient();
+
+        var page = await SearchAsync(
+            client,
+            new SearchFiltersInput(lastName, null, null, null, null, null, null, null, null),
+            pageSize: 100);
+
+        var found = Assert.Single(page.Items);
+        Assert.Equal(expected, found.PrimaryCvPreviewable);
+        Assert.Equal(downloadable, found.PrimaryCvDownloadable);
+    }
+
+    [Fact]
+    public async Task Previewable_flag_is_masked_for_an_actor_who_cannot_download()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var page = await SearchAsync(
+            client,
+            new SearchFiltersInput("Duplicada", null, null, null, null, null, null, null, null),
+            pageSize: 100);
+
+        var ana = Assert.Single(page.Items);
+        Assert.True(ana.HasPrimaryCv);
+        Assert.False(ana.PrimaryCvPreviewable);
+        Assert.False(ana.PrimaryCvDownloadable);
+    }
+
+    private async Task SeedPreviewEdgeCasesAsync()
+    {
+        await using var dbContext = NewDbContext();
+        var now = DateTimeOffset.UtcNow;
+        CandidateDocument Primary(Guid candidateId, string contentType, string sha256, string? sourceKey)
+        {
+            var id = Guid.CreateVersion7();
+            var document = new CandidateDocument(id, candidateId, $"{candidateId:N}/{id:N}.bin", "cv", contentType, 1024, sha256, now);
+            document.SetPrimary(true, now);
+            document.SetSourceKey(sourceKey);
+            document.MarkClean("fixture", now);
+            return document;
+        }
+        var word = new Candidate(Guid.CreateVersion7(), "Word", "Ofimatico", now);
+        var legacy = new Candidate(Guid.CreateVersion7(), "Legado", "SinBinario", now);
+        dbContext.Candidates.AddRange(word, legacy);
+        dbContext.Documents.Add(Primary(word.Id,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document", new string('b', 64), null));
+        dbContext.Documents.Add(Primary(legacy.Id, CandidateDocument.PreviewableContentType, string.Empty, $"legacy-{legacy.Id:N}"));
+        await dbContext.SaveChangesAsync();
     }
 
     [Fact]
@@ -389,7 +460,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 "email",
                 "status",
                 "hasPrimaryCv",
-                "primaryCvDocumentId",
+                "primaryCvPreviewable",
+                "primaryCvDownloadable",
                 "updatedAt",
                 "isActive",
             ],
@@ -400,7 +472,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         {
             "notes", "consentAt", "reviewDueAt", "receivedAt", "location", "province",
             "storageKey", "originalFilename", "scanState", "skills", "languages",
-            "programs", "documents", "sourceKey",
+            "programs", "documents", "sourceKey", "primaryCvDocumentId", "mimeType", "contentType",
         })
         {
             Assert.DoesNotContain($"\"{forbidden}\"", body, StringComparison.OrdinalIgnoreCase);
@@ -1169,6 +1241,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         public static TestActor Remover =>
             new(true, "integration-remover", Permissions.CandidatesRead, Permissions.CandidatesDelete);
         public static TestActor OtherReader => new(true, "other-actor", Permissions.CandidatesRead);
+        public static TestActor Downloader =>
+            new(true, "integration-downloader", Permissions.CandidatesRead, Permissions.DocumentsDownload);
         public static TestActor Manager =>
             new(true, "integration-admin", Permissions.CandidatesRead, Permissions.PresetsManage);
         public static TestActor ManagerOnly => new(true, "integration-admin", Permissions.PresetsManage);

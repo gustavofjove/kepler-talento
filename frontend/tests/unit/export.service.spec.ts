@@ -19,6 +19,8 @@ describe('ExportService', () => {
         email: 'ana@example.com',
         status: 'available',
         hasPrimaryCv: true,
+        primaryCvPreviewable: true,
+        primaryCvDownloadable: true,
         updatedAt: '2026-07-01T10:00:00Z',
         isActive: true,
       },

@@ -6,6 +6,10 @@ import { useErrorToast } from '../../../core/services/use-error-toast';
 import { AppError, toAppError } from '../../../shared/models/error.models';
 import type { ExportBatchRecord } from '../services/export.service';
 import { SearchCriteriaForm } from '../components/search-criteria-form';
+import {
+  RowCvPreviewProvider,
+  RowCvSplit,
+} from '../../candidates/components/row-cv-preview/row-cv-preview';
 import { SearchResults } from '../components/search-results';
 import {
   DEFAULT_SEARCH_PAGE_SIZE,
@@ -288,15 +292,21 @@ export function AdvancedSearchPage() {
           }
         />
       </div>
-      <div className="panel">
-        <SearchResults
-          results={results}
-          loading={loading}
-          failed={failed}
-          onPageChange={goToPage}
-          lastPage={lastPage}
-        />
-      </div>
+      {/* KTL-35: the results split to show a candidate's CV beside them; the criteria stay full
+          width above. */}
+      <RowCvPreviewProvider>
+        <RowCvSplit>
+          <div className="panel">
+            <SearchResults
+              results={results}
+              loading={loading}
+              failed={failed}
+              onPageChange={goToPage}
+              lastPage={lastPage}
+            />
+          </div>
+        </RowCvSplit>
+      </RowCvPreviewProvider>
 
       {showExportHistory ? (
         <div className="overlay" onClick={() => setShowExportHistory(false)}>

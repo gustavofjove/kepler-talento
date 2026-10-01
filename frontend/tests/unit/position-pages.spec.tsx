@@ -614,6 +614,8 @@ describe('Position pages', () => {
       email: 'ana@example.test',
       phone: '600111222',
       hasPrimaryCv: true,
+      primaryCvPreviewable: true,
+      primaryCvDownloadable: true,
       candidateIsActive: true,
       stage: 'new',
       addedAtUtc: '2026-09-20T09:00:00Z',
@@ -629,6 +631,8 @@ describe('Position pages', () => {
       email: `${firstName.toLowerCase()}@example.test`,
       status: 'available',
       hasPrimaryCv: false,
+      primaryCvPreviewable: false,
+      primaryCvDownloadable: false,
       updatedAt: '2026-09-20T09:00:00Z',
       isActive: true,
     });
@@ -676,13 +680,14 @@ describe('Position pages', () => {
         within(screen.getByTestId('position-candidates'))
           .getAllByRole('columnheader')
           .map((header) => header.textContent),
-      ).toEqual(['Candidato', 'Teléfono', 'Estado en la posición', 'CV', 'Añadido', 'Acciones']);
+      ).toEqual(['Candidato', 'Teléfono', 'Estado en la posición', 'Añadido', 'Acciones', 'CV']);
       expect(within(row).getByRole('link', { name: 'ana@example.test' })).toHaveAttribute(
         'href',
         'mailto:ana@example.test',
       );
       expect(within(row).getByText('600111222').closest('a')).toBeNull();
-      expect(within(row).getByRole('img', { name: 'Con CV' })).toBeVisible();
+      // KTL-35: «Ver» previews the CV in place; no link merely repeats the row's navigation.
+      expect(within(row).getByRole('button', { name: 'Ver el CV de Ana García' })).toBeVisible();
       expect(within(row).queryByRole('link', { name: /^Ver/ })).toBeNull();
 
       await userEvent.click(within(row).getByText('600111222'));

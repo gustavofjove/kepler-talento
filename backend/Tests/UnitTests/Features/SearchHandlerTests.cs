@@ -52,6 +52,37 @@ public sealed class SearchHandlerTests
     }
 
     [Fact]
+    public async Task The_previewable_cv_flag_reaches_an_actor_who_can_download()
+    {
+        var candidates = new RecordingCandidateRepository { Items = [PreviewableItem()] };
+        var handler = new SearchCandidatesHandler(candidates, Actor.Downloader);
+
+        var page = await handler.Handle(new SearchCandidatesQuery(null, null, null), CancellationToken.None);
+
+        Assert.True(Assert.Single(page.Items).PrimaryCvPreviewable);
+        Assert.True(page.Items[0].PrimaryCvDownloadable);
+    }
+
+    [Fact]
+    public async Task The_previewable_cv_flag_is_masked_for_an_actor_who_cannot_download()
+    {
+        var candidates = new RecordingCandidateRepository { Items = [PreviewableItem()] };
+        var handler = new SearchCandidatesHandler(candidates, Actor.Reader);
+
+        var page = await handler.Handle(new SearchCandidatesQuery(null, null, null), CancellationToken.None);
+
+        var item = Assert.Single(page.Items);
+        Assert.False(item.PrimaryCvPreviewable);
+        Assert.False(item.PrimaryCvDownloadable);
+        Assert.True(item.HasPrimaryCv);
+        Assert.Equal(1, page.TotalCount);
+    }
+
+    private static CandidateSearchItem PreviewableItem() => new(
+        Guid.CreateVersion7(), "Ana", "García", "600000000", "ana@example.test", CandidateStatuses.Available,
+        HasPrimaryCv: true, PrimaryCvPreviewable: true, PrimaryCvDownloadable: true, DateTimeOffset.UtcNow, IsActive: true);
+
+    [Fact]
     public async Task Search_refuses_out_of_range_pagination_before_querying()
     {
         var candidates = new RecordingCandidateRepository();
@@ -532,6 +563,7 @@ public sealed class SearchHandlerTests
         public SearchFiltersValue? LastFilters { get; private set; }
         public (int Page, int PageSize)? LastPaging { get; private set; }
         public SearchOptions? LastOptions { get; private set; }
+        public IReadOnlyList<CandidateSearchItem> Items { get; init; } = [];
 
         public Task<SearchPage<CandidateSearchItem>> SearchAsync(
             SearchFiltersValue filters,
@@ -541,7 +573,7 @@ public sealed class SearchHandlerTests
             LastFilters = filters;
             LastPaging = (options.Page, options.PageSize);
             LastOptions = options;
-            return Task.FromResult(new SearchPage<CandidateSearchItem>([], options.Page, options.PageSize, 0));
+            return Task.FromResult(new SearchPage<CandidateSearchItem>(Items, options.Page, options.PageSize, Items.Count));
         }
 
         public Task<Candidate?> FindAsync(Guid id, CancellationToken cancellationToken) =>
@@ -682,6 +714,7 @@ public sealed class SearchHandlerTests
         public static Actor Anonymous => new(false);
         public static Actor WithoutPermissions => new(true);
         public static Actor Reader => new(true, Permissions.CandidatesRead);
+        public static Actor Downloader => new(true, Permissions.CandidatesRead, Permissions.DocumentsDownload);
         public static Actor Remover => new(true, Permissions.CandidatesRead, Permissions.CandidatesDelete);
         public static Actor Manager => new(true, Permissions.CandidatesRead, Permissions.PresetsManage);
         public static Actor ManagerOnly => new(true, Permissions.PresetsManage);

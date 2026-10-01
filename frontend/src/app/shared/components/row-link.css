@@ -7,6 +7,11 @@
   background: var(--bg-2);
 }
 
+/* Cells excluded from the row click (selection, actions, «CV», KTL-35) do not look clickable. */
+.row-link-row td[data-row-link-ignore] {
+  cursor: default;
+}
+
 /* A record spanning several rows (one `<tbody>` per record) highlights and clicks as one. */
 .row-link-group {
   cursor: pointer;

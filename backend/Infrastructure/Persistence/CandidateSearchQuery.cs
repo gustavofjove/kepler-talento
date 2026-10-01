@@ -6,6 +6,7 @@ using KeplerTalento.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
+using KeplerTalento.Domain.Documents;
 using Microsoft.EntityFrameworkCore;
 
 namespace KeplerTalento.Infrastructure.Persistence;
@@ -285,8 +286,12 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                     document.CandidateId == candidate.Id && document.IsPrimary),
                 dbContext.Documents
                     .Where(document => document.CandidateId == candidate.Id && document.IsPrimary)
-                    .Select(document => (Guid?)document.Id)
-                    .FirstOrDefault(),
+                    .Where(CandidateDocument.IsPreviewable)
+                    .Any(),
+                dbContext.Documents
+                    .Where(document => document.CandidateId == candidate.Id && document.IsPrimary)
+                    .Where(CandidateDocument.IsDownloadable)
+                    .Any(),
                 candidate.UpdatedAtUtc,
                 candidate.IsActive));
 
