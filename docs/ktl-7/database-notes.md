@@ -33,7 +33,9 @@ that bypasses application validation — so the invariant belongs in the databas
 
 | Constraint                             | What it prevents                                                   |
 | -------------------------------------- | ------------------------------------------------------------------ |
-| `CK_CND_Candidates_Status`             | a status outside `new`/`available`/`in_process`/`hired`/`rejected` |
+| `CK_CND_Candidates_AvailabilityState`  | an availability value outside `unknown`/`available`/`unavailable`  |
+| `CK_CND_Candidates_AvailabilityCheck`  | a known state without a check date, or an unchecked state with one |
+| `CK_CND_Candidates_AvailabilityUntil`  | an `until` date on another state or before the check date          |
 | `CK_CND_Candidates_Deleted`            | an inactive candidate with no removal timestamp, or the reverse    |
 | `CK_CND_Candidates_SourceLoaded`       | a record claiming to be migration-loaded without provenance        |
 | `UX_CND_Documents_CandidateId_Primary` | a second primary document for one candidate                        |

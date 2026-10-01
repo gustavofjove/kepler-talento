@@ -65,7 +65,7 @@ public sealed class PositionSchemaTests(PostgreSqlFixture database) : IClassFixt
     [InlineData("\"Status\" = 'archived'", "CK_OPS_Positions_Status")]
     [InlineData("\"Title\" = '   '", "CK_OPS_Positions_Title")]
     [InlineData("\"Requirements\" = '[]'::jsonb", "CK_OPS_Positions_Requirements")]
-    [InlineData("\"Requirements\" = '{\"version\": 2}'::jsonb", "CK_OPS_Positions_RequirementsVersion")]
+    [InlineData("\"Requirements\" = '{\"version\": 3}'::jsonb", "CK_OPS_Positions_RequirementsVersion")]
     [InlineData("\"FilterSchemaVersion\" = 0, \"Requirements\" = '{\"version\": 0}'::jsonb", "CK_OPS_Positions_FilterSchemaVersion")]
     [InlineData("\"UpdatedAtUtc\" = \"CreatedAtUtc\" - interval '1 day'", "CK_OPS_Positions_Timestamps")]
     public async Task The_table_refuses_rows_the_application_would_never_write(string assignment, string constraint)
@@ -136,12 +136,12 @@ public sealed class PositionSchemaTests(PostgreSqlFixture database) : IClassFixt
         await using (var winner = NewDbContext())
         {
             var winning = await winner.Positions.SingleAsync();
-            winning.Update("Programador sénior", string.Empty, "Bilbao", PositionStatuses.Open, winning.Requirements, 1, DateTimeOffset.UtcNow);
+            winning.Update("Programador sénior", string.Empty, "Bilbao", PositionStatuses.Open, winning.Requirements, SearchFilterNormalization.FilterSchemaVersion, DateTimeOffset.UtcNow);
             await winner.SaveChangesAsync();
         }
 
         staleRepository.ExpectVersion(position, readVersion);
-        position.Update("Programador sénior", string.Empty, "Sevilla", PositionStatuses.Closed, position.Requirements, 1, DateTimeOffset.UtcNow);
+        position.Update("Programador sénior", string.Empty, "Sevilla", PositionStatuses.Closed, position.Requirements, SearchFilterNormalization.FilterSchemaVersion, DateTimeOffset.UtcNow);
         Assert.Equal(PositionSaveOutcome.ConcurrencyConflict, await staleRepository.SaveAsync(PositionAuditEvents.StatusChanged, CancellationToken.None));
 
         await using var verify = NewDbContext();
@@ -162,7 +162,7 @@ public sealed class PositionSchemaTests(PostgreSqlFixture database) : IClassFixt
 
         Assert.Equal(PositionSaveOutcome.Saved, await repository.SaveAsync(PositionAuditEvents.Created, CancellationToken.None));
         var created = position.Version;
-        position.Update("Analista", string.Empty, string.Empty, PositionStatuses.Closed, position.Requirements, 1, DateTimeOffset.UtcNow);
+        position.Update("Analista", string.Empty, string.Empty, PositionStatuses.Closed, position.Requirements, SearchFilterNormalization.FilterSchemaVersion, DateTimeOffset.UtcNow);
         Assert.Equal(PositionSaveOutcome.Saved, await repository.SaveAsync(PositionAuditEvents.StatusChanged, CancellationToken.None));
 
         Assert.NotEqual(0u, created);
@@ -266,7 +266,7 @@ public sealed class PositionSchemaTests(PostgreSqlFixture database) : IClassFixt
     }
 
     private static Position NewPosition(string title) =>
-        new(Guid.CreateVersion7(), title, string.Empty, string.Empty, EmptyRequirements, 1, DateTimeOffset.UtcNow);
+        new(Guid.CreateVersion7(), title, string.Empty, string.Empty, EmptyRequirements, SearchFilterNormalization.FilterSchemaVersion, DateTimeOffset.UtcNow);
 
     private PositionRepository NewRepository(ApplicationDbContext dbContext) =>
         new(dbContext, new SystemActor(), new FixedCorrelation());

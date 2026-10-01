@@ -136,7 +136,7 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
-    public async Task The_status_sort_has_an_index_ending_in_the_identifier_tie_breaker()
+    public async Task The_availability_date_has_a_partial_index_ending_in_the_identifier_tie_breaker()
     {
         await MigrateAsync();
 
@@ -144,11 +144,14 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
             """
             SELECT indexdef FROM pg_indexes
             WHERE schemaname = 'public'
-              AND indexname = 'IX_CND_Candidates_IsActive_Status_Id'
+              AND indexname IN ('IX_CND_Candidates_IsActive_AvailabilityCheckedOn', 'IX_CND_Candidates_IsActive_Status_Id')
             """);
 
-        // KTL-18: sorting the list by status stays bounded at deep offsets.
-        Assert.Contains("(\"IsActive\", \"Status\", \"Id\")", Assert.Single(definitions), StringComparison.Ordinal);
+        // KTL-36: the availability-date sort and «comprobado desde» filter over active
+        // candidates; the former status index is gone with the column.
+        var definition = Assert.Single(definitions);
+        Assert.Contains("(\"AvailabilityCheckedOn\" DESC, \"Id\")", definition, StringComparison.Ordinal);
+        Assert.Contains("WHERE \"IsActive\"", definition, StringComparison.Ordinal);
     }
 
     [Fact]

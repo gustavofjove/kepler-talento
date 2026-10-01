@@ -5,6 +5,7 @@ using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Infrastructure.Persistence;
 using KeplerTalento.Tools.DataMigration.Export;
+using KeplerTalento.Tools.DataMigration.Loading;
 
 namespace KeplerTalento.Tools.TestDataGenerator;
 
@@ -29,11 +30,11 @@ public sealed class ExportSetGenerator(GeneratorOptions options)
     /// </summary>
     private static readonly (string Status, int Weight)[] StatusWeights =
     [
-        (CandidateStatuses.New, 20),
-        (CandidateStatuses.Available, 34),
-        (CandidateStatuses.InProcess, 20),
-        (CandidateStatuses.Hired, 9),
-        (CandidateStatuses.Rejected, 17),
+        (LegacyCandidateStatuses.New, 20),
+        (LegacyCandidateStatuses.Available, 34),
+        (LegacyCandidateStatuses.InProcess, 20),
+        (LegacyCandidateStatuses.Hired, 9),
+        (LegacyCandidateStatuses.Rejected, 17),
     ];
 
     public async Task<GenerationSummary> WriteAsync(CancellationToken cancellationToken)
@@ -329,7 +330,7 @@ public sealed class ExportSetGenerator(GeneratorOptions options)
             }
             roll -= weight;
         }
-        return CandidateStatuses.Available;
+        return LegacyCandidateStatuses.Available;
     }
 
     private T Pick<T>(IReadOnlyList<T> values) => values[_random.Next(values.Count)];

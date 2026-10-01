@@ -19,7 +19,7 @@ const COUNT_QUERY: CandidateListQuery = {
   sortField: 'updatedAt',
   sortDirection: 'desc',
   text: '',
-  status: '',
+  availability: '',
   hasCv: '',
   includeInactive: false,
 };

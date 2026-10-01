@@ -59,7 +59,8 @@ describe('KTL-18 server-side candidate list security boundary', () => {
     const parse = contract.slice(contract.indexOf('public static SearchSort Parse'));
     expect(parse).toContain('"updatedAt" => SearchSortField.UpdatedAt');
     expect(parse).toContain('"lastName" => SearchSortField.LastName');
-    expect(parse).toContain('"status" => SearchSortField.Status');
+    expect(parse).toContain('"availabilityCheckedOn" => SearchSortField.AvailabilityCheckedOn');
+    expect(parse).not.toContain('"status" =>');
     expect(parse).toContain('SearchErrors.SortFieldInvalid');
 
     const query = code('backend/Infrastructure/Persistence/CandidateSearchQuery.cs');

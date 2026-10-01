@@ -100,8 +100,6 @@ public sealed class AuditApiTests(PostgreSqlFixture database) : IClassFixture<Po
             location = "",
             province = "",
             country = "España",
-            availability = "Inmediata",
-            status = CandidateStatuses.New,
             source = "Email",
             notes = "nota privada",
         });
@@ -170,6 +168,28 @@ public sealed class AuditApiTests(PostgreSqlFixture database) : IClassFixture<Po
         var only = Assert.Single(ranged.Items);
         Assert.Equal(1, ranged.TotalCount);
         Assert.Equal(CandidateAuditEvents.Read, only.EventType);
+    }
+
+    [Fact]
+    public async Task An_availability_check_is_listed_and_filterable_and_the_former_status_event_still_filters()
+    {
+        await ResetAsync();
+        await AddUserAsync("auditor", "auditor@example.test", "system_admin");
+        var subject = Guid.CreateVersion7();
+        var day = new DateTimeOffset(2026, 9, 1, 12, 0, 0, TimeSpan.Zero);
+        // A status change recorded before KTL-36 removed the status, and a check recorded after.
+        await SeedAsync(
+            Event(CandidateAuditEvents.StatusChanged, subject.ToString("N"), day, AuditActor.User(Guid.CreateVersion7())),
+            Event(CandidateAuditEvents.AvailabilityChecked, subject.ToString("N"), day.AddDays(1), AuditActor.User(Guid.CreateVersion7())));
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, "auditor", "auditor@example.test");
+
+        var checks = await PageAsync(client, $"eventType={CandidateAuditEvents.AvailabilityChecked}");
+        var formerStatus = await PageAsync(client, $"eventType={CandidateAuditEvents.StatusChanged}");
+
+        Assert.Equal(CandidateAuditEvents.AvailabilityChecked, Assert.Single(checks.Items).EventType);
+        Assert.Equal(CandidateAuditEvents.StatusChanged, Assert.Single(formerStatus.Items).EventType);
     }
 
     [Fact]
@@ -349,8 +369,6 @@ public sealed class AuditApiTests(PostgreSqlFixture database) : IClassFixture<Po
             location = "",
             province = "",
             country = "España",
-            availability = "Inmediata",
-            status = CandidateStatuses.New,
             source = "Email",
             notes = "",
         };
@@ -368,8 +386,6 @@ public sealed class AuditApiTests(PostgreSqlFixture database) : IClassFixture<Po
             payload.location,
             payload.province,
             payload.country,
-            payload.availability,
-            payload.status,
             payload.source,
             payload.notes,
             version = candidate.Version + 1000,

@@ -12,8 +12,19 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
     /// <summary>Shadow property and column holding the e-mail blind index.</summary>
     public const string EmailHash = "EmailHash";
 
-    public static readonly string StatusCheckConstraint =
-        "\"Status\" IN (" + string.Join(", ", CandidateStatuses.All.Select(status => $"'{status}'")) + ")";
+    public static readonly string AvailabilityStateCheckConstraint =
+        "\"AvailabilityState\" IN ("
+        + string.Join(", ", CandidateAvailabilityStates.All.Select(state => $"'{state}'"))
+        + ")";
+
+    /// <summary>Unknown carries no check date and no checker; a known check carries a date.</summary>
+    public const string AvailabilityCheckConstraint =
+        "(\"AvailabilityState\" = 'unknown' AND \"AvailabilityCheckedOn\" IS NULL AND \"AvailabilityCheckedByUserId\" IS NULL)"
+        + " OR (\"AvailabilityState\" <> 'unknown' AND \"AvailabilityCheckedOn\" IS NOT NULL)";
+
+    /// <summary>An until date only on an unavailable check, never before the check date.</summary>
+    public const string AvailabilityUntilConstraint =
+        "\"AvailabilityUntil\" IS NULL OR (\"AvailabilityState\" = 'unavailable' AND \"AvailabilityUntil\" >= \"AvailabilityCheckedOn\")";
 
     public void Configure(EntityTypeBuilder<Candidate> builder)
     {
@@ -21,7 +32,11 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
         {
             // KTL-33: the names are ciphertext, so a length check could no longer see an empty
             // name. The validators require one; NOT NULL still refuses a missing value.
-            table.HasCheckConstraint("CK_CND_Candidates_Status", StatusCheckConstraint);
+            // KTL-36: the availability check is guarded here as well as in the domain, against
+            // any writer that skips it.
+            table.HasCheckConstraint("CK_CND_Candidates_AvailabilityState", AvailabilityStateCheckConstraint);
+            table.HasCheckConstraint("CK_CND_Candidates_AvailabilityCheck", AvailabilityCheckConstraint);
+            table.HasCheckConstraint("CK_CND_Candidates_AvailabilityUntil", AvailabilityUntilConstraint);
             // Logical removal is the only removal: an inactive candidate carries the moment
             // it was removed, and an active one carries none.
             table.HasCheckConstraint(
@@ -44,11 +59,20 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
         builder.Property(candidate => candidate.Location).IsEncrypted(Table, CandidateTextLimits.Location).IsRequired();
         builder.Property(candidate => candidate.Province).IsEncrypted(Table, CandidateTextLimits.Province).IsRequired();
         builder.Property(candidate => candidate.Country).IsEncrypted(Table, CandidateTextLimits.Country).IsRequired();
-        builder.Property(candidate => candidate.Availability).IsEncrypted(Table, CandidateTextLimits.Availability).IsRequired();
-        builder.Property(candidate => candidate.Status).HasMaxLength(20).IsRequired();
         builder.Property(candidate => candidate.Source).IsEncrypted(Table, CandidateTextLimits.Source).IsRequired();
         builder.Property(candidate => candidate.Notes).IsEncrypted(Table).IsRequired();
         builder.Property(candidate => candidate.SourceKey).HasMaxLength(200);
+        // KTL-36: the availability check is not free text, so it stays in clear.
+        builder.Property(candidate => candidate.AvailabilityState)
+            .HasMaxLength(20)
+            .HasDefaultValue(CandidateAvailabilityStates.Unknown)
+            .IsRequired();
+        builder.Property(candidate => candidate.AvailabilityCheckedOn);
+        builder.Property(candidate => candidate.AvailabilityUntil);
+        builder.HasOne(candidate => candidate.CheckedBy)
+            .WithMany()
+            .HasForeignKey(candidate => candidate.AvailabilityCheckedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
         builder.Property(candidate => candidate.Version).IsRowVersion();
         // The e-mail blind index (KTL-33 design decision 5). A shadow property: the domain never
         // sees it, and the repository keeps it in step with the e-mail on every write.
@@ -60,8 +84,12 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
         // The contracted list/search sort fields (KTL-18), each ending in the identifier
         // tie-breaker so an ordered page can be read from the index without a sort step. The
         // last-name sort has no index since KTL-33: names are ciphertext, sorted in the API.
-        builder.HasIndex(candidate => new { candidate.IsActive, candidate.Status, candidate.Id })
-            .HasDatabaseName("IX_CND_Candidates_IsActive_Status_Id");
+        // KTL-36: the availability-date sort and the «comprobado desde» filter over the default
+        // (active) population.
+        builder.HasIndex(candidate => new { candidate.AvailabilityCheckedOn, candidate.Id })
+            .IsDescending(true, false)
+            .HasFilter("\"IsActive\"")
+            .HasDatabaseName("IX_CND_Candidates_IsActive_AvailabilityCheckedOn");
         builder.HasIndex(candidate => candidate.SourceKey)
             .IsUnique()
             .HasFilter("\"SourceKey\" IS NOT NULL")

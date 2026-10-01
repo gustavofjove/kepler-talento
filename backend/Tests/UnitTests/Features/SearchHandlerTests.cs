@@ -79,7 +79,7 @@ public sealed class SearchHandlerTests
     }
 
     private static CandidateSearchItem PreviewableItem() => new(
-        Guid.CreateVersion7(), "Ana", "García", "600000000", "ana@example.test", CandidateStatuses.Available,
+        Guid.CreateVersion7(), "Ana", "García", "600000000", "ana@example.test", "available", new DateOnly(2026, 3, 12),
         HasPrimaryCv: true, PrimaryCvPreviewable: true, PrimaryCvDownloadable: true, DateTimeOffset.UtcNow, IsActive: true);
 
     [Fact]
@@ -112,8 +112,8 @@ public sealed class SearchHandlerTests
     [InlineData("updatedAt", "desc", SearchSortField.UpdatedAt, SearchSortDirection.Descending)]
     [InlineData("lastName", "asc", SearchSortField.LastName, SearchSortDirection.Ascending)]
     [InlineData("lastName", "desc", SearchSortField.LastName, SearchSortDirection.Descending)]
-    [InlineData("status", "asc", SearchSortField.Status, SearchSortDirection.Ascending)]
-    [InlineData("status", "desc", SearchSortField.Status, SearchSortDirection.Descending)]
+    [InlineData("availabilityCheckedOn", "asc", SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Ascending)]
+    [InlineData("availabilityCheckedOn", "desc", SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Descending)]
     public async Task Each_documented_sort_field_is_accepted_in_both_directions(
         string field,
         string direction,
@@ -132,6 +132,8 @@ public sealed class SearchHandlerTests
     [InlineData("email", null, SearchErrors.SortFieldInvalid)]
     [InlineData("UpdatedAtUtc\"; DROP TABLE \"CND_Candidates\"; --", null, SearchErrors.SortFieldInvalid)]
     [InlineData("LASTNAME", null, SearchErrors.SortFieldInvalid)]
+    // KTL-36: the former status sort is an unknown field like any other.
+    [InlineData("status", "asc", SearchErrors.SortFieldInvalid)]
     [InlineData(null, "sideways", SearchErrors.SortDirectionInvalid)]
     public async Task An_unknown_sort_is_refused_with_a_stable_code_before_querying(
         string? field,
@@ -155,7 +157,7 @@ public sealed class SearchHandlerTests
 
         var refusal = await Assert.ThrowsAsync<RequestValidationException>(() =>
             new SearchCandidatesHandler(candidates, Actor.Reader)
-                .Handle(new SearchCandidatesQuery(null, 0, 101, false, "status", "asc"), CancellationToken.None));
+                .Handle(new SearchCandidatesQuery(null, 0, 101, false, "availabilityCheckedOn", "asc"), CancellationToken.None));
 
         Assert.Contains(refusal.Issues, issue => issue.Code == SearchErrors.PageInvalid);
         Assert.Contains(refusal.Issues, issue => issue.Code == SearchErrors.PageSizeInvalid);

@@ -32,8 +32,6 @@ async function createCandidate(page: Page, firstName: string, marker: string): P
       location: 'Madrid',
       province: 'Madrid',
       country: 'España',
-      availability: 'Inmediata',
-      status: 'available',
       source: 'e2e',
       notes: '',
       receivedAt: '2026-09-01',

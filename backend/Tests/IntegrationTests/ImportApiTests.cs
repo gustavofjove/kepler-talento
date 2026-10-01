@@ -309,6 +309,28 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.False(await db.ImportRowOutcomes.AnyAsync());
     }
 
+    [Theory]
+    [InlineData("status")]
+    [InlineData("availability")]
+    public async Task A_file_still_carrying_a_former_column_is_refused_as_an_unknown_column(string column)
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory();
+        using var client = factory.CreateClient();
+
+        var batch = await UploadAndValidateAsync(
+            client,
+            factory.Services,
+            $"first_name,last_name,email,{column}\nZoraida,Villalobos,zoraida@example.test,available\n");
+
+        Assert.Equal(ImportBatchStates.Failed, batch.State);
+        Assert.Equal(ImportReasonCodes.ColumnUnknown, batch.FailureCode);
+        Assert.Equal(column, batch.FailureDetail);
+        await using var db = NewDbContext();
+        Assert.False(await db.ImportRowOutcomes.AnyAsync());
+        Assert.False(await db.Candidates.AnyAsync());
+    }
+
     [Fact]
     public async Task A_file_over_the_row_limit_is_refused_naming_the_limit_before_any_row_is_evaluated()
     {
@@ -365,7 +387,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
             ",Etxeberria,sin-nombre@sentinel.test,,,,",
             "Marcelino,Arrieta,no-es-un-correo,,,,",
             "Zoraida,Villalobos,ZORAIDA@sentinel.test,,,,",
-            "Hermenegilda,Olabarrieta,hermenegilda@sentinel.test,,archivada,,"));
+            "Hermenegilda,Olabarrieta,hermenegilda@sentinel.test,,,archivada,"));
 
         Assert.Equal(ImportBatchStates.Validated, batch.State);
         Assert.Equal(5, batch.RowCount);
@@ -392,7 +414,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.Equal(("first_name", ImportReasonCodes.FieldRequired), (rows.Items[1].Field, rows.Items[1].ReasonCode));
         Assert.Equal(("email", ImportReasonCodes.EmailInvalid), (rows.Items[2].Field, rows.Items[2].ReasonCode));
         Assert.Equal((ImportRowOutcomes.Skipped, ImportReasonCodes.CandidateDuplicate), (rows.Items[3].Outcome, rows.Items[3].ReasonCode));
-        Assert.Equal(("status", ImportReasonCodes.StatusUnknown), (rows.Items[4].Field, rows.Items[4].ReasonCode));
+        Assert.Equal(("consent_at", ImportReasonCodes.DateInvalid), (rows.Items[4].Field, rows.Items[4].ReasonCode));
     }
 
     [Fact]
@@ -457,7 +479,10 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.Equal(["ana@example.test", "luis@example.test"], candidates.Select(candidate => candidate.Email));
         var ana = candidates[0];
         Assert.Null(ana.SourceKey);
-        Assert.Equal(CandidateStatuses.Available, ana.Status);
+        // An imported candidate is an ordinary created one: its availability starts unknown.
+        Assert.Equal(CandidateAvailabilityStates.Unknown, ana.AvailabilityState);
+        Assert.Null(ana.AvailabilityCheckedOn);
+        Assert.Null(ana.AvailabilityCheckedByUserId);
         Assert.Equal(new DateOnly(2026, 3, 18), ana.ConsentAt);
         Assert.Null(candidates[1].ConsentAt);
 
@@ -466,6 +491,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
 
         var readBack = await client.GetFromJsonAsync<CandidateResponse>($"/api/candidates/{ana.Id}");
         Assert.Equal("Ruiz", readBack!.LastName);
+        Assert.Equal(new CandidateAvailabilityResponse("unknown", "", "", null), readBack.Availability);
         Assert.Equal(["Francés", "Inglés"], readBack.Languages.Select(language => language.Language).Order());
     }
 
@@ -528,7 +554,7 @@ public sealed class ImportApiTests(PostgreSqlFixture database) : IClassFixture<P
             for (var row = 1; row <= 5; row++)
             {
                 var candidate = CandidateFactory.Create(
-                    new CreateCandidateCommand($"Nombre{row}", $"Apellido{row}", "", $"persona{row}@example.test", "", "", "", "", "new", "", "", null, null, null),
+                    new CreateCandidateCommand($"Nombre{row}", $"Apellido{row}", "", $"persona{row}@example.test", "", "", "", "", "", null, null, null),
                     DateTimeOffset.UtcNow);
                 db.Candidates.Add(candidate);
                 db.ImportRowOutcomes.Add(new ImportRowOutcome(Guid.CreateVersion7(), batch.Id, ImportPhases.Commit, row, ImportRowOutcomes.Loaded, null, null, candidate.Id, DateTimeOffset.UtcNow));

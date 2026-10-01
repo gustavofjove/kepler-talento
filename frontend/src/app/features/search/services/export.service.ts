@@ -1,3 +1,5 @@
+import { i18n } from '../../../core/i18n/i18n';
+import { availabilityLabel } from '../../candidates/components/candidate-availability.logic';
 import { SearchResult } from '../models/search.models';
 import { AppError } from '../../../shared/models/error.models';
 
@@ -25,7 +27,9 @@ export class ExportService {
       apellidos: item.lastName,
       telefono: item.phone,
       email: item.email,
-      estado: item.status,
+      // KTL-36: the value's Spanish label and the check day; blank when unchecked.
+      disponibilidad: availabilityLabel(item.availabilityState, i18n.t),
+      comprobado_el: item.availabilityCheckedOn ?? '',
       cv_disponible: item.hasPrimaryCv ? 'si' : 'no',
       actualizado_en: item.updatedAt,
     }));
@@ -36,7 +40,8 @@ export class ExportService {
         apellidos: '',
         telefono: '',
         email: '',
-        estado: '',
+        disponibilidad: '',
+        comprobado_el: '',
         cv_disponible: '',
         actualizado_en: '',
       },

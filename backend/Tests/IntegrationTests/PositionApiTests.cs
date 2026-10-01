@@ -137,7 +137,7 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
         await using var after = NewDbContext();
         var stored = await after.Positions.AsNoTracking().SingleAsync();
         Assert.Equal(before, stored.Requirements);
-        Assert.Equal(1, stored.FilterSchemaVersion);
+        Assert.Equal(2, stored.FilterSchemaVersion);
     }
 
     [Fact]
@@ -245,7 +245,8 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
             (await client.PostAsJsonAsync("/api/positions", Body(new string('t', 201))), PositionErrors.TitleTooLong),
             (await client.PostAsJsonAsync("/api/positions", Body("Larga", description: "<p>" + new string('d', 20_001) + "</p>")), PositionErrors.DescriptionTooLong),
             (await client.PostAsJsonAsync("/api/positions", Body("Filtro", requirements: new { hasCv = "maybe" })), "search."),
-            (await client.PostAsJsonAsync("/api/positions", Body("Estados", requirements: new { statusValues = new[] { "nope" } })), "search."),
+            (await client.PostAsJsonAsync("/api/positions", Body("Disponibilidad", requirements: new { availabilityValues = new[] { "hired" } })), "search."),
+            (await client.PostAsJsonAsync("/api/positions", Body("Comprobado", requirements: new { availabilityCheckedFrom = "ayer" })), "search."),
             (await client.PostAsJsonAsync("/api/positions", Body("Modo", requirements: new { skillMode = "SOME" })), "search."),
         };
 

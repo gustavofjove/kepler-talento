@@ -483,6 +483,47 @@ describe('CandidateDetailPage', () => {
     });
   });
 
+  describe('availability while another panel is edited (KTL-36)', () => {
+    beforeEach(asEditor);
+
+    it('records «Sigue igual» mid-edit, then saves Datos principales without a prompt or conflict', async () => {
+      bed.api.seed({
+        id: 'c1',
+        firstName: 'Ona',
+        lastName: 'Marti',
+        availability: {
+          state: 'available',
+          checkedOn: '2026-03-12',
+          until: '',
+          checkedByDisplayName: 'Marta G.',
+        },
+      });
+      await renderAt('/app/candidates/c1');
+      await loaded();
+
+      await userEvent.click(editButton('main')!);
+      const lastName = screen.getByLabelText('Apellidos');
+      await userEvent.clear(lastName);
+      await userEvent.type(lastName, 'Martí');
+
+      // The block stays usable while the panel holds unsaved changes.
+      await userEvent.click(screen.getByTestId('availability-reconfirm'));
+      await waitFor(() => expect(screen.getByTestId('availability-undo')).toBeInTheDocument());
+      expect(bed.api.candidates.get('c1')?.availability.checkedOn).not.toBe('2026-03-12');
+      // The editor kept its draft: the check never reset or closed it.
+      expect(screen.getByLabelText('Apellidos')).toHaveValue('Martí');
+
+      await userEvent.click(screen.getByTestId('candidate-panel-main-save'));
+
+      await waitFor(() => expect(bed.api.candidates.get('c1')?.lastName).toBe('Martí'));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(toastService.show).not.toHaveBeenCalledWith(expect.any(String), 'error');
+      // The general save left the check it followed alone.
+      expect(bed.api.candidates.get('c1')?.availability.state).toBe('available');
+      expect(bed.api.candidates.get('c1')?.availability.checkedOn).not.toBe('2026-03-12');
+    });
+  });
+
   describe('Competencias (KTL-29)', () => {
     beforeEach(asEditor);
 
@@ -751,6 +792,7 @@ describe('CandidateDetailPage', () => {
       await renderAt('/app/candidates/c1');
       await loaded();
       expect(screen.queryByTestId('candidate-positions')).toBeNull();
+      expect(screen.queryByTestId('candidate-pipeline-badges')).toBeNull();
       expect(positionService.listForCandidate).not.toHaveBeenCalled();
     });
 
@@ -761,10 +803,12 @@ describe('CandidateDetailPage', () => {
       await loaded();
 
       expect(await screen.findByRole('link', { name: 'Backend' })).toBeVisible();
+      expect(screen.getByTestId('candidate-pipeline-inProcess')).toHaveTextContent('En proceso');
       const headings = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
       expect(headings.indexOf('Posiciones')).toBe(headings.indexOf('Experiencia') + 1);
       expect(headings.indexOf('Notas personalizadas')).toBe(headings.indexOf('Posiciones') + 1);
       expect(positionService.listForCandidate).toHaveBeenCalledWith('c1');
+      expect(positionService.listForCandidate).toHaveBeenCalledTimes(1);
     });
 
     it('changes a stage without disturbing a panel in edit mode', async () => {
@@ -772,7 +816,7 @@ describe('CandidateDetailPage', () => {
       granted.add('positions.read');
       granted.add('positions.manage');
       positionService.listForCandidate.mockResolvedValue([stored]);
-      positionService.changeStage.mockResolvedValue({ ...stored, stage: 'interview', version: 3 });
+      positionService.changeStage.mockResolvedValue({ ...stored, stage: 'hired', version: 3 });
       await renderAt('/app/candidates/c1');
       await loaded();
       await userEvent.click(editButton('main')!);
@@ -781,12 +825,14 @@ describe('CandidateDetailPage', () => {
 
       await userEvent.selectOptions(
         await screen.findByRole('combobox', { name: 'Estado en Backend' }),
-        'interview',
+        'hired',
       );
 
       await waitFor(() =>
-        expect(positionService.changeStage).toHaveBeenCalledWith('p-1', 'c1', 'interview', 2),
+        expect(positionService.changeStage).toHaveBeenCalledWith('p-1', 'c1', 'hired', 2),
       );
+      expect(screen.getByTestId('candidate-pipeline-hired')).toHaveTextContent('Contratado');
+      expect(screen.queryByTestId('candidate-pipeline-inProcess')).toBeNull();
       expect(confirm).not.toHaveBeenCalled();
       expect(screen.getByLabelText('Nombre')).toHaveValue('Onax');
       expect(screen.getByTestId('candidate-panel-main-save')).toBeInTheDocument();

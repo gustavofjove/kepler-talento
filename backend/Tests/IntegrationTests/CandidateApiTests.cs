@@ -46,8 +46,6 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             location = "Madrid",
             province = "Madrid",
             country = "España",
-            availability = "Inmediata",
-            status = CandidateStatuses.Available,
             source = "LinkedIn",
             notes = "Perfil administrativo.",
             receivedAt = "2026-05-10",
@@ -77,8 +75,6 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             location = "Madrid",
             province = "Madrid",
             country = "España",
-            availability = "Inmediata",
-            status = CandidateStatuses.Available,
             source = "LinkedIn",
             notes = "Perfil administrativo.",
             version = read.Version,
@@ -379,6 +375,18 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             Assert.Equal(
                 HttpStatusCode.Forbidden,
                 (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/tags", new { tags = Array.Empty<object>(), version = 0 })).StatusCode);
+            foreach (var target in new[] { created.Id, Guid.NewGuid() })
+            {
+                Assert.Equal(
+                    HttpStatusCode.Forbidden,
+                    (await client.PutAsJsonAsync($"/api/candidates/{target}/availability", ValidCheck(created.Version))).StatusCode);
+                Assert.Equal(
+                    HttpStatusCode.Forbidden,
+                    (await client.PutAsJsonAsync($"/api/candidates/{target}/availability", InvalidCheck)).StatusCode);
+                Assert.Equal(
+                    HttpStatusCode.Forbidden,
+                    (await client.PutAsync($"/api/candidates/{target}/availability", MalformedCheck())).StatusCode);
+            }
             Assert.Equal(
                 HttpStatusCode.Forbidden,
                 (await client.PostAsJsonAsync($"/api/candidates/{created.Id}/notes", new { body = "" })).StatusCode);
@@ -423,6 +431,20 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await client.PutAsJsonAsync($"/api/candidates/{created.Id}/tags", new { tags = Array.Empty<object>(), version = 0 })).StatusCode);
+        // A reader is refused before validation and lookup: a valid body, an invalid one, an
+        // existing candidate and a missing one all get the same answer (KTL-36 criterion 11).
+        foreach (var target in new[] { created.Id, Guid.NewGuid() })
+        {
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsJsonAsync($"/api/candidates/{target}/availability", ValidCheck(created.Version))).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsJsonAsync($"/api/candidates/{target}/availability", InvalidCheck)).StatusCode);
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PutAsync($"/api/candidates/{target}/availability", MalformedCheck())).StatusCode);
+        }
         Assert.Equal(
             HttpStatusCode.Forbidden,
             (await client.PostAsJsonAsync($"/api/candidates/{created.Id}/notes", new { body = "" })).StatusCode);
@@ -439,6 +461,7 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
                 $"/api/candidates/{created.Id}/notes/{noteId}/active",
                 new { isActive = false, version = 0 })).StatusCode);
         Assert.Equal("Ana", (await ReadAsync(created.Id)).FirstName);
+        Assert.Equal(CandidateAvailabilityStates.Unknown, (await ReadAsync(created.Id)).AvailabilityState);
         await using var db = NewDbContext();
         Assert.Empty(await db.CandidateTags.Where(tag => tag.CandidateId == created.Id).ToListAsync());
         Assert.Empty(await db.CandidateNotes.Where(note => note.CandidateId == created.Id).ToListAsync());
@@ -757,6 +780,237 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         }
     }
 
+    // ---- KTL-36: availability checks ----
+
+    private static string Today => DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd");
+
+    private static object ValidCheck(uint version) =>
+        new { state = "available", checkedOn = Today, until = (string?)null, version };
+
+    /// <summary>Not JSON at all, so a framework binder would fail before any permission check.</summary>
+    private static StringContent MalformedCheck() =>
+        new("{ \"state\": \"available\", ", System.Text.Encoding.UTF8, "application/json");
+
+    [Fact]
+    public async Task A_malformed_availability_body_from_an_authorized_caller_is_a_validation_problem()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+
+        var response = await client.PutAsync($"/api/candidates/{created.Id}/availability", MalformedCheck());
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(CandidateErrors.AvailabilityInvalid, await ProblemCodeAsync(response));
+        Assert.Equal(CandidateAvailabilityStates.Unknown, (await ReadAsync(created.Id)).AvailabilityState);
+    }
+
+    private static readonly object InvalidCheck = new { state = "archived", checkedOn = "mañana", until = "nunca", version = 0 };
+
+    private static async Task<CandidateResponse> CheckAsync(
+        HttpClient client,
+        Guid id,
+        string state,
+        string? checkedOn,
+        string? until,
+        uint version)
+    {
+        var response = await client.PutAsJsonAsync($"/api/candidates/{id}/availability", new { state, checkedOn, until, version });
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        return (await response.Content.ReadFromJsonAsync<CandidateResponse>())!;
+    }
+
+    private static async Task<string> ProblemCodeAsync(HttpResponseMessage response)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = document.RootElement;
+        if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            return string.Join(",", errors.EnumerateArray().Select(error => error.GetProperty("code").GetString()));
+        }
+        return root.GetProperty("code").GetString() ?? string.Empty;
+    }
+
+    [Fact]
+    public async Task No_candidate_response_carries_a_status_or_a_free_text_availability()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+
+        foreach (var route in new[] { $"/api/candidates/{created.Id}", "/api/candidates" })
+        {
+            var body = await client.GetStringAsync(route);
+            Assert.DoesNotContain("\"status\"", body, StringComparison.Ordinal);
+            Assert.Contains("\"availability\":{\"state\":\"unknown\",\"checkedOn\":\"\",\"until\":\"\",\"checkedByDisplayName\":null}", body, StringComparison.Ordinal);
+        }
+        var search = await (await client.PostAsJsonAsync("/api/candidates/search", new { filters = new { } })).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("\"status\"", search, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_check_is_recorded_with_its_checker_display_name_and_an_audit_event_without_values()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/availability",
+            new { state = "unavailable", checkedOn = Today, until = "2027-01-15", version = created.Version });
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var checkedCandidate = System.Text.Json.JsonSerializer.Deserialize<CandidateResponse>(body, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+
+        Assert.Equal(new CandidateAvailabilityResponse("unavailable", Today, "2027-01-15", "Integration Candidate Actor"), checkedCandidate.Availability);
+        Assert.NotEqual(created.Version, checkedCandidate.Version);
+        // The checker is a display name, never a user id.
+        Assert.DoesNotContain(TestActor.StoredUserId.ToString(), body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("checkedByUserId", body, StringComparison.OrdinalIgnoreCase);
+        var read = await client.GetStringAsync($"/api/candidates/{created.Id}");
+        Assert.Contains("\"checkedByDisplayName\":\"Integration Candidate Actor\"", read, StringComparison.Ordinal);
+        Assert.DoesNotContain(TestActor.StoredUserId.ToString(), read, StringComparison.OrdinalIgnoreCase);
+
+        await using var db = NewDbContext();
+        var audit = await db.AuditEvents.AsNoTracking()
+            .SingleAsync(item => item.EventType == CandidateAuditEvents.AvailabilityChecked);
+        Assert.Equal(created.Id.ToString("N"), audit.SubjectId);
+        Assert.Equal(TestActor.StoredUserId, audit.ActorUserId);
+        var stored = await ReadAsync(created.Id);
+        Assert.Equal(TestActor.StoredUserId, stored.AvailabilityCheckedByUserId);
+    }
+
+    [Fact]
+    public async Task Reconfirming_advances_the_version_and_undo_restores_the_previous_date()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var first = await CheckAsync(client, created.Id, "available", "2026-03-12", null, created.Version);
+
+        // «Sigue igual»: the stored value again, with today's date.
+        var reconfirmed = await CheckAsync(client, created.Id, "available", Today, null, first.Version);
+        Assert.Equal("available", reconfirmed.Availability.State);
+        Assert.Equal(Today, reconfirmed.Availability.CheckedOn);
+        Assert.NotEqual(first.Version, reconfirmed.Version);
+
+        // «Deshacer»: the previous check resubmitted.
+        var undone = await CheckAsync(client, created.Id, "available", "2026-03-12", null, reconfirmed.Version);
+        Assert.Equal("2026-03-12", undone.Availability.CheckedOn);
+        Assert.Equal(3, await AuditCountAsync(CandidateAuditEvents.AvailabilityChecked));
+    }
+
+    [Fact]
+    public async Task An_earlier_check_date_amends_and_a_reset_clears_dates_and_checker()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var today = await CheckAsync(client, created.Id, "available", Today, null, created.Version);
+
+        var amended = await CheckAsync(client, created.Id, "available", "2026-03-10", null, today.Version);
+        Assert.Equal("2026-03-10", amended.Availability.CheckedOn);
+
+        var reset = await CheckAsync(client, created.Id, "unknown", null, null, amended.Version);
+        Assert.Equal(new CandidateAvailabilityResponse("unknown", "", "", null), reset.Availability);
+        var stored = await ReadAsync(created.Id);
+        Assert.Null(stored.AvailabilityCheckedOn);
+        Assert.Null(stored.AvailabilityCheckedByUserId);
+    }
+
+    public static TheoryData<string, string?, string?, string> RefusedChecks() => new()
+    {
+        { "available", DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2).ToString("yyyy-MM-dd"), null, CandidateErrors.AvailabilityCheckedOnInvalid },
+        { "available", "2026-03-12", "2027-01-15", CandidateErrors.AvailabilityUntilInvalid },
+        { "unknown", null, "2027-01-15", CandidateErrors.AvailabilityUntilInvalid },
+        { "unavailable", "2026-03-12", "2026-03-01", CandidateErrors.AvailabilityUntilInvalid },
+        { "hired", "2026-03-12", null, CandidateErrors.AvailabilityInvalid },
+    };
+
+    [Theory]
+    [MemberData(nameof(RefusedChecks))]
+    public async Task An_invalid_check_is_refused_with_its_code_and_nothing_changes(
+        string state,
+        string? checkedOn,
+        string? until,
+        string code)
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var stored = await CheckAsync(client, created.Id, "available", "2026-03-12", null, created.Version);
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/availability",
+            new { state, checkedOn, until, version = stored.Version });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(code, await ProblemCodeAsync(response), StringComparison.Ordinal);
+        var after = await ReadAsync(created.Id);
+        Assert.Equal("available", after.AvailabilityState);
+        Assert.Equal(new DateOnly(2026, 3, 12), after.AvailabilityCheckedOn);
+        Assert.Equal(1, await AuditCountAsync(CandidateAuditEvents.AvailabilityChecked));
+    }
+
+    [Fact]
+    public async Task A_check_on_a_removed_candidate_or_with_a_stale_version_is_refused()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var checkedOnce = await CheckAsync(client, created.Id, "available", Today, null, created.Version);
+
+        var stale = await client.PutAsJsonAsync($"/api/candidates/{created.Id}/availability", ValidCheck(created.Version));
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Equal(CandidateErrors.ConcurrencyConflict, await ProblemCodeAsync(stale));
+
+        var removedResponse = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/active",
+            new { isActive = false, version = checkedOnce.Version });
+        var removed = (await removedResponse.Content.ReadFromJsonAsync<CandidateResponse>())!;
+        var refused = await client.PutAsJsonAsync($"/api/candidates/{created.Id}/availability", ValidCheck(removed.Version));
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal(CandidateErrors.RemovedCandidate, await ProblemCodeAsync(refused));
+        Assert.Equal(1, await AuditCountAsync(CandidateAuditEvents.AvailabilityChecked));
+    }
+
+    [Fact]
+    public async Task The_general_update_saves_with_the_version_a_check_returned_and_leaves_the_check_alone()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Ana", "Lopez");
+        var checkedCandidate = await CheckAsync(client, created.Id, "unavailable", "2026-03-12", "2027-01-15", created.Version);
+
+        // Criterion 13: the page adopts the returned version, so its next edit is not a conflict.
+        var update = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}",
+            UpdatePayload("Ana", "Lopez", "+34 600 000 000", checkedCandidate.Version));
+        Assert.Equal(HttpStatusCode.OK, update.StatusCode);
+        var updated = (await update.Content.ReadFromJsonAsync<CandidateResponse>())!;
+
+        // Criterion 14: the general update never touches the check.
+        Assert.Equal(checkedCandidate.Availability, updated.Availability);
+        var stored = await ReadAsync(created.Id);
+        Assert.Equal(TestActor.StoredUserId, stored.AvailabilityCheckedByUserId);
+        Assert.Equal(1, await AuditCountAsync(CandidateAuditEvents.Updated));
+        Assert.Equal(0, await AuditCountAsync(CandidateAuditEvents.StatusChanged));
+    }
+
+    private async Task<int> AuditCountAsync(string eventType)
+    {
+        await using var db = NewDbContext();
+        return await db.AuditEvents.CountAsync(item => item.EventType == eventType);
+    }
+
     private static object CreatePayload(string firstName, string lastName) => new
     {
         firstName,
@@ -766,8 +1020,6 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         location = "",
         province = "",
         country = "España",
-        availability = "Inmediata",
-        status = CandidateStatuses.New,
         source = "Email",
         notes = "",
         receivedAt = (string?)null,
@@ -784,8 +1036,6 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         location = "",
         province = "",
         country = "España",
-        availability = "Inmediata",
-        status = CandidateStatuses.New,
         source = "Email",
         notes = "",
         version,

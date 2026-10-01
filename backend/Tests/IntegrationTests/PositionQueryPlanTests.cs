@@ -156,10 +156,10 @@ public sealed class PositionQueryPlanTests(PostgreSqlFixture database, ITestOutp
         for (var index = 0; index < PositionCount; index++)
         {
             var position = new Position(
-                Guid.CreateVersion7(), $"Desarrollador {index}", description, cities[index % cities.Length], requirements, 1, origin.AddMinutes(index));
+                Guid.CreateVersion7(), $"Desarrollador {index}", description, cities[index % cities.Length], requirements, SearchFilterNormalization.FilterSchemaVersion, origin.AddMinutes(index));
             if (index % 4 == 0)
             {
-                position.Update(position.Title, description, position.Location, PositionStatuses.Closed, requirements, 1, origin.AddMinutes(index));
+                position.Update(position.Title, description, position.Location, PositionStatuses.Closed, requirements, SearchFilterNormalization.FilterSchemaVersion, origin.AddMinutes(index));
             }
             dbContext.Positions.Add(position);
             if (index % 1000 == 999)

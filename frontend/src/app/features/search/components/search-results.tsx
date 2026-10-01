@@ -8,6 +8,7 @@ import {
   RowCvActions,
   RowCvInlineRow,
 } from '../../candidates/components/row-cv-preview/row-cv-preview';
+import { availabilityCell } from '../../candidates/components/candidate-availability.logic';
 import { useRowCvTable } from '../../candidates/components/row-cv-preview/row-cv-preview.context';
 import { displayPhone, mailtoHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
@@ -65,7 +66,7 @@ export function SearchResults({
             <tr>
               <th>{t('search.results.column.candidate')}</th>
               <th>{t('search.results.column.phone')}</th>
-              <th>{t('search.results.column.status')}</th>
+              <th>{t('search.results.column.availability')}</th>
               <th>{t('search.results.column.updated')}</th>
               {renderRowAction ? <th></th> : null}
               {cv.enabled ? <th>{t('search.results.column.cv')}</th> : null}
@@ -96,7 +97,13 @@ export function SearchResults({
                     </td>
                     <td>{displayPhone(result.phone)}</td>
                     <td>
-                      <span className="badge">{result.status}</span>
+                      <span data-testid="search-availability-cell">
+                        {availabilityCell(
+                          result.availabilityState,
+                          result.availabilityCheckedOn,
+                          t,
+                        )}
+                      </span>
                     </td>
                     <td>
                       {formatDate(result.updatedAt, {

@@ -18,7 +18,6 @@ order; a row reports the first one it fails.
 | `field.required`       | rejected | the column      | `first_name`, `last_name` or `email` is blank.                                                                           |
 | `field.too_long`       | rejected | the column      | The value exceeds the column's bound in the [file contract](import-file-contract.md).                                    |
 | `email.invalid`        | rejected | `email`         | Not an address shape (missing `@`, two `@`, no dotted domain, whitespace).                                               |
-| `status.unknown`       | rejected | `status`        | Not one of `new`, `available`, `in_process`, `hired`, `rejected`.                                                        |
 | `date.invalid`         | rejected | the date column | Not `yyyy-MM-dd`.                                                                                                        |
 | `reference.malformed`  | rejected | `languages`     | An entry is not `Idioma:Nivel`.                                                                                          |
 | `reference.unresolved` | rejected | `languages`     | A language or level matches no catalog entry. The value is listed on the batch; add it in Catálogos or fix the file.     |
@@ -28,6 +27,9 @@ order; a row reports the first one it fails.
 
 A `loaded` outcome carries no code. In the **validation** report it means "would load"; in the
 **commit** report it means the candidate was created, and the outcome row references it.
+
+`status.unknown` is retired. New imports cannot produce it because `status` is no longer an
+accepted column, but the code remains readable for stored row outcomes from earlier imports.
 
 ## Batch codes
 

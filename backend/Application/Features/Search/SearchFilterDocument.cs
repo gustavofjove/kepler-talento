@@ -30,7 +30,7 @@ public static class SearchFilterDocument
     private sealed record StoredDocument(
         int Version,
         string? Text,
-        IReadOnlyList<string?>? StatusValues,
+        IReadOnlyList<string?>? AvailabilityValues,
         IReadOnlyList<StoredCriterion?>? SkillCriteria,
         string? SkillMode,
         IReadOnlyList<StoredCriterion?>? LanguageCriteria,
@@ -39,7 +39,8 @@ public static class SearchFilterDocument
         string? ProgramMode,
         string? HasCv,
         IReadOnlyList<StoredCriterion?>? TagCriteria,
-        string? TagMode);
+        string? TagMode,
+        string? AvailabilityCheckedFrom);
 
     public static string Serialize(SearchFiltersValue filters)
     {
@@ -48,7 +49,7 @@ public static class SearchFilterDocument
             new StoredDocument(
                 SearchFilterNormalization.FilterSchemaVersion,
                 input.Text,
-                input.StatusValues,
+                input.AvailabilityValues,
                 [.. (input.SkillCriteria ?? []).Select(ToStored)],
                 input.SkillMode,
                 [.. (input.LanguageCriteria ?? []).Select(ToStored)],
@@ -57,7 +58,8 @@ public static class SearchFilterDocument
                 input.ProgramMode,
                 input.HasCv,
                 [.. (input.TagCriteria ?? []).Select(ToStored)],
-                input.TagMode),
+                input.TagMode,
+                input.AvailabilityCheckedFrom),
             Options);
     }
 
@@ -90,7 +92,7 @@ public static class SearchFilterDocument
         var value = SearchFilterNormalization.TryNormalize(
             new SearchFiltersInput(
                 stored.Text,
-                stored.StatusValues,
+                stored.AvailabilityValues,
                 [.. (stored.SkillCriteria ?? []).Select(ToInput)],
                 stored.SkillMode,
                 [.. (stored.LanguageCriteria ?? []).Select(ToInput)],
@@ -99,7 +101,8 @@ public static class SearchFilterDocument
                 stored.ProgramMode,
                 stored.HasCv,
                 [.. (stored.TagCriteria ?? []).Select(ToInput)],
-                stored.TagMode),
+                stored.TagMode,
+                stored.AvailabilityCheckedFrom),
             "Filters",
             issues);
         return issues.Count > 0 ? throw Invalid(errorCode, errorMessage) : value;

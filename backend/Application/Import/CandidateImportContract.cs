@@ -15,8 +15,6 @@ public static class CandidateImportContract
     public const string Location = "location";
     public const string Province = "province";
     public const string Country = "country";
-    public const string Availability = "availability";
-    public const string Status = "status";
     public const string Source = "source";
     public const string Notes = "notes";
     public const string ReceivedAt = "received_at";
@@ -46,8 +44,6 @@ public static class CandidateImportContract
         Location,
         Province,
         Country,
-        Availability,
-        Status,
         Source,
         Notes,
         ReceivedAt,
@@ -69,7 +65,6 @@ public static class CandidateImportContract
         [Location] = 160,
         [Province] = 120,
         [Country] = 120,
-        [Availability] = 120,
         [Source] = 120,
         [Notes] = 4000,
         [Languages] = 1000,

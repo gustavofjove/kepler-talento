@@ -15,8 +15,6 @@ public sealed record UpdateCandidateCommand(
     string Location,
     string Province,
     string Country,
-    string Availability,
-    string Status,
     string Source,
     string Notes,
     string? ReceivedAt,
@@ -43,9 +41,7 @@ public sealed class UpdateCandidateValidator : AbstractValidator<UpdateCandidate
         RuleFor(command => command.Location).MustFitWithin(CandidateTextLimits.Location);
         RuleFor(command => command.Province).MustFitWithin(CandidateTextLimits.Province);
         RuleFor(command => command.Country).MustFitWithin(CandidateTextLimits.Country);
-        RuleFor(command => command.Availability).MustFitWithin(CandidateTextLimits.Availability);
         RuleFor(command => command.Source).MustFitWithin(CandidateTextLimits.Source);
-        RuleFor(command => command.Status).MustBeAPermittedStatus();
         RuleFor(command => command.ReceivedAt).MustBeAWireDate();
         RuleFor(command => command.ConsentAt).MustBeAWireDate();
         RuleFor(command => command.ReviewDueAt).MustBeAWireDate();
@@ -78,12 +74,9 @@ public sealed class UpdateCandidateHandler(
             request.Location,
             request.Province,
             request.Country,
-            request.Availability,
             request.Source,
             request.Notes,
             now);
-        var statusChanged = candidate.Status != request.Status;
-        candidate.ChangeStatus(request.Status, now);
         // Absent and empty are different requests. A field the caller omitted entirely
         // leaves the stored metadata alone; an explicitly empty one clears it. Collapsing
         // the two would let an update that only changed a phone number silently drop a
@@ -95,7 +88,7 @@ public sealed class UpdateCandidateHandler(
             now);
 
         var outcome = await candidates.SaveAsync(
-            statusChanged ? CandidateAuditEvents.StatusChanged : CandidateAuditEvents.Updated,
+            CandidateAuditEvents.Updated,
             candidate.Id.ToString("N"),
             cancellationToken);
         if (outcome != CandidateSaveOutcome.Saved)

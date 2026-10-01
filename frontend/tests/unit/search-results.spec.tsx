@@ -17,7 +17,8 @@ const result: SearchResult = {
   lastName: 'García',
   phone: '600000000',
   email: 'ana@example.test',
-  status: 'in_process',
+  availabilityState: 'available',
+  availabilityCheckedOn: '2026-09-20',
   hasPrimaryCv: true,
   primaryCvPreviewable: true,
   primaryCvDownloadable: true,
@@ -84,7 +85,7 @@ describe('SearchResults (KTL-30)', () => {
   it('renders the same Spanish copy as before, from the catalogue', () => {
     renderResults(onePage, undefined, []);
 
-    for (const header of ['Candidato', 'Teléfono', 'Estado', 'Actualizado'])
+    for (const header of ['Candidato', 'Teléfono', 'Disponibilidad', 'Actualizado'])
       expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
     expect(screen.queryByText('Disponible')).toBeNull();
     expect(screen.getByTestId('search-total')).toHaveTextContent(

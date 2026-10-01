@@ -26,14 +26,14 @@ describe('candidate list logic', () => {
     it('reads a URL with page, sort and filters into that view', () => {
       const view = readListView(
         new URLSearchParams(
-          'page=3&pageSize=50&sort=lastName&dir=desc&status=hired&cv=yes&inactive=1',
+          'page=3&pageSize=50&sort=lastName&dir=desc&availability=unavailable&cv=yes&inactive=1',
         ),
       );
 
       expect(view).toEqual({
         filters: {
           textFilter: '',
-          statusFilter: 'hired',
+          availabilityFilter: 'unavailable',
           hasCvFilter: 'yes',
           includeInactive: true,
         },
@@ -52,7 +52,7 @@ describe('candidate list logic', () => {
     });
 
     it('round-trips a non-default view', () => {
-      const params = 'status=new&cv=no&sort=status&page=2';
+      const params = 'availability=unknown&cv=no&sort=availabilityCheckedOn&page=2';
       expect(writeListView(readListView(new URLSearchParams(params))).toString()).toBe(params);
     });
 
@@ -67,9 +67,9 @@ describe('candidate list logic', () => {
       expect(readListView(new URLSearchParams({ pageSize })).pageSize).toBe(DEFAULT_PAGE_SIZE);
     });
 
-    it('ignores a status or CV value that is not one', () => {
-      const view = readListView(new URLSearchParams('status=archived&cv=maybe'));
-      expect(view.filters.statusFilter).toBe('');
+    it('ignores an availability or CV value that is not one', () => {
+      const view = readListView(new URLSearchParams('availability=archived&cv=maybe'));
+      expect(view.filters.availabilityFilter).toBe('');
       expect(view.filters.hasCvFilter).toBe('');
     });
 
@@ -93,22 +93,22 @@ describe('candidate list logic', () => {
     });
   });
 
-  it('builds translated filter chips with the status label and removes them correctly', () => {
+  it('builds translated filter chips with the availability label and removes them correctly', () => {
     let filters: CandidateFilters = {
       textFilter: 'ana',
-      statusFilter: 'in_process',
+      availabilityFilter: 'unavailable',
       hasCvFilter: 'no',
       includeInactive: true,
     };
 
     expect(buildFilterChips(filters, t)).toEqual([
       { key: 'text', label: 'Texto: ana' },
-      { key: 'status', label: 'Estado: En proceso' },
+      { key: 'availability', label: 'Disponibilidad: No disponible' },
       { key: 'hasCv', label: 'CV: Sin CV' },
       { key: 'includeInactive', label: 'Incluye inactivos' },
     ]);
 
-    for (const key of ['text', 'status', 'hasCv', 'includeInactive']) {
+    for (const key of ['text', 'availability', 'hasCv', 'includeInactive']) {
       filters = removeFilter(filters, key);
     }
     expect(filters).toEqual(EMPTY_FILTERS);

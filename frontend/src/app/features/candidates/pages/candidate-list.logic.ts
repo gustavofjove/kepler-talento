@@ -1,11 +1,13 @@
 import type { TFunction } from 'i18next';
-import type {
-  CandidateListQuery,
-  CandidateSortDirection,
-  CandidateSortField,
-  CandidateStatus,
-  HasCvFilter,
+import {
+  ALL_AVAILABILITY_STATES,
+  type CandidateAvailabilityState,
+  type CandidateListQuery,
+  type CandidateSortDirection,
+  type CandidateSortField,
+  type HasCvFilter,
 } from '../models/candidate.models';
+import { availabilityLabel } from '../components/candidate-availability.logic';
 
 export type SortField = CandidateSortField;
 export type SortDirection = CandidateSortDirection;
@@ -23,7 +25,7 @@ export interface ListSort {
 
 export interface CandidateFilters {
   textFilter: string;
-  statusFilter: CandidateStatus | '';
+  availabilityFilter: CandidateAvailabilityState | '';
   hasCvFilter: HasCvFilter;
   includeInactive: boolean;
 }
@@ -43,18 +45,12 @@ export interface FilterChip {
 
 export const EMPTY_FILTERS: CandidateFilters = {
   textFilter: '',
-  statusFilter: '',
+  availabilityFilter: '',
   hasCvFilter: '',
   includeInactive: false,
 };
 
-export const STATUS_OPTIONS: CandidateStatus[] = [
-  'new',
-  'available',
-  'in_process',
-  'hired',
-  'rejected',
-];
+export const AVAILABILITY_OPTIONS: readonly CandidateAvailabilityState[] = ALL_AVAILABILITY_STATES;
 
 /** The search contract's documented default and maximum page sizes. */
 export const DEFAULT_PAGE_SIZE = 25;
@@ -76,14 +72,14 @@ export const LIST_PARAMS = {
   pageSize: 'pageSize',
   sort: 'sort',
   direction: 'dir',
-  status: 'status',
+  availability: 'availability',
   hasCv: 'cv',
   includeInactive: 'inactive',
 } as const;
 
-/** Newest first for update time; alphabetical for the rest. */
+/** Newest first for update time and check date; alphabetical for the rest. */
 export function defaultDirection(field: string): SortDirection {
-  return field === 'updatedAt' ? 'desc' : 'asc';
+  return field === 'updatedAt' || field === 'availabilityCheckedOn' ? 'desc' : 'asc';
 }
 
 function positiveInteger(value: string | null): number | undefined {
@@ -103,13 +99,13 @@ export function readListView(params: URLSearchParams, textFilter = ''): ListView
   const pageSize = positiveInteger(params.get(LIST_PARAMS.pageSize));
   const field = params.get(LIST_PARAMS.sort)?.trim() || DEFAULT_SORT.field;
   const direction = params.get(LIST_PARAMS.direction);
-  const status = params.get(LIST_PARAMS.status) ?? '';
+  const availability = params.get(LIST_PARAMS.availability) ?? '';
   const hasCv = params.get(LIST_PARAMS.hasCv) ?? '';
   return {
     filters: {
       textFilter,
-      statusFilter: (STATUS_OPTIONS as string[]).includes(status)
-        ? (status as CandidateStatus)
+      availabilityFilter: (AVAILABILITY_OPTIONS as readonly string[]).includes(availability)
+        ? (availability as CandidateAvailabilityState)
         : '',
       hasCvFilter: hasCv === 'yes' || hasCv === 'no' ? hasCv : '',
       includeInactive: params.get(LIST_PARAMS.includeInactive) === '1',
@@ -129,8 +125,8 @@ export function readListView(params: URLSearchParams, textFilter = ''): ListView
  */
 export function writeListView(view: ListView): URLSearchParams {
   const params = new URLSearchParams();
-  if (view.filters.statusFilter) {
-    params.set(LIST_PARAMS.status, view.filters.statusFilter);
+  if (view.filters.availabilityFilter) {
+    params.set(LIST_PARAMS.availability, view.filters.availabilityFilter);
   }
   if (view.filters.hasCvFilter) {
     params.set(LIST_PARAMS.hasCv, view.filters.hasCvFilter);
@@ -161,14 +157,10 @@ export function toListQuery(view: ListView): CandidateListQuery {
     sortField: view.sort.field,
     sortDirection: view.sort.direction,
     text: view.filters.textFilter.trim(),
-    status: view.filters.statusFilter,
+    availability: view.filters.availabilityFilter,
     hasCv: view.filters.hasCvFilter,
     includeInactive: view.filters.includeInactive,
   };
-}
-
-export function statusLabel(status: CandidateStatus, t: TFunction): string {
-  return t(`search.criteria.status.${status}`);
 }
 
 export function buildFilterChips(filters: CandidateFilters, t: TFunction): FilterChip[] {
@@ -177,10 +169,12 @@ export function buildFilterChips(filters: CandidateFilters, t: TFunction): Filte
   if (text) {
     chips.push({ key: 'text', label: t('candidates.list.chip.text', { text }) });
   }
-  if (filters.statusFilter) {
+  if (filters.availabilityFilter) {
     chips.push({
-      key: 'status',
-      label: t('candidates.list.chip.status', { status: statusLabel(filters.statusFilter, t) }),
+      key: 'availability',
+      label: t('candidates.list.chip.availability', {
+        value: availabilityLabel(filters.availabilityFilter, t),
+      }),
     });
   }
   if (filters.hasCvFilter) {
@@ -204,8 +198,8 @@ export function removeFilter(filters: CandidateFilters, key: string): CandidateF
   switch (key) {
     case 'text':
       return { ...filters, textFilter: '' };
-    case 'status':
-      return { ...filters, statusFilter: '' };
+    case 'availability':
+      return { ...filters, availabilityFilter: '' };
     case 'hasCv':
       return { ...filters, hasCvFilter: '' };
     case 'includeInactive':

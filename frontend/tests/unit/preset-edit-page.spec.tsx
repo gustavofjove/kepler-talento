@@ -124,10 +124,14 @@ describe('PresetEditPage', () => {
     );
   });
 
-  it('renders and preserves saved CV and status filters', async () => {
+  it('renders and preserves saved CV and availability filters', async () => {
     const saved = {
       ...stored,
-      filters: { ...stored.filters, hasCv: 'yes' as const, statusValues: ['available' as const] },
+      filters: {
+        ...stored.filters,
+        hasCv: 'yes' as const,
+        availabilityValues: ['available' as const],
+      },
     };
     searchPresetsService.get.mockResolvedValue(saved);
     renderAt('/app/admin/presets/p-1/edit');
@@ -135,12 +139,12 @@ describe('PresetEditPage', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Sin CV' })).not.toBeChecked();
-    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Disponible');
+    expect(screen.getByTestId('availability-disclosure')).toHaveTextContent('Disponible');
     await userEvent.click(screen.getByTestId('preset-save'));
     await waitFor(() => expect(searchPresetsService.updatePreset).toHaveBeenCalled());
     expect(searchPresetsService.updatePreset.mock.calls[0][2]).toMatchObject({
       hasCv: 'yes',
-      statusValues: ['available'],
+      availabilityValues: ['available'],
     });
   });
 
@@ -233,12 +237,14 @@ describe('PresetEditPage', () => {
 
   it('edits criteria with exactly the controls the search page uses', async () => {
     const criteriaControls = (container: HTMLElement) =>
-      Array.from(container.querySelectorAll('form [name], form [data-testid], form [data-status]'))
+      Array.from(
+        container.querySelectorAll('form [name], form [data-testid], form [data-availability]'),
+      )
         .map(
           (element) =>
             element.getAttribute('name') ??
             element.getAttribute('data-testid') ??
-            `status:${element.getAttribute('data-status')}`,
+            `availability:${element.getAttribute('data-availability')}`,
         )
         // The host's own fields and buttons are the only permitted difference.
         .filter((id) => !['presetName', 'preset-name', 'preset-save', 'preset-cancel'].includes(id))

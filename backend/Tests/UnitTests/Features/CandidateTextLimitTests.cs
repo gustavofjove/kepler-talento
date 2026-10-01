@@ -19,7 +19,6 @@ public sealed class CandidateTextLimitTests
         { nameof(CreateCandidateCommand.Location), 160 },
         { nameof(CreateCandidateCommand.Province), 120 },
         { nameof(CreateCandidateCommand.Country), 120 },
-        { nameof(CreateCandidateCommand.Availability), 120 },
         { nameof(CreateCandidateCommand.Source), 120 },
     };
 
@@ -99,8 +98,6 @@ public sealed class CandidateTextLimitTests
         field == nameof(CreateCandidateCommand.Location) ? value : "",
         field == nameof(CreateCandidateCommand.Province) ? value : "",
         field == nameof(CreateCandidateCommand.Country) ? value : "",
-        field == nameof(CreateCandidateCommand.Availability) ? value : "",
-        CandidateStatuses.New,
         field == nameof(CreateCandidateCommand.Source) ? value : "",
         field == nameof(CreateCandidateCommand.Notes) ? value : "",
         null,
@@ -112,7 +109,7 @@ public sealed class CandidateTextLimitTests
         var create = Create(field, value);
         return new UpdateCandidateCommand(
             Guid.NewGuid(), create.FirstName, create.LastName, create.Phone, create.Email, create.Location,
-            create.Province, create.Country, create.Availability, create.Status, create.Source, create.Notes,
+            create.Province, create.Country, create.Source, create.Notes,
             null, null, null, 1);
     }
 }

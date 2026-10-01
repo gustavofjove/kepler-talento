@@ -19,17 +19,17 @@ test.describe('Candidate import', () => {
     test.setTimeout(240_000);
     const suffix = Date.now().toString();
     const first = `Importada${suffix}`;
-    const header = 'first_name,last_name,email,status,languages';
+    const header = 'first_name,last_name,email,languages';
     const broken = [
       header,
-      `${first},Uno,uno.${suffix}@example.test,available,Inglés:B2`,
-      `,Dos,dos.${suffix}@example.test,,`,
-      `${first},Tres,no-es-un-correo,,`,
+      `${first},Uno,uno.${suffix}@example.test,Inglés:B2`,
+      `,Dos,dos.${suffix}@example.test,`,
+      `${first},Tres,no-es-un-correo,`,
     ].join('\n');
     const corrected = [
       header,
-      `${first},Uno,uno.${suffix}@example.test,available,Inglés:B2`,
-      `${first},Dos,dos.${suffix}@example.test,,`,
+      `${first},Uno,uno.${suffix}@example.test,Inglés:B2`,
+      `${first},Dos,dos.${suffix}@example.test,`,
     ].join('\n');
 
     try {

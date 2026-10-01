@@ -14,8 +14,6 @@ public sealed record CreateCandidateCommand(
     string Location,
     string Province,
     string Country,
-    string Availability,
-    string Status,
     string Source,
     string Notes,
     string? ReceivedAt,
@@ -41,9 +39,7 @@ public sealed class CreateCandidateValidator : AbstractValidator<CreateCandidate
         RuleFor(command => command.Location).MustFitWithin(CandidateTextLimits.Location);
         RuleFor(command => command.Province).MustFitWithin(CandidateTextLimits.Province);
         RuleFor(command => command.Country).MustFitWithin(CandidateTextLimits.Country);
-        RuleFor(command => command.Availability).MustFitWithin(CandidateTextLimits.Availability);
         RuleFor(command => command.Source).MustFitWithin(CandidateTextLimits.Source);
-        RuleFor(command => command.Status).MustBeAPermittedStatus();
         RuleFor(command => command.ReceivedAt).MustBeAWireDate();
         RuleFor(command => command.ConsentAt).MustBeAWireDate();
         RuleFor(command => command.ReviewDueAt).MustBeAWireDate();
@@ -100,8 +96,6 @@ public static class CandidateFactory
             request.Location,
             request.Province,
             request.Country,
-            request.Availability,
-            request.Status,
             request.Source,
             request.Notes,
             now);

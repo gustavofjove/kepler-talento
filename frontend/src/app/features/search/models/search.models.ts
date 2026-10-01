@@ -1,15 +1,11 @@
-import { CandidateStatus } from '../../candidates/models/candidate.models';
+import {
+  ALL_AVAILABILITY_STATES,
+  CandidateAvailabilityState,
+} from '../../candidates/models/candidate.models';
+
+export { ALL_AVAILABILITY_STATES };
 
 export type MultiValueMode = 'ANY' | 'ALL';
-
-/** Every status, in display order; also the default selection of the status filter. */
-export const ALL_CANDIDATE_STATUSES: CandidateStatus[] = [
-  'new',
-  'available',
-  'in_process',
-  'hired',
-  'rejected',
-];
 
 /** A single filter line: a catalog value plus an optional level ('' = cualquier nivel). */
 export interface CriteriaFilter {
@@ -19,7 +15,10 @@ export interface CriteriaFilter {
 
 export interface SearchFilters {
   text: string;
-  statusValues: CandidateStatus[];
+  /** Every value (the default) and none both mean unrestricted (KTL-36). */
+  availabilityValues: CandidateAvailabilityState[];
+  /** «Comprobado desde»: a `yyyy-MM-dd` day, or `''` for no restriction. */
+  availabilityCheckedFrom: string;
   skillCriteria: CriteriaFilter[];
   skillMode: MultiValueMode;
   languageCriteria: CriteriaFilter[];
@@ -37,7 +36,9 @@ export interface SearchResult {
   lastName: string;
   phone: string;
   email: string;
-  status: CandidateStatus;
+  availabilityState: CandidateAvailabilityState;
+  /** The check date (`yyyy-MM-dd`), or null when unchecked. The until date and checker stay out. */
+  availabilityCheckedOn: string | null;
   hasPrimaryCv: boolean;
   /**
    * The primary CV is a clean PDF with its binary, so the row offers «Ver» (KTL-35). Always false
@@ -86,7 +87,8 @@ export interface SearchPreset {
 
 export const EMPTY_SEARCH_FILTERS: SearchFilters = {
   text: '',
-  statusValues: [...ALL_CANDIDATE_STATUSES],
+  availabilityValues: [...ALL_AVAILABILITY_STATES],
+  availabilityCheckedFrom: '',
   skillCriteria: [],
   skillMode: 'ANY',
   languageCriteria: [],
@@ -101,7 +103,8 @@ export const EMPTY_SEARCH_FILTERS: SearchFilters = {
 export function cloneSearchFilters(filters: SearchFilters): SearchFilters {
   return {
     text: filters.text,
-    statusValues: [...filters.statusValues],
+    availabilityValues: [...filters.availabilityValues],
+    availabilityCheckedFrom: filters.availabilityCheckedFrom,
     skillCriteria: filters.skillCriteria.map((item) => ({ ...item })),
     skillMode: filters.skillMode,
     languageCriteria: filters.languageCriteria.map((item) => ({ ...item })),

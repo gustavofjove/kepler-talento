@@ -4,6 +4,7 @@ import { CandidateService } from '../../../src/app/features/candidates/services/
 import { isPreviewable } from '../../../src/app/features/candidates/components/candidate-cv-preview.logic';
 import type {
   Candidate,
+  CandidateAvailabilityInput,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -16,7 +17,7 @@ import type {
   CandidateNote,
 } from '../../../src/app/features/candidates/models/candidate.models';
 
-const SORT_FIELDS = ['updatedAt', 'lastName', 'status'];
+const SORT_FIELDS = ['updatedAt', 'lastName', 'availabilityCheckedOn'];
 
 /**
  * In-memory stand-in for the candidate API, so service and component tests exercise the
@@ -55,7 +56,7 @@ export class FakeCandidateApi implements CandidateGateway {
     const matching = [...this.candidates.values()].filter(
       (candidate) =>
         (query.includeInactive || candidate.isActive) &&
-        (!query.status || candidate.status === query.status) &&
+        (!query.availability || candidate.availability.state === query.availability) &&
         (!query.hasCv || (query.hasCv === 'yes') === Boolean(candidate.primaryDocumentId)) &&
         (!text ||
           [
@@ -72,8 +73,8 @@ export class FakeCandidateApi implements CandidateGateway {
     const key = (candidate: Candidate): string =>
       query.sortField === 'lastName'
         ? `${candidate.lastName}${candidate.firstName}`
-        : query.sortField === 'status'
-          ? candidate.status
+        : query.sortField === 'availabilityCheckedOn'
+          ? candidate.availability.checkedOn
           : candidate.updatedAt;
     matching.sort((a, b) => {
       const order = key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
@@ -88,7 +89,8 @@ export class FakeCandidateApi implements CandidateGateway {
         lastName: candidate.lastName,
         phone: candidate.phone,
         email: candidate.email,
-        status: candidate.status,
+        availabilityState: candidate.availability.state,
+        availabilityCheckedOn: candidate.availability.checkedOn || null,
         hasPrimaryCv: Boolean(candidate.primaryDocumentId),
         // The server's rule (KTL-35), unmasked: the fake serves an actor who may download.
         primaryCvPreviewable: candidate.documents.some(
@@ -127,6 +129,22 @@ export class FakeCandidateApi implements CandidateGateway {
 
   async update(id: string, draft: CandidateDraft, version: number): Promise<Candidate> {
     return this.write(id, version, (candidate) => ({ ...candidate, ...draft }));
+  }
+
+  recordAvailability(
+    id: string,
+    input: CandidateAvailabilityInput,
+    version: number,
+  ): Promise<Candidate> {
+    return this.write(id, version, (candidate) => ({
+      ...candidate,
+      availability: {
+        state: input.state,
+        checkedOn: input.checkedOn,
+        until: input.until,
+        checkedByDisplayName: input.state === 'unknown' ? null : 'Test User',
+      },
+    }));
   }
 
   async setActive(id: string, isActive: boolean, version: number): Promise<Candidate> {
@@ -307,8 +325,7 @@ function blank(id: string): Candidate {
     location: '',
     province: '',
     country: 'España',
-    availability: 'Inmediata',
-    status: 'new',
+    availability: { state: 'unknown', checkedOn: '', until: '', checkedByDisplayName: null },
     source: 'Email',
     notes: '',
     receivedAt: '',

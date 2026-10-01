@@ -9,8 +9,6 @@ import type {
 } from '../models/candidate-draft.models';
 import { applySuggestion, toDraft } from './candidate-form.logic';
 
-const STATUSES = ['new', 'available', 'in_process', 'hired', 'rejected'] as const;
-
 interface CandidateFormProps {
   candidate?: Candidate;
   onSave: (draft: CandidateDraft) => void;
@@ -187,25 +185,6 @@ export function CandidateForm({
             {...suggestedProps('province')}
           />
           {suggestionBadge('province')}
-        </div>
-        <div className="field">
-          <label htmlFor="availability">{t('candidate.form.availability')}</label>
-          <input
-            id="availability"
-            name="availability"
-            value={draft.availability}
-            onChange={set('availability')}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="status">{t('candidate.form.status')}</label>
-          <select id="status" name="status" value={draft.status} onChange={set('status')}>
-            {STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(`candidate.form.statusOption.${status}`)}
-              </option>
-            ))}
-          </select>
         </div>
         <div className="field">
           <label htmlFor="receivedAt">{t('candidate.form.receivedAt')}</label>

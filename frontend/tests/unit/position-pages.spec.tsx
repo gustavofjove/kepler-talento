@@ -294,10 +294,10 @@ describe('Position pages', () => {
       renderAt('/app/positions/new');
       expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
       expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
-      await userEvent.click(screen.getByTestId('status-disclosure'));
+      await userEvent.click(screen.getByTestId('availability-disclosure'));
       expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-      await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
-      expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Sin comprobar' }));
+      expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).not.toBeChecked();
       expect(positionService.create).not.toHaveBeenCalled();
     });
 
@@ -629,7 +629,8 @@ describe('Position pages', () => {
       lastName: 'Pérez',
       phone: '',
       email: `${firstName.toLowerCase()}@example.test`,
-      status: 'available',
+      availabilityState: 'available',
+      availabilityCheckedOn: '2026-09-20',
       hasPrimaryCv: false,
       primaryCvPreviewable: false,
       primaryCvDownloadable: false,

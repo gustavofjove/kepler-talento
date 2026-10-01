@@ -106,7 +106,7 @@ public sealed class FieldEncryptionStartupTests(PostgreSqlFixture database) : IC
             await dbContext.Database.ExecuteSqlRawAsync(
                 """
                 INSERT INTO "ADM_SearchPresets" ("Id", "Name", "NormalizedName", "Filters", "FilterSchemaVersion", "CreatedAtUtc", "UpdatedAtUtc", "Version")
-                SELECT gen_random_uuid(), 'Antigua', 'antigua', jsonb_build_object('version', 1, 'text', 'Ana López'), 1, now(), now(), 1
+                SELECT gen_random_uuid(), 'Antigua', 'antigua', jsonb_build_object('version', 2, 'text', 'Ana López'), 2, now(), now(), 1
                 """);
         }
 

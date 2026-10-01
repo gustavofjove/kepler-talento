@@ -1,4 +1,4 @@
-import type { CandidateStatus } from '../../candidates/models/candidate.models';
+import type { CandidateAvailabilityState } from '../../candidates/models/candidate.models';
 import type { SearchFilters } from '../models/search.models';
 
 type CvChoice = 'yes' | 'no';
@@ -17,23 +17,23 @@ export function toggleCv(
   return next.yes && next.no ? '' : next.yes ? 'yes' : 'no';
 }
 
-export function selectedStatuses(
-  values: CandidateStatus[],
-  options: CandidateStatus[],
-): CandidateStatus[] {
+/** The availability values shown as selected: none stored means every one (unrestricted). */
+export function selectedAvailability(
+  values: CandidateAvailabilityState[],
+  options: readonly CandidateAvailabilityState[],
+): CandidateAvailabilityState[] {
   if (!values.length) return [...options];
   return options.filter((option) => values.includes(option));
 }
 
-export function toggleStatus(
-  values: CandidateStatus[],
-  options: CandidateStatus[],
-  status: CandidateStatus,
+/** Checks or unchecks one value, keeping at least one selected. */
+export function toggleAvailability(
+  values: CandidateAvailabilityState[],
+  options: readonly CandidateAvailabilityState[],
+  state: CandidateAvailabilityState,
   checked: boolean,
-): CandidateStatus[] {
-  const selected = selectedStatuses(values, options);
-  const next = options.filter((option) =>
-    option === status ? checked : selected.includes(option),
-  );
+): CandidateAvailabilityState[] {
+  const selected = selectedAvailability(values, options);
+  const next = options.filter((option) => (option === state ? checked : selected.includes(option)));
   return next.length ? next : selected;
 }

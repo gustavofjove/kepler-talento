@@ -26,6 +26,7 @@ public sealed class CandidateRepository(
             .Include(candidate => candidate.Experience)
             .Include(candidate => candidate.Skills)
             .Include(candidate => candidate.Tags)
+            .Include(candidate => candidate.CheckedBy)
             .Include(candidate => candidate.CustomNotes.Where(note => note.IsActive))
                 .ThenInclude(note => note.Author)
             .SingleOrDefaultAsync(candidate => candidate.Id == id, cancellationToken);
@@ -53,8 +54,10 @@ public sealed class CandidateRepository(
                 candidate.Location,
                 candidate.Province,
                 candidate.Country,
-                candidate.Availability,
-                candidate.Status,
+                candidate.AvailabilityState,
+                candidate.AvailabilityCheckedOn,
+                candidate.AvailabilityUntil,
+                candidate.CheckedBy == null ? null : candidate.CheckedBy.DisplayName,
                 candidate.Source,
                 candidate.Notes,
                 candidate.ReceivedAt,

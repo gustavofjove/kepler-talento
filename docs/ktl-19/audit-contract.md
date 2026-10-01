@@ -51,26 +51,27 @@ with `import.actor.missing` instead of loading.
 `AuditEventTypes.All` in `backend/Domain/Auditing/AuditEventTypes.cs`. An `AuditEvent` with any
 other type throws before it can be stored.
 
-| Type                          | Subject                        | Actor  | Outcome                     |
-| ----------------------------- | ------------------------------ | ------ | --------------------------- |
-| `candidate.created`           | candidate id                   | user   | —                           |
-| `candidate.updated`           | candidate id                   | user   | —                           |
-| `candidate.status_changed`    | candidate id                   | user   | —                           |
-| `candidate.removed`           | candidate id                   | user   | —                           |
-| `candidate.restored`          | candidate id                   | user   | —                           |
-| `candidate.relations_changed` | candidate id                   | user   | —                           |
-| `candidate.documents_changed` | candidate id                   | user   | —                           |
-| `candidate.read`              | candidate id                   | user   | `served`                    |
-| `catalog.created`             | catalog item id                | user   | —                           |
-| `catalog.updated`             | catalog item id                | user   | —                           |
-| `catalog.reordered`           | catalog family                 | user   | —                           |
-| `catalog.activation_changed`  | catalog item id                | user   | —                           |
-| `document.upload.accepted`    | `candidate:<id>;document:<id>` | user   | `accepted`                  |
-| `document.scan`               | `candidate:<id>;document:<id>` | system | scanner code                |
-| `document.downloaded`         | `candidate:<id>;document:<id>` | user   | `served`                    |
-| `document.primary.changed`    | `candidate:<id>;document:<id>` | user   | `applied`                   |
-| `document.removed`            | `candidate:<id>;document:<id>` | user   | `applied`                   |
-| `document.reconciliation`     | document id or `orphan-<hash>` | system | `document.reconciliation.*` |
+| Type                             | Subject                        | Actor  | Outcome                     |
+| -------------------------------- | ------------------------------ | ------ | --------------------------- |
+| `candidate.created`              | candidate id                   | user   | —                           |
+| `candidate.updated`              | candidate id                   | user   | —                           |
+| `candidate.status_changed`       | candidate id                   | user   | —                           |
+| `candidate.availability_checked` | candidate id                   | user   | —                           |
+| `candidate.removed`              | candidate id                   | user   | —                           |
+| `candidate.restored`             | candidate id                   | user   | —                           |
+| `candidate.relations_changed`    | candidate id                   | user   | —                           |
+| `candidate.documents_changed`    | candidate id                   | user   | —                           |
+| `candidate.read`                 | candidate id                   | user   | `served`                    |
+| `catalog.created`                | catalog item id                | user   | —                           |
+| `catalog.updated`                | catalog item id                | user   | —                           |
+| `catalog.reordered`              | catalog family                 | user   | —                           |
+| `catalog.activation_changed`     | catalog item id                | user   | —                           |
+| `document.upload.accepted`       | `candidate:<id>;document:<id>` | user   | `accepted`                  |
+| `document.scan`                  | `candidate:<id>;document:<id>` | system | scanner code                |
+| `document.downloaded`            | `candidate:<id>;document:<id>` | user   | `served`                    |
+| `document.primary.changed`       | `candidate:<id>;document:<id>` | user   | `applied`                   |
+| `document.removed`               | `candidate:<id>;document:<id>` | user   | `applied`                   |
+| `document.reconciliation`        | document id or `orphan-<hash>` | system | `document.reconciliation.*` |
 
 Ids are written in the compact 32-hex-digit form.
 

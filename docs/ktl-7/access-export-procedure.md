@@ -95,6 +95,9 @@ SWITCH(
 ```
 
 An unrecognised status is rejected with `status.unknown` rather than being guessed.
+The Access export contract is unchanged by KTL-36. On load, the validated legacy status and
+free-text availability are appended to the candidate's notes. The new availability check starts
+as `unknown`; the loader never treats an old pipeline status as a current check.
 
 ### `languages.csv`
 

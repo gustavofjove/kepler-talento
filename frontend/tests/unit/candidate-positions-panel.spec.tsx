@@ -5,6 +5,7 @@ import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
 import { CandidatePositionsPanel } from '../../src/app/features/candidates/components/candidate-positions-panel';
+import { useCandidatePositions } from '../../src/app/features/candidates/use-candidate-positions';
 import type { CandidatePosition } from '../../src/app/features/positions/position.models';
 import { AppError } from '../../src/app/shared/models/error.models';
 
@@ -68,6 +69,18 @@ describe('CandidatePositionsPanel (KTL-30)', () => {
     confirm.mockResolvedValue(true);
   });
 
+  function Panel({ candidateIsActive }: { candidateIsActive: boolean }) {
+    const positions = useCandidatePositions('c-1', granted.includes('positions.read'));
+    return (
+      <CandidatePositionsPanel
+        candidateId="c-1"
+        candidateIsActive={candidateIsActive}
+        positions={positions}
+        onLinksChange={positions.setLinks}
+      />
+    );
+  }
+
   const renderPanel = (candidateIsActive = true) =>
     render(
       <ServicesProvider
@@ -88,9 +101,7 @@ describe('CandidatePositionsPanel (KTL-30)', () => {
           <Routes>
             <Route
               path="/app/candidates/:id"
-              element={
-                <CandidatePositionsPanel candidateId="c-1" candidateIsActive={candidateIsActive} />
-              }
+              element={<Panel candidateIsActive={candidateIsActive} />}
             />
             <Route path="/app/positions/:id" element={<p data-testid="position-page" />} />
           </Routes>

@@ -21,7 +21,8 @@ describe('CandidateSearchService', () => {
         lastName: 'Duplicada',
         phone: '+34 600 000 001',
         email: 'ana@ejemplo.test',
-        status: 'available',
+        availabilityState: 'available',
+        availabilityCheckedOn: '2026-09-20',
         hasPrimaryCv: true,
         primaryCvPreviewable: true,
         primaryCvDownloadable: true,
@@ -55,7 +56,8 @@ describe('CandidateSearchService', () => {
 
   const filters = (overrides: Partial<SearchFilters> = {}): SearchFilters => ({
     text: '',
-    statusValues: ['available'],
+    availabilityValues: ['available'],
+    availabilityCheckedFrom: '',
     skillCriteria: [],
     skillMode: 'ANY',
     languageCriteria: [],
@@ -127,7 +129,8 @@ describe('CandidateSearchService', () => {
         'phone',
         'primaryCvPreviewable',
         'primaryCvDownloadable',
-        'status',
+        'availabilityState',
+        'availabilityCheckedOn',
         'updatedAt',
       ].sort(),
     );
@@ -171,7 +174,7 @@ describe('CandidateSearchService', () => {
     const empty = build(respond()).emptyFilters();
 
     expect(empty.text).toBe('');
-    expect(empty.statusValues).toEqual(['new', 'available', 'in_process', 'hired', 'rejected']);
+    expect(empty.availabilityValues).toEqual(['unknown', 'available', 'unavailable']);
     expect(empty.skillCriteria).toEqual([]);
     expect(empty.hasCv).toBe('');
   });

@@ -32,13 +32,15 @@ stage `new`. Adding a candidate SHALL NOT evaluate or require the position's req
 The stage SHALL be exactly one of `new`, `shortlisted`, `interview`, `hired` or `rejected`, presented
 in that order and labelled Nuevo, Preseleccionado, Entrevista, Contratado and Descartado. An authorized
 manager SHALL be able to change any stage to any other. A stage change SHALL require the link's
-last-read version. Changing a stage SHALL NOT change the candidate's own status, and changing a
-candidate's status SHALL NOT change any stage.
+last-read version. The stage SHALL be the only pipeline state a candidate has: there is no
+candidate-level status. Changing a stage SHALL NOT change the candidate's availability check, and
+recording an availability check SHALL NOT change any stage.
 
 #### Scenario: Stage is changed
 
 - **WHEN** an authorized manager changes a link from `new` to `interview` with its current version
-- **THEN** the new stage is stored with a new version and the candidate's own status is unchanged
+- **THEN** the new stage is stored with a new version and the candidate's availability check is
+  unchanged
 
 #### Scenario: Unknown stage is submitted
 
@@ -203,8 +205,8 @@ and stages SHALL NOT appear in logs.
 
 When the actor holds `candidates.read`, the position detail page SHALL show a «Candidatos de la
 posición» panel above «Candidatos que encajan». It SHALL list each link with the same columns as
-the matches, except that the stage replaces the candidate status and the date added replaces the
-update date:
+the matches, except that the stage replaces the candidate's availability and the date added
+replaces the update date:
 
 - name with e-mail;
 - phone;

@@ -11,14 +11,15 @@ and searching it as before.
 ### Requirement: Candidate personal data is stored only as ciphertext
 
 Every human-entered free-text value on candidate records and their relations SHALL be persisted in
-PostgreSQL only in encrypted form: candidate identity, contact details, location, country,
-availability, source and notes; note bodies; experience company, position and functions; education
-degree, specialty and institution; language certification; relation notes; and document original
-file names. The free-text member of stored search filter documents (saved presets and position
-requirements) SHALL also be persisted encrypted. Identifiers, catalog references, status values,
-flags, timestamps, source keys, storage keys, content hashes and scan result codes SHALL remain in
-clear. Encryption SHALL be authenticated, SHALL use a fresh random nonce for every value, and SHALL
-bind each value to its table and column so that it cannot be decrypted in any other column.
+PostgreSQL only in encrypted form: candidate identity, contact details, location, country, source
+and notes; note bodies; experience company, position and functions; education degree, specialty and
+institution; language certification; relation notes; and document original file names. The
+free-text member of stored search filter documents (saved presets and position requirements) SHALL
+also be persisted encrypted. Identifiers, catalog references, status values, availability values
+and dates, flags, timestamps, source keys, storage keys, content hashes and scan result codes SHALL
+remain in clear. Encryption SHALL be authenticated, SHALL use a fresh random nonce for every value,
+and SHALL bind each value to its table and column so that it cannot be decrypted in any other
+column.
 
 #### Scenario: Candidate is written through the API
 

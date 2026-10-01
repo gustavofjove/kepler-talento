@@ -6,14 +6,10 @@ import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
 import { displayPhone, mailtoHref } from '../contact-links';
 import type { CandidateListItem } from '../models/candidate.models';
+import { availabilityCell } from './candidate-availability.logic';
 import { RowCvActions, RowCvInlineRow } from './row-cv-preview/row-cv-preview';
 import { useRowCvTable } from './row-cv-preview/row-cv-preview.context';
-import {
-  type ListSort,
-  type SortField,
-  sortIndicator,
-  statusLabel,
-} from '../pages/candidate-list.logic';
+import { type ListSort, type SortField, sortIndicator } from '../pages/candidate-list.logic';
 
 /** This table's key in the page's row CV preview (KTL-35). */
 const CANDIDATE_TABLE_ID = 'candidates';
@@ -79,8 +75,8 @@ export function CandidateTable({
               {sortButton('lastName', t('candidates.list.column.name'))}
             </th>
             <th>{t('candidates.list.column.phone')}</th>
-            <th aria-sort={ariaSort('status')}>
-              {sortButton('status', t('candidates.list.column.status'))}
+            <th aria-sort={ariaSort('availabilityCheckedOn')}>
+              {sortButton('availabilityCheckedOn', t('candidates.list.column.availability'))}
             </th>
             <th aria-sort={ariaSort('updatedAt')}>
               {sortButton('updatedAt', t('candidates.list.column.updatedAt'))}
@@ -129,7 +125,13 @@ export function CandidateTable({
                   </td>
                   <td>{displayPhone(candidate.phone)}</td>
                   <td>
-                    <span className="badge">{statusLabel(candidate.status, t)}</span>
+                    <span data-testid="candidate-availability-cell">
+                      {availabilityCell(
+                        candidate.availabilityState,
+                        candidate.availabilityCheckedOn,
+                        t,
+                      )}
+                    </span>
                     {!candidate.isActive ? (
                       <span className="badge inactive-badge">{t('candidates.list.inactive')}</span>
                     ) : null}

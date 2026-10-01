@@ -89,11 +89,21 @@ namespace Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Availability")
+                    b.Property<Guid?>("AvailabilityCheckedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("AvailabilityCheckedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("AvailabilityState")
                         .IsRequired()
-                        .HasColumnType("text")
-                        .HasAnnotation("Ktl:EncryptedContext", "CND_Candidates.Availability")
-                        .HasAnnotation("Ktl:EncryptedMaxLength", 120);
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("unknown");
+
+                    b.Property<DateOnly?>("AvailabilityUntil")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly?>("ConsentAt")
                         .HasColumnType("date");
@@ -180,11 +190,6 @@ namespace Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("SourceLoadedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -196,6 +201,8 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AvailabilityCheckedByUserId");
+
                     b.HasIndex("EmailHash")
                         .HasDatabaseName("IX_CND_Candidates_EmailHash");
 
@@ -204,19 +211,25 @@ namespace Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UX_CND_Candidates_SourceKey")
                         .HasFilter("\"SourceKey\" IS NOT NULL");
 
+                    b.HasIndex("AvailabilityCheckedOn", "Id")
+                        .IsDescending(true, false)
+                        .HasDatabaseName("IX_CND_Candidates_IsActive_AvailabilityCheckedOn")
+                        .HasFilter("\"IsActive\"");
+
                     b.HasIndex("IsActive", "UpdatedAtUtc")
                         .HasDatabaseName("IX_CND_Candidates_IsActive_UpdatedAtUtc");
 
-                    b.HasIndex("IsActive", "Status", "Id")
-                        .HasDatabaseName("IX_CND_Candidates_IsActive_Status_Id");
-
                     b.ToTable("CND_Candidates", null, t =>
                         {
+                            t.HasCheckConstraint("CK_CND_Candidates_AvailabilityCheck", "(\"AvailabilityState\" = 'unknown' AND \"AvailabilityCheckedOn\" IS NULL AND \"AvailabilityCheckedByUserId\" IS NULL) OR (\"AvailabilityState\" <> 'unknown' AND \"AvailabilityCheckedOn\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_CND_Candidates_AvailabilityState", "\"AvailabilityState\" IN ('unknown', 'available', 'unavailable')");
+
+                            t.HasCheckConstraint("CK_CND_Candidates_AvailabilityUntil", "\"AvailabilityUntil\" IS NULL OR (\"AvailabilityState\" = 'unavailable' AND \"AvailabilityUntil\" >= \"AvailabilityCheckedOn\")");
+
                             t.HasCheckConstraint("CK_CND_Candidates_Deleted", "(\"IsActive\" AND \"DeletedAtUtc\" IS NULL) OR (NOT \"IsActive\" AND \"DeletedAtUtc\" IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_CND_Candidates_SourceLoaded", "\"SourceLoadedAtUtc\" IS NULL OR \"SourceKey\" IS NOT NULL");
-
-                            t.HasCheckConstraint("CK_CND_Candidates_Status", "\"Status\" IN ('new', 'available', 'in_process', 'hired', 'rejected')");
                         });
                 });
 
@@ -1313,7 +1326,8 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Requirements")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("jsonb")
+                        .HasAnnotation("Ktl:EncryptedFilterDocument", "OPS_Positions.Requirements.text");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1429,7 +1443,8 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Filters")
                         .IsRequired()
-                        .HasColumnType("jsonb");
+                        .HasColumnType("jsonb")
+                        .HasAnnotation("Ktl:EncryptedFilterDocument", "ADM_SearchPresets.Filters.text");
 
                     b.Property<DateTimeOffset?>("LastUsedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1469,6 +1484,52 @@ namespace Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_ADM_SearchPresets_Version", "\"Version\" >= 1");
                         });
+                });
+
+            modelBuilder.Entity("KeplerTalento.Infrastructure.Persistence.CandidateCiphertext", b =>
+                {
+                    b.Property<DateOnly?>("AvailabilityCheckedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("CND_Candidates", (string)null);
+                });
+
+            modelBuilder.Entity("KeplerTalento.Domain.Candidates.Candidate", b =>
+                {
+                    b.HasOne("KeplerTalento.Domain.Identity.User", "CheckedBy")
+                        .WithMany()
+                        .HasForeignKey("AvailabilityCheckedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CheckedBy");
                 });
 
             modelBuilder.Entity("KeplerTalento.Domain.Candidates.CandidateEducation", b =>

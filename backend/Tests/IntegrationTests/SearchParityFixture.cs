@@ -20,7 +20,8 @@ public sealed record ParityCandidate(
     string Phone,
     string Email,
     string Notes,
-    string Status,
+    string AvailabilityState,
+    DateOnly? AvailabilityCheckedOn,
     bool IsActive,
     DateTimeOffset UpdatedAtUtc,
     IReadOnlyList<ParityRelation> Skills,
@@ -34,7 +35,7 @@ public sealed record ParityCandidate(
 /// </summary>
 /// <remarks>
 /// It is built to break a naive implementation rather than to look realistic. It contains
-/// every candidate status, logically removed candidates that satisfy the filters anyway,
+/// every availability value with checks on several dates (two on the same day), logically removed candidates that satisfy the filters anyway,
 /// candidates holding the same value at two levels (which a joined query would return
 /// twice), <c>ALL</c> matches that can only be satisfied across separate relation rows,
 /// primary documents in the pending, clean and refused scan states, a candidate whose only
@@ -89,14 +90,14 @@ public static class SearchParityFixture
         // 1. Two distinct skills. A join-and-DISTINCT query returns this candidate twice for
         //    an ANY criterion containing both values; a correlated EXISTS cannot. Repeating
         //    one skill at two levels is invalid now that relation uniqueness is persisted.
-        built.Add(Add(dbContext, catalog, "Ana", "Duplicada", CandidateStatuses.Available, index: 1,
+        built.Add(Add(dbContext, catalog, "Ana", "Duplicada", Check(CandidateAvailabilityStates.Available, 2026, 9, 1), index: 1,
             skills: [new(SkillJava, SkillLevelBasic), new(SkillSql, SkillLevelAdvanced)],
             languages: [new(LanguageEnglish, LanguageLevelB2)],
             programs: [],
             primary: DocumentScanState.Clean));
 
         // 2. ALL across separate relation rows: Java and Python are never in one row.
-        built.Add(Add(dbContext, catalog, "Bruno", "Completo", CandidateStatuses.InProcess, index: 2,
+        built.Add(Add(dbContext, catalog, "Bruno", "Completo", Check(CandidateAvailabilityStates.Unavailable, 2026, 3, 1, until: new DateOnly(2026, 12, 31)), index: 2,
             skills: [new(SkillJava, SkillLevelAdvanced), new(SkillPython, SkillLevelBasic)],
             languages: [new(LanguageEnglish, LanguageLevelC1), new(LanguageFrench, LanguageLevelB2)],
             programs: [new(ProgramExcel, ProgramLevelHigh)],
@@ -104,7 +105,7 @@ public static class SearchParityFixture
 
         // 3. Holds one of the ALL pair only, so an ALL search must exclude it while an ANY
         //    search must not.
-        built.Add(Add(dbContext, catalog, "Carla", "Parcial", CandidateStatuses.New, index: 3,
+        built.Add(Add(dbContext, catalog, "Carla", "Parcial", Unchecked, index: 3,
             skills: [new(SkillJava, SkillLevelBasic)],
             languages: [new(LanguageFrench, LanguageLevelB2)],
             programs: [new(ProgramAutoCad, ProgramLevelMedium)],
@@ -112,14 +113,14 @@ public static class SearchParityFixture
 
         // 4. A refused primary document still counts as having a CV: hasCv is about the
         //    record, and downloadability is KTL-9's decision, not search's.
-        built.Add(Add(dbContext, catalog, "Diego", "Rechazado", CandidateStatuses.Hired, index: 4,
+        built.Add(Add(dbContext, catalog, "Diego", "Rechazado", Check(CandidateAvailabilityStates.Unavailable, 2026, 9, 1), index: 4,
             skills: [new(SkillSql, SkillLevelAdvanced)],
             languages: [],
             programs: [new(ProgramExcel, ProgramLevelMedium)],
             primary: DocumentScanState.ScanFailed));
 
         // 5. Documents but none primary: hasCv=no must find it.
-        built.Add(Add(dbContext, catalog, "Elena", "SinPrincipal", CandidateStatuses.Rejected, index: 5,
+        built.Add(Add(dbContext, catalog, "Elena", "SinPrincipal", Check(CandidateAvailabilityStates.Available, 2026, 5, 15), index: 5,
             skills: [new(SkillPython, SkillLevelAdvanced)],
             languages: [new(LanguageEnglish, LanguageLevelB2)],
             programs: [],
@@ -127,7 +128,7 @@ public static class SearchParityFixture
             secondaryDocuments: 2));
 
         // 6. No documents at all.
-        built.Add(Add(dbContext, catalog, "Fermín", "SinDocumentos", CandidateStatuses.Available, index: 6,
+        built.Add(Add(dbContext, catalog, "Fermín", "SinDocumentos", Check(CandidateAvailabilityStates.Available, 2026, 3, 1), index: 6,
             skills: [],
             languages: [new(LanguageEnglish, LanguageLevelC1)],
             programs: [new(ProgramAutoCad, ProgramLevelHigh)],
@@ -135,7 +136,7 @@ public static class SearchParityFixture
 
         // 7. Logically removed, and otherwise a match for almost every filter. It must never
         //    appear on a page nor be counted.
-        built.Add(Add(dbContext, catalog, "Gabriel", "Eliminado", CandidateStatuses.Available, index: 7,
+        built.Add(Add(dbContext, catalog, "Gabriel", "Eliminado", Check(CandidateAvailabilityStates.Available, 2026, 9, 15), index: 7,
             skills: [new(SkillJava, SkillLevelAdvanced), new(SkillPython, SkillLevelAdvanced)],
             languages: [new(LanguageEnglish, LanguageLevelC1)],
             programs: [new(ProgramExcel, ProgramLevelHigh)],
@@ -143,7 +144,7 @@ public static class SearchParityFixture
             isActive: false));
 
         // 8. Wildcard characters in the notes.
-        built.Add(Add(dbContext, catalog, "Helena", "Comodín", CandidateStatuses.New, index: 8,
+        built.Add(Add(dbContext, catalog, "Helena", "Comodín", Unchecked, index: 8,
             skills: [],
             languages: [],
             programs: [],
@@ -152,7 +153,7 @@ public static class SearchParityFixture
 
         // 9. Shares candidate 8's update instant, so the identifier tie-breaker is exercised
         //    rather than assumed.
-        built.Add(Add(dbContext, catalog, "Iván", "Empatado", CandidateStatuses.New, index: 8,
+        built.Add(Add(dbContext, catalog, "Iván", "Empatado", Unchecked, index: 8,
             skills: [new(SkillSql, SkillLevelBasic)],
             languages: [],
             programs: [],
@@ -162,12 +163,20 @@ public static class SearchParityFixture
         return built;
     }
 
+    /// <summary>One fixture candidate's availability check.</summary>
+    private sealed record AvailabilityCheck(string State, DateOnly? CheckedOn, DateOnly? Until);
+
+    private static readonly AvailabilityCheck Unchecked = new(CandidateAvailabilityStates.Unknown, null, null);
+
+    private static AvailabilityCheck Check(string state, int year, int month, int day, DateOnly? until = null) =>
+        new(state, new DateOnly(year, month, day), until);
+
     private static ParityCandidate Add(
         ApplicationDbContext dbContext,
         IReadOnlyDictionary<(string Family, string Name), Guid> catalog,
         string firstName,
         string lastName,
-        string status,
+        AvailabilityCheck availability,
         int index,
         IReadOnlyList<ParityRelation> skills,
         IReadOnlyList<ParityRelation> languages,
@@ -186,11 +195,10 @@ public static class SearchParityFixture
             location: "Madrid",
             province: "Madrid",
             country: "España",
-            availability: "Inmediata",
-            status: status,
             source: "fixture",
             notes: notes ?? $"Perfil de prueba {index}",
             updatedAtUtc: updatedAt);
+        candidate.RecordAvailability(availability.State, availability.CheckedOn, availability.Until, null, updatedAt);
         dbContext.Candidates.Add(candidate);
 
         foreach (var skill in skills)
@@ -241,7 +249,8 @@ public static class SearchParityFixture
             candidate.Phone,
             candidate.Email,
             candidate.Notes,
-            candidate.Status,
+            candidate.AvailabilityState,
+            candidate.AvailabilityCheckedOn,
             candidate.IsActive,
             candidate.UpdatedAtUtc,
             skills,

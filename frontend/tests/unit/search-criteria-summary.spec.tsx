@@ -22,7 +22,7 @@ describe('SearchCriteriaSummary', () => {
       <SearchCriteriaSummary
         filters={filters({
           text: '  Marta  ',
-          statusValues: ['available', 'in_process'],
+          availabilityValues: ['available', 'unavailable'],
           hasCv: 'yes',
           skillCriteria: [
             { value: 'Java', level: 'Avanzado' },
@@ -40,8 +40,8 @@ describe('SearchCriteriaSummary', () => {
       within(summary).getByRole('heading', { name: label }).parentElement as HTMLElement;
 
     expect(group('Texto')).toHaveTextContent('Marta');
-    expect(group('Estados')).toHaveTextContent('Disponible');
-    expect(group('Estados')).toHaveTextContent('En proceso');
+    expect(group('Disponibilidad')).toHaveTextContent('Disponible');
+    expect(group('Disponibilidad')).toHaveTextContent('No disponible');
     expect(group('CV')).toHaveTextContent('Con CV');
     // The combination mode is only worth stating when there is more than one criterion.
     expect(group('Habilidades (Todos)')).toHaveTextContent('Java · ≥ Avanzado');
@@ -50,15 +50,15 @@ describe('SearchCriteriaSummary', () => {
     expect(group('Etiquetas')).toHaveTextContent('Recontratable');
   });
 
-  it('omits the status group when every status is selected, since that restricts nothing', () => {
+  it('omits the availability group when every value is selected, since that restricts nothing', () => {
     render(<SearchCriteriaSummary filters={filters({ text: 'x' })} />);
 
-    expect(screen.queryByRole('heading', { name: 'Estados' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Disponibilidad' })).toBeNull();
   });
 
-  it('treats a legacy empty status array as unrestricted', () => {
-    render(<SearchCriteriaSummary filters={filters({ statusValues: [] })} />);
+  it('treats an empty availability array as unrestricted', () => {
+    render(<SearchCriteriaSummary filters={filters({ availabilityValues: [] })} />);
     expect(screen.getByTestId('filters-summary')).toHaveTextContent('Sin filtros aplicados.');
-    expect(screen.queryByRole('heading', { name: 'Estados' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Disponibilidad' })).toBeNull();
   });
 });

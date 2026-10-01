@@ -59,10 +59,6 @@ export function CandidateMainPanel({ candidate, control }: Props) {
       ) : (
         <>
           <dl className="prop-list">
-            <dt>{t('candidate.detail.status')}</dt>
-            <dd>{candidate.status}</dd>
-            <dt>{t('candidate.detail.availability')}</dt>
-            <dd>{candidate.availability}</dd>
             <dt>{t('candidate.detail.location')}</dt>
             <dd>{candidateLocation(candidate)}</dd>
             <dt>{t('candidate.detail.receivedAt')}</dt>

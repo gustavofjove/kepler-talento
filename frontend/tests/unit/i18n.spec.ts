@@ -40,7 +40,7 @@ describe('i18n foundation', () => {
   });
 
   // KTL-22: these keys are built at runtime, so a typo would only surface on the screen.
-  it('resolves every candidate document state and form status key', () => {
+  it('resolves every candidate document state and availability key', () => {
     for (const key of [
       'state.pending',
       'state.available',
@@ -52,8 +52,10 @@ describe('i18n foundation', () => {
     ]) {
       expect(i18n.t(`candidate.profile.documents.${key}`)).not.toContain('candidate.profile');
     }
-    for (const status of ['new', 'available', 'in_process', 'hired', 'rejected']) {
-      expect(i18n.t(`candidate.form.statusOption.${status}`)).not.toContain('candidate.form');
+    for (const state of ['unknown', 'available', 'unavailable']) {
+      expect(i18n.t(`candidate.availability.state.${state}`)).not.toContain(
+        'candidate.availability',
+      );
     }
     for (const key of ['titleNew', 'newHint']) {
       expect(i18n.t(`candidate.edit.${key}`)).not.toContain('candidate.edit');

@@ -4,7 +4,7 @@ import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { SearchCriteriaForm } from '../../src/app/features/search/components/search-criteria-form';
 import {
-  ALL_CANDIDATE_STATUSES,
+  ALL_AVAILABILITY_STATES,
   EMPTY_SEARCH_FILTERS,
   type SearchFilters,
 } from '../../src/app/features/search/models/search.models';
@@ -48,7 +48,7 @@ describe('SearchCriteriaForm', () => {
     expect(form).toContainElement(container.querySelector('[name="presetName"]') as HTMLElement);
   });
 
-  it('keeps the field names, status markers and test ids the e2e suite binds to', async () => {
+  it('keeps the field names, availability markers and test ids the e2e suite binds to', async () => {
     const { container } = render(
       <SearchCriteriaForm
         filters={filters()}
@@ -64,14 +64,16 @@ describe('SearchCriteriaForm', () => {
     expect(container.querySelectorAll('[name="hasCv"]')).toHaveLength(2);
     expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
-    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
-    await userEvent.click(screen.getByTestId('status-disclosure'));
+    expect(screen.getByTestId('availability-disclosure')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('availability-disclosure')).toHaveTextContent(
+      'Todas las disponibilidades',
+    );
+    await userEvent.click(screen.getByTestId('availability-disclosure'));
     expect(
-      Array.from(container.querySelectorAll('[data-status]')).map((input) =>
-        input.getAttribute('data-status'),
+      Array.from(container.querySelectorAll('[data-availability]')).map((input) =>
+        input.getAttribute('data-availability'),
       ),
-    ).toEqual(ALL_CANDIDATE_STATUSES);
+    ).toEqual(ALL_AVAILABILITY_STATES);
     expect(screen.getByTestId('toggle-filters')).toBeInTheDocument();
     for (const kind of ['skill', 'language', 'program', 'tag']) {
       expect(screen.getByTestId(`search-${kind}-picker`)).toBeInTheDocument();
@@ -81,7 +83,7 @@ describe('SearchCriteriaForm', () => {
     }
   });
 
-  it('maps the CV checkboxes and status actions without submitting the form', async () => {
+  it('maps the CV checkboxes and availability actions without submitting the form', async () => {
     const onSubmit = vi.fn();
     function Controlled() {
       const [current, setCurrent] = useState(filters);
@@ -103,21 +105,23 @@ describe('SearchCriteriaForm', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Sin CV' }));
     expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();
 
-    await userEvent.click(screen.getByTestId('status-disclosure'));
+    await userEvent.click(screen.getByTestId('availability-disclosure'));
     expect(onSubmit).not.toHaveBeenCalled();
-    for (const name of ['Nuevo', 'En proceso', 'Contratado', 'Descartado']) {
+    for (const name of ['Sin comprobar', 'No disponible']) {
       await userEvent.click(screen.getByRole('checkbox', { name }));
     }
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).not.toBeChecked();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Disponible' }));
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: 'Seleccionar todos' }));
-    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
+    await userEvent.click(screen.getByRole('button', { name: 'Seleccionar todas' }));
+    expect(screen.getByTestId('availability-disclosure')).toHaveTextContent(
+      'Todas las disponibilidades',
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('lets a keyboard user change statuses and restore all', async () => {
+  it('lets a keyboard user change availability and restore all', async () => {
     function Controlled() {
       const [current, setCurrent] = useState(filters);
       return (
@@ -130,19 +134,19 @@ describe('SearchCriteriaForm', () => {
       );
     }
     render(<Controlled />);
-    screen.getByTestId('status-disclosure').focus();
+    screen.getByTestId('availability-disclosure').focus();
     await userEvent.keyboard('{Enter}');
-    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'true');
-    screen.getByRole('checkbox', { name: 'Nuevo' }).focus();
+    expect(screen.getByTestId('availability-disclosure')).toHaveAttribute('aria-expanded', 'true');
+    screen.getByRole('checkbox', { name: 'Sin comprobar' }).focus();
     await userEvent.keyboard(' ');
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
-    screen.getByTestId('status-select-all').focus();
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).not.toBeChecked();
+    screen.getByTestId('availability-select-all').focus();
     await userEvent.keyboard('{Enter}');
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).toBeChecked();
   });
 
-  it('selects only one status with the radio-shaped button and still permits multiple choices', async () => {
+  it('selects only one availability with the radio-shaped button and still permits multiple choices', async () => {
     const onSubmit = vi.fn();
     function Controlled() {
       const [current, setCurrent] = useState(filters);
@@ -156,26 +160,28 @@ describe('SearchCriteriaForm', () => {
       );
     }
     render(<Controlled />);
-    await userEvent.click(screen.getByTestId('status-disclosure'));
+    await userEvent.click(screen.getByTestId('availability-disclosure'));
 
     const only = screen.getByRole('button', { name: 'Seleccionar solo Disponible' });
     expect(screen.queryByRole('radio')).toBeNull();
     only.focus();
     await userEvent.keyboard('{Enter}');
-    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Disponible');
+    expect(screen.getByTestId('availability-disclosure')).toHaveTextContent('Disponible');
     expect(only).toHaveAttribute('data-selected', 'true');
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).not.toBeChecked();
 
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).toBeChecked();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Sin comprobar' }));
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).toBeChecked();
     expect(only).toHaveAttribute('data-selected', 'false');
-    await userEvent.click(screen.getByTestId('status-select-all'));
-    expect(screen.getByTestId('status-disclosure')).toHaveTextContent('Todos los estados');
+    await userEvent.click(screen.getByTestId('availability-select-all'));
+    expect(screen.getByTestId('availability-disclosure')).toHaveTextContent(
+      'Todas las disponibilidades',
+    );
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('closes status options on an outside click or Escape without changing the selection', async () => {
+  it('closes availability options on an outside click or Escape without changing the selection', async () => {
     const onFiltersChange = vi.fn();
     function Controlled() {
       const [current, setCurrent] = useState(filters);
@@ -195,10 +201,10 @@ describe('SearchCriteriaForm', () => {
       );
     }
     render(<Controlled />);
-    const disclosure = screen.getByTestId('status-disclosure');
+    const disclosure = screen.getByTestId('availability-disclosure');
 
     await userEvent.click(disclosure);
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Nuevo' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Sin comprobar' }));
     expect(disclosure).toHaveAttribute('aria-expanded', 'true');
     expect(onFiltersChange).toHaveBeenCalledTimes(1);
 
@@ -209,7 +215,7 @@ describe('SearchCriteriaForm', () => {
 
     await userEvent.click(disclosure);
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: 'Nuevo' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Sin comprobar' })).not.toBeChecked();
     disclosure.focus();
     await userEvent.keyboard('{Escape}');
     expect(disclosure).toHaveAttribute('aria-expanded', 'false');
@@ -404,13 +410,13 @@ describe('SearchCriteriaForm', () => {
     );
 
     await userEvent.type(screen.getByRole('textbox', { name: 'Texto' }), 'a');
-    await userEvent.click(screen.getByTestId('status-disclosure'));
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Contratado' }));
+    await userEvent.click(screen.getByTestId('availability-disclosure'));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'No disponible' }));
 
     expect(onFiltersChange).toHaveBeenCalledWith(expect.objectContaining({ text: 'a' }));
     expect(onFiltersChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        statusValues: ALL_CANDIDATE_STATUSES.filter((status) => status !== 'hired'),
+        availabilityValues: ALL_AVAILABILITY_STATES.filter((state) => state !== 'unavailable'),
       }),
     );
     // Editing a filter never runs a search or saves a preset: only the host's submit does.

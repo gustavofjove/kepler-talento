@@ -46,29 +46,14 @@ public sealed class CandidateHandlerTests
         Assert.Null(candidates.Single().ConsentAt);
     }
 
-    [Theory]
-    [InlineData("new")]
-    [InlineData("available")]
-    [InlineData("in_process")]
-    [InlineData("hired")]
-    [InlineData("rejected")]
-    public void Every_permitted_status_is_accepted(string status)
+    [Fact]
+    public async Task A_created_candidate_starts_with_an_unknown_availability()
     {
-        var result = new CreateCandidateValidator().Validate(Draft() with { Status = status });
+        var candidates = new StubCandidateRepository();
+        var created = await new CreateCandidateHandler(candidates, Catalogs(), Actor.Editor)
+            .Handle(Draft(), CancellationToken.None);
 
-        Assert.True(result.IsValid);
-    }
-
-    [Theory]
-    [InlineData("archived")]
-    [InlineData("NEW")]
-    [InlineData("")]
-    public void A_status_outside_the_permitted_set_is_refused(string status)
-    {
-        var result = new CreateCandidateValidator().Validate(Draft() with { Status = status });
-
-        Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, error => error.ErrorCode == CandidateErrors.StatusInvalid);
+        Assert.Equal(new CandidateAvailabilityResponse("unknown", "", "", null), created.Availability);
     }
 
     [Fact]
@@ -99,7 +84,7 @@ public sealed class CandidateHandlerTests
         var updated = await handler.Handle(
             new UpdateCandidateCommand(
                 stored.Id, "Ana", "Lopez", "+34 600 111 222", "", "", "", "España",
-                "Inmediata", CandidateStatuses.New, "Email", "", null, null, null, stored.Version),
+                "Email", "", null, null, null, stored.Version),
             CancellationToken.None);
 
         Assert.Equal("2026-01-01", updated.ReceivedAt);
@@ -119,7 +104,7 @@ public sealed class CandidateHandlerTests
         var updated = await handler.Handle(
             new UpdateCandidateCommand(
                 stored.Id, "Ana", "Lopez", "", "", "", "", "España",
-                "Inmediata", CandidateStatuses.New, "Email", "", null, "", null, stored.Version),
+                "Email", "", null, "", null, stored.Version),
             CancellationToken.None);
 
         Assert.Equal(string.Empty, updated.ConsentAt);
@@ -594,6 +579,175 @@ public sealed class CandidateHandlerTests
         Assert.Equal(forExisting.Message, forMissing.Message);
     }
 
+    [Fact]
+    public async Task An_availability_check_fails_closed_before_validation_or_lookup()
+    {
+        var candidates = new StubCandidateRepository();
+        candidates.Seed(Candidate("Ana", "Lopez"));
+        var existing = candidates.Single().Id;
+        var invalid = new RecordCandidateAvailabilityCommand(existing, "archived", "not-a-date", null, 0);
+
+        foreach (var actor in new ICurrentActor[] { new Actor(false, Permissions.CandidatesUpdate), Actor.Reader })
+        {
+            var handler = new RecordCandidateAvailabilityHandler(candidates, Catalogs(), actor);
+            // An invalid body, an existing candidate and a missing one get the same refusal.
+            await Assert.ThrowsAsync<ForbiddenException>(() => handler.Handle(invalid, CancellationToken.None));
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                handler.Handle(invalid with { Id = Guid.NewGuid() }, CancellationToken.None));
+        }
+        Assert.Null(candidates.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task An_availability_check_records_the_actor_and_its_own_audit_type()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidates.Seed(candidate);
+        var handler = new RecordCandidateAvailabilityHandler(candidates, Catalogs(), Actor.Editor);
+
+        var response = await handler.Handle(
+            new RecordCandidateAvailabilityCommand(candidate.Id, "unavailable", "2026-03-12", "2027-01-15", 7),
+            CancellationToken.None);
+
+        Assert.Equal("unavailable", response.Availability.State);
+        Assert.Equal("2026-03-12", response.Availability.CheckedOn);
+        Assert.Equal("2027-01-15", response.Availability.Until);
+        Assert.Equal(Actor.StoredUserId, candidate.AvailabilityCheckedByUserId);
+        Assert.Equal(7u, candidates.ExpectedVersion);
+        Assert.Equal(CandidateAuditEvents.AvailabilityChecked, candidates.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task A_check_without_a_stored_user_is_recorded_without_a_checker()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidates.Seed(candidate);
+        var development = new Actor(true, userId: null, Permissions.CandidatesUpdate);
+
+        await new RecordCandidateAvailabilityHandler(candidates, Catalogs(), development).Handle(
+            new RecordCandidateAvailabilityCommand(candidate.Id, "available", Day(0), null, 0),
+            CancellationToken.None);
+
+        Assert.Equal("available", candidate.AvailabilityState);
+        Assert.Null(candidate.AvailabilityCheckedByUserId);
+    }
+
+    [Fact]
+    public async Task Recording_unknown_clears_the_dates_and_the_checker()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidate.RecordAvailability("unavailable", new DateOnly(2026, 3, 12), new DateOnly(2027, 1, 15), Actor.StoredUserId, DateTimeOffset.UtcNow);
+        candidates.Seed(candidate);
+
+        var response = await new RecordCandidateAvailabilityHandler(candidates, Catalogs(), Actor.Editor).Handle(
+            new RecordCandidateAvailabilityCommand(candidate.Id, "unknown", null, null, 0),
+            CancellationToken.None);
+
+        Assert.Equal(new CandidateAvailabilityResponse("unknown", "", "", null), response.Availability);
+        Assert.Null(candidate.AvailabilityCheckedByUserId);
+    }
+
+    [Fact]
+    public async Task An_availability_check_on_a_removed_candidate_is_refused()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidate.Deactivate(DateTimeOffset.UtcNow);
+        candidates.Seed(candidate);
+
+        var refusal = await Assert.ThrowsAsync<RequestValidationException>(() =>
+            new RecordCandidateAvailabilityHandler(candidates, Catalogs(), Actor.Editor).Handle(
+                new RecordCandidateAvailabilityCommand(candidate.Id, "available", Day(0), null, 0),
+                CancellationToken.None));
+
+        Assert.Contains(refusal.Issues, issue => issue.Code == CandidateErrors.RemovedCandidate);
+        Assert.Equal("unknown", candidate.AvailabilityState);
+        Assert.Null(candidates.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task A_stale_availability_check_is_refused_as_a_conflict()
+    {
+        var candidates = new StubCandidateRepository { NextOutcome = CandidateSaveOutcome.ConcurrencyConflict };
+        candidates.Seed(Candidate("Ana", "Lopez"));
+
+        var refusal = await Assert.ThrowsAsync<ConflictException>(() =>
+            new RecordCandidateAvailabilityHandler(candidates, Catalogs(), Actor.Editor).Handle(
+                new RecordCandidateAvailabilityCommand(candidates.Single().Id, "available", Day(0), null, 1),
+                CancellationToken.None));
+
+        Assert.Equal(CandidateErrors.ConcurrencyConflict, refusal.Code);
+        Assert.Null(candidates.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task The_general_update_always_records_an_update_and_leaves_availability_alone()
+    {
+        var candidates = new StubCandidateRepository();
+        var candidate = Candidate("Ana", "Lopez");
+        candidate.RecordAvailability("available", new DateOnly(2026, 3, 12), null, Actor.StoredUserId, DateTimeOffset.UtcNow);
+        candidates.Seed(candidate);
+
+        await new UpdateCandidateHandler(candidates, Catalogs(), Actor.Editor)
+            .Handle(UpdateOf(candidate.Id, 0) with { Phone = "+34 600 000 000" }, CancellationToken.None);
+
+        Assert.Equal(CandidateAuditEvents.Updated, candidates.LastAuditEventType);
+        Assert.Equal("available", candidate.AvailabilityState);
+        Assert.Equal(new DateOnly(2026, 3, 12), candidate.AvailabilityCheckedOn);
+        Assert.Equal(Actor.StoredUserId, candidate.AvailabilityCheckedByUserId);
+    }
+
+    public static TheoryData<string, string?, string?, string> InvalidChecks => new()
+    {
+        { "archived", "2026-03-12", null, CandidateErrors.AvailabilityInvalid },
+        { "", null, null, CandidateErrors.AvailabilityInvalid },
+        { "available", null, null, CandidateErrors.AvailabilityCheckedOnInvalid },
+        { "available", "12/03/2026", null, CandidateErrors.AvailabilityCheckedOnInvalid },
+        { "available", Day(2), null, CandidateErrors.AvailabilityCheckedOnInvalid },
+        { "unknown", "2026-03-12", null, CandidateErrors.AvailabilityCheckedOnInvalid },
+        { "unknown", null, "2027-01-15", CandidateErrors.AvailabilityUntilInvalid },
+        { "available", "2026-03-12", "2027-01-15", CandidateErrors.AvailabilityUntilInvalid },
+        { "unavailable", "2026-03-12", "2026-03-11", CandidateErrors.AvailabilityUntilInvalid },
+        { "unavailable", "2026-03-12", "pronto", CandidateErrors.AvailabilityUntilInvalid },
+    };
+
+    [Theory]
+    [MemberData(nameof(InvalidChecks))]
+    public void An_inconsistent_check_is_refused_with_its_code(string state, string? checkedOn, string? until, string code)
+    {
+        var result = new RecordCandidateAvailabilityValidator().Validate(
+            new RecordCandidateAvailabilityCommand(Guid.NewGuid(), state, checkedOn, until, 0));
+
+        Assert.Contains(result.Errors, error => error.ErrorCode == code);
+    }
+
+    public static TheoryData<string, string?, string?> ValidChecks => new()
+    {
+        { "unknown", null, null },
+        { "unknown", "", " " },
+        { "available", Day(0), null },
+        // One day past the UTC date is tolerated, for users ahead of UTC.
+        { "available", Day(1), null },
+        // An earlier date amends a mistaken check.
+        { "available", "2020-01-01", null },
+        { "unavailable", "2026-03-12", null },
+        { "unavailable", "2026-03-12", "2026-03-12" },
+        { "unavailable", "2026-03-12", "2027-01-15" },
+    };
+
+    [Theory]
+    [MemberData(nameof(ValidChecks))]
+    public void A_consistent_check_is_accepted(string state, string? checkedOn, string? until)
+    {
+        var result = new RecordCandidateAvailabilityValidator().Validate(
+            new RecordCandidateAvailabilityCommand(Guid.NewGuid(), state, checkedOn, until, 0));
+
+        Assert.True(result.IsValid, string.Join(", ", result.Errors.Select(error => error.ErrorCode)));
+    }
+
     private static Task Invoke(
         string capability,
         StubCandidateRepository candidates,
@@ -611,12 +765,13 @@ public sealed class CandidateHandlerTests
         };
 
     private static CreateCandidateCommand Draft() => new(
-        "Ana", "Lopez", "", "", "", "", "España", "Inmediata",
-        CandidateStatuses.New, "Email", "", null, null, null);
+        "Ana", "Lopez", "", "", "", "", "España", "Email", "", null, null, null);
 
     private static UpdateCandidateCommand UpdateOf(Guid id, uint version) => new(
-        id, "Ana", "Lopez", "", "", "", "", "España", "Inmediata",
-        CandidateStatuses.New, "Email", "", null, null, null, version);
+        id, "Ana", "Lopez", "", "", "", "", "España", "Email", "", null, null, null, version);
+
+    private static string Day(int offsetFromUtcToday) =>
+        DateOnly.FromDateTime(DateTime.UtcNow).AddDays(offsetFromUtcToday).ToString("yyyy-MM-dd");
 
     private static Candidate Candidate(string firstName, string lastName) =>
         new(Guid.CreateVersion7(), firstName, lastName, DateTimeOffset.UtcNow);
@@ -701,7 +856,8 @@ public sealed class CandidateHandlerTests
                 .Select(candidate => new CandidateSummary(
                     candidate.Id, candidate.FirstName, candidate.LastName, candidate.Phone,
                     candidate.Email, candidate.Location, candidate.Province, candidate.Country,
-                    candidate.Availability, candidate.Status, candidate.Source, candidate.Notes,
+                    candidate.AvailabilityState, candidate.AvailabilityCheckedOn, candidate.AvailabilityUntil, null,
+                    candidate.Source, candidate.Notes,
                     candidate.ReceivedAt, candidate.ConsentAt, candidate.ReviewDueAt,
                     candidate.IsActive, candidate.CreatedAtUtc, candidate.UpdatedAtUtc,
                     candidate.Version, 0, null))

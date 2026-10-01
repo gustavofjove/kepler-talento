@@ -38,30 +38,37 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     {
         SearchFiltersInput Filters(
             string? text = null,
-            string[]? statuses = null,
+            string[]? availability = null,
             (string Value, string Level)[]? skills = null,
             string? skillMode = null,
             (string Value, string Level)[]? languages = null,
             string? languageMode = null,
             (string Value, string Level)[]? programs = null,
             string? programMode = null,
-            string? hasCv = null) => new(
+            string? hasCv = null,
+            string? checkedFrom = null) => new(
             text,
-            statuses,
+            availability,
             skills?.Select(pair => (SearchCriterionInput?)new SearchCriterionInput(pair.Value, pair.Level)).ToArray(),
             skillMode,
             languages?.Select(pair => (SearchCriterionInput?)new SearchCriterionInput(pair.Value, pair.Level)).ToArray(),
             languageMode,
             programs?.Select(pair => (SearchCriterionInput?)new SearchCriterionInput(pair.Value, pair.Level)).ToArray(),
             programMode,
-            hasCv);
+            hasCv,
+            AvailabilityCheckedFrom: checkedFrom);
 
         return new TheoryData<string, SearchFiltersInput>
         {
             { "no filters at all", Filters() },
-            { "every status selected", Filters(statuses: [.. CandidateStatuses.All]) },
-            { "one status", Filters(statuses: [CandidateStatuses.Available]) },
-            { "two statuses", Filters(statuses: [CandidateStatuses.New, CandidateStatuses.Hired]) },
+            { "every availability value selected", Filters(availability: [.. CandidateAvailabilityStates.All]) },
+            { "one availability value", Filters(availability: [CandidateAvailabilityStates.Available]) },
+            { "two availability values", Filters(availability: [CandidateAvailabilityStates.Unknown, CandidateAvailabilityStates.Unavailable]) },
+            { "unchecked only", Filters(availability: [CandidateAvailabilityStates.Unknown]) },
+            { "checked from a date alone", Filters(checkedFrom: "2026-05-15") },
+            { "checked from a date with every value selected", Filters(availability: [.. CandidateAvailabilityStates.All], checkedFrom: "2026-03-01") },
+            { "available and recently checked", Filters(availability: [CandidateAvailabilityStates.Available], checkedFrom: "2026-08-01") },
+            { "unchecked and checked from a date", Filters(availability: [CandidateAvailabilityStates.Unknown], checkedFrom: "2026-01-01") },
             { "free text on a surname", Filters(text: "Completo") },
             { "free text on an email fragment", Filters(text: "@ejemplo.test") },
             { "free text of the wrong case", Filters(text: "cOmPlEtO") },
@@ -182,7 +189,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 "every family combined",
                 Filters(
                     text: "@ejemplo.test",
-                    statuses: [CandidateStatuses.InProcess, CandidateStatuses.Available],
+                    availability: [CandidateAvailabilityStates.Unavailable, CandidateAvailabilityStates.Available],
+                    checkedFrom: "2026-01-01",
                     skills: [(SearchParityFixture.SkillJava, "")],
                     skillMode: "ANY",
                     languages: [(SearchParityFixture.LanguageEnglish, "")],
@@ -195,7 +203,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 "combined filters that exclude everything",
                 Filters(
                     text: "Completo",
-                    statuses: [CandidateStatuses.Hired],
+                    availability: [CandidateAvailabilityStates.Unknown],
                     skills: [(SearchParityFixture.SkillJava, "")])
             },
         };
@@ -458,7 +466,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 "lastName",
                 "phone",
                 "email",
-                "status",
+                "availabilityState",
+                "availabilityCheckedOn",
                 "hasPrimaryCv",
                 "primaryCvPreviewable",
                 "primaryCvDownloadable",
@@ -533,8 +542,11 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task An_unsupported_status_is_refused_with_a_stable_code()
+    [Theory]
+    [InlineData("archived", "", SearchErrors.AvailabilityInvalid)]
+    [InlineData("hired", "", SearchErrors.AvailabilityInvalid)]
+    [InlineData("available", "01/08/2026", SearchErrors.AvailabilityCheckedFromInvalid)]
+    public async Task An_unsupported_availability_is_refused_with_a_stable_code(string value, string checkedFrom, string code)
     {
         await SeedAsync();
         using var factory = CreateFactory(TestActor.Reader);
@@ -542,11 +554,89 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
 
         var response = await client.PostAsJsonAsync(
             SearchRoute,
-            new { filters = new { statusValues = new[] { "archived" } } });
+            new { filters = new { availabilityValues = new[] { value }, availabilityCheckedFrom = checkedFrom } });
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains(SearchErrors.StatusInvalid, body, StringComparison.Ordinal);
+        Assert.Contains(code, body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Recently_checked_available_candidates_are_found_and_unchecked_ones_never_match_a_date()
+    {
+        var fixture = await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var recent = await ReadPageAsync(await client.PostAsJsonAsync(SearchRoute, new
+        {
+            filters = new { availabilityValues = new[] { "available" }, availabilityCheckedFrom = "2026-08-01" },
+            pageSize = 100,
+        }));
+        var anyChecked = await ReadPageAsync(await client.PostAsJsonAsync(SearchRoute, new
+        {
+            filters = new { availabilityCheckedFrom = "2000-01-01" },
+            pageSize = 100,
+        }));
+
+        // Ana (2026-09-01) only: Fermín was checked on 2026-03-01 and Gabriel is removed.
+        Assert.Equal(["Ana"], recent.Items.Select(item => item.FirstName));
+        Assert.Equal(new DateOnly(2026, 9, 1), Assert.Single(recent.Items).AvailabilityCheckedOn);
+        Assert.All(anyChecked.Items, item => Assert.NotEqual(CandidateAvailabilityStates.Unknown, item.AvailabilityState));
+        Assert.Equal(
+            fixture.Count(candidate => candidate.IsActive && candidate.AvailabilityCheckedOn is not null),
+            anyChecked.TotalCount);
+    }
+
+    [Theory]
+    [InlineData("desc")]
+    [InlineData("asc")]
+    public async Task Sorting_by_check_date_puts_unchecked_candidates_last_in_both_directions(string direction)
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var seen = new List<CandidateSearchItem>();
+        for (var page = 1; ; page++)
+        {
+            var result = await ReadPageAsync(await client.PostAsJsonAsync(SearchRoute, new
+            {
+                filters = new { },
+                page,
+                pageSize = 3,
+                sortField = "availabilityCheckedOn",
+                sortDirection = direction,
+            }));
+            if (result.Items.Count == 0)
+            {
+                break;
+            }
+            seen.AddRange(result.Items);
+        }
+
+        Assert.Equal(seen.Count, seen.Select(item => item.CandidateId).Distinct().Count());
+        var dates = seen.Select(item => item.AvailabilityCheckedOn).ToList();
+        var firstUnchecked = dates.FindIndex(date => date is null);
+        Assert.True(firstUnchecked > 0, "the fixture has checked and unchecked candidates");
+        Assert.All(dates.Skip(firstUnchecked), date => Assert.Null(date));
+        var checkedDates = dates.Take(firstUnchecked).Select(date => date!.Value).ToList();
+        Assert.Equal(
+            direction == "desc" ? [.. checkedDates.OrderDescending()] : [.. checkedDates.Order()],
+            checkedDates);
+    }
+
+    [Fact]
+    public async Task The_former_status_sort_is_refused_as_an_unknown_field()
+    {
+        await SeedAsync();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync(SearchRoute, new { filters = new { }, sortField = "status" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(SearchErrors.SortFieldInvalid, await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -662,7 +752,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         // Malformed in every other respect, so a 400 would reveal validation ran first.
         var response = await client.PostAsJsonAsync(
             SearchRoute,
-            new { filters = new { statusValues = new[] { "archived" } }, page = 0, pageSize = 500, includeInactive = true, sortField = "nope" });
+            new { filters = new { availabilityValues = new[] { "archived" } }, page = 0, pageSize = 500, includeInactive = true, sortField = "nope" });
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -673,7 +763,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     public static TheoryData<string, string> SortCases()
     {
         var data = new TheoryData<string, string>();
-        foreach (var field in new[] { "updatedAt", "lastName", "status" })
+        foreach (var field in new[] { "updatedAt", "lastName", "availabilityCheckedOn" })
         {
             foreach (var direction in new[] { "asc", "desc" })
             {
@@ -715,7 +805,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         Func<CandidateSearchItem, string> key = field switch
         {
             "lastName" => item => $"{item.LastName}{item.FirstName}",
-            "status" => item => item.Status,
+            "availabilityCheckedOn" => item => item.AvailabilityCheckedOn?.ToString("yyyy-MM-dd") ?? "unchecked",
             _ => item => item.UpdatedAt.UtcTicks.ToString("D20", System.Globalization.CultureInfo.InvariantCulture),
         };
         for (var index = 1; index < seen.Count; index++)
@@ -794,7 +884,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     private const string TiedMarker = "EmpateKtl18";
 
     /// <summary>
-    /// Candidates that share an update instant, a status and a surname, so every contracted
+    /// Candidates that share an update instant, a check date and a surname, so every contracted
     /// sort leaves the identifier as the only thing separating most of them.
     /// </summary>
     private async Task<IReadOnlyList<Guid>> SeedTiedCandidatesAsync(int count)
@@ -812,11 +902,18 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
                 location: string.Empty,
                 province: string.Empty,
                 country: string.Empty,
-                availability: string.Empty,
-                status: index % 5 == 0 ? CandidateStatuses.Hired : CandidateStatuses.Available,
                 source: string.Empty,
                 notes: string.Empty,
                 updatedAtUtc: index % 3 == 0 ? instant.AddMinutes(1) : instant);
+            if (index % 5 != 0)
+            {
+                candidate.RecordAvailability(
+                    CandidateAvailabilityStates.Available,
+                    new DateOnly(2026, 5, 5),
+                    null,
+                    null,
+                    index % 3 == 0 ? instant.AddMinutes(1) : instant);
+            }
             dbContext.Candidates.Add(candidate);
             ids.Add(id);
         }
@@ -940,7 +1037,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             page.Items.Select(item => item.FirstName).Order(StringComparer.Ordinal));
         await using var afterContext = NewDbContext();
         Assert.Equal(before, (await afterContext.SearchPresets.AsNoTracking().SingleAsync()).Filters);
-        Assert.Equal(1, (await afterContext.SearchPresets.AsNoTracking().SingleAsync()).FilterSchemaVersion);
+        Assert.Equal(2, (await afterContext.SearchPresets.AsNoTracking().SingleAsync()).FilterSchemaVersion);
     }
 
     [Fact]
