@@ -12,10 +12,9 @@ import {
   type CatalogItem,
 } from '../models/catalog.models';
 
-const FAMILY_OPTIONS = (Object.keys(CATALOG_FAMILY_LABELS) as CatalogFamily[]).map((key) => ({
-  key,
-  label: CATALOG_FAMILY_LABELS[key],
-}));
+const FAMILY_OPTIONS = (Object.keys(CATALOG_FAMILY_LABELS) as CatalogFamily[])
+  .map((key) => ({ key, label: CATALOG_FAMILY_LABELS[key] }))
+  .sort((first, second) => first.label.localeCompare(second.label, 'es'));
 
 export function CatalogManagementPage() {
   const { t } = useTranslation();
