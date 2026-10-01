@@ -43,7 +43,8 @@ what let the backend ship before the frontend moved onto it.
       "email": "…",
       "status": "available",
       "hasPrimaryCv": true,
-      "primaryCvDocumentId": "…",
+      "primaryCvPreviewable": true, // KTL-35: clean PDF with its file; false without documents.download
+      "primaryCvDownloadable": true, // KTL-35: clean, with its file, any format; same masking
       "updatedAt": "…",
       "isActive": true, // KTL-18: false only when removed candidates were requested
     },

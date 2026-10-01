@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace KeplerTalento.Domain.Documents;
 
 public enum DocumentScanState
@@ -11,6 +13,38 @@ public enum DocumentScanState
 
 public sealed class CandidateDocument
 {
+    /// <summary>The only content type the client renders inline.</summary>
+    public const string PreviewableContentType = "application/pdf";
+
+    /// <summary>
+    /// Whether the document can be rendered inside the application (KTL-35): a clean scan, a
+    /// natively renderable format, and a binary that actually exists (a legacy record without
+    /// one is not). An expression so list queries evaluate it in SQL; it must stay in step with
+    /// the «Available» availability of <c>CandidateDocumentResponse</c>.
+    /// </summary>
+    public static readonly Expression<Func<CandidateDocument, bool>> IsPreviewable = document =>
+        document.ScanState == DocumentScanState.Clean
+        && document.ContentType == PreviewableContentType
+        && !(document.SourceKey != null && (document.Sha256 == null || document.Sha256.Trim() == string.Empty));
+
+    /// <summary>
+    /// Whether the document can be downloaded at all (KTL-35): a clean scan and a binary that
+    /// actually exists, in any allowed format. It must stay in step with the «Available»
+    /// availability of <c>CandidateDocumentResponse</c>.
+    /// </summary>
+    public static readonly Expression<Func<CandidateDocument, bool>> IsDownloadable = document =>
+        document.ScanState == DocumentScanState.Clean
+        && !(document.SourceKey != null && (document.Sha256 == null || document.Sha256.Trim() == string.Empty));
+
+    private static readonly Func<CandidateDocument, bool> IsPreviewableCompiled = IsPreviewable.Compile();
+    private static readonly Func<CandidateDocument, bool> IsDownloadableCompiled = IsDownloadable.Compile();
+
+    /// <summary>In-memory form of <see cref="IsDownloadable"/>.</summary>
+    public bool CanBeDownloaded => IsDownloadableCompiled(this);
+
+    /// <summary>In-memory form of <see cref="IsPreviewable"/>.</summary>
+    public bool CanBePreviewed => IsPreviewableCompiled(this);
+
     private CandidateDocument() { }
 
     public CandidateDocument(

@@ -35,6 +35,6 @@ public sealed class ChangePositionCandidateStageHandler(IPositionRepository posi
         await PositionCandidateChecks.Save(positions, PositionAuditEvents.CandidateStageChanged, link, cancellationToken);
         var changed = await positions.FindCandidateItemAsync(request.PositionId, request.CandidateId, cancellationToken)
             ?? throw new NotFoundException(PositionErrors.CandidateLinkNotFound, "El candidato no está en esta posición.");
-        return changed.ToResponse();
+        return changed.ToResponse(actor);
     }
 }

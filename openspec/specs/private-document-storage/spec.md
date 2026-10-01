@@ -352,10 +352,13 @@ of the two reads the trail exists to answer for.
 ### Requirement: Controlled inline preview
 
 A document SHALL be renderable inside the application only through the same permission-checked,
-clean-scan-gated response that serves a download. Inline preview SHALL NOT introduce a second
+clean-scan-gated response that serves a download. This holds whether the preview is opened from
+the candidate page or from a candidate table row. Inline preview SHALL NOT introduce a second
 delivery path, a permanent URL, a public URL, or any weaker gate. Only formats the client can
 render natively SHALL be previewed; every other allowed format SHALL be offered for download
-instead, with an explanation and without fetching its content.
+instead, with an explanation and without fetching its content. A list's indication that a primary
+CV can be previewed SHALL NOT grant access to its content, and SHALL NOT replace any check of the
+content response.
 
 #### Scenario: Clean previewable document is rendered
 
@@ -363,6 +366,14 @@ instead, with an explanation and without fetching its content.
   available, clean, and of a natively renderable format
 - **THEN** the document content is served by the same permission-checked, non-cacheable response
   used for download and is rendered inside the application without a further navigation
+
+#### Scenario: Preview opened from a table row
+
+- **WHEN** a caller holding the document download permission activates «Ver» on a candidate table
+  row
+- **THEN** the content is requested through the same permission-checked, clean-scan-gated,
+  audited response as on the candidate page, and nothing is fetched when the selected document is
+  not clean
 
 #### Scenario: Preview requires the download permission
 
@@ -388,8 +399,8 @@ instead, with an explanation and without fetching its content.
 
 - **WHEN** a document is previewed
 - **THEN** the rendered reference is opaque, confined to the current page, released when the
-  selection changes or the page is left, and at no point exposes a storage key, host path,
-  drive letter, mount point, or permanent URL
+  selection changes, the preview closes or the page is left, and at no point exposes a storage
+  key, host path, drive letter, mount point, or permanent URL
 
 #### Scenario: Preview is audited as a download
 

@@ -39,7 +39,13 @@ export interface SearchResult {
   email: string;
   status: CandidateStatus;
   hasPrimaryCv: boolean;
-  primaryCvDocumentId?: string;
+  /**
+   * The primary CV is a clean PDF with its binary, so the row offers «Ver» (KTL-35). Always false
+   * for an actor without `documents.download`; it grants nothing by itself.
+   */
+  primaryCvPreviewable: boolean;
+  /** The primary CV is clean and its file exists, in any format, so the row offers a download. Same masking. */
+  primaryCvDownloadable: boolean;
   updatedAt: string;
   /** False only when removed candidates were explicitly requested (KTL-18). */
   isActive: boolean;

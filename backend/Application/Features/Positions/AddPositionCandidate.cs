@@ -44,6 +44,6 @@ public sealed class AddPositionCandidateHandler(IPositionRepository positions, I
         await PositionCandidateChecks.Save(positions, PositionAuditEvents.CandidateAdded, link, cancellationToken);
         var added = await positions.FindCandidateItemAsync(request.PositionId, candidateId, cancellationToken)
             ?? throw new NotFoundException(PositionErrors.CandidateLinkNotFound, "El candidato no está en esta posición.");
-        return added.ToResponse();
+        return added.ToResponse(actor);
     }
 }

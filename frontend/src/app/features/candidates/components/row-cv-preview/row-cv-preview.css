@@ -1,0 +1,210 @@
+/* Row CV preview (KTL-35). The two-column layout itself is the KTL-28 `.page-split` in
+ * styles.css; these rules cover the row highlight, the panel and the row under a candidate. */
+
+/* The row whose CV is open: pale brand fill and a left accent, distinct from the grey hover. */
+.data-table tr.is-cv-open > td,
+.data-table tr.is-cv-open:hover > td {
+  background: var(--fj-orange-pale);
+}
+
+.data-table tr.is-cv-open > td:first-child {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* Icon-only «Ver» / «Ocultar»: the eye and the direction the CV opens or closes. */
+.data-table td .button.row-cv-toggle {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  padding-inline: 6px;
+}
+
+.row-cv-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.row-cv-toggle__icon {
+  display: block;
+}
+
+.row-cv-panel__header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.row-cv-panel__header h2 {
+  margin: 0;
+}
+
+/* Beside the table the aside is viewport-tall and sticky (styles.css); the panel fills it and the
+ * viewer takes the rest, as on the candidate page. Same threshold as the split. */
+@container page-split (min-width: 1360px) {
+  .page-split__aside > .row-cv-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .page-split__aside > .row-cv-panel > .cv-preview {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .page-split__aside > .row-cv-panel .cv-preview__viewer {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* The row under a candidate. Its cell spans the whole table, which may be wider than the screen
+ * and scroll sideways inside `.table-wrap`; the content keeps to the wrapper's visible width and
+ * stays put while the table scrolls. */
+.table-wrap:has(.cv-row) {
+  container-type: inline-size;
+}
+
+.data-table tr.cv-row > td {
+  background: var(--bg-3);
+  padding: 12px 0;
+}
+
+/* A one-row grid, so the row can unfold from no height to the panel's height (0fr → 1fr). */
+.cv-row__content {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 1fr;
+  left: 0;
+  padding: 0 12px;
+  position: sticky;
+  width: 100cqi;
+}
+
+.cv-row__content > .row-cv-panel {
+  min-height: 0;
+}
+
+/* Motion (KTL-35). Opening: the side panel glides in from the right; the row under a candidate
+ * unfolds downwards. Hiding plays the same in reverse (`.is-closing`, removed after
+ * CV_CLOSE_MS in row-cv-preview.logic.ts). Switching to another CV is immediate. */
+.row-cv-panel,
+.cv-row__content {
+  --row-cv-open: 260ms;
+  --row-cv-close: 220ms;
+  --row-cv-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-split__aside > .row-cv-panel {
+    animation: row-cv-slide-in var(--row-cv-open) var(--row-cv-ease);
+  }
+
+  .page-split__aside > .row-cv-panel.is-closing {
+    animation: row-cv-slide-out var(--row-cv-close) ease-in forwards;
+  }
+
+  .data-table tr.cv-row > td {
+    animation: row-cv-cell-open var(--row-cv-open) var(--row-cv-ease);
+  }
+
+  .data-table tr.cv-row:has(.is-closing) > td {
+    animation: row-cv-cell-close var(--row-cv-close) ease-in forwards;
+  }
+
+  .cv-row__content {
+    animation: row-cv-unfold var(--row-cv-open) var(--row-cv-ease);
+  }
+
+  .cv-row__content.is-closing {
+    animation: row-cv-fold var(--row-cv-close) ease-in forwards;
+  }
+
+  /* Clip only while moving, so the unfolded panel never cuts off its own focus rings. */
+  .cv-row__content > .row-cv-panel {
+    animation: row-cv-clip var(--row-cv-open);
+  }
+
+  .cv-row__content.is-closing > .row-cv-panel {
+    overflow: hidden;
+  }
+}
+
+@keyframes row-cv-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes row-cv-slide-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+@keyframes row-cv-unfold {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+@keyframes row-cv-fold {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+
+@keyframes row-cv-cell-open {
+  from {
+    padding-block: 0;
+  }
+
+  to {
+    padding-block: 12px;
+  }
+}
+
+@keyframes row-cv-cell-close {
+  from {
+    padding-block: 12px;
+  }
+
+  to {
+    padding-block: 0;
+  }
+}
+
+@keyframes row-cv-clip {
+  from,
+  to {
+    overflow: hidden;
+  }
+}

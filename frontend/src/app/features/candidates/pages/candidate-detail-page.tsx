@@ -287,7 +287,12 @@ export function CandidateDetailPage() {
             </div>
           </div>
           <aside className="page-split__aside">
-            <CandidateCvPreview candidate={item} />
+            {/* KTL-35: only a previewable primary CV earns the preview column. */}
+            <CandidateCvPreview
+              candidateId={item.id}
+              initialDocuments={item.documents}
+              requirePreviewablePrimary
+            />
           </aside>
         </div>
       </div>

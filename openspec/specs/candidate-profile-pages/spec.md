@@ -134,8 +134,13 @@ show its empty-state text on the row's label line, where its chips would be.
 ### Requirement: CV preview beside the candidate sections
 
 The candidate page SHALL offer the CV preview to users holding the document download permission,
-under the existing preview rules, whether or not a panel is in edit mode. The new-candidate page
-SHALL NOT show a preview.
+under the existing preview rules, whether or not a panel is in edit mode. It SHALL offer it only
+when the candidate's primary CV can be previewed: a clean PDF whose binary exists, the same rule
+that makes the candidate tables offer «Ver». A candidate without a primary CV, or whose primary CV
+is of another format, still pending, refused, unscannable or a legacy record without a binary,
+SHALL get no preview. Their documents stay available from the Documentos panel. When a pending
+primary CV is reported clean while the page is open, the preview SHALL appear without a reload.
+The new-candidate page SHALL NOT show a preview.
 
 When the preview is shown and the page's content area is at least 1360 CSS pixels wide:
 
@@ -179,6 +184,19 @@ first and then the preview, at every width.
 - **WHEN** a user without the document download permission opens the candidate page at 1920×1080
 - **THEN** no preview content is requested, the sections take the full content width and no empty
   column is shown
+
+#### Scenario: Primary CV cannot be previewed
+
+- **WHEN** a user holding the document download permission opens the page of a candidate whose
+  primary CV is a clean `.docx`, or who has only non-primary documents
+- **THEN** no preview is shown, no document content is requested, the sections take the full
+  content width, and the documents remain downloadable from Documentos
+
+#### Scenario: Pending primary CV becomes previewable
+
+- **WHEN** the candidate page is open for a candidate whose primary PDF is pending and the scan
+  reports it clean
+- **THEN** the CV preview appears without reloading the page
 
 #### Scenario: Field groups follow the sections column
 

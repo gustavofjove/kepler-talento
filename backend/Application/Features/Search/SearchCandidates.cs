@@ -54,9 +54,22 @@ public sealed class SearchCandidatesHandler(ICandidateRepository candidates, ICu
             throw new RequestValidationException(issues);
         }
 
-        return await candidates.SearchAsync(
+        var result = await candidates.SearchAsync(
             filters,
             new SearchOptions(page, pageSize, sort, request.IncludeInactive),
             cancellationToken);
+
+        // KTL-35: whether a CV can be previewed is only useful, and only exposed, to an actor
+        // who may download documents. The repository stays actor-agnostic.
+        if (actor.HasPermission(Permissions.DocumentsDownload))
+        {
+            return result;
+        }
+        return result with
+        {
+            Items = result.Items
+                .Select(item => item with { PrimaryCvPreviewable = false, PrimaryCvDownloadable = false })
+                .ToList(),
+        };
     }
 }

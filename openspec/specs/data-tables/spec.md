@@ -22,8 +22,12 @@ A click on a link, button, input, dropdown or label inside the row, a click insi
 as excluded, or a click made while text is selected SHALL keep its own behaviour and SHALL NOT
 navigate. A Ctrl/⌘-click or middle-click SHALL open the destination in a new tab instead.
 
+The selection cell, the actions cell and the «CV» cell SHALL be excluded as a whole, so a click
+next to one of their controls does nothing, and they SHALL NOT look clickable.
+
 These tables SHALL NOT offer a separate «Abrir», «Ver», «Detalle» or «Editar» button that only
-opens the same destination.
+opens the same destination. The CV column's «Ver», which shows the candidate's CV on the same page
+without navigating, is not such a button.
 
 #### Scenario: Row is clicked
 
@@ -32,13 +36,19 @@ opens the same destination.
 
 #### Scenario: Control inside the row is used
 
-- **WHEN** a user clicks a row's e-mail link, dropdown, «Eliminar», «Quitar de la posición» or another button
+- **WHEN** a user clicks a row's e-mail link, dropdown, «Eliminar», «Quitar de la posición», «Ver»
+  or another button
 - **THEN** that control acts and the page does not navigate
 
 #### Scenario: Selection cell is clicked
 
 - **WHEN** a manager clicks the selection checkbox, or the empty space of its cell, in the candidate list
 - **THEN** only the selection changes and the page does not navigate
+
+#### Scenario: Near-miss beside a row's actions or CV buttons
+
+- **WHEN** a user clicks the empty space of a row's actions cell or «CV» cell
+- **THEN** nothing happens and the page does not navigate
 
 #### Scenario: Row is opened in a new tab
 
@@ -141,16 +151,159 @@ text search and the export keep the number as entered.
 - **WHEN** a candidate's phone is stored as `+33 6 12 34 56 78` or `+34 600`
 - **THEN** it is shown exactly as stored
 
-### Requirement: CV presence is shown as a tick
+### Requirement: CV preview from a table row
 
-The CV column of the candidate list, the advanced search results (including the matches on a
-position page) and a position's candidates SHALL show a tick when the candidate has a primary CV,
-and no visible content when they do not. The tick SHALL have the accessible name «Con CV», and the
-empty cell SHALL expose «Sin CV» to assistive technology only. The column SHALL NOT show
-«Disponible» or «Pendiente».
+The candidate list, the advanced search results, a position's candidates and a position's matches
+SHALL end with a «CV» column for actors holding the document download permission, and SHALL NOT
+render that column for anyone else. A row's CV cell SHALL hold, from left to right:
 
-#### Scenario: Candidate with and without a CV
+- a download button when the API reports that the candidate's primary CV can be downloaded (clean,
+  with its file, in any allowed format), which downloads that CV through the permission-checked,
+  audited document download without navigating;
+- a «Ver» button when the API reports that the primary CV can be previewed.
 
-- **WHEN** the candidate list shows one candidate with a primary CV and one without
-- **THEN** the first row's CV cell shows a tick named «Con CV» and the second shows nothing
-  visible, with «Sin CV» available to a screen reader
+A cell with neither SHALL be empty, with no disabled button. No other CV indicator SHALL be shown in
+these tables. When the CV can no longer be downloaded at the moment the download is used, the user
+SHALL be told so and nothing SHALL be downloaded.
+
+Both buttons SHALL be icons with an accessible name and a matching tooltip: a disk for «Descargar
+el CV de …»; an eye for «Ver», crossed out for «Ocultar». The «Ver»/«Ocultar» icon SHALL carry an
+arrow towards where the CV opens: right for «Ver» and left for «Ocultar» beside the table, down for
+«Ver» and up for «Ocultar» under the row.
+
+«Ver» SHALL show the candidate's CV on the same page without navigating or changing the URL:
+
+- beside the table, in a panel that stays in view while the page scrolls and pushes the table
+  aside rather than covering it, when the page's content area is at least 1360 CSS pixels wide;
+- otherwise, in a row inserted directly below the candidate's row, whose content fits the visible
+  width of the table's scrolling container.
+
+At most one CV SHALL be open on a page, across every table on it. Opening a CV SHALL close any
+other. While a row's CV is open:
+
+- its button SHALL be «Ocultar» and expose the expanded state;
+- the row SHALL be visibly highlighted, distinctly from hover;
+- the other rows' buttons SHALL be «Ver».
+
+The buttons' accessible names SHALL name the candidate («Ver el CV de …», «Ocultar el CV de …»). A
+candidate listed in two tables on the same page SHALL toggle only in the table whose button was
+used.
+
+The CV SHALL be headed «CV de …» with a link to the candidate page and an «Ocultar» control, and
+SHALL show the same document picker, availability messages, viewer and download fallback as the
+candidate page's CV preview. It SHALL always attempt to display the PDF inline and SHALL offer
+«Descargar» only when the browser cannot render it.
+
+The CV SHALL close:
+
+- on «Ocultar», in its row or its panel;
+- when another CV is opened;
+- when its row leaves the table through paging, sorting, filtering, a new search, removal from the
+  position or a state change that hides it;
+- when the page is left.
+
+Closing SHALL return focus to the row's button when focus was inside the CV.
+
+When the content area crosses the 1360-pixel threshold while a CV is open, the CV SHALL stay open
+for the same row and move to the other placement. Its content SHALL NOT be requested again. After
+moving into the table, the row SHALL be scrolled into view, and focus that was inside the CV SHALL
+move to the row's button.
+
+Any opening animation SHALL be suppressed when the user prefers reduced motion.
+
+#### Scenario: Column for a permitted actor
+
+- **WHEN** an actor holding the document download permission views any of the four tables
+- **THEN** its last column is «CV»; a row whose primary CV is a clean PDF shows the download and
+  «Ver» buttons, a row whose primary CV is clean in another format shows only the download button,
+  and a row whose primary CV is pending, refused or missing shows an empty cell
+
+#### Scenario: CV downloaded from a row
+
+- **WHEN** a user activates «Descargar el CV de …» on a row whose primary CV is a clean `.docx`
+- **THEN** that file is downloaded through the audited document download and the page does not
+  navigate
+
+#### Scenario: Download no longer available
+
+- **WHEN** a row's primary CV was removed after the table loaded and the user activates its
+  download button
+- **THEN** the user is told the CV can no longer be downloaded and nothing is downloaded
+
+#### Scenario: Arrow follows the placement
+
+- **WHEN** a user views a row with a previewable CV beside the table and then under the row
+- **THEN** «Ver» shows an arrow pointing right and then down, and «Ocultar» an arrow pointing left
+  and then up
+
+#### Scenario: Column without the download permission
+
+- **WHEN** an actor without the document download permission views any of the four tables
+- **THEN** no «CV» column and no «Ver» button are rendered
+
+#### Scenario: CV opened on a wide screen
+
+- **WHEN** a user activates «Ver» on a row at 1920×1080
+- **THEN** the CV is shown in a panel to the right of the table, headed with the candidate's name
+- **AND** the row is highlighted, its button reads «Ocultar» with the expanded state, the table
+  stays visible and usable, and the URL is unchanged
+
+#### Scenario: Another CV is opened
+
+- **WHEN** a CV is open and the user activates «Ver» on another row
+- **THEN** the panel shows the other candidate's CV, the first row returns to «Ver» without
+  highlight, and the page shows a single CV viewer
+
+#### Scenario: CV is hidden
+
+- **WHEN** the user activates «Ocultar» on the open row or on its panel
+- **THEN** the CV closes, the page returns to its single-column layout at the default width, and
+  focus is on the row's «Ver»
+
+#### Scenario: CV opened on a narrower screen
+
+- **WHEN** a user activates «Ver» at 1366×768
+- **THEN** the CV is shown in a row directly below that candidate's row and nothing is added at the
+  bottom of the page
+
+#### Scenario: CV opened at phone width
+
+- **WHEN** a CV is open at 390 pixels wide
+- **THEN** the page does not scroll horizontally and the CV fits the screen width even when the
+  table scrolls sideways
+
+#### Scenario: Window crosses the threshold
+
+- **WHEN** a CV is open beside the table and the window is narrowed below the threshold
+- **THEN** the CV is shown below its row, the row is in view, its button still reads «Ocultar», and
+  no second content request is made
+- **AND** widening the window again moves the CV back beside the table
+
+#### Scenario: Two tables on one page
+
+- **WHEN** a CV is open in «Candidatos de la posición» and the user activates «Ver» in «Candidatos
+  que encajan»
+- **THEN** the first CV closes and only the second row reads «Ocultar»
+
+#### Scenario: Same candidate in both tables
+
+- **WHEN** a candidate appears in both position tables and the user activates «Ver» in one of them
+- **THEN** only that table's row is highlighted and reads «Ocultar»
+
+#### Scenario: Row leaves the table
+
+- **WHEN** a CV is open and the user changes page, sort order or filters, runs a new search, or
+  removes that candidate from the position
+- **THEN** the CV closes
+
+#### Scenario: Previewable state changed after loading
+
+- **WHEN** a row's primary CV was replaced or removed after the table loaded and the user activates
+  «Ver»
+- **THEN** the CV area shows the document's availability message, never an empty area, and no
+  content is fetched for a document that is not clean
+
+#### Scenario: Browser cannot render the PDF
+
+- **WHEN** a CV is opened in a browser without an inline PDF viewer
+- **THEN** the CV area shows the fallback message with «Descargar»

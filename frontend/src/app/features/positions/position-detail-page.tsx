@@ -5,6 +5,10 @@ import { usePermission, useServices } from '../../core/di/services-context';
 import { formatDate } from '../../core/i18n/format';
 import { useErrorToast } from '../../core/services/use-error-toast';
 import { Breadcrumb, type BreadcrumbItem } from '../../shared/components/breadcrumb';
+import {
+  RowCvPreviewProvider,
+  RowCvSplit,
+} from '../candidates/components/row-cv-preview/row-cv-preview';
 import { SearchCriteriaSummary } from '../search/components/search-criteria-summary';
 import { SearchResults } from '../search/components/search-results';
 import type { SearchResult, SearchResultPage } from '../search/models/search.models';
@@ -15,6 +19,8 @@ import { usePositionCandidates } from './use-position-candidates';
 import './positions.css';
 
 const EMPTY_RESULTS: SearchResultPage = { items: [], page: 1, pageSize: 25, totalCount: 0 };
+/** The matches' key in the page's row CV preview; the linked candidates have their own. */
+const POSITION_MATCHES_TABLE_ID = 'position-matches';
 export function PositionDetailPage() {
   const { id } = useParams();
   const { t } = useTranslation();
@@ -147,29 +153,34 @@ export function PositionDetailPage() {
         <h2>{t('positions.requirements.title')}</h2>
         <SearchCriteriaSummary filters={position.requirements} />
       </div>
-      {canReadCandidates ? (
-        <PositionCandidatesPanel
-          state={links}
-          editable={editableLinks}
-          closed={position.status === 'closed'}
-        />
-      ) : null}
-      <div className="panel position-section">
-        <h2>{t('positions.matches.title')}</h2>
-        {canReadCandidates ? (
-          <SearchResults
-            results={results}
-            loading={loading}
-            failed={failed}
-            lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
-            onPageChange={(page) => search(page)}
-            renderRowAction={editableLinks ? matchAction : undefined}
-            showOpenCv={false}
-          />
-        ) : (
-          <p>{t('positions.matches.forbidden')}</p>
-        )}
-      </div>
+      {/* KTL-35: one CV open across both candidate tables, beside them when there is room. */}
+      <RowCvPreviewProvider>
+        <RowCvSplit>
+          {canReadCandidates ? (
+            <PositionCandidatesPanel
+              state={links}
+              editable={editableLinks}
+              closed={position.status === 'closed'}
+            />
+          ) : null}
+          <div className="panel position-section">
+            <h2>{t('positions.matches.title')}</h2>
+            {canReadCandidates ? (
+              <SearchResults
+                tableId={POSITION_MATCHES_TABLE_ID}
+                results={results}
+                loading={loading}
+                failed={failed}
+                lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
+                onPageChange={(page) => search(page)}
+                renderRowAction={editableLinks ? matchAction : undefined}
+              />
+            ) : (
+              <p>{t('positions.matches.forbidden')}</p>
+            )}
+          </div>
+        </RowCvSplit>
+      </RowCvPreviewProvider>
     </section>
   );
 }

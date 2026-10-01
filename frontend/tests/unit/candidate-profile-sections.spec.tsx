@@ -46,12 +46,13 @@ describe('Candidate profile section panels (KTL-29)', () => {
       'src/app/features/candidates/pages/candidate-detail-page.tsx',
       'utf8',
     );
-    const preview = source.indexOf('<CandidateCvPreview candidate={item} />');
+    const preview = source.indexOf('<CandidateCvPreview');
     const documents = source.indexOf('<CandidateDocuments');
     expect(documents).toBeGreaterThan(-1);
     expect(preview).toBeGreaterThan(documents);
+    // KTL-35: the page asks for a previewable primary CV before it offers the preview.
     expect(source.slice(preview)).toMatch(
-      /<CandidateCvPreview candidate=\{item\} \/>\s*<\/aside>\s*<\/div>\s*<\/div>\s*<\/section>/,
+      /<CandidateCvPreview\s[^>]*requirePreviewablePrimary\s*\/>\s*<\/aside>\s*<\/div>\s*<\/div>\s*<\/section>/,
     );
   });
 

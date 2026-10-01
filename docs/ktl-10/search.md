@@ -109,7 +109,8 @@ transaction across both costs more than the discrepancy is worth at this scale.
       "email": "…",
       "status": "available",
       "hasPrimaryCv": true,
-      "primaryCvDocumentId": "…",
+      "primaryCvPreviewable": true, // KTL-35: clean PDF with its file; false without documents.download
+      "primaryCvDownloadable": true, // KTL-35: clean, with its file, any format; same masking
       "updatedAt": "…",
     },
   ],
@@ -120,9 +121,11 @@ transaction across both costs more than the discrepancy is worth at this scale.
 ```
 
 That is the whole item. No relation collections, no notes, no consent or retention metadata,
-no storage key, filename or scan state. `primaryCvDocumentId` is an opaque identifier that
-lets the row offer "Abrir CV"; the document capability then applies its own permission and
-scan-state checks. It confers no right to the bytes and reveals nothing about where they live.
+no storage key, filename or scan state. Since KTL-35 the item carries no document identifier:
+`primaryCvPreviewable` and `primaryCvDownloadable` only tell the row whether to offer «Ver» and
+the download button, are `false` for actors without `documents.download`, and confer no right to
+the bytes. The row resolves the document through the candidate's permission-checked document
+list, and the document capability applies its own permission and scan-state checks.
 
 `hasPrimaryCv` is true when the candidate has a non-removed primary document **in any scan
 state** — pending, clean or refused. Downloadability remains KTL-9's decision; KTL-10 never

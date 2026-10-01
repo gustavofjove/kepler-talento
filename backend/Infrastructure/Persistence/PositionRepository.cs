@@ -2,6 +2,7 @@ using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Domain.Auditing;
+using KeplerTalento.Domain.Documents;
 using KeplerTalento.Domain.Positions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -73,6 +74,15 @@ public sealed class PositionRepository(ApplicationDbContext dbContext, ICurrentA
         select new PositionCandidateItem(
             link.CandidateId, candidate.FirstName, candidate.LastName, candidate.Email, candidate.Phone,
             dbContext.Documents.Any(document => document.CandidateId == candidate.Id && document.IsPrimary),
+            // KTL-35: same rule as candidate search; masked per actor by the response mapping.
+            dbContext.Documents
+                .Where(document => document.CandidateId == candidate.Id && document.IsPrimary)
+                .Where(CandidateDocument.IsPreviewable)
+                .Any(),
+            dbContext.Documents
+                .Where(document => document.CandidateId == candidate.Id && document.IsPrimary)
+                .Where(CandidateDocument.IsDownloadable)
+                .Any(),
             candidate.IsActive,
             link.Stage, link.AddedAtUtc, link.UpdatedAtUtc, link.Version);
 

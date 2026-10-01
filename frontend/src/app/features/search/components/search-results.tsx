@@ -1,12 +1,14 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
-import { useErrorToast } from '../../../core/services/use-error-toast';
-import { CvIndicator } from '../../../shared/components/cv-indicator';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
+import {
+  RowCvActions,
+  RowCvInlineRow,
+} from '../../candidates/components/row-cv-preview/row-cv-preview';
+import { useRowCvTable } from '../../candidates/components/row-cv-preview/row-cv-preview.context';
 import { displayPhone, mailtoHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
 
@@ -21,8 +23,11 @@ interface SearchResultsProps {
    * la posición» (KTL-30); the advanced search page passes nothing and renders as before.
    */
   renderRowAction?: (result: SearchResult) => ReactNode;
-  /** «Abrir CV» per row; the position page hides it. Defaults to shown. */
-  showOpenCv?: boolean;
+  /**
+   * This table's key in the page's row CV preview (KTL-35), so the position page can tell its
+   * matches from its linked candidates.
+   */
+  tableId?: string;
 }
 
 export function SearchResults({
@@ -32,28 +37,15 @@ export function SearchResults({
   lastPage,
   onPageChange,
   renderRowAction,
-  showOpenCv = true,
+  tableId = 'search-results',
 }: SearchResultsProps) {
   const { t } = useTranslation();
-  const { documentService, toastService } = useServices();
-  const notifyError = useErrorToast();
-  const canDownload = usePermission('documents.download');
   const rowLink = useRowLink();
-
-  const canOpenCv = (result: SearchResult): boolean =>
-    canDownload && Boolean(result.hasPrimaryCv && result.primaryCvDocumentId);
-
-  const openCv = async (result: SearchResult): Promise<void> => {
-    if (!canOpenCv(result)) {
-      toastService.show(t('search.results.cvUnavailable'), 'warning');
-      return;
-    }
-    try {
-      await documentService.download(result.candidateId, result.primaryCvDocumentId!, 'cv.pdf');
-    } catch (error) {
-      notifyError(error, t('search.results.cvDownloadFailed'));
-    }
-  };
+  const cv = useRowCvTable(
+    tableId,
+    results.items.map((result) => result.candidateId),
+  );
+  const columnCount = 4 + (renderRowAction ? 1 : 0) + (cv.enabled ? 1 : 0);
 
   const total = (): string => {
     const one = results.totalCount === 1;
@@ -74,65 +66,72 @@ export function SearchResults({
               <th>{t('search.results.column.candidate')}</th>
               <th>{t('search.results.column.phone')}</th>
               <th>{t('search.results.column.status')}</th>
-              <th>{t('search.results.column.cv')}</th>
               <th>{t('search.results.column.updated')}</th>
-              <th></th>
+              {renderRowAction ? <th></th> : null}
+              {cv.enabled ? <th>{t('search.results.column.cv')}</th> : null}
             </tr>
           </thead>
           <tbody>
             {results.items.length ? (
               results.items.map((result) => (
-                // The whole row opens the candidate; the name is its keyboard link.
-                <tr
-                  key={result.candidateId}
-                  className="row-link-row"
-                  onClick={rowLink(`/app/candidates/${result.candidateId}`)}
-                  onAuxClick={rowLink(`/app/candidates/${result.candidateId}`)}
-                >
-                  <td>
-                    <Link className="row-link" to={`/app/candidates/${result.candidateId}`}>
-                      {result.firstName} {result.lastName}
-                    </Link>
-                    {result.email ? (
-                      <div className="muted contact-links">
-                        <a href={mailtoHref(result.email)}>{result.email}</a>
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>{displayPhone(result.phone)}</td>
-                  <td>
-                    <span className="badge">{result.status}</span>
-                  </td>
-                  <td>
-                    <CvIndicator hasCv={result.hasPrimaryCv} />
-                  </td>
-                  <td>
-                    {formatDate(result.updatedAt, {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })}
-                  </td>
-                  <td>
-                    <div className="form-actions">
-                      {renderRowAction?.(result)}
-                      {showOpenCv ? (
-                        <button
-                          className="button ghost"
-                          type="button"
-                          disabled={!canOpenCv(result)}
-                          onClick={() => void openCv(result)}
-                        >
-                          {t('search.results.openCv')}
-                        </button>
+                <Fragment key={result.candidateId}>
+                  {/* The whole row opens the candidate; the name is its keyboard link. */}
+                  <tr
+                    ref={cv.rowRef(result.candidateId)}
+                    className={
+                      cv.isOpen(result.candidateId) ? 'row-link-row is-cv-open' : 'row-link-row'
+                    }
+                    onClick={rowLink(`/app/candidates/${result.candidateId}`)}
+                    onAuxClick={rowLink(`/app/candidates/${result.candidateId}`)}
+                  >
+                    <td>
+                      <Link className="row-link" to={`/app/candidates/${result.candidateId}`}>
+                        {result.firstName} {result.lastName}
+                      </Link>
+                      {result.email ? (
+                        <div className="muted contact-links">
+                          <a href={mailtoHref(result.email)}>{result.email}</a>
+                        </div>
                       ) : null}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td>{displayPhone(result.phone)}</td>
+                    <td>
+                      <span className="badge">{result.status}</span>
+                    </td>
+                    <td>
+                      {formatDate(result.updatedAt, {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    {renderRowAction ? (
+                      <td data-row-link-ignore="">
+                        <div className="form-actions">{renderRowAction(result)}</div>
+                      </td>
+                    ) : null}
+                    {cv.enabled ? (
+                      <td data-row-link-ignore="">
+                        <RowCvActions
+                          tableId={tableId}
+                          candidateId={result.candidateId}
+                          name={`${result.firstName} ${result.lastName}`}
+                          downloadable={result.primaryCvDownloadable}
+                          previewable={result.primaryCvPreviewable}
+                        />
+                      </td>
+                    ) : null}
+                  </tr>
+                  <RowCvInlineRow
+                    tableId={tableId}
+                    candidateId={result.candidateId}
+                    colSpan={columnCount}
+                  />
+                </Fragment>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="muted" data-testid="search-empty">
+                <td colSpan={columnCount} className="muted" data-testid="search-empty">
                   {loading
                     ? t('search.results.searching')
                     : failed
@@ -176,9 +175,6 @@ export function SearchResults({
           </button>
         </div>
       </div>
-      {showOpenCv && !canDownload ? (
-        <p className="empty-state">{t('search.results.cvNotAllowed')}</p>
-      ) : null}
     </div>
   );
 }

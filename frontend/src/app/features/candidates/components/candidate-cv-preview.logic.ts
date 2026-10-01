@@ -12,6 +12,15 @@ export type PreviewMessageKey =
 // pdf.js reads `zoom=page-width`. Each viewer ignores the parameter it does not know.
 export const FIT_WIDTH_FRAGMENT = '#view=FitH&zoom=page-width';
 
+/**
+ * Downloaded CV content kept by document id. The row CV preview (KTL-35) supplies one that
+ * outlives the preview component, so moving the viewer between placements does not fetch again.
+ */
+export interface PreviewContentCache {
+  get(documentId: string): Blob | undefined;
+  set(documentId: string, blob: Blob): void;
+}
+
 export function viewerUrl(objectUrl: string): string {
   return `${objectUrl}${FIT_WIDTH_FRAGMENT}`;
 }

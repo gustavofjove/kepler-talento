@@ -26,7 +26,8 @@ public sealed record PositionPageResponse(
 
 /// <summary>
 /// A position's link to one candidate (KTL-30): the search result's contact columns, never
-/// documents, notes or other candidate fields.
+/// documents, notes or other candidate fields. <see cref="PrimaryCvPreviewable"/> follows the
+/// candidate search rule and masking (KTL-35).
 /// </summary>
 public sealed record PositionCandidateResponse(
     Guid CandidateId,
@@ -35,6 +36,8 @@ public sealed record PositionCandidateResponse(
     string Email,
     string Phone,
     bool HasPrimaryCv,
+    bool PrimaryCvPreviewable,
+    bool PrimaryCvDownloadable,
     bool CandidateIsActive,
     string Stage,
     DateTimeOffset AddedAtUtc,
@@ -132,8 +135,20 @@ internal static class PositionCandidateChecks
         if (outcome == PositionSaveOutcome.ConstraintViolation) throw new NotFoundException(PositionErrors.CandidateLinkNotFound, "El candidato no está en esta posición.");
     }
 
-    public static PositionCandidateResponse ToResponse(this PositionCandidateItem item) => new(
-        item.CandidateId, item.FirstName, item.LastName, item.Email, item.Phone, item.HasPrimaryCv, item.CandidateIsActive, item.Stage, item.AddedAtUtc, item.UpdatedAtUtc, item.Version);
+    /// <summary>
+    /// Maps a link for <paramref name="actor"/>. The previewable flag is only exposed to actors who
+    /// can download documents (KTL-35), so every caller goes through this one masking point.
+    /// The downloadable flag follows the same rule.
+    /// </summary>
+    public static PositionCandidateResponse ToResponse(this PositionCandidateItem item, ICurrentActor actor)
+    {
+        var canDownload = actor.HasPermission(Permissions.DocumentsDownload);
+        return new(
+            item.CandidateId, item.FirstName, item.LastName, item.Email, item.Phone, item.HasPrimaryCv,
+            item.PrimaryCvPreviewable && canDownload,
+            item.PrimaryCvDownloadable && canDownload,
+            item.CandidateIsActive, item.Stage, item.AddedAtUtc, item.UpdatedAtUtc, item.Version);
+    }
 }
 
 internal static class PositionMapping

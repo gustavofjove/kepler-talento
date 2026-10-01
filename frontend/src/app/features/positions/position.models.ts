@@ -47,6 +47,10 @@ export interface PositionCandidate {
   email: string;
   phone: string;
   hasPrimaryCv: boolean;
+  /** Same rule and masking as `SearchResult.primaryCvPreviewable` (KTL-35). */
+  primaryCvPreviewable: boolean;
+  /** Same rule and masking as `SearchResult.primaryCvDownloadable` (KTL-35). */
+  primaryCvDownloadable: boolean;
   candidateIsActive: boolean;
   stage: PositionCandidateStage;
   addedAtUtc: string;

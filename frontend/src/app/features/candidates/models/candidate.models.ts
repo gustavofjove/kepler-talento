@@ -37,7 +37,10 @@ export interface CandidateListItem {
   email: string;
   status: CandidateStatus;
   hasPrimaryCv: boolean;
-  primaryCvDocumentId?: string | null;
+  /** See `SearchResult.primaryCvPreviewable` (KTL-35). */
+  primaryCvPreviewable: boolean;
+  /** See `SearchResult.primaryCvDownloadable` (KTL-35). */
+  primaryCvDownloadable: boolean;
   updatedAt: string;
   isActive: boolean;
 }

@@ -19,6 +19,8 @@ const link = (candidateId: string, stage: PositionCandidate['stage'], addedAtUtc
     email: '',
     phone: '',
     hasPrimaryCv: false,
+    primaryCvPreviewable: false,
+    primaryCvDownloadable: false,
     candidateIsActive: true,
     stage,
     addedAtUtc,

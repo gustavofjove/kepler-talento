@@ -80,5 +80,15 @@
   "catalogPicker.pending": "Saving…",
   "catalogPicker.error": "{{value}}: {{message}}",
   "catalogPicker.retry": "Retry",
-  "catalogPicker.retryValue": "Retry {{value}}"
+  "catalogPicker.retryValue": "Retry {{value}}",
+  "cvPanel.show": "View",
+  "cvPanel.hide": "Hide",
+  "cvPanel.showLabel": "View {{name}}'s CV",
+  "cvPanel.hideLabel": "Hide {{name}}'s CV",
+  "cvPanel.title": "{{name}}'s CV",
+  "cvPanel.openProfile": "Open profile",
+  "cvPanel.downloadLabel": "Download {{name}}'s CV",
+  "cvPanel.downloadFailed": "The CV could not be downloaded.",
+  "cvPanel.downloadUnavailable": "This candidate's CV can no longer be downloaded.",
+  "cvPanel.empty": "This candidate no longer has a CV that can be previewed."
 }

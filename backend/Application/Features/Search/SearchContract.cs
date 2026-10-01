@@ -24,10 +24,12 @@ public sealed record SearchPage<T>(IReadOnlyList<T> Items, int Page, int PageSiz
 /// consent or retention metadata, no storage key, filename or scan state.
 /// </summary>
 /// <remarks>
-/// <paramref name="PrimaryCvDocumentId"/> is an opaque identifier and nothing more. It lets
-/// the results row offer "Abrir CV", which then goes through the document capability's own
-/// permission and scan-state checks; it confers no right to read the bytes and reveals
-/// nothing about where they live.
+/// <paramref name="PrimaryCvPreviewable"/> only tells the row whether to offer «Ver» (KTL-35):
+/// the primary document is a clean PDF with its binary. It carries no identifier, format or
+/// scan detail, is <c>false</c> for actors who cannot download documents, and grants no right
+/// to the bytes: the preview still goes through the document capability's own checks.
+/// <paramref name="PrimaryCvDownloadable"/> is the same for the download button: a clean primary
+/// with its binary, in any format, under the same masking.
 /// </remarks>
 public sealed record CandidateSearchItem(
     Guid CandidateId,
@@ -37,7 +39,8 @@ public sealed record CandidateSearchItem(
     string Email,
     string Status,
     bool HasPrimaryCv,
-    Guid? PrimaryCvDocumentId,
+    bool PrimaryCvPreviewable,
+    bool PrimaryCvDownloadable,
     DateTimeOffset UpdatedAt,
     bool IsActive);
 
