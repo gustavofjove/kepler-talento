@@ -333,8 +333,8 @@ cd frontend; npm start           # http://localhost:4300/app/admin/import
 Un archivo mínimo válido:
 
 ```csv
-first_name,last_name,email,status,languages
-Ana,Ruiz,ana.ruiz@example.test,available,Inglés:B2
+first_name,last_name,email,languages
+Ana,Ruiz,ana.ruiz@example.test,Inglés:B2
 ```
 
 Los archivos subidos se purgan 30 días después de cerrarse el lote (`Import:RetentionDays`);

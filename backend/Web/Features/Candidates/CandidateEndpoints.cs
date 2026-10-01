@@ -26,8 +26,6 @@ public static class CandidateEndpoints
         string Location,
         string Province,
         string Country,
-        string Availability,
-        string Status,
         string Source,
         string Notes,
         string? ReceivedAt,
@@ -42,8 +40,6 @@ public static class CandidateEndpoints
         string Location,
         string Province,
         string Country,
-        string Availability,
-        string Status,
         string Source,
         string Notes,
         string? ReceivedAt,
@@ -52,6 +48,12 @@ public static class CandidateEndpoints
         uint Version);
 
     public sealed record SetCandidateActiveRequest(bool IsActive, uint Version);
+
+    /// <summary>
+    /// An availability check (KTL-36). There is no checker field: the server records the
+    /// current actor, so a caller cannot attribute a check to someone else.
+    /// </summary>
+    public sealed record RecordAvailabilityRequest(string State, string? CheckedOn, string? Until, uint Version);
 
     public sealed record SetLanguagesRequest(IReadOnlyList<CandidateLanguageInput>? Languages, uint Version);
 
@@ -122,8 +124,6 @@ public static class CandidateEndpoints
                         request.Location,
                         request.Province,
                         request.Country,
-                        request.Availability,
-                        request.Status,
                         request.Source,
                         request.Notes,
                         request.ReceivedAt,
@@ -155,8 +155,6 @@ public static class CandidateEndpoints
                         request.Location,
                         request.Province,
                         request.Country,
-                        request.Availability,
-                        request.Status,
                         request.Source,
                         request.Notes,
                         request.ReceivedAt,
@@ -190,6 +188,36 @@ public static class CandidateEndpoints
             })
             .WithName("SetCandidateActive")
             .Produces<CandidateResponse>()
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // Every availability write is a check, reconfirmation and undo included (KTL-36).
+        // The body is read by hand, after the permission check: framework binding would parse it
+        // first, so a malformed body would answer differently from a valid one for a caller
+        // who may not write at all (fail closed before validation, KTL-36 criterion 11).
+        group.MapPut("/{id:guid}/availability", async (
+                Guid id,
+                HttpRequest http,
+                ISender sender,
+                ICurrentActor actor,
+                CancellationToken cancellationToken) =>
+            {
+                Require(actor, Permissions.CandidatesUpdate);
+                var request = await ReadAvailabilityAsync(http, cancellationToken);
+                return Results.Ok(await sender.Send(
+                    new RecordCandidateAvailabilityCommand(
+                        id,
+                        request.State,
+                        request.CheckedOn,
+                        request.Until,
+                        request.Version),
+                    cancellationToken));
+            })
+            .WithName("RecordCandidateAvailability")
+            .Accepts<RecordAvailabilityRequest>("application/json")
+            .Produces<CandidateResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
@@ -376,6 +404,29 @@ public static class CandidateEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+
+    private static async Task<RecordAvailabilityRequest> ReadAvailabilityAsync(
+        HttpRequest http,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await http.ReadFromJsonAsync<RecordAvailabilityRequest>(cancellationToken)
+                ?? throw UnreadableAvailability();
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException
+            or InvalidOperationException
+            or BadHttpRequestException)
+        {
+            throw UnreadableAvailability();
+        }
+    }
+
+    private static RequestValidationException UnreadableAvailability() =>
+        new([new ValidationIssue(
+            "Request",
+            CandidateErrors.AvailabilityInvalid,
+            CandidateErrors.AvailabilityInvalidMessage)]);
 
     private static void Require(ICurrentActor actor, string permission)
     {

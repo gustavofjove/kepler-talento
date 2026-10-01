@@ -2,7 +2,7 @@ import type { ApiTransport } from '../../../core/http/api-transport';
 import { TranslatableError } from '../../../core/i18n/translatable-error';
 import { signal, type WritableSignal } from '../../../core/state/signal';
 import {
-  ALL_CANDIDATE_STATUSES,
+  ALL_AVAILABILITY_STATES,
   CriteriaFilter,
   EMPTY_SEARCH_FILTERS,
   SearchFilters,
@@ -135,11 +135,13 @@ export class SearchPresetsService {
   private normalizeFilters(input: Partial<SearchFilters>): SearchFilters {
     return {
       text: typeof input?.text === 'string' ? input.text : '',
-      // No status selection and every status selected mean the same query.
-      statusValues:
-        Array.isArray(input?.statusValues) && input.statusValues.length
-          ? input.statusValues
-          : [...ALL_CANDIDATE_STATUSES],
+      // No availability selection and every value selected mean the same query.
+      availabilityValues:
+        Array.isArray(input?.availabilityValues) && input.availabilityValues.length
+          ? input.availabilityValues
+          : [...ALL_AVAILABILITY_STATES],
+      availabilityCheckedFrom:
+        typeof input?.availabilityCheckedFrom === 'string' ? input.availabilityCheckedFrom : '',
       skillCriteria: this.normalizeCriteria(input?.skillCriteria),
       skillMode: input?.skillMode === 'ALL' ? 'ALL' : 'ANY',
       languageCriteria: this.normalizeCriteria(input?.languageCriteria),

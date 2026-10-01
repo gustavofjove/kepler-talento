@@ -5,6 +5,7 @@ import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate } from '../../../core/i18n/format';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { CandidateAvailabilityBlock } from '../components/candidate-availability';
 import { CandidateCvPreview } from '../components/candidate-cv-preview';
 import { CandidateDocuments } from '../components/candidate-documents';
 import { CandidateEducation } from '../components/candidate-education';
@@ -12,11 +13,13 @@ import { CandidateExperience } from '../components/candidate-experience';
 import { CandidateMainPanel } from '../components/candidate-main-panel';
 import { CandidateNotes } from '../components/candidate-notes';
 import { CandidatePanel } from '../components/candidate-panel';
+import { CandidatePipelineBadges } from '../components/candidate-pipeline-badges';
 import { CandidatePositionsPanel } from '../components/candidate-positions-panel';
 import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
 import { displayPhone, mailtoHref } from '../contact-links';
+import { useCandidatePositions } from '../use-candidate-positions';
 import { useCandidate } from '../use-candidates';
 
 /** «30 sept 2026, 11:49» in the active language and the viewer's time zone (KTL-34). */
@@ -34,6 +37,9 @@ export function CandidateDetailPage() {
   const aggregate = candidateService.aggregateStatus(candidateId);
   const canReadList = usePermission('candidates.read');
   const canReadPositions = usePermission('positions.read');
+  // KTL-36 design D8: loaded once for the page, shared by «Posiciones» and the badges, and never
+  // requested without positions.read.
+  const positions = useCandidatePositions(candidateId, canReadPositions && item !== undefined);
   // The list is offered in every state, even while loading or after a failure; the name only
   // once the candidate has loaded.
   const trail: BreadcrumbItem[] = [
@@ -193,6 +199,7 @@ export function CandidateDetailPage() {
         <div className="page-header">
           <h1>
             {item.firstName} {item.lastName}
+            {canReadPositions ? <CandidatePipelineBadges links={positions.links} /> : null}
           </h1>
           <p className="muted contact-links" data-testid="candidate-contact">
             {item.email ? <a href={mailtoHref(item.email)}>{item.email}</a> : null}
@@ -201,6 +208,8 @@ export function CandidateDetailPage() {
               <span data-testid="candidate-phone">{displayPhone(item.phone)}</span>
             ) : null}
           </p>
+          {/* KTL-36: acts immediately, so it stays outside the edit-mode coordinator. */}
+          <CandidateAvailabilityBlock key={item.id} candidate={item} />
         </div>
         <div className="toolbar">
           {canEdit ? (
@@ -257,7 +266,12 @@ export function CandidateDetailPage() {
               <CandidateExperience candidate={item} control={control('experience')} />
               {/* KTL-30: acts immediately, so it stays outside the edit-mode coordinator. */}
               {canReadPositions ? (
-                <CandidatePositionsPanel candidateId={item.id} candidateIsActive={isActive} />
+                <CandidatePositionsPanel
+                  candidateId={item.id}
+                  candidateIsActive={isActive}
+                  positions={positions}
+                  onLinksChange={positions.setLinks}
+                />
               ) : null}
               <CandidatePanel
                 id="notes"

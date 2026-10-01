@@ -16,7 +16,7 @@ envelope, one projection and one set of ordering rules; see
 {
   "filters": {
     "text": "", // identity, contact and notes; see "Text filter" below
-    "statusValues": ["hired"], // the list sends at most one status; [] = unrestricted
+    "availabilityValues": ["available"], // the list sends at most one value; [] = unrestricted
     "hasCv": "", // "", "yes" or "no" — presence of a primary CV in any scan state
   },
   "page": 1,
@@ -41,7 +41,8 @@ what let the backend ship before the frontend moved onto it.
       "lastName": "…",
       "phone": "…",
       "email": "…",
-      "status": "available",
+      "availabilityState": "available",
+      "availabilityCheckedOn": "2026-09-20",
       "hasPrimaryCv": true,
       "primaryCvPreviewable": true, // KTL-35: clean PDF with its file; false without documents.download
       "primaryCvDownloadable": true, // KTL-35: clean, with its file, any format; same masking
@@ -69,15 +70,15 @@ consent and retention dates, location and source in order to render a page of na
 
 ## Sorting
 
-| `sortField` | Ordering                              |
-| ----------- | ------------------------------------- |
-| `updatedAt` | `UpdatedAtUtc` (default, with `desc`) |
-| `lastName`  | `LastName`, then `FirstName`          |
-| `status`    | `Status` code, alphabetically         |
+| `sortField`             | Ordering                                      |
+| ----------------------- | --------------------------------------------- |
+| `updatedAt`             | `UpdatedAtUtc` (default, with `desc`)         |
+| `lastName`              | `LastName`, then `FirstName`                  |
+| `availabilityCheckedOn` | check date, unchecked last in both directions |
 
 `sortDirection` applies to every term of the chosen field. The candidate identifier ascending is
 **always** the final term, whatever the field and direction, so pages never overlap or skip for
-unchanged data even when most candidates share a status.
+unchanged data even when most candidates share a check date.
 
 The field is parsed against this closed set into an enum before the query layer is reached.
 Anything else — including a differently cased name such as `LastName` — is refused with `400`
@@ -87,7 +88,7 @@ and the stable code `search.sort_field.invalid`; an invalid direction with
 Supporting indexes (migration `Ktl18CandidateSortIndexes`, grants unchanged):
 
 - `IX_CND_Candidates_IsActive_LastName_FirstName_Id`
-- `IX_CND_Candidates_IsActive_Status_Id`
+- `IX_CND_Candidates_IsActive_AvailabilityCheckedOn` (KTL-36)
 - `IX_CND_Candidates_IsActive_UpdatedAtUtc` (existing, KTL-6)
 
 `SearchQueryPlanTests` captures each field in both directions at the last page of a 3,000-row
@@ -111,21 +112,21 @@ The list's free-text filter is the search text family: first name, last name, em
 
 ## URL parameters
 
-Page, sort and the status, CV and inactive filters live in the URL as the single source of truth,
+Page, sort and the availability, CV and inactive filters live in the URL as the single source of truth,
 so the back button, a reload and a pasted link reopen the same view. Defaults are omitted, so
 `/app/candidates` is the default view.
 
-| Parameter  | Meaning              | Default     | Malformed value              |
-| ---------- | -------------------- | ----------- | ---------------------------- |
-| `page`     | page number          | `1`         | default                      |
-| `pageSize` | 1–100                | `25`        | default                      |
-| `sort`     | sort field           | `updatedAt` | **sent to the API, refused** |
-| `dir`      | `asc` / `desc`       | per field¹  | default                      |
-| `status`   | one candidate status | none        | ignored                      |
-| `cv`       | `yes` / `no`         | none        | ignored                      |
-| `inactive` | `1` includes removed | absent      | ignored                      |
+| Parameter      | Meaning                | Default     | Malformed value              |
+| -------------- | ---------------------- | ----------- | ---------------------------- |
+| `page`         | page number            | `1`         | default                      |
+| `pageSize`     | 1–100                  | `25`        | default                      |
+| `sort`         | sort field             | `updatedAt` | **sent to the API, refused** |
+| `dir`          | `asc` / `desc`         | per field¹  | default                      |
+| `availability` | one availability value | none        | ignored                      |
+| `cv`           | `yes` / `no`           | none        | ignored                      |
+| `inactive`     | `1` includes removed   | absent      | ignored                      |
 
-¹ `desc` for `updatedAt`, `asc` for the others.
+¹ `desc` for `updatedAt` and `availabilityCheckedOn`, `asc` for `lastName`.
 
 An unknown sort field is the one value not silently replaced: a silently ignored sort is a wrong
 answer presented as a right one, so the page shows the API's refusal.

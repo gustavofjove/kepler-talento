@@ -1,0 +1,322 @@
+## REMOVED Requirements
+
+### Requirement: Candidate status and primary-CV state
+
+**Reason**: Candidates no longer have a status. The requirement is replaced by "Candidate
+availability and primary-CV state", which keeps the primary-CV and removed-candidate rules
+unchanged.
+**Migration**: Callers send `availabilityValues` and `availabilityCheckedFrom` instead of
+`statusValues`. Stored filters are rewritten to schema version 2 (see `saved-search-presets`).
+
+## MODIFIED Requirements
+
+### Requirement: Full candidate search filter contract
+
+The system SHALL search active candidates using free text, availability, skill criteria, language
+criteria, program criteria, tag criteria, and primary-CV presence. Blank text and criteria values,
+an empty or complete availability value selection, a blank checked-from date, empty criterion
+families, and an unset CV filter SHALL place no restriction on the result. Free text SHALL preserve
+current behavior across candidate identity, contact, and notes fields using case-insensitive
+substring matching; it SHALL NOT be extended to candidate note entries.
+
+#### Scenario: Empty filters are ignored
+
+- **WHEN** an authorized actor searches with blank text, every availability value or none selected,
+  no checked-from date, no criteria, and no CV selection
+- **THEN** every non-deleted candidate within the actor's visibility scope is eligible to appear
+
+#### Scenario: Empty tag family is ignored
+
+- **WHEN** an authorized actor searches supplying no tag criteria
+- **THEN** the tag family places no restriction on the result
+
+#### Scenario: Filter families combine
+
+- **WHEN** an authorized actor supplies non-empty text, availability, skill, language, program,
+  tag, and CV filters
+- **THEN** a candidate appears only when it satisfies every non-empty filter family
+
+#### Scenario: Text matching preserves parity
+
+- **WHEN** text occurs as a case-insensitive substring in a candidate identity, contact, or notes
+  field
+- **THEN** the candidate satisfies the text family without the response exposing the field that
+  matched
+
+#### Scenario: Note entries are not searched by text
+
+- **WHEN** a search term occurs only in a candidate's note entries and nowhere in its identity,
+  contact or notes field
+- **THEN** the candidate does not satisfy the text family
+
+#### Scenario: Unknown criterion value is supplied
+
+- **WHEN** a non-empty skill, language, program, or tag value matches no known candidate relation
+- **THEN** that criterion matches no candidate rather than broadening the result or failing open
+
+### Requirement: Bounded deterministic pagination
+
+Search SHALL return a page envelope containing items, requested page information, and the total
+matching count. The server SHALL apply a documented default page size of 25 and a maximum page
+size of 100, SHALL reject page numbers below 1 and sizes outside 1 through 100.
+
+Results SHALL be ordered by a caller-selected sort field and direction, drawn from a closed,
+documented set of sortable fields, defaulting to update time descending. The documented set SHALL
+be update time, last name and availability check date. The candidate status SHALL NOT be a sort
+field. When sorting by availability check date, candidates without a check date SHALL come last in
+either direction. The candidate identifier ascending SHALL always be applied as the final
+tie-breaker, so that pages remain stable and non-overlapping for unchanged data whichever sort is
+chosen.
+
+A sort field outside the documented set SHALL be rejected with a stable validation problem before
+the query executes. A caller-supplied sort field SHALL NOT be incorporated into the executed query
+in any form other than selection from that closed set.
+
+#### Scenario: Page size is omitted
+
+- **WHEN** an authorized actor searches without a page size
+- **THEN** the server returns at most 25 results and reports the effective pagination values
+
+#### Scenario: Maximum page size is requested
+
+- **WHEN** an authorized actor requests a page size of 100
+- **THEN** the server returns at most 100 results and a correct total matching count
+
+#### Scenario: Pagination is outside its bounds
+
+- **WHEN** a caller requests page zero or a page size greater than 100
+- **THEN** the request is rejected with a stable validation problem before executing an
+  unbounded query
+
+#### Scenario: Adjacent pages contain tied update times
+
+- **WHEN** several matching candidates have the same update time
+- **THEN** the identifier tie-breaker yields stable non-overlapping pages for unchanged data
+
+#### Scenario: Sort field is omitted
+
+- **WHEN** an authorized actor searches without naming a sort field
+- **THEN** results are ordered by update time descending with the identifier as tie-breaker
+
+#### Scenario: Documented sort field is selected
+
+- **WHEN** an authorized actor sorts by a documented field in either direction
+- **THEN** results are ordered by that field in that direction, with the identifier ascending as the
+  final tie-breaker, and pages remain non-overlapping for unchanged data
+
+#### Scenario: Sorted by availability check date
+
+- **WHEN** an authorized actor sorts by availability check date descending, then ascending
+- **THEN** descending lists the most recent check first and ascending the oldest first, and in both
+  directions every `unknown` candidate follows every checked candidate
+
+#### Scenario: Former status sort is requested
+
+- **WHEN** a caller asks to sort by `status`
+- **THEN** the request is rejected with the unknown-sort-field validation problem
+
+#### Scenario: Unknown sort field is supplied
+
+- **WHEN** a caller supplies a sort field outside the documented set
+- **THEN** the request is rejected with a stable validation problem, the query does not execute, and
+  the supplied text reaches no part of it
+
+#### Scenario: Page beyond the end is requested
+
+- **WHEN** a caller requests a page past the end of the matching set
+- **THEN** an empty page is returned with the correct total matching count, rather than an error or
+  the last populated page
+
+### Requirement: Minimal search result projection
+
+Each search item SHALL contain only:
+
+- the candidate identifier, first name, last name, phone and email;
+- the availability value and its check date;
+- primary-CV presence;
+- whether the primary CV can be previewed;
+- whether the primary CV can be downloaded;
+- update time.
+
+It SHALL NOT return a full candidate aggregate, relation collections, tags, notes, note entries,
+consent or retention metadata, the availability checker or until date, document identifiers,
+document paths, storage keys, filenames, content types, or scan internals.
+
+A primary CV SHALL count as previewable only when the candidate's non-removed primary document:
+
+- has a clean scan verdict;
+- has the PDF content type;
+- has its stored binary (a legacy record without a binary is not previewable).
+
+A primary CV SHALL count as downloadable when that document has a clean scan verdict and its stored
+binary, in any allowed format.
+
+The previewable and downloadable values SHALL be `false` for every item when the actor does not
+hold the document download permission. They SHALL grant no right to read the document. Primary-CV
+presence keeps its existing meaning.
+
+Tags SHALL be usable as a filter without becoming part of this projection: a candidate matched by
+a tag SHALL be returned with the same fields as a candidate matched any other way.
+
+#### Scenario: Search item is returned
+
+- **WHEN** a candidate matches a search
+- **THEN** its item contains exactly the documented search projection and no excluded personal
+  or storage data
+
+#### Scenario: Availability is projected
+
+- **WHEN** a matching candidate was checked `unavailable` on 2026-03-12 until 2027-01-15 by a named
+  user
+- **THEN** its item carries `unavailable` and 2026-03-12, and carries neither the until date nor
+  the checker
+
+#### Scenario: Candidate is matched by a tag
+
+- **WHEN** a candidate matches because it holds a tag the actor filtered on
+- **THEN** its item carries the documented projection and does not carry the tag that matched
+
+#### Scenario: Primary document identifier is returned
+
+- **WHEN** a matching candidate has a non-removed primary document
+- **THEN** its item does not carry the document's identifier: the identifier is no longer part of
+  the projection, and document actions resolve documents through the candidate's permission-checked
+  document list
+
+#### Scenario: Primary CV can be previewed
+
+- **WHEN** an actor holding the document download permission searches and a matching candidate's
+  primary document is a clean PDF with its binary
+- **THEN** the item reports that the primary CV can be previewed and carries no document
+  identifier
+
+#### Scenario: Primary CV cannot be previewed
+
+- **WHEN** a matching candidate's primary document is pending, infected, rejected, unscannable, a
+  legacy record without a binary, or not a PDF, or the candidate has no primary document
+- **THEN** the item reports that the primary CV cannot be previewed, while primary-CV presence is
+  reported as before
+
+#### Scenario: Actor cannot download documents
+
+- **WHEN** an actor holding `candidates.read` but not the document download permission searches
+- **THEN** every item reports that the primary CV can be neither previewed nor downloaded,
+  whatever the documents' state
+
+#### Scenario: Primary CV can be downloaded but not previewed
+
+- **WHEN** an actor holding the document download permission searches and a matching candidate's
+  primary document is a clean `.docx` with its binary
+- **THEN** the item reports that the primary CV can be downloaded and cannot be previewed
+
+### Requirement: Search semantics are preserved over encrypted fields
+
+Free-text matching and last-name ordering SHALL keep their existing observable behavior although
+the fields they read are stored encrypted: the same case-insensitive literal substring match over
+the same identity, contact and notes fields, the same treatment of `%`, `_` and accented characters,
+the same ordering by last name then first name then identifier, the same total count, and no
+duplicate candidates. Every other filter family SHALL continue to be applied by the database. Search
+SHALL meet a documented latency budget of p95 at or below 300 ms for a text search or last-name sort
+over 12 000 active candidates; that candidate count is the documented ceiling of this approach.
+
+#### Scenario: Existing search cases run against encrypted data
+
+- **WHEN** the existing search test cases run against a database whose candidate fields are
+  encrypted
+- **THEN** each returns the same candidates, order, pages and total count as before encryption
+
+#### Scenario: Text search combined with other families
+
+- **WHEN** an actor searches with free text together with availability, ANY or ALL criteria, tag
+  and CV filters
+- **THEN** a candidate appears only when it satisfies every non-empty family, exactly once, and the
+  total count matches the returned population
+
+#### Scenario: Text contains wildcard or accented characters
+
+- **WHEN** the search text contains `%`, `_` or accented letters
+- **THEN** they match literally and with the same case and accent behavior as before encryption
+
+#### Scenario: Sorted by last name across pages
+
+- **WHEN** an actor pages through results sorted by last name in either direction
+- **THEN** pages follow the same order as before encryption, are non-overlapping and skip no
+  candidate
+
+#### Scenario: Search at the documented ceiling
+
+- **WHEN** the performance evidence runs a text search and a last-name sort over 12 000 active
+  candidates
+- **THEN** each meets the p95 budget of 300 ms, and the measured values are recorded in the change
+  documentation
+
+## ADDED Requirements
+
+### Requirement: Candidate availability and primary-CV state
+
+The availability family SHALL consist of a value selection and a checked-from date:
+
+- The value selection SHALL accept only `unknown`, `available` and `unavailable`. A candidate
+  satisfies it when its stored value is one of the selected values (ANY). An empty or complete
+  selection SHALL restrict nothing.
+- The checked-from date SHALL be a calendar date or blank. When it is set, a candidate satisfies it
+  only when its check date is on or after that date. An `unknown` candidate has no check date and
+  SHALL never satisfy a set checked-from date.
+- Both parts SHALL combine with each other and with the other families by AND.
+- A lapsed until date SHALL NOT change the stored value that the filter compares.
+
+A candidate SHALL count as having a primary CV when KTL-9 records a non-removed document as primary,
+independently of its pending, available, or refused scan state; document downloadability SHALL
+continue to be enforced by the document capability.
+
+Logically deleted candidates SHALL be excluded by default. A caller MAY request that they be
+included, through an explicit include-removed option that defaults to excluding them; when included,
+each result SHALL be distinguishable by its removed state so that the caller cannot mistake a
+removed candidate for a live one. Omitting the option, or supplying it as false, SHALL behave
+exactly as before.
+
+#### Scenario: Availability subset is selected
+
+- **WHEN** an authorized actor selects `available` only
+- **THEN** only candidates whose stored availability is `available` satisfy the availability family
+
+#### Scenario: Recently checked candidates are requested
+
+- **WHEN** candidates were checked `available` on 2026-09-01 and 2026-03-01, another is `unknown`,
+  and an actor selects `available` with checked-from 2026-08-01
+- **THEN** only the candidate checked on 2026-09-01 satisfies the availability family
+
+#### Scenario: Checked-from date alone excludes unchecked candidates
+
+- **WHEN** an actor sets a checked-from date and selects every availability value
+- **THEN** no `unknown` candidate satisfies the availability family
+
+#### Scenario: Unsupported availability is supplied
+
+- **WHEN** a search request contains an availability value outside the three supported values, or
+  a checked-from value that is not a calendar date
+- **THEN** the request is rejected with a stable validation problem and no results
+
+#### Scenario: Candidate has a primary document pending scanning
+
+- **WHEN** a candidate has a non-removed primary document whose scan state is pending and the CV
+  filter is `yes`
+- **THEN** the candidate satisfies the CV filter, while the search result grants no right to
+  download that document
+
+#### Scenario: Candidate has no primary document
+
+- **WHEN** a candidate has documents but none is primary and the CV filter is `no`
+- **THEN** the candidate satisfies the CV filter
+
+#### Scenario: Candidate is logically deleted
+
+- **WHEN** a candidate satisfies every supplied filter but is logically deleted, and the caller has
+  not asked for removed candidates
+- **THEN** the candidate is absent from every search page and from the total count
+
+#### Scenario: Removed candidates are requested
+
+- **WHEN** an authorized actor searches asking for removed candidates to be included
+- **THEN** logically deleted candidates that satisfy every supplied filter appear in the pages and
+  in the total count, each distinguishable by its removed state

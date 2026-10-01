@@ -13,7 +13,8 @@ describe('SearchPresetsService', () => {
     name: 'Disponibles con CV',
     filters: {
       text: 'ana',
-      statusValues: ['available'],
+      availabilityValues: ['available'],
+      availabilityCheckedFrom: '',
       skillCriteria: [],
       skillMode: 'ANY',
       languageCriteria: [],
@@ -176,13 +177,7 @@ describe('SearchPresetsService', () => {
     // Defensive, not a second authority: the server validates what it stores, and this is
     // what keeps a surprising value from reaching the form as `undefined`.
     expect(loaded.filters.hasCv).toBe('');
-    expect(loaded.filters.statusValues).toEqual([
-      'new',
-      'available',
-      'in_process',
-      'hired',
-      'rejected',
-    ]);
+    expect(loaded.filters.availabilityValues).toEqual(['unknown', 'available', 'unavailable']);
     expect(loaded.filters.skillMode).toBe('ANY');
   });
 

@@ -1,9 +1,48 @@
-export type CandidateStatus = 'new' | 'available' | 'in_process' | 'hired' | 'rejected';
+/**
+ * The availability check's values (KTL-36). There is no candidate status: the position stage is
+ * the only pipeline state, and this records only whether the person can take a job.
+ */
+export type CandidateAvailabilityState = 'unknown' | 'available' | 'unavailable';
+
+export const ALL_AVAILABILITY_STATES: readonly CandidateAvailabilityState[] = [
+  'unknown',
+  'available',
+  'unavailable',
+];
+
+/**
+ * The latest availability check. Dates are calendar days (`yyyy-MM-dd`) or `''`; an `unknown`
+ * check has neither, and no checker. The checker is a display name only, never a user id, and
+ * is null when the check was recorded by an actor without a stored user.
+ */
+export interface CandidateAvailability {
+  state: CandidateAvailabilityState;
+  checkedOn: string;
+  until: string;
+  checkedByDisplayName: string | null;
+}
+
+/**
+ * What the availability write sends (`PUT /api/candidates/{id}/availability`). The version is
+ * added by the service from the cached aggregate; the checker is assigned by the server.
+ */
+export interface CandidateAvailabilityInput {
+  state: CandidateAvailabilityState;
+  checkedOn: string;
+  until: string;
+}
+
+export const UNKNOWN_AVAILABILITY: CandidateAvailability = {
+  state: 'unknown',
+  checkedOn: '',
+  until: '',
+  checkedByDisplayName: null,
+};
 
 export type CandidateLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 /** The closed set of fields the list and search may be ordered by (KTL-18). */
-export type CandidateSortField = 'updatedAt' | 'lastName' | 'status';
+export type CandidateSortField = 'updatedAt' | 'lastName' | 'availabilityCheckedOn';
 export type CandidateSortDirection = 'asc' | 'desc';
 export type HasCvFilter = '' | 'yes' | 'no';
 
@@ -20,7 +59,7 @@ export interface CandidateListQuery {
   sortField: string;
   sortDirection: CandidateSortDirection;
   text: string;
-  status: CandidateStatus | '';
+  availability: CandidateAvailabilityState | '';
   hasCv: HasCvFilter;
   includeInactive: boolean;
 }
@@ -35,7 +74,9 @@ export interface CandidateListItem {
   lastName: string;
   phone: string;
   email: string;
-  status: CandidateStatus;
+  availabilityState: CandidateAvailabilityState;
+  /** The check date (`yyyy-MM-dd`), or null when unchecked. */
+  availabilityCheckedOn: string | null;
   hasPrimaryCv: boolean;
   /** See `SearchResult.primaryCvPreviewable` (KTL-35). */
   primaryCvPreviewable: boolean;
@@ -69,8 +110,8 @@ export interface CandidateSummary {
   location: string;
   province: string;
   country: string;
-  availability: string;
-  status: CandidateStatus;
+  /** Changed only through its own write, never through the candidate form (KTL-36). */
+  availability: CandidateAvailability;
   source: string;
   notes: string;
   receivedAt: string;
@@ -186,6 +227,7 @@ export type CandidateDraft = Omit<
   | 'version'
   | 'documentCount'
   | 'primaryDocumentId'
+  | 'availability'
   | 'languages'
   | 'programs'
   | 'education'
@@ -204,8 +246,6 @@ export const EMPTY_CANDIDATE_DRAFT: CandidateDraft = {
   location: '',
   province: '',
   country: 'España',
-  availability: 'Inmediata',
-  status: 'new',
   source: 'Email',
   notes: '',
   receivedAt: new Date().toISOString().slice(0, 10),

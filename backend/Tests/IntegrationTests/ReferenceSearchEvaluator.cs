@@ -27,10 +27,13 @@ public static class ReferenceSearchEvaluator
         SearchFiltersInput filters)
     {
         var text = (filters.Text ?? string.Empty).Trim().ToLowerInvariant();
-        var statuses = (filters.StatusValues ?? [])
-            .Where(status => !string.IsNullOrWhiteSpace(status))
-            .Select(status => status!.Trim())
+        var states = (filters.AvailabilityValues ?? [])
+            .Where(state => !string.IsNullOrWhiteSpace(state))
+            .Select(state => state!.Trim())
             .ToList();
+        DateOnly? checkedFrom = string.IsNullOrWhiteSpace(filters.AvailabilityCheckedFrom)
+            ? null
+            : DateOnly.ParseExact(filters.AvailabilityCheckedFrom.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
         var hasCv = (filters.HasCv ?? string.Empty).Trim().ToLowerInvariant();
 
         return
@@ -44,8 +47,11 @@ public static class ReferenceSearchEvaluator
                     candidate.Email,
                     candidate.Phone,
                     candidate.Notes).ToLowerInvariant().Contains(text, StringComparison.Ordinal))
-                .Where(candidate => statuses.Count == 0
-                    || statuses.Contains(candidate.Status, StringComparer.Ordinal))
+                .Where(candidate => states.Count == 0
+                    || states.Contains(candidate.AvailabilityState, StringComparer.Ordinal))
+                // An unchecked candidate has no date, so a set checked-from date never matches it.
+                .Where(candidate => checkedFrom is null
+                    || (candidate.AvailabilityCheckedOn is { } day && day >= checkedFrom))
                 .Where(candidate => hasCv.Length == 0
                     || (hasCv == "yes") == (candidate.PrimaryDocumentId is not null))
                 .Where(candidate => Matches(candidate.Skills, filters.SkillCriteria, filters.SkillMode,

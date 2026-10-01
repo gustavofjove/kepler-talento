@@ -60,12 +60,10 @@ test.describe('Advanced search', () => {
         firstName: marker,
         lastName: 'Candidate',
         phone: '+34 600 100 250',
-        status: 'available',
         email: `${marker.toLowerCase()}@example.invalid`,
         location: 'Madrid',
         province: 'Madrid',
         country: 'España',
-        availability: 'Inmediata',
         source: 'LinkedIn',
         notes: 'Fixture KTL-25.',
         receivedAt: '2026-05-10',
@@ -201,23 +199,23 @@ test.describe('Advanced search', () => {
     await expect(page.locator('text=Sin resultados.')).toBeVisible();
   });
 
-  test('basic filters share a wide row and the status popover fits a narrow screen', async ({
+  test('basic filters share a wide row and the availability popover fits a narrow screen', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/app/search');
     const text = await page.locator('input[name="text"]').boundingBox();
     const cv = await page.locator('.basic-cv-field').boundingBox();
-    const disclosure = page.getByTestId('status-disclosure');
-    const status = await disclosure.boundingBox();
-    expect(text && cv && status).toBeTruthy();
+    const disclosure = page.getByTestId('availability-disclosure');
+    const availability = await disclosure.boundingBox();
+    expect(text && cv && availability).toBeTruthy();
     expect(Math.abs(text!.y - cv!.y)).toBeLessThan(12);
-    expect(Math.abs(text!.y - status!.y)).toBeLessThan(12);
+    expect(Math.abs(text!.y - availability!.y)).toBeLessThan(12);
 
     for (const width of [320, 600, 768, 769, 790, 799, 800, 850, 900, 1100]) {
       await page.setViewportSize({ width, height: 844 });
       await disclosure.click();
-      const bounds = await page.locator('.status-panel').boundingBox();
+      const bounds = await page.locator('.availability-panel').boundingBox();
       expect(bounds).not.toBeNull();
       expect(bounds!.x, `left edge at ${width}px`).toBeGreaterThanOrEqual(0);
       expect(bounds!.x + bounds!.width, `right edge at ${width}px`).toBeLessThanOrEqual(width);
@@ -228,25 +226,25 @@ test.describe('Advanced search', () => {
     const firstCriterion = page.locator('.criteria-group').first();
     const criterionBefore = await firstCriterion.boundingBox();
     await disclosure.click();
-    const panel = page.locator('.status-panel');
+    const panel = page.locator('.availability-panel');
     const popup = await panel.boundingBox();
     expect(popup && criterionBefore).toBeTruthy();
     expect(popup!.x).toBeGreaterThanOrEqual(0);
     expect(popup!.x + popup!.width).toBeLessThanOrEqual(390);
     expect((await firstCriterion.boundingBox())!.y).toBe(criterionBefore!.y);
 
-    await page.getByTestId('status-only-available').click();
-    await expect(page.locator('[data-status="available"]')).toBeChecked();
-    await expect(page.locator('[data-status="new"]')).not.toBeChecked();
-    await page.locator('[data-status="new"]').check();
-    await expect(page.locator('[data-status="new"]')).toBeChecked();
-    await page.locator('[data-status="new"]').uncheck();
+    await page.getByTestId('availability-only-available').click();
+    await expect(page.locator('[data-availability="available"]')).toBeChecked();
+    await expect(page.locator('[data-availability="unknown"]')).not.toBeChecked();
+    await page.locator('[data-availability="unknown"]').check();
+    await expect(page.locator('[data-availability="unknown"]')).toBeChecked();
+    await page.locator('[data-availability="unknown"]').uncheck();
     await page.locator('input[name="text"]').click();
     await expect(disclosure).toHaveAttribute('aria-expanded', 'false');
     await disclosure.click();
-    await expect(page.locator('[data-status="new"]')).not.toBeChecked();
-    await page.getByTestId('status-select-all').click();
-    await expect(page.locator('[data-status="new"]')).toBeChecked();
+    await expect(page.locator('[data-availability="unknown"]')).not.toBeChecked();
+    await page.getByTestId('availability-select-all').click();
+    await expect(page.locator('[data-availability="unknown"]')).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

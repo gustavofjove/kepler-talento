@@ -2,6 +2,7 @@ import { signal } from '../../../core/state/signal';
 import { AppError, toAppError } from '../../../shared/models/error.models';
 import {
   Candidate,
+  CandidateAvailabilityInput,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -14,6 +15,7 @@ import {
   CandidateTag,
 } from '../models/candidate.models';
 import type { CandidateGateway } from './candidate.api';
+import { validateAvailability } from './candidate-availability.rules';
 
 export interface CandidateState {
   /** `error` once an aggregate load has failed for a reason other than "not found". */
@@ -123,6 +125,16 @@ export class CandidateService {
 
   async update(id: string, draft: CandidateDraft): Promise<Candidate> {
     return this.absorb(await this.api.update(id, draft, this.versionOf(id)));
+  }
+
+  /**
+   * Records an availability check (KTL-36) against the cached aggregate's version, and replaces
+   * the cached aggregate with the response. Every panel reads the aggregate from here, so an
+   * editor opened before the check saves afterwards with the new version instead of a 409.
+   */
+  async recordAvailability(id: string, input: CandidateAvailabilityInput): Promise<Candidate> {
+    validateAvailability(input);
+    return this.absorb(await this.api.recordAvailability(id, input, this.versionOf(id)));
   }
 
   async deactivate(id: string): Promise<Candidate> {

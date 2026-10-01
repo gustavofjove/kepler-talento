@@ -1,0 +1,63 @@
+/* KTL-36: the availability block under the contact line. */
+.candidate-availability {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.candidate-availability__line {
+  color: var(--fg-1);
+  font-weight: 600;
+  margin: 0;
+}
+
+.candidate-availability__lapsed {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.candidate-availability__meta,
+.candidate-availability__hint {
+  color: var(--fg-2);
+  font-size: 13px;
+  margin: 0;
+}
+
+.candidate-availability__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.candidate-availability__form {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 12px;
+  max-width: 32rem;
+  padding: 12px;
+}
+
+.candidate-availability__form fieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.candidate-availability__form legend {
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.candidate-availability__dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

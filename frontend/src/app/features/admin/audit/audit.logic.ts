@@ -48,6 +48,7 @@ export const AUDIT_EVENT_TYPES = [
   'candidate.created',
   'candidate.updated',
   'candidate.status_changed',
+  'candidate.availability_checked',
   'candidate.removed',
   'candidate.restored',
   'candidate.relations_changed',

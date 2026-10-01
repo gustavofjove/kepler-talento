@@ -177,7 +177,7 @@ public sealed class PositionCandidateSchemaTests(PostgreSqlFixture database) : I
         await using var dbContext = NewDbContext();
         var requirements = SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Requirements"));
         var now = DateTimeOffset.UtcNow;
-        var positions = Enumerable.Range(0, 50).Select(index => new Position(Guid.CreateVersion7(), $"Posición {index}", "<p>Texto</p>", "Madrid", requirements, 1, now)).ToList();
+        var positions = Enumerable.Range(0, 50).Select(index => new Position(Guid.CreateVersion7(), $"Posición {index}", "<p>Texto</p>", "Madrid", requirements, SearchFilterNormalization.FilterSchemaVersion, now)).ToList();
         var candidates = Enumerable.Range(0, 200).Select(index => new Candidate(Guid.CreateVersion7(), $"Nombre{index}", "Apellido", now)).ToList();
         dbContext.Positions.AddRange(positions);
         dbContext.Candidates.AddRange(candidates);
@@ -194,7 +194,7 @@ public sealed class PositionCandidateSchemaTests(PostgreSqlFixture database) : I
         await using var dbContext = NewDbContext();
         var now = DateTimeOffset.UtcNow;
         var position = new Position(Guid.CreateVersion7(), "Enlazada", string.Empty, string.Empty,
-            SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Requirements")), 1, now);
+            SearchFilterDocument.Serialize(SearchFilterNormalization.Normalize(null, "Requirements")), SearchFilterNormalization.FilterSchemaVersion, now);
         var candidate = new Candidate(Guid.CreateVersion7(), "Ana", "Enlazada", now);
         var link = new PositionCandidate(Guid.CreateVersion7(), position.Id, candidate.Id, now);
         dbContext.Positions.Add(position);

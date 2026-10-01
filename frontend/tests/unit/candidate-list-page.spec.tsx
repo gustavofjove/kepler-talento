@@ -16,7 +16,12 @@ function seedCandidates(api: FakeCandidateApi, count: number, patch: Partial<Can
       id: `c-${String(index).padStart(3, '0')}`,
       firstName: `Nombre${index}`,
       lastName: `Apellido${String(index).padStart(3, '0')}`,
-      status: index % 2 ? 'available' : 'new',
+      availability: {
+        state: index % 2 ? 'available' : 'unknown',
+        checkedOn: index % 2 ? '2026-09-20' : '',
+        until: '',
+        checkedByDisplayName: null,
+      },
       updatedAt: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
       ...patch,
     });
@@ -133,11 +138,11 @@ describe('CandidateListPage', () => {
     renderPage();
     await waitFor(() => expect(rows()).toHaveLength(25));
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'available');
+    await userEvent.selectOptions(screen.getByLabelText('Disponibilidad'), 'available');
 
     await waitFor(() => expect(rows()).toHaveLength(15));
-    expect(api.listQueries.at(-1)).toMatchObject({ status: 'available', page: 1 });
-    expect(currentSearch).toBe('?status=available');
+    expect(api.listQueries.at(-1)).toMatchObject({ availability: 'available', page: 1 });
+    expect(currentSearch).toBe('?availability=available');
   });
 
   it('sends the typed text once the user pauses, and keeps it out of the URL', async () => {
@@ -153,9 +158,9 @@ describe('CandidateListPage', () => {
   });
 
   it('renders a URL carrying page, sort and filter as that view', async () => {
-    // 60 of these are "new", so a second page of 50 holds 10.
+    // 60 of these are unchecked, so a second page of 50 holds 10.
     seedCandidates(api, 120);
-    renderPage('/app/candidates?page=2&pageSize=50&sort=lastName&dir=desc&status=new');
+    renderPage('/app/candidates?page=2&pageSize=50&sort=lastName&dir=desc&availability=unknown');
 
     await waitFor(() => expect(rows()).toHaveLength(10));
     expect(api.listQueries).toEqual([
@@ -164,10 +169,10 @@ describe('CandidateListPage', () => {
         pageSize: 50,
         sortField: 'lastName',
         sortDirection: 'desc',
-        status: 'new',
+        availability: 'unknown',
       }),
     ]);
-    expect(screen.getByLabelText('Estado')).toHaveValue('new');
+    expect(screen.getByLabelText('Disponibilidad')).toHaveValue('unknown');
   });
 
   it('keeps both of two changes made before the page re-renders', async () => {
@@ -177,11 +182,11 @@ describe('CandidateListPage', () => {
 
     // Dispatched back to back, with no render between them.
     act(() => {
-      fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'new' } });
+      fireEvent.change(screen.getByLabelText('Disponibilidad'), { target: { value: 'unknown' } });
       fireEvent.click(screen.getByTestId('candidate-sort-lastName'));
     });
 
-    await waitFor(() => expect(currentSearch).toBe('?status=new&sort=lastName'));
+    await waitFor(() => expect(currentSearch).toBe('?availability=unknown&sort=lastName'));
   });
 
   it('falls back to page 1 for a malformed page number', async () => {
@@ -221,7 +226,10 @@ describe('CandidateListPage', () => {
 
   it.each([
     ['page', async () => userEvent.click(screen.getByRole('button', { name: 'Siguiente' }))],
-    ['sort', async () => userEvent.click(screen.getByTestId('candidate-sort-status'))],
+    [
+      'sort',
+      async () => userEvent.click(screen.getByTestId('candidate-sort-availabilityCheckedOn')),
+    ],
     ['filter', async () => userEvent.selectOptions(screen.getByLabelText('CV'), 'no')],
   ])('clears the selection on a %s change', async (_, change) => {
     seedCandidates(api, 30);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
@@ -14,14 +14,19 @@ import {
 } from '../../positions/position-candidates.logic';
 import type { CandidatePosition, PositionCandidateStage } from '../../positions/position.models';
 import '../../positions/positions.css';
+import type { CandidatePositions } from '../use-candidate-positions';
 import { PositionPicker } from './position-picker';
 
 interface CandidatePositionsPanelProps {
   candidateId: string;
   candidateIsActive: boolean;
+  /**
+   * The links the page loaded (KTL-36 design D8). The panel reports every change it makes back
+   * through `onLinksChange`, so the pipeline badges beside the name follow without a reload.
+   */
+  positions: Pick<CandidatePositions, 'links' | 'status' | 'reload'>;
+  onLinksChange: CandidatePositions['setLinks'];
 }
-
-type PanelStatus = 'loading' | 'ready' | 'error';
 
 /**
  * «Posiciones»: every position the candidate is linked to, open ones first (KTL-30). Actions apply
@@ -30,33 +35,16 @@ type PanelStatus = 'loading' | 'ready' | 'error';
 export function CandidatePositionsPanel({
   candidateId,
   candidateIsActive,
+  positions,
+  onLinksChange,
 }: CandidatePositionsPanelProps) {
   const { t } = useTranslation();
   const { positionService, confirmDialogService } = useServices();
   const notifyError = useErrorToast();
   const canManage = usePermission('positions.manage');
-  const [links, setLinks] = useState<CandidatePosition[]>([]);
-  const [status, setStatus] = useState<PanelStatus>('loading');
+  const { links, status, reload } = positions;
   const [picking, setPicking] = useState(false);
   const rowLink = useRowLink();
-  const generation = useRef(0);
-
-  const reload = useCallback(async (): Promise<void> => {
-    const current = ++generation.current;
-    setStatus('loading');
-    try {
-      const loaded = await positionService.listForCandidate(candidateId);
-      if (current !== generation.current) return;
-      setLinks(loaded);
-      setStatus('ready');
-    } catch {
-      if (current === generation.current) setStatus('error');
-    }
-  }, [candidateId, positionService]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
 
   const fail = (error: unknown, fallbackKey: string): void => {
     notifyError(error, t(fallbackKey));
@@ -74,7 +62,7 @@ export function CandidatePositionsPanel({
         stage,
         link.version,
       );
-      setLinks((current) =>
+      onLinksChange((current) =>
         upsertCandidatePosition(current, {
           ...link,
           stage: next.stage,
@@ -98,7 +86,7 @@ export function CandidatePositionsPanel({
     if (!confirmed) return;
     try {
       await positionService.removeCandidate(link.positionId, candidateId);
-      setLinks((current) => current.filter((item) => item.positionId !== link.positionId));
+      onLinksChange((current) => current.filter((item) => item.positionId !== link.positionId));
     } catch (error) {
       fail(error, 'candidate.profile.positions.removeError');
     }
@@ -123,7 +111,7 @@ export function CandidatePositionsPanel({
           </button>
         ) : null}
       </div>
-      {status === 'loading' && links.length === 0 ? (
+      {(status === 'loading' || status === 'idle') && links.length === 0 ? (
         <p role="status">{t('candidate.profile.positions.loading')}</p>
       ) : status === 'error' ? (
         <p role="alert">{t('candidate.profile.positions.error')}</p>

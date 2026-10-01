@@ -1,6 +1,7 @@
 using KeplerTalento.Application.Import.Rows;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Tools.DataMigration.Export;
+using KeplerTalento.Tools.DataMigration.Loading;
 
 namespace KeplerTalento.Tools.DataMigration.Validation;
 
@@ -46,7 +47,7 @@ public sealed class RowValidator
                 Problem("Email", ReasonCodes.EmailInvalid);
             }
 
-            if (!CandidateStatuses.IsKnown(row["Status"].Trim()))
+            if (!LegacyCandidateStatuses.IsKnown(row["Status"].Trim()))
             {
                 Problem("Status", ReasonCodes.StatusUnknown);
             }

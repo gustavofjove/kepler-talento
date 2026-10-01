@@ -148,8 +148,6 @@ public sealed class EncryptedSearchParityTests(PostgreSqlFixture database) : ICl
                 location: string.Empty,
                 province: string.Empty,
                 country: string.Empty,
-                availability: string.Empty,
-                status: CandidateStatuses.Available,
                 source: string.Empty,
                 notes: person.Notes,
                 updatedAtUtc: instant.AddMinutes(index));

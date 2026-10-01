@@ -1,7 +1,6 @@
 import {
   type Candidate,
   type CandidateDraft,
-  type CandidateStatus,
   EMPTY_CANDIDATE_DRAFT,
 } from '../models/candidate.models';
 import { CV_DRAFT_FIELDS, type CvDraftFields } from '../models/candidate-draft.models';
@@ -42,6 +41,8 @@ export function toDraft(value?: Candidate): CandidateDraft {
     version: _version,
     documentCount: _documentCount,
     primaryDocumentId: _primaryDocumentId,
+    // Recorded only through its own write (KTL-36): the core form never sends it back.
+    availability: _availability,
     languages: _languages,
     programs: _programs,
     education: _education,
@@ -50,5 +51,5 @@ export function toDraft(value?: Candidate): CandidateDraft {
     documents: _documents,
     ...draft
   } = value;
-  return { ...draft, status: draft.status as CandidateStatus };
+  return draft;
 }

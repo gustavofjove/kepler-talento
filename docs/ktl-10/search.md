@@ -5,7 +5,7 @@ a candidate collection, and no longer loads a candidate's aggregate in order to 
 that candidate matches.
 
 > **KTL-18.** The candidate list now shares this endpoint and contract rather than having its
-> own. Search gained optional `sortField`/`sortDirection` (`updatedAt`, `lastName`, `status`,
+> own. Search gained optional `sortField`/`sortDirection` (`updatedAt`, `lastName`, `availabilityCheckedOn`,
 > with the identifier always the final tie-breaker) and `includeInactive`, which requires
 > `candidates.delete`; each item gained `isActive`. Requests that omit them behave as described
 > below. See [`docs/ktl-18/list-contract.md`](../ktl-18/list-contract.md).
@@ -38,7 +38,8 @@ into every proxy and access log that records a URL. The handler writes nothing.
 {
   "filters": {
     "text": "", // case-insensitive literal substring
-    "statusValues": ["available"], // empty or all five = unrestricted
+    "availabilityValues": ["available"], // empty or all three = unrestricted
+    "availabilityCheckedFrom": "2026-09-01", // blank = unrestricted
     "skillCriteria": [{ "value": "Java", "level": "Avanzado" }],
     "skillMode": "ANY", // or "ALL"
     "languageCriteria": [],
@@ -67,8 +68,9 @@ can never store filters the search endpoint would refuse.
   `language_level`, `program_level`, or `skill_level` changes search ranking immediately.
 - An unknown criterion value matches nothing. It is not an error: refusing it would disclose
   which catalog values exist to a caller who may not read the catalog.
-- Unsupported statuses, modes and CV selections are refused with stable codes
-  (`search.status.invalid`, `search.mode.invalid`, `search.cv.invalid`). One refusal reports
+- Unsupported availability values, checked-from dates, modes and CV selections are refused with
+  stable codes (`search.availability.invalid`, `search.availability.checked_from.invalid`,
+  `search.mode.invalid`, `search.cv.invalid`). One refusal reports
   every problem in the request, not just the first.
 - Text is capped at 200 characters, criterion values at 200, and each family at 25 criteria —
   each `ALL` criterion becomes its own existence condition, so an unbounded list is an
@@ -107,7 +109,8 @@ transaction across both costs more than the discrepancy is worth at this scale.
       "lastName": "…",
       "phone": "…",
       "email": "…",
-      "status": "available",
+      "availabilityState": "available",
+      "availabilityCheckedOn": "2026-09-20",
       "hasPrimaryCv": true,
       "primaryCvPreviewable": true, // KTL-35: clean PDF with its file; false without documents.download
       "primaryCvDownloadable": true, // KTL-35: clean, with its file, any format; same masking

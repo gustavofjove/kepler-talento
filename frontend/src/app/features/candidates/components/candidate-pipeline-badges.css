@@ -1,0 +1,8 @@
+/* KTL-36: the derived pipeline badges beside the candidate's name. */
+.candidate-pipeline-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 10px;
+  vertical-align: middle;
+}

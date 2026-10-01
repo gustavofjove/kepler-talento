@@ -294,10 +294,10 @@ public sealed class MigrationLoader(
             row["Location"],
             row["Province"],
             row["Country"],
-            row["Availability"],
-            row["Status"].Trim(),
             row["Source"],
-            row["Notes"],
+            // KTL-36: the legacy status and availability are kept as note text, never as fields;
+            // every migrated candidate starts with an unknown availability check.
+            LegacyNotes.Compose(row["Notes"], row["Status"], row["Availability"]),
             loadedAtUtc);
 
         // Consent and retention metadata is carried across exactly. Validation has already

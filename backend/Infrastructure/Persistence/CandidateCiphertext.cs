@@ -30,7 +30,7 @@ public sealed class CandidateCiphertext
     public string Notes { get; private set; } = string.Empty;
 
     // Clear columns the in-API order needs.
-    public string Status { get; private set; } = string.Empty;
+    public DateOnly? AvailabilityCheckedOn { get; private set; }
 
     public DateTimeOffset UpdatedAtUtc { get; private set; }
 }

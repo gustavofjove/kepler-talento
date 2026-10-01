@@ -1,3 +1,4 @@
+using System.Globalization;
 using KeplerTalento.Application.Common.Errors;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
@@ -18,7 +19,7 @@ public sealed record SearchCriterionInput(string? Value, string? Level);
 /// </summary>
 public sealed record SearchFiltersInput(
     string? Text,
-    IReadOnlyList<string?>? StatusValues,
+    IReadOnlyList<string?>? AvailabilityValues,
     IReadOnlyList<SearchCriterionInput?>? SkillCriteria,
     string? SkillMode,
     IReadOnlyList<SearchCriterionInput?>? LanguageCriteria,
@@ -27,7 +28,8 @@ public sealed record SearchFiltersInput(
     string? ProgramMode,
     string? HasCv,
     IReadOnlyList<SearchCriterionInput?>? TagCriteria = null,
-    string? TagMode = null);
+    string? TagMode = null,
+    string? AvailabilityCheckedFrom = null);
 
 public enum MultiValueMode
 {
@@ -61,7 +63,7 @@ public sealed record SearchCriterion(string Value, string NormalizedValue, strin
 /// </summary>
 public sealed record SearchFiltersValue(
     string Text,
-    IReadOnlyList<string> StatusValues,
+    IReadOnlyList<string> AvailabilityValues,
     IReadOnlyList<SearchCriterion> SkillCriteria,
     MultiValueMode SkillMode,
     IReadOnlyList<SearchCriterion> LanguageCriteria,
@@ -70,18 +72,20 @@ public sealed record SearchFiltersValue(
     MultiValueMode ProgramMode,
     CvPresence HasCv,
     IReadOnlyList<SearchCriterion> TagCriteria,
-    MultiValueMode TagMode)
+    MultiValueMode TagMode,
+    DateOnly? AvailabilityCheckedFrom = null)
 {
     /// <summary>
-    /// True when the status family restricts nothing. Selecting every status and selecting
-    /// none are the same query, and neither emits a predicate.
+    /// True when the availability value selection restricts nothing. Selecting every value and
+    /// selecting none are the same query, and neither emits a predicate. The checked-from date
+    /// is a separate restriction.
     /// </summary>
-    public bool StatusIsUnrestricted =>
-        StatusValues.Count == 0 || StatusValues.Count == CandidateStatuses.All.Count;
+    public bool AvailabilityIsUnrestricted =>
+        AvailabilityValues.Count == 0 || AvailabilityValues.Count == CandidateAvailabilityStates.All.Count;
 
     public SearchFiltersInput ToInput() => new(
         Text,
-        [.. StatusValues],
+        [.. AvailabilityValues],
         [.. SkillCriteria.Select(ToInput)],
         ToWire(SkillMode),
         [.. LanguageCriteria.Select(ToInput)],
@@ -90,7 +94,8 @@ public sealed record SearchFiltersValue(
         ToWire(ProgramMode),
         ToWire(HasCv),
         [.. TagCriteria.Select(ToInput)],
-        ToWire(TagMode));
+        ToWire(TagMode),
+        AvailabilityCheckedFrom?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? string.Empty);
 
     private static SearchCriterionInput ToInput(SearchCriterion criterion) =>
         new(criterion.Value, criterion.Level);
@@ -108,7 +113,8 @@ public sealed record SearchFiltersValue(
 /// <summary>Stable error codes for the search and preset slices, with their Spanish messages.</summary>
 public static class SearchErrors
 {
-    public const string StatusInvalid = "search.status.invalid";
+    public const string AvailabilityInvalid = "search.availability.invalid";
+    public const string AvailabilityCheckedFromInvalid = "search.availability.checked_from.invalid";
     public const string ModeInvalid = "search.mode.invalid";
     public const string CvInvalid = "search.cv.invalid";
     public const string TextTooLong = "search.text.too_long";
@@ -128,7 +134,8 @@ public static class SearchErrors
     public const string PresetVersionInvalid = "search_preset.version.invalid";
     public const string PresetFiltersInvalid = "search_preset.filters.invalid";
 
-    public const string StatusInvalidMessage = "El estado del candidato no es válido.";
+    public const string AvailabilityInvalidMessage = "La disponibilidad indicada no es válida.";
+    public const string AvailabilityCheckedFromInvalidMessage = "La fecha «Comprobado desde» no es válida.";
     public const string ModeInvalidMessage = "El modo de combinación debe ser ANY o ALL.";
     public const string CvInvalidMessage = "El filtro de CV principal no es válido.";
     public const string TextTooLongMessage = "El texto de búsqueda es demasiado largo.";
@@ -168,9 +175,11 @@ public static class SearchFilterNormalization
     /// <summary>
     /// Version of the stored filter document. Presets keep it alongside their filters so a
     /// future shape change can be an explicit upgrade rather than a guess about what an old
-    /// row meant.
+    /// row meant. Version 2 (KTL-36) replaced the candidate statuses with the availability
+    /// family; the migration that introduced it rewrote every stored document, so the reader
+    /// accepts only this version.
     /// </summary>
-    public const int FilterSchemaVersion = 1;
+    public const int FilterSchemaVersion = 2;
 
     public const int MaximumTextLength = 200;
     public const int MaximumCriterionLength = 200;
@@ -211,7 +220,7 @@ public static class SearchFilterNormalization
 
         return new SearchFiltersValue(
             text,
-            NormalizeStatuses(input.StatusValues, $"{property}.StatusValues", issues),
+            NormalizeAvailability(input.AvailabilityValues, $"{property}.AvailabilityValues", issues),
             NormalizeCriteria(input.SkillCriteria, $"{property}.SkillCriteria", issues),
             NormalizeMode(input.SkillMode, $"{property}.SkillMode", issues),
             NormalizeCriteria(input.LanguageCriteria, $"{property}.LanguageCriteria", issues),
@@ -220,30 +229,31 @@ public static class SearchFilterNormalization
             NormalizeMode(input.ProgramMode, $"{property}.ProgramMode", issues),
             NormalizeCv(input.HasCv, $"{property}.HasCv", issues),
             NormalizeTagCriteria(input.TagCriteria, $"{property}.TagCriteria", issues),
-            NormalizeMode(input.TagMode, $"{property}.TagMode", issues));
+            NormalizeMode(input.TagMode, $"{property}.TagMode", issues),
+            NormalizeCheckedFrom(input.AvailabilityCheckedFrom, $"{property}.AvailabilityCheckedFrom", issues));
     }
 
-    private static IReadOnlyList<string> NormalizeStatuses(
-        IReadOnlyList<string?>? statuses,
+    private static IReadOnlyList<string> NormalizeAvailability(
+        IReadOnlyList<string?>? states,
         string property,
         List<ValidationIssue> issues)
     {
-        if (statuses is null || statuses.Count == 0)
+        if (states is null || states.Count == 0)
         {
-            // No selection and every status selected are the same query. Answering with the
+            // No selection and every value selected are the same query. Answering with the
             // complete set keeps a stored preset readable rather than ambiguous.
-            return [.. CandidateStatuses.All];
+            return [.. CandidateAvailabilityStates.All];
         }
         var accepted = new List<string>();
         var invalid = false;
-        foreach (var status in statuses)
+        foreach (var state in states)
         {
-            var trimmed = (status ?? string.Empty).Trim();
+            var trimmed = (state ?? string.Empty).Trim();
             if (trimmed.Length == 0)
             {
                 continue;
             }
-            if (!CandidateStatuses.IsKnown(trimmed))
+            if (!CandidateAvailabilityStates.IsKnown(trimmed))
             {
                 invalid = true;
                 continue;
@@ -255,10 +265,35 @@ public static class SearchFilterNormalization
         }
         if (invalid)
         {
-            issues.Add(new ValidationIssue(property, SearchErrors.StatusInvalid, SearchErrors.StatusInvalidMessage));
+            issues.Add(new ValidationIssue(
+                property,
+                SearchErrors.AvailabilityInvalid,
+                SearchErrors.AvailabilityInvalidMessage));
         }
         // An entirely blank selection restricts nothing, exactly as an absent one does.
-        return accepted.Count == 0 ? [.. CandidateStatuses.All] : accepted;
+        return accepted.Count == 0 ? [.. CandidateAvailabilityStates.All] : accepted;
+    }
+
+    /// <summary>
+    /// The «comprobado desde» date: blank is unset, anything else must be a <c>yyyy-MM-dd</c>
+    /// calendar day. An unknown candidate has no check date, so a set date never matches one.
+    /// </summary>
+    private static DateOnly? NormalizeCheckedFrom(string? value, string property, List<ValidationIssue> issues)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+        {
+            return null;
+        }
+        if (DateOnly.TryParseExact(trimmed, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
+        {
+            return day;
+        }
+        issues.Add(new ValidationIssue(
+            property,
+            SearchErrors.AvailabilityCheckedFromInvalid,
+            SearchErrors.AvailabilityCheckedFromInvalidMessage));
+        return null;
     }
 
     private static IReadOnlyList<SearchCriterion> NormalizeCriteria(

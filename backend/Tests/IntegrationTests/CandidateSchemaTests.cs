@@ -35,7 +35,7 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
             items.First(item => string.Equals(item.Family, family, StringComparison.Ordinal)).Id;
     }
 
-    private static Candidate NewCandidate(Guid id, DateTimeOffset now, string status = CandidateStatuses.Available)
+    private static Candidate NewCandidate(Guid id, DateTimeOffset now)
     {
         var candidate = new Candidate(id, "Prueba", "Sintética", now);
         candidate.SetDetails(
@@ -44,8 +44,6 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
             location: "Ciudad Sintética",
             province: "Provincia Sintética",
             country: "España",
-            availability: "Inmediata",
-            status: status,
             source: "Prueba",
             notes: "Notas sintéticas",
             updatedAtUtc: now);
@@ -120,8 +118,7 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
         Assert.Equal("Ciudad Sintética", stored.Location);
         Assert.Equal("Provincia Sintética", stored.Province);
         Assert.Equal("España", stored.Country);
-        Assert.Equal("Inmediata", stored.Availability);
-        Assert.Equal(CandidateStatuses.Available, stored.Status);
+        Assert.Equal(CandidateAvailabilityStates.Unknown, stored.AvailabilityState);
         Assert.Equal("Prueba", stored.Source);
         Assert.Equal("Notas sintéticas", stored.Notes);
         Assert.Equal(new DateOnly(2026, 2, 1), stored.ReceivedAt);
@@ -161,25 +158,115 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
         Assert.Null(stored.ReviewDueAt);
     }
 
-    [Fact]
-    public async Task Status_outside_the_permitted_set_is_rejected_by_the_database()
+    public static TheoryData<string, string> InconsistentChecks => new()
+    {
+        {
+            """ "AvailabilityState" = 'promoted', "AvailabilityCheckedOn" = DATE '2026-03-12' """,
+            "CK_CND_Candidates_AvailabilityState"
+        },
+        { """ "AvailabilityState" = 'available' """, "CK_CND_Candidates_AvailabilityCheck" },
+        { """ "AvailabilityCheckedOn" = DATE '2026-03-12' """, "CK_CND_Candidates_AvailabilityCheck" },
+        { """ "AvailabilityCheckedByUserId" = gen_random_uuid() """, "CK_CND_Candidates_AvailabilityCheck" },
+        {
+            """ "AvailabilityState" = 'available', "AvailabilityCheckedOn" = DATE '2026-03-12', "AvailabilityUntil" = DATE '2027-01-15' """,
+            "CK_CND_Candidates_AvailabilityUntil"
+        },
+        {
+            """ "AvailabilityState" = 'unavailable', "AvailabilityCheckedOn" = DATE '2026-03-12', "AvailabilityUntil" = DATE '2026-03-11' """,
+            "CK_CND_Candidates_AvailabilityUntil"
+        },
+    };
+
+    [Theory]
+    [MemberData(nameof(InconsistentChecks))]
+    public async Task An_inconsistent_availability_check_is_rejected_by_the_database(string assignment, string constraint)
     {
         await PrepareAsync();
         var candidateId = Guid.NewGuid();
-
         await using (var seed = NewContext())
         {
             seed.Candidates.Add(NewCandidate(candidateId, DateTimeOffset.UtcNow));
             await seed.SaveChangesAsync();
         }
 
-        // The domain refuses first; the check constraint is what holds when a bulk writer
-        // reaches the table without going through the entity.
-        await using var raw = NewContext();
-        var failure = await Assert.ThrowsAsync<PostgresException>(() =>
-            raw.Database.ExecuteSqlInterpolatedAsync(
-                $"UPDATE \"CND_Candidates\" SET \"Status\" = 'promoted' WHERE \"Id\" = {candidateId}"));
-        Assert.Equal("CK_CND_Candidates_Status", failure.ConstraintName);
+        // The domain and the validator refuse first; the check constraints are what hold when a
+        // bulk writer reaches the table without going through the entity.
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand($"UPDATE \"CND_Candidates\" SET {assignment} WHERE \"Id\" = @id", connection);
+        command.Parameters.AddWithValue("id", candidateId);
+        var failure = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync());
+        Assert.Equal(constraint, failure.ConstraintName);
+    }
+
+    [Fact]
+    public async Task A_consistent_availability_check_is_accepted_by_the_database()
+    {
+        await PrepareAsync();
+        var candidateId = Guid.NewGuid();
+        await using (var seed = NewContext())
+        {
+            var candidate = NewCandidate(candidateId, DateTimeOffset.UtcNow);
+            candidate.RecordAvailability(
+                CandidateAvailabilityStates.Unavailable,
+                new DateOnly(2026, 3, 12),
+                new DateOnly(2027, 1, 15),
+                checkedByUserId: null,
+                DateTimeOffset.UtcNow);
+            seed.Candidates.Add(candidate);
+            await seed.SaveChangesAsync();
+        }
+
+        await using var read = NewContext();
+        var stored = await read.Candidates.AsNoTracking().SingleAsync(value => value.Id == candidateId);
+        Assert.Equal(CandidateAvailabilityStates.Unavailable, stored.AvailabilityState);
+        Assert.Equal(new DateOnly(2026, 3, 12), stored.AvailabilityCheckedOn);
+        Assert.Equal(new DateOnly(2027, 1, 15), stored.AvailabilityUntil);
+    }
+
+    [Fact]
+    public async Task The_availability_columns_replace_the_status_and_default_to_unknown()
+    {
+        await PrepareAsync();
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+
+        await using var columns = new NpgsqlCommand(
+            """
+            SELECT column_name, data_type, is_nullable, coalesce(column_default, '')
+            FROM information_schema.columns
+            WHERE table_name = 'CND_Candidates'
+            """,
+            connection);
+        var found = new Dictionary<string, (string Type, string Nullable, string Default)>();
+        await using (var reader = await columns.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+            {
+                found[reader.GetString(0)] = (reader.GetString(1), reader.GetString(2), reader.GetString(3));
+            }
+        }
+
+        Assert.DoesNotContain("Status", found.Keys);
+        Assert.DoesNotContain("Availability", found.Keys);
+        Assert.Equal("NO", found["AvailabilityState"].Nullable);
+        Assert.StartsWith("'unknown'", found["AvailabilityState"].Default, StringComparison.Ordinal);
+        Assert.Equal(("date", "YES"), (found["AvailabilityCheckedOn"].Type, found["AvailabilityCheckedOn"].Nullable));
+        Assert.Equal(("date", "YES"), (found["AvailabilityUntil"].Type, found["AvailabilityUntil"].Nullable));
+        Assert.Equal(("uuid", "YES"), (found["AvailabilityCheckedByUserId"].Type, found["AvailabilityCheckedByUserId"].Nullable));
+
+        // A user who recorded a check cannot be deleted while the check names them.
+        await using var foreignKey = new NpgsqlCommand(
+            """
+            SELECT confdeltype::text, confrelid::regclass::text
+            FROM pg_constraint
+            WHERE conname = 'FK_CND_Candidates_ADM_Users_AvailabilityCheckedByUserId'
+            """,
+            connection);
+        await using var fk = await foreignKey.ExecuteReaderAsync();
+        Assert.True(await fk.ReadAsync());
+        Assert.Equal("r", fk.GetString(0));
+        Assert.Equal("\"ADM_Users\"", fk.GetString(1));
     }
 
     [Theory]
@@ -219,8 +306,8 @@ public sealed class CandidateSchemaTests(PostgreSqlFixture database) : IClassFix
                 $"""
                 INSERT INTO "CND_Candidates"
                     ("Id", "FirstName", "LastName", "Phone", "Email", "Location", "Province", "Country",
-                     "Availability", "Status", "Source", "Notes", "IsActive", "CreatedAtUtc", "UpdatedAtUtc", "EmailHash")
-                VALUES ({Guid.NewGuid()}, 'Ana', 'López', '', '', '', '', '', '', 'available', '', '', true, now(), now(), '')
+                     "Source", "Notes", "IsActive", "CreatedAtUtc", "UpdatedAtUtc", "EmailHash")
+                VALUES ({Guid.NewGuid()}, 'Ana', 'López', '', '', '', '', '', '', '', true, now(), now(), '')
                 """));
         Assert.StartsWith("CK_CND_Candidates_", failure.ConstraintName, StringComparison.Ordinal);
         Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);

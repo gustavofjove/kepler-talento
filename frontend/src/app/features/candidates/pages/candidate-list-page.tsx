@@ -34,7 +34,7 @@ type LoadState =
 /**
  * The candidate list, one server page at a time (KTL-18).
  *
- * Page, sort and the status, CV and inactive filters live in the URL and nowhere else, so
+ * Page, sort and the availability, CV and inactive filters live in the URL and nowhere else, so
  * the back button, a reload and a pasted link all show the same view. The free-text filter
  * is the exception: it is personal data and stays out of the URL (see `LIST_PARAMS`).
  *

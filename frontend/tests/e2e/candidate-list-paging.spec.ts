@@ -5,7 +5,7 @@ import { authorizationHeaders, signInAs } from './support/auth';
 
 test.use({ storageState: authFile('rrhh_admin') });
 
-const STATUSES = ['new', 'available', 'in_process', 'hired', 'rejected'];
+const AVAILABILITY = ['unknown', 'available', 'unavailable'] as const;
 
 /**
  * Creates `count` candidates sharing a unique first name, so the text filter isolates them
@@ -24,8 +24,6 @@ async function seed(page: Page, marker: string, count: number): Promise<void> {
         location: '',
         province: '',
         country: 'España',
-        availability: 'Inmediata',
-        status: STATUSES[index % STATUSES.length],
         source: 'Email',
         notes: '',
         receivedAt: '2026-09-16',
@@ -34,6 +32,20 @@ async function seed(page: Page, marker: string, count: number): Promise<void> {
       },
     });
     expect(response.ok()).toBe(true);
+    const candidate = (await response.json()) as { id: string; version: number };
+    const state = AVAILABILITY[index % AVAILABILITY.length];
+    if (state !== 'unknown') {
+      const checked = await page.request.put(`/api/candidates/${candidate.id}/availability`, {
+        headers: authorizationHeaders(page),
+        data: {
+          state,
+          checkedOn: `2026-09-${String(index + 1).padStart(2, '0')}`,
+          until: null,
+          version: candidate.version,
+        },
+      });
+      expect(checked.ok()).toBe(true);
+    }
   }
 }
 
@@ -84,9 +96,9 @@ test.describe('Candidate list paged by the server', () => {
     await expect(page).toHaveURL(/dir=desc/);
     await expect(rows(page).first()).toContainText('Apellido26');
 
-    await page.getByTestId('candidate-sort-status').click();
-    await expect(page).toHaveURL(/sort=status/);
-    await expect(page.locator('th[aria-sort="ascending"]')).toHaveCount(1);
+    await page.getByTestId('candidate-sort-availabilityCheckedOn').click();
+    await expect(page).toHaveURL(/sort=availabilityCheckedOn/);
+    await expect(page.locator('th[aria-sort="descending"]')).toHaveCount(1);
     await expect(rows(page)).toHaveCount(27);
 
     await page.getByTestId('candidate-sort-updatedAt').click();
@@ -99,16 +111,16 @@ test.describe('Candidate list paged by the server', () => {
     await page.goto('/app/candidates?pageSize=100');
     await filterByText(page, marker, 27);
 
-    await page.locator('select[name="status"]').selectOption('hired');
+    await page.locator('select[name="availability"]').selectOption('unavailable');
 
-    // Indices 3, 8, 13, 18 and 23 are "hired".
-    await expect(rows(page)).toHaveCount(5);
-    await expect(page).toHaveURL(/status=hired/);
+    // Every third seeded candidate is unavailable.
+    await expect(rows(page)).toHaveCount(9);
+    await expect(page).toHaveURL(/availability=unavailable/);
   });
 
   test('reopens a copied list URL to the same view', async ({ page, context }) => {
     await page.goto('/app/candidates');
-    await page.locator('select[name="status"]').selectOption('available');
+    await page.locator('select[name="availability"]').selectOption('available');
     await page.getByTestId('candidate-sort-lastName').click();
     await page.locator('select[name="pageSize"]').selectOption('50');
     await expect(page).toHaveURL(/pageSize=50/);
@@ -119,7 +131,7 @@ test.describe('Candidate list paged by the server', () => {
     await signInAs(reopened, 'rrhh_admin');
     await reopened.goto(copied);
 
-    await expect(reopened.locator('select[name="status"]')).toHaveValue('available');
+    await expect(reopened.locator('select[name="availability"]')).toHaveValue('available');
     await expect(reopened.locator('select[name="pageSize"]')).toHaveValue('50');
     await expect(
       reopened.locator('th[aria-sort="ascending"]').getByTestId('candidate-sort-lastName'),

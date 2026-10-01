@@ -91,6 +91,11 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                     plan);
                 Assert.DoesNotContain("\"CAT_CatalogItems\"", plan, StringComparison.Ordinal);
             }
+            if (name == CheckedFromCase)
+            {
+                // KTL-36 design D5: the partial index serves the «comprobado desde» filter.
+                Assert.Contains("IX_CND_Candidates_IsActive_AvailabilityCheckedOn", plan, StringComparison.Ordinal);
+            }
         }
 
         var path = Path.Combine(RepositoryRoot(), "docs", "ktl-10", "query-plans.md");
@@ -120,7 +125,13 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
 
         foreach (var (name, filters) in FilterCases(catalog))
         {
-            yield return (name, filters, firstPage);
+            // The checked-from case orders by the checked date too: with the default
+            // UpdatedAt order PostgreSQL can satisfy LIMIT more cheaply from that index and
+            // filter the date on the way. This case exercises the availability access path.
+            yield return (name, filters, name == CheckedFromCase
+                ? new SearchOptions(1, SearchPaging.DefaultPageSize,
+                    new SearchSort(SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Descending), false)
+                : firstPage);
         }
     }
 
@@ -133,12 +144,18 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
             "Unfiltered first page",
             Build(new SearchFiltersInput(null, null, null, null, null, null, null, null, null)));
         yield return (
-            "Status subset and primary CV",
+            "Availability subset and primary CV",
             Build(new SearchFiltersInput(
                 null,
-                [CandidateStatuses.Available, CandidateStatuses.InProcess],
+                [CandidateAvailabilityStates.Available, CandidateAvailabilityStates.Unavailable],
                 null, null, null, null, null, null,
                 "yes")));
+        // KTL-36: the «comprobado desde» filter on its own, a recent date that few candidates meet.
+        yield return (
+            CheckedFromCase,
+            Build(new SearchFiltersInput(
+                null, null, null, null, null, null, null, null, null,
+                AvailabilityCheckedFrom: RecentCheck.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))));
         yield return (
             "Skill ANY across three values",
             Build(new SearchFiltersInput(
@@ -169,15 +186,24 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
             "Every SQL family combined",
             Build(new SearchFiltersInput(
                 null,
-                [CandidateStatuses.Available],
+                [CandidateAvailabilityStates.Available],
                 [new SearchCriterionInput(catalog.Skills[0], "")],
                 "ANY",
                 [new SearchCriterionInput(catalog.Languages[0], catalog.LanguageLevels[0])],
                 "ALL",
                 [new SearchCriterionInput(catalog.Programs[0], "")],
                 "ANY",
-                "yes")));
+                "yes",
+                AvailabilityCheckedFrom: "2026-01-01")));
     }
+
+    private const string CheckedFromCase = "Checked from a recent date";
+
+    /// <summary>
+    /// The earliest of the most recent checks in the scale dataset: about one candidate in thirty
+    /// was checked on or after it, so the date filter is selective enough to need its index.
+    /// </summary>
+    private static readonly DateOnly RecentCheck = new(2026, 9, 1);
 
     private async Task<(string Plan, double ElapsedMilliseconds)> ExplainAsync(
         SearchFiltersValue filters,
@@ -290,11 +316,23 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                 location: "Madrid",
                 province: "Madrid",
                 country: "España",
-                availability: "Inmediata",
-                status: CandidateStatuses.All[index % CandidateStatuses.All.Count],
                 source: "escala",
                 notes: $"Perfil sintético número {index} con notas de longitud representativa.",
                 updatedAtUtc: origin.AddMinutes(index));
+            // Two candidates in three carry a check, spread over the year before RecentCheck, and
+            // one in thirty a check on or after it.
+            if (index % 3 != 0)
+            {
+                var checkedOn = index % 30 == 1
+                    ? RecentCheck.AddDays(index % 20)
+                    : RecentCheck.AddDays(-1 - index % 360);
+                candidate.RecordAvailability(
+                    CandidateAvailabilityStates.All[1 + index % 2],
+                    checkedOn,
+                    null,
+                    null,
+                    origin.AddMinutes(index));
+            }
             dbContext.Candidates.Add(candidate);
 
             foreach (var skillName in catalog.Skills.OrderBy(_ => random.Next()).Take(3))

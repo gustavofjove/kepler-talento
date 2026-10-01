@@ -32,8 +32,6 @@ identifier every report uses ("row 47"), and it carries no personal data.
 | `location`      | no       | Text                                                                                      | 160   |
 | `province`      | no       | Text                                                                                      | 120   |
 | `country`       | no       | Text                                                                                      | 120   |
-| `availability`  | no       | Text                                                                                      | 120   |
-| `status`        | no       | One of `new`, `available`, `in_process`, `hired`, `rejected`. Blank means `new`.          | —     |
 | `source`        | no       | Text                                                                                      | 120   |
 | `notes`         | no       | Text, kept exactly as written                                                             | 4000  |
 | `received_at`   | no       | `yyyy-MM-dd`. Blank means absent — never today.                                           | —     |
@@ -44,6 +42,9 @@ identifier every report uses ("row 47"), and it carries no personal data.
 Other text columns are trimmed. Any column not in this table is refused as a structural problem
 (`import.column.unknown`) rather than silently ignored — a misspelt `emial` would otherwise drop
 every address in the file. A duplicated column is refused too.
+
+Since KTL-36, `status` and free-text `availability` are unknown columns. Imported candidates begin
+with availability `unknown`; an HR user records a dated check through the candidate page.
 
 Dates are stricter than the candidate form on purpose: a locale format such as `17/03/2026`
 would otherwise risk swapping day and month.
@@ -101,7 +102,7 @@ updates an existing candidate.
 ## Example
 
 ```csv
-first_name,last_name,email,phone,status,consent_at,languages
-Ana,Ruiz,ana.ruiz@example.test,600111222,available,2026-03-18,Inglés:B2;Francés:A1
+first_name,last_name,email,phone,consent_at,languages
+Ana,Ruiz,ana.ruiz@example.test,600111222,2026-03-18,Inglés:B2;Francés:A1
 Luis,"Gil Pérez",luis.gil@example.test,,,,
 ```

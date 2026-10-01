@@ -98,8 +98,6 @@ async function create(request: APIRequestContext): Promise<CandidateSummary | un
       location: 'Madrid',
       province: 'Madrid',
       country: 'España',
-      availability: 'Inmediata',
-      status: 'available',
       source: 'LinkedIn',
       notes: 'Perfil administrativo con experiencia internacional.',
       receivedAt: '2026-05-10',

@@ -10,7 +10,7 @@ public enum CandidateSaveOutcome
     ConcurrencyConflict,
 
     /// <summary>
-    /// A database constraint refused the write — an unknown status, a second primary
+    /// A database constraint refused the write — an inconsistent availability check, a second primary
     /// document, or a relation naming a catalog entry of the wrong family. The slice
     /// translates it into a stable validation code; the detail never reaches the caller.
     /// </summary>
@@ -35,8 +35,11 @@ public sealed record CandidateSummary(
     string Location,
     string Province,
     string Country,
-    string Availability,
-    string Status,
+    string AvailabilityState,
+    DateOnly? AvailabilityCheckedOn,
+    DateOnly? AvailabilityUntil,
+    /// <summary>The checker's display name only; the user id never leaves persistence.</summary>
+    string? AvailabilityCheckedByDisplayName,
     string Source,
     string Notes,
     DateOnly? ReceivedAt,

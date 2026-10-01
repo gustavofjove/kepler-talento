@@ -37,7 +37,8 @@ public sealed record CandidateSearchItem(
     string LastName,
     string Phone,
     string Email,
-    string Status,
+    string AvailabilityState,
+    DateOnly? AvailabilityCheckedOn,
     bool HasPrimaryCv,
     bool PrimaryCvPreviewable,
     bool PrimaryCvDownloadable,
@@ -52,7 +53,12 @@ public enum SearchSortField
 {
     UpdatedAt,
     LastName,
-    Status,
+
+    /// <summary>
+    /// The availability check date (KTL-36). Unchecked candidates have none and sort last in
+    /// both directions.
+    /// </summary>
+    AvailabilityCheckedOn,
 }
 
 public enum SearchSortDirection
@@ -81,7 +87,7 @@ public sealed record SearchSort(SearchSortField Field, SearchSortDirection Direc
             "" => Default.Field,
             "updatedAt" => SearchSortField.UpdatedAt,
             "lastName" => SearchSortField.LastName,
-            "status" => SearchSortField.Status,
+            "availabilityCheckedOn" => SearchSortField.AvailabilityCheckedOn,
             _ => (SearchSortField?)null,
         };
         if (parsedField is null)

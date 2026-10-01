@@ -22,7 +22,8 @@ describe('AdvancedSearchPage', () => {
     lastName: id,
     phone: '+34 600 000 001',
     email: `${id}@ejemplo.test`,
-    status: 'available' as const,
+    availabilityState: 'available' as const,
+    availabilityCheckedOn: '2026-09-20',
     hasPrimaryCv: true,
     primaryCvPreviewable: true,
     primaryCvDownloadable: true,
@@ -104,8 +105,8 @@ describe('AdvancedSearchPage', () => {
     renderPage({ search, emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS) });
     await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
 
-    await userEvent.click(screen.getByTestId('status-disclosure'));
-    expect(screen.getByTestId('status-disclosure')).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(screen.getByTestId('availability-disclosure'));
+    expect(screen.getByTestId('availability-disclosure')).toHaveAttribute('aria-expanded', 'true');
     expect(search).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('checkbox', { name: 'Con CV' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'Sin CV' })).toBeChecked();

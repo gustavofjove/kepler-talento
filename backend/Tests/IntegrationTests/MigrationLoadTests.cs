@@ -213,6 +213,34 @@ public sealed class MigrationLoadTests(PostgreSqlFixture database) : IClassFixtu
     }
 
     [Fact]
+    public async Task Legacy_status_and_availability_load_as_note_text_and_a_re_run_does_not_repeat_them()
+    {
+        await PrepareAsync();
+        await RunAsync();
+        await using (var first = NewContext())
+        {
+            // KTL-36: C-002 is "rejected" with availability "Un mes" in the export.
+            var loaded = await first.Candidates.AsNoTracking().SingleAsync(value => value.SourceKey == "C-002");
+            Assert.Equal(
+                "SENTINELNOTAS02\n\nEstado en Access: Descartado.\nDisponibilidad en Access: Un mes",
+                loaded.Notes);
+            Assert.Equal(CandidateAvailabilityStates.Unknown, loaded.AvailabilityState);
+            Assert.Null(loaded.AvailabilityCheckedOn);
+            Assert.All(
+                await first.Candidates.AsNoTracking().ToListAsync(),
+                candidate => Assert.Equal(CandidateAvailabilityStates.Unknown, candidate.AvailabilityState));
+        }
+
+        await RunAsync(overwriteApplicationEdits: true);
+
+        await using var second = NewContext();
+        var reloaded = await second.Candidates.AsNoTracking().SingleAsync(value => value.SourceKey == "C-002");
+        Assert.Equal(
+            "SENTINELNOTAS02\n\nEstado en Access: Descartado.\nDisponibilidad en Access: Un mes",
+            reloaded.Notes);
+    }
+
+    [Fact]
     public async Task A_re_run_updates_in_place_and_keeps_the_same_identifier()
     {
         await PrepareAsync();

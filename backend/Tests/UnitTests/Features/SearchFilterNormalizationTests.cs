@@ -25,7 +25,8 @@ public sealed class SearchFilterNormalizationTests
         var filters = SearchFilterNormalization.Normalize(null, "Filters");
 
         Assert.Equal(string.Empty, filters.Text);
-        Assert.True(filters.StatusIsUnrestricted);
+        Assert.True(filters.AvailabilityIsUnrestricted);
+        Assert.Null(filters.AvailabilityCheckedFrom);
         Assert.Empty(filters.SkillCriteria);
         Assert.Empty(filters.LanguageCriteria);
         Assert.Empty(filters.ProgramCriteria);
@@ -83,7 +84,7 @@ public sealed class SearchFilterNormalizationTests
     }
 
     [Fact]
-    public void Different_minimums_for_one_value_remain_distinct_in_schema_one()
+    public void Different_minimums_for_one_value_remain_distinct_in_schema_two()
     {
         var filters = SearchFilterNormalization.Normalize(
             new SearchFiltersInput(null, null, null, null,
@@ -92,32 +93,34 @@ public sealed class SearchFilterNormalizationTests
 
         Assert.Equal(["B2", "C1"], filters.LanguageCriteria.Select(criterion => criterion.Level));
         Assert.Equal(MultiValueMode.All, filters.LanguageMode);
-        Assert.Equal(1, SearchFilterNormalization.FilterSchemaVersion);
+        Assert.Equal(2, SearchFilterNormalization.FilterSchemaVersion);
         var stored = SearchFilterDocument.Serialize(filters);
         Assert.Equal(stored, SearchFilterDocument.Serialize(SearchFilterDocument.Parse(stored)));
     }
 
     [Fact]
-    public void Empty_and_complete_status_selections_are_both_unrestricted()
+    public void Empty_and_complete_availability_selections_are_both_unrestricted()
     {
         var empty = SearchFilterNormalization.Normalize(
             new SearchFiltersInput(null, [], null, null, null, null, null, null, null),
             "Filters");
         var complete = SearchFilterNormalization.Normalize(
-            new SearchFiltersInput(null, [.. CandidateStatuses.All], null, null, null, null, null, null, null),
+            new SearchFiltersInput(null, [.. CandidateAvailabilityStates.All], null, null, null, null, null, null, null),
             "Filters");
 
-        Assert.True(empty.StatusIsUnrestricted);
-        Assert.True(complete.StatusIsUnrestricted);
+        Assert.True(empty.AvailabilityIsUnrestricted);
+        Assert.True(complete.AvailabilityIsUnrestricted);
+        // Both store the complete set, so a stored preset is never ambiguous.
+        Assert.Equal(CandidateAvailabilityStates.All, empty.AvailabilityValues);
     }
 
     [Fact]
-    public void Status_subset_is_kept_and_deduplicated()
+    public void Availability_subset_is_kept_and_deduplicated()
     {
         var filters = SearchFilterNormalization.Normalize(
             new SearchFiltersInput(
                 null,
-                [CandidateStatuses.Hired, " ", CandidateStatuses.Hired, CandidateStatuses.New],
+                [CandidateAvailabilityStates.Available, " ", CandidateAvailabilityStates.Available, CandidateAvailabilityStates.Unknown],
                 null,
                 null,
                 null,
@@ -127,14 +130,51 @@ public sealed class SearchFilterNormalizationTests
                 null),
             "Filters");
 
-        Assert.False(filters.StatusIsUnrestricted);
-        Assert.Equal([CandidateStatuses.Hired, CandidateStatuses.New], filters.StatusValues);
+        Assert.False(filters.AvailabilityIsUnrestricted);
+        Assert.Equal([CandidateAvailabilityStates.Available, CandidateAvailabilityStates.Unknown], filters.AvailabilityValues);
     }
 
     [Theory]
-    [InlineData("archived", SearchErrors.StatusInvalid)]
-    [InlineData("NEW", SearchErrors.StatusInvalid)]
-    public void Unsupported_status_is_refused_with_a_stable_code(string status, string code)
+    [InlineData("", null)]
+    [InlineData("  ", null)]
+    [InlineData("2026-08-01", "2026-08-01")]
+    public void Checked_from_is_a_calendar_day_or_unset(string value, string? expected)
+    {
+        var filters = SearchFilterNormalization.Normalize(
+            new SearchFiltersInput(null, null, null, null, null, null, null, null, null, AvailabilityCheckedFrom: value),
+            "Filters");
+
+        Assert.Equal(expected, filters.AvailabilityCheckedFrom?.ToString("yyyy-MM-dd"));
+    }
+
+    [Theory]
+    [InlineData("01/08/2026")]
+    [InlineData("2026-13-01")]
+    [InlineData("ayer")]
+    public void Checked_from_that_is_not_a_calendar_day_is_refused(string value)
+    {
+        var failure = Assert.Throws<RequestValidationException>(() => SearchFilterNormalization.Normalize(
+            new SearchFiltersInput(null, null, null, null, null, null, null, null, null, AvailabilityCheckedFrom: value),
+            "Filters"));
+
+        Assert.Contains(failure.Issues, issue => issue.Code == SearchErrors.AvailabilityCheckedFromInvalid);
+    }
+
+    [Fact]
+    public void A_version_one_document_is_refused()
+    {
+        // KTL-36: the migration rewrote every stored document to version 2, so the reader stays strict.
+        var failure = Assert.Throws<RequestValidationException>(() => SearchFilterDocument.Parse(
+            "{\"version\":1,\"text\":\"\",\"statusValues\":[\"new\"]}"));
+
+        Assert.Contains(failure.Issues, issue => issue.Code == SearchErrors.PresetFiltersInvalid);
+    }
+
+    [Theory]
+    [InlineData("archived", SearchErrors.AvailabilityInvalid)]
+    [InlineData("hired", SearchErrors.AvailabilityInvalid)]
+    [InlineData("UNKNOWN", SearchErrors.AvailabilityInvalid)]
+    public void Unsupported_availability_is_refused_with_a_stable_code(string status, string code)
     {
         var failure = Assert.Throws<RequestValidationException>(() => SearchFilterNormalization.Normalize(
             new SearchFiltersInput(null, [status], null, null, null, null, null, null, null),
@@ -255,7 +295,7 @@ public sealed class SearchFilterNormalizationTests
         var original = SearchFilterNormalization.Normalize(
             new SearchFiltersInput(
                 "Marta",
-                [CandidateStatuses.Available],
+                [CandidateAvailabilityStates.Available],
                 [new SearchCriterionInput("Java", "Avanzado")],
                 "ALL",
                 [new SearchCriterionInput("Inglés", "")],

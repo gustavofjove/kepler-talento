@@ -26,8 +26,6 @@ test.describe('Audit trail', () => {
         location: '',
         province: '',
         country: 'España',
-        availability: 'Inmediata',
-        status: 'new',
         source: 'Email',
         notes: '',
       },

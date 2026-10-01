@@ -16,7 +16,8 @@ namespace KeplerTalento.Tests.IntegrationTests;
 /// <summary>Shared pieces of the KTL-17 import integration tests.</summary>
 internal static class ImportTestSupport
 {
-    public const string Header = "first_name,last_name,email,phone,status,consent_at,languages";
+    // KTL-36: the contract has no status column; the fifth column is the free-text source.
+    public const string Header = "first_name,last_name,email,phone,source,consent_at,languages";
 
     /// <summary>
     /// Runs every queued durable operation the way the worker would — claim, handle, record —

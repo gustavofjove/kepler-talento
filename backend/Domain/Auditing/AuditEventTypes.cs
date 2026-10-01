@@ -20,6 +20,7 @@ public static class AuditEventTypes
         CandidateAuditEvents.Created,
         CandidateAuditEvents.Updated,
         CandidateAuditEvents.StatusChanged,
+        CandidateAuditEvents.AvailabilityChecked,
         CandidateAuditEvents.Removed,
         CandidateAuditEvents.Restored,
         CandidateAuditEvents.RelationsChanged,

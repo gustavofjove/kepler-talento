@@ -95,8 +95,8 @@ public sealed class EncryptedSearchPerformanceTests(PostgreSqlFixture database, 
 
     private static IEnumerable<(string Name, SearchFiltersValue Filters, SearchOptions Options)> Cases()
     {
-        SearchFiltersValue Text(string? text, string[]? statuses = null) => SearchFilterNormalization.Normalize(
-            new SearchFiltersInput(text, statuses, null, null, null, null, null, null, null),
+        SearchFiltersValue Text(string? text, string[]? availability = null) => SearchFilterNormalization.Normalize(
+            new SearchFiltersInput(text, availability, null, null, null, null, null, null, null),
             "Filters");
         var byDate = SearchSort.Default;
         var byName = new SearchSort(SearchSortField.LastName, SearchSortDirection.Ascending);
@@ -108,7 +108,8 @@ public sealed class EncryptedSearchPerformanceTests(PostgreSqlFixture database, 
         yield return ("Text matching nothing", Text("no-existe-nadie"), new SearchOptions(1, SearchPaging.DefaultPageSize, byDate, false));
         yield return ("Last-name order, first page", Text(null), new SearchOptions(1, SearchPaging.DefaultPageSize, byName, false));
         yield return ($"Last-name order, deep page {deepPage}", Text(null), new SearchOptions(deepPage, SearchPaging.MaximumPageSize, byName, true));
-        yield return ("Text and status, last-name order", Text("ejemplo", [CandidateStatuses.Available]), new SearchOptions(1, SearchPaging.DefaultPageSize, byName, false));
+        yield return ("Text matching most candidates, availability-date order", Text("ejemplo"), new SearchOptions(1, SearchPaging.DefaultPageSize, new SearchSort(SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Descending), false));
+        yield return ("Text and availability, last-name order", Text("ejemplo", [CandidateAvailabilityStates.Available]), new SearchOptions(1, SearchPaging.DefaultPageSize, byName, false));
     }
 
     private async Task SeedAsync()
@@ -139,11 +140,19 @@ public sealed class EncryptedSearchPerformanceTests(PostgreSqlFixture database, 
                 location: "Madrid",
                 province: "Madrid",
                 country: "España",
-                availability: "Inmediata",
-                status: CandidateStatuses.All[index % CandidateStatuses.All.Count],
                 source: "escala",
                 notes: notes.ToString(0, length),
                 updatedAtUtc: origin.AddMinutes(index));
+            // Two in three candidates carry a check, so the availability family is selective.
+            if (index % 3 != 0)
+            {
+                candidate.RecordAvailability(
+                    CandidateAvailabilityStates.All[1 + index % 2],
+                    DateOnly.FromDateTime(origin.UtcDateTime).AddDays(index % 200),
+                    null,
+                    null,
+                    origin.AddMinutes(index));
+            }
             dbContext.Candidates.Add(candidate);
             if (index % 1000 == 999)
             {

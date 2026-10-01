@@ -48,10 +48,16 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
             query = query.Where(candidate => candidate.IsActive);
         }
 
-        if (!filters.StatusIsUnrestricted)
+        // KTL-36: the availability family runs on clear columns. The checked-from comparison
+        // excludes unknown candidates by SQL semantics, since they have no check date.
+        if (!filters.AvailabilityIsUnrestricted)
         {
-            var statuses = filters.StatusValues.ToArray();
-            query = query.Where(candidate => statuses.Contains(candidate.Status));
+            var states = filters.AvailabilityValues.ToArray();
+            query = query.Where(candidate => states.Contains(candidate.AvailabilityState));
+        }
+        if (filters.AvailabilityCheckedFrom is { } checkedFrom)
+        {
+            query = query.Where(candidate => candidate.AvailabilityCheckedOn >= checkedFrom);
         }
 
         // Free text is not applied here. The five fields it reads are ciphertext since KTL-33, so
@@ -142,10 +148,10 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         var stored = dbContext.CandidateCiphertexts.AsNoTracking().Where(row => ids.Contains(row.Id));
         var raw = text.Length > 0
             ? await stored
-                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, row.Email, row.Phone, row.Notes, row.Status, row.UpdatedAtUtc))
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, row.Email, row.Phone, row.Notes, row.AvailabilityCheckedOn, row.UpdatedAtUtc))
                 .ToListAsync(cancellationToken)
             : await stored
-                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, null, null, null, row.Status, row.UpdatedAtUtc))
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, null, null, null, row.AvailabilityCheckedOn, row.UpdatedAtUtc))
                 .ToListAsync(cancellationToken);
 
         var term = EncryptedSearchSemantics.Fold(text);
@@ -175,7 +181,7 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                     row.Id,
                     byName ? First() : string.Empty,
                     byName ? Last() : string.Empty,
-                    row.Status,
+                    row.AvailabilityCheckedOn,
                     row.UpdatedAtUtc);
             });
         var rows = new List<EncryptedSearchRow>(raw.Count);
@@ -217,7 +223,7 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         string? Email,
         string? Phone,
         string? Notes,
-        string Status,
+        DateOnly? AvailabilityCheckedOn,
         DateTimeOffset UpdatedAtUtc);
 
     /// <summary>A row that matched, with the decrypted names only when the order needs them.</summary>
@@ -225,7 +231,7 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         Guid Id,
         string FirstName,
         string LastName,
-        string Status,
+        DateOnly? AvailabilityCheckedOn,
         DateTimeOffset UpdatedAtUtc)
     {
         // Precomputed once per row: sorting compares identifiers many times.
@@ -234,11 +240,15 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
 
     /// <summary>
     /// The SQL ordering, reproduced: the chosen field in the chosen direction, then the
-    /// identifier ascending in both directions.
+    /// identifier ascending in both directions. Unchecked candidates follow checked ones in
+    /// either direction, as in <see cref="Order"/>.
     /// </summary>
     private static Comparison<EncryptedSearchRow> Comparer(SearchSort sort)
     {
         var sign = sort.Direction == SearchSortDirection.Ascending ? 1 : -1;
+        Comparison<EncryptedSearchRow>? nullsLast = sort.Field == SearchSortField.AvailabilityCheckedOn
+            ? (left, right) => (left.AvailabilityCheckedOn is null).CompareTo(right.AvailabilityCheckedOn is null)
+            : null;
         Comparison<EncryptedSearchRow> field = sort.Field switch
         {
             SearchSortField.LastName => (left, right) =>
@@ -246,11 +256,17 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                 var byLast = EncryptedSearchSemantics.NameOrder.Compare(left.LastName, right.LastName);
                 return byLast != 0 ? byLast : EncryptedSearchSemantics.NameOrder.Compare(left.FirstName, right.FirstName);
             },
-            SearchSortField.Status => (left, right) => string.CompareOrdinal(left.Status, right.Status),
+            SearchSortField.AvailabilityCheckedOn => (left, right) =>
+                Nullable.Compare(left.AvailabilityCheckedOn, right.AvailabilityCheckedOn),
             _ => (left, right) => left.UpdatedAtUtc.UtcTicks.CompareTo(right.UpdatedAtUtc.UtcTicks),
         };
         return (left, right) =>
         {
+            var byNulls = nullsLast?.Invoke(left, right) ?? 0;
+            if (byNulls != 0)
+            {
+                return byNulls;
+            }
             var byField = sign * field(left, right);
             return byField != 0 ? byField : string.CompareOrdinal(left.IdKey, right.IdKey);
         };
@@ -281,7 +297,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                 candidate.LastName,
                 candidate.Phone,
                 candidate.Email,
-                candidate.Status,
+                candidate.AvailabilityState,
+                candidate.AvailabilityCheckedOn,
                 dbContext.Documents.Any(document =>
                     document.CandidateId == candidate.Id && document.IsPrimary),
                 dbContext.Documents
@@ -300,8 +317,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
     /// members only; no caller text reaches this point.
     /// </summary>
     /// <remarks>
-    /// <c>status</c> orders by the status code, matching the previous browser ordering.
-    /// <c>lastName</c> never reaches SQL: names are ciphertext, so that order is applied by
+    /// <c>availabilityCheckedOn</c> puts unchecked candidates (no date) last in both directions
+    /// (KTL-36). <c>lastName</c> never reaches SQL: names are ciphertext, so that order is applied by
     /// <see cref="EncryptedStageAsync"/>.
     /// </remarks>
     private static IOrderedQueryable<Candidate> Order(IQueryable<Candidate> query, SearchSort sort)
@@ -311,9 +328,11 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         {
             SearchSortField.LastName => throw new InvalidOperationException(
                 "The last-name order is applied over decrypted values, never in SQL."),
-            SearchSortField.Status => ascending
-                ? query.OrderBy(candidate => candidate.Status)
-                : query.OrderByDescending(candidate => candidate.Status),
+            SearchSortField.AvailabilityCheckedOn => ascending
+                ? query.OrderBy(candidate => candidate.AvailabilityCheckedOn == null)
+                    .ThenBy(candidate => candidate.AvailabilityCheckedOn)
+                : query.OrderBy(candidate => candidate.AvailabilityCheckedOn == null)
+                    .ThenByDescending(candidate => candidate.AvailabilityCheckedOn),
             _ => ascending
                 ? query.OrderBy(candidate => candidate.UpdatedAtUtc)
                 : query.OrderByDescending(candidate => candidate.UpdatedAtUtc),

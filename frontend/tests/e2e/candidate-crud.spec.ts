@@ -38,7 +38,7 @@ test.describe('Candidate CRUD', () => {
     // KTL-31: the row opens the candidate. Click a plain cell (the update date), not the name link.
     const row = page.getByTestId('candidate-row').filter({ hasText: firstName });
     await expect(row.locator('a[href^="tel:"]')).toHaveCount(0);
-    await row.getByRole('cell').last().click();
+    await row.locator('td:not([data-row-link-ignore])').last().click();
     await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();

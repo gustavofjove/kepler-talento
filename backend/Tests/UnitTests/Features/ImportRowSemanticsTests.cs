@@ -79,7 +79,6 @@ public sealed class ImportRowSemanticsTests
     [InlineData("first_name", "", ImportReasonCodes.FieldRequired)]
     [InlineData("email", "", ImportReasonCodes.FieldRequired)]
     [InlineData("email", "two@@example.test", ImportReasonCodes.EmailInvalid)]
-    [InlineData("status", "archived", ImportReasonCodes.StatusUnknown)]
     [InlineData("consent_at", "17/03/2026", ImportReasonCodes.DateInvalid)]
     [InlineData("languages", "Inglés", ImportReasonCodes.ReferenceMalformed)]
     [InlineData("languages", "Klingon:B2", ImportReasonCodes.ReferenceUnresolved)]
@@ -204,11 +203,12 @@ public sealed class ImportRowSemanticsTests
     }
 
     [Fact]
-    public void Absent_status_defaults_to_new_as_a_direct_create_would()
+    public void The_contract_has_no_status_or_availability_column()
     {
-        var evaluation = NewEvaluator().Evaluate(Row(1, ("first_name", "Ana"), ("last_name", "Ruiz"), ("email", "ana@example.test")));
-
-        Assert.Equal("new", evaluation.Command!.Status);
+        // KTL-36: a file still carrying either is refused as having an unknown column, and an
+        // imported candidate starts with an unknown availability check like any created one.
+        Assert.DoesNotContain("status", CandidateImportContract.KnownColumns);
+        Assert.DoesNotContain("availability", CandidateImportContract.KnownColumns);
     }
 
     [Fact]

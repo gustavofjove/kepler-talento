@@ -19,8 +19,7 @@ public sealed record CandidateSummaryResponse(
     string Location,
     string Province,
     string Country,
-    string Availability,
-    string Status,
+    CandidateAvailabilityResponse Availability,
     string Source,
     string Notes,
     string ReceivedAt,
@@ -42,8 +41,11 @@ public sealed record CandidateSummaryResponse(
         summary.Location,
         summary.Province,
         summary.Country,
-        summary.Availability,
-        summary.Status,
+        new CandidateAvailabilityResponse(
+            summary.AvailabilityState,
+            CandidateDates.ToWire(summary.AvailabilityCheckedOn),
+            CandidateDates.ToWire(summary.AvailabilityUntil),
+            summary.AvailabilityCheckedByDisplayName),
         summary.Source,
         summary.Notes,
         CandidateDates.ToWire(summary.ReceivedAt),
@@ -68,8 +70,7 @@ public sealed record CandidateSummaryResponse(
         candidate.Location,
         candidate.Province,
         candidate.Country,
-        candidate.Availability,
-        candidate.Status,
+        CandidateAvailabilityResponse.From(candidate),
         candidate.Source,
         candidate.Notes,
         CandidateDates.ToWire(candidate.ReceivedAt),
@@ -81,6 +82,23 @@ public sealed record CandidateSummaryResponse(
         candidate.Version,
         documentCount,
         primaryDocumentId);
+}
+
+/// <summary>
+/// The latest availability check (KTL-36). Dates are <c>yyyy-MM-dd</c> or the empty string. The
+/// checker is exposed as a display name only, as a note author is; never as a user id.
+/// </summary>
+public sealed record CandidateAvailabilityResponse(
+    string State,
+    string CheckedOn,
+    string Until,
+    string? CheckedByDisplayName)
+{
+    public static CandidateAvailabilityResponse From(Candidate candidate) => new(
+        candidate.AvailabilityState,
+        CandidateDates.ToWire(candidate.AvailabilityCheckedOn),
+        CandidateDates.ToWire(candidate.AvailabilityUntil),
+        candidate.CheckedBy?.DisplayName);
 }
 
 public sealed record CandidateLanguageResponse(
@@ -181,8 +199,7 @@ public sealed record CandidateResponse(
     string Location,
     string Province,
     string Country,
-    string Availability,
-    string Status,
+    CandidateAvailabilityResponse Availability,
     string Source,
     string Notes,
     string ReceivedAt,
@@ -235,7 +252,9 @@ public static class CandidateErrors
     public const string NotFound = "candidate.not_found";
     public const string FirstNameRequired = "candidate.first_name.required";
     public const string LastNameRequired = "candidate.last_name.required";
-    public const string StatusInvalid = "candidate.status.invalid";
+    public const string AvailabilityInvalid = "candidate.availability.invalid";
+    public const string AvailabilityCheckedOnInvalid = "candidate.availability.checked_on.invalid";
+    public const string AvailabilityUntilInvalid = "candidate.availability.until.invalid";
     public const string DateInvalid = "candidate.date.invalid";
     public const string ConcurrencyConflict = "candidate.concurrency.conflict";
     public const string CatalogValueUnknown = "candidate.catalog_value.unknown";
@@ -255,7 +274,11 @@ public static class CandidateErrors
     public const string NotFoundMessage = "Candidato no encontrado.";
     public const string FirstNameRequiredMessage = "El nombre es obligatorio.";
     public const string LastNameRequiredMessage = "Los apellidos son obligatorios.";
-    public const string StatusInvalidMessage = "El estado del candidato no es válido.";
+    public const string AvailabilityInvalidMessage = "La disponibilidad indicada no es válida.";
+    public const string AvailabilityCheckedOnInvalidMessage =
+        "La fecha de comprobación es obligatoria, no puede ser futura y solo se indica si la disponibilidad está comprobada.";
+    public const string AvailabilityUntilInvalidMessage =
+        "La fecha «hasta» solo se indica con «No disponible» y no puede ser anterior a la fecha de comprobación.";
     public const string DateInvalidMessage = "La fecha no es válida.";
     public const string ConcurrencyConflictMessage =
         "El candidato ha cambiado desde que se cargó. Vuelva a cargarlo e inténtelo de nuevo.";
@@ -343,11 +366,6 @@ internal static class CandidateGuards
 
 internal static class CandidateValidators
 {
-    public static IRuleBuilderOptions<T, string> MustBeAPermittedStatus<T>(this IRuleBuilder<T, string> rule) =>
-        rule.Must(CandidateStatuses.IsKnown)
-            .WithErrorCode(CandidateErrors.StatusInvalid)
-            .WithMessage(CandidateErrors.StatusInvalidMessage);
-
     /// <summary>
     /// A text limit (KTL-33). The column width used to enforce it; once the column holds
     /// ciphertext the application must. Null is not this rule's concern.

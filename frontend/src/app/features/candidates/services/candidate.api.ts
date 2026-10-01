@@ -1,6 +1,7 @@
 import type { ApiTransport } from '../../../core/http/api-transport';
 import type {
   Candidate,
+  CandidateAvailabilityInput,
   CandidateDraft,
   CandidateEducation,
   CandidateExperience,
@@ -31,6 +32,12 @@ export interface CandidateGateway {
   create(draft: CandidateDraft): Promise<Candidate>;
   update(id: string, draft: CandidateDraft, version: number): Promise<Candidate>;
   setActive(id: string, isActive: boolean, version: number): Promise<Candidate>;
+  /** Records an availability check (KTL-36). The server names the checker; the client never does. */
+  recordAvailability(
+    id: string,
+    input: CandidateAvailabilityInput,
+    version: number,
+  ): Promise<Candidate>;
   setLanguages(id: string, languages: CandidateLanguage[], version: number): Promise<Candidate>;
   setPrograms(id: string, programs: CandidateProgram[], version: number): Promise<Candidate>;
   setEducation(id: string, education: CandidateEducation[], version: number): Promise<Candidate>;
@@ -63,7 +70,7 @@ export class CandidateApi implements CandidateGateway {
       body: JSON.stringify({
         filters: {
           text: query.text,
-          statusValues: query.status ? [query.status] : [],
+          availabilityValues: query.availability ? [query.availability] : [],
           hasCv: query.hasCv,
         },
         page: query.page,
@@ -98,6 +105,23 @@ export class CandidateApi implements CandidateGateway {
     return this.transport.request<Candidate>(`/candidates/${encodeURIComponent(id)}/active`, {
       method: 'PUT',
       body: JSON.stringify({ isActive, version }),
+    });
+  }
+
+  recordAvailability(
+    id: string,
+    input: CandidateAvailabilityInput,
+    version: number,
+  ): Promise<Candidate> {
+    return this.transport.request<Candidate>(`/candidates/${encodeURIComponent(id)}/availability`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        state: input.state,
+        // Absent rather than empty: an unknown check carries no dates at all.
+        checkedOn: input.checkedOn || null,
+        until: input.until || null,
+        version,
+      }),
     });
   }
 

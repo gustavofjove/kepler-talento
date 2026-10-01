@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import type { CandidateStatus } from '../models/candidate.models';
+import type { CandidateAvailabilityState } from '../models/candidate.models';
 import {
+  AVAILABILITY_OPTIONS,
   type CandidateFilters,
   type FilterChip,
   type HasCvFilter,
-  STATUS_OPTIONS,
-  statusLabel,
 } from '../pages/candidate-list.logic';
+import { availabilityLabel } from './candidate-availability.logic';
 
 interface Props {
   filters: CandidateFilters;
@@ -44,19 +44,21 @@ export function CandidateFiltersBar({
           />
         </div>
         <div className="field">
-          <label htmlFor="filter-status">{t('candidates.list.filter.status')}</label>
+          <label htmlFor="filter-availability">{t('candidates.list.filter.availability')}</label>
           <select
-            id="filter-status"
-            name="status"
-            value={filters.statusFilter}
+            id="filter-availability"
+            name="availability"
+            value={filters.availabilityFilter}
             onChange={(event) =>
-              onPatch({ statusFilter: event.target.value as CandidateStatus | '' })
+              onPatch({
+                availabilityFilter: event.target.value as CandidateAvailabilityState | '',
+              })
             }
           >
             <option value="">{t('candidates.list.filter.all')}</option>
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {statusLabel(status, t)}
+            {AVAILABILITY_OPTIONS.map((state) => (
+              <option key={state} value={state}>
+                {availabilityLabel(state, t)}
               </option>
             ))}
           </select>

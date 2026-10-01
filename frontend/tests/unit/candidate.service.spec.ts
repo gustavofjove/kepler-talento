@@ -21,7 +21,7 @@ describe('CandidateService', () => {
     sortField: 'updatedAt',
     sortDirection: 'desc' as const,
     text: '',
-    status: '' as const,
+    availability: '' as const,
     hasCv: '' as const,
     includeInactive: false,
   };
@@ -29,6 +29,27 @@ describe('CandidateService', () => {
     (await service.listPage({ ...listQuery, includeInactive })).items.map(
       (item) => item.candidateId,
     );
+
+  it('records availability with the cached version and adopts the response for the next write', async () => {
+    api.seed({ id: 'c-check', firstName: 'Ana', version: 7 });
+    await service.ensureAggregate('c-check');
+    const record = vi.spyOn(api, 'recordAvailability');
+    const update = vi.spyOn(api, 'update');
+
+    const checked = await service.recordAvailability('c-check', {
+      state: 'available',
+      checkedOn: '2026-09-20',
+      until: '',
+    });
+    expect(record).toHaveBeenCalledWith(
+      'c-check',
+      { state: 'available', checkedOn: '2026-09-20', until: '' },
+      7,
+    );
+    expect(service.find('c-check')?.availability).toEqual(checked.availability);
+    await service.update('c-check', { ...EMPTY_CANDIDATE_DRAFT, firstName: 'Ana' });
+    expect(update).toHaveBeenCalledWith('c-check', expect.anything(), 8);
+  });
 
   it('creates a candidate with audit timestamps and empty relations', async () => {
     const candidate = await service.create({

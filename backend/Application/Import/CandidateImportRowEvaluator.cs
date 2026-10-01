@@ -94,16 +94,6 @@ public sealed class CandidateImportRowEvaluator(
             return Reject(CandidateImportContract.Email, ImportReasonCodes.EmailInvalid);
         }
 
-        var status = row[CandidateImportContract.Status].Trim();
-        if (status.Length == 0)
-        {
-            status = CandidateStatuses.New;
-        }
-        if (!CandidateStatuses.IsKnown(status))
-        {
-            return Reject(CandidateImportContract.Status, ImportReasonCodes.StatusUnknown);
-        }
-
         foreach (var column in new[] { CandidateImportContract.ReceivedAt, CandidateImportContract.ConsentAt, CandidateImportContract.ReviewDueAt })
         {
             if (!IsContractDate(row[column]))
@@ -127,8 +117,6 @@ public sealed class CandidateImportRowEvaluator(
             row[CandidateImportContract.Location].Trim(),
             row[CandidateImportContract.Province].Trim(),
             row[CandidateImportContract.Country].Trim(),
-            row[CandidateImportContract.Availability].Trim(),
-            status,
             row[CandidateImportContract.Source].Trim(),
             row[CandidateImportContract.Notes],
             row[CandidateImportContract.ReceivedAt].Trim(),
@@ -231,7 +219,6 @@ public sealed class CandidateImportRowEvaluator(
     {
         nameof(CreateCandidateCommand.FirstName) => CandidateImportContract.FirstName,
         nameof(CreateCandidateCommand.LastName) => CandidateImportContract.LastName,
-        nameof(CreateCandidateCommand.Status) => CandidateImportContract.Status,
         nameof(CreateCandidateCommand.ReceivedAt) => CandidateImportContract.ReceivedAt,
         nameof(CreateCandidateCommand.ConsentAt) => CandidateImportContract.ConsentAt,
         nameof(CreateCandidateCommand.ReviewDueAt) => CandidateImportContract.ReviewDueAt,

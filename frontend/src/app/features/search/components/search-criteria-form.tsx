@@ -13,12 +13,17 @@ import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogFamilyRows } from '../../catalogs/components/catalog-family-rows';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
-import type { CandidateStatus } from '../../candidates/models/candidate.models';
+import type { CandidateAvailabilityState } from '../../candidates/models/candidate.models';
 import type { CriteriaFilter, SearchFilters } from '../models/search.models';
 import { CriteriaGroup } from './criteria-group';
 import { CRITERIA_GROUPS, type CriteriaKind } from './criteria-group.model';
-import { statusOptions } from './search-criteria.logic';
-import { cvChoices, selectedStatuses, toggleCv, toggleStatus } from './search-basic-filters.logic';
+import { availabilityOptions } from './search-criteria.logic';
+import {
+  cvChoices,
+  selectedAvailability,
+  toggleAvailability,
+  toggleCv,
+} from './search-basic-filters.logic';
 import { SearchCriteriaSummary } from './search-criteria-summary';
 import './search-filters.css';
 
@@ -53,40 +58,48 @@ export function SearchCriteriaForm({
   const { t } = useTranslation();
   const catalogs = useCatalogs();
   const catalogStatus = useCatalogStatus();
-  const options = useMemo(() => statusOptions(t).slice(0, 7), [t]);
-  const statusValues = useMemo(() => options.map((option) => option.value), [options]);
-  const selected = selectedStatuses(filters.statusValues, statusValues);
+  const options = useMemo(() => availabilityOptions(t), [t]);
+  const availabilityValues = useMemo(() => options.map((option) => option.value), [options]);
+  const selected = selectedAvailability(filters.availabilityValues, availabilityValues);
   const cv = cvChoices(filters.hasCv);
-  const [statusOpen, setStatusOpen] = useState(false);
-  const statusButtonRef = useRef<HTMLButtonElement>(null);
-  const statusPanelRef = useRef<HTMLDivElement>(null);
-  const statusPanelId = useId();
-  const statusSummary =
+  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+  const availabilityButtonRef = useRef<HTMLButtonElement>(null);
+  const availabilityPanelRef = useRef<HTMLDivElement>(null);
+  const availabilityPanelId = useId();
+  const checkedFromId = useId();
+  const availabilitySummary =
     selected.length === options.length
-      ? t('search.criteria.status.all')
+      ? t('search.criteria.availability.all')
       : selected.length === 1
         ? options.find((option) => option.value === selected[0])?.label
-        : t('search.criteria.status.count', { count: selected.length });
+        : t('search.criteria.availability.count', { count: selected.length });
 
   const collapsible = onCollapsedChange !== undefined;
   const isCollapsed = collapsible && Boolean(collapsed);
 
   useEffect(() => {
-    if (!statusOpen) return;
+    if (!availabilityOpen) return;
 
     const onPointerDown = (event: PointerEvent): void => {
       const target = event.target;
       if (!(target instanceof Node)) return;
-      if (statusButtonRef.current?.contains(target) || statusPanelRef.current?.contains(target))
+      if (
+        availabilityButtonRef.current?.contains(target) ||
+        availabilityPanelRef.current?.contains(target)
+      )
         return;
-      setStatusOpen(false);
+      setAvailabilityOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return;
       const focused = document.activeElement;
-      if (focused !== statusButtonRef.current && !statusPanelRef.current?.contains(focused)) return;
-      setStatusOpen(false);
-      statusButtonRef.current?.focus();
+      if (
+        focused !== availabilityButtonRef.current &&
+        !availabilityPanelRef.current?.contains(focused)
+      )
+        return;
+      setAvailabilityOpen(false);
+      availabilityButtonRef.current?.focus();
     };
 
     document.addEventListener('pointerdown', onPointerDown);
@@ -95,13 +108,13 @@ export function SearchCriteriaForm({
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [statusOpen]);
+  }, [availabilityOpen]);
 
   useLayoutEffect(() => {
-    if (!statusOpen) return;
+    if (!availabilityOpen) return;
     const placePanel = (): void => {
-      const button = statusButtonRef.current;
-      const panel = statusPanelRef.current;
+      const button = availabilityButtonRef.current;
+      const panel = availabilityPanelRef.current;
       if (!button || !panel) return;
       const buttonLeft = button.getBoundingClientRect().left;
       const panelWidth = panel.getBoundingClientRect().width;
@@ -112,13 +125,13 @@ export function SearchCriteriaForm({
     placePanel();
     window.addEventListener('resize', placePanel);
     return () => window.removeEventListener('resize', placePanel);
-  }, [statusOpen]);
+  }, [availabilityOpen]);
 
-  const changeStatus = (status: CandidateStatus, checked: boolean): void => {
-    const next = toggleStatus(filters.statusValues, statusValues, status, checked);
+  const changeAvailability = (state: CandidateAvailabilityState, checked: boolean): void => {
+    const next = toggleAvailability(filters.availabilityValues, availabilityValues, state, checked);
     if (next.length === selected.length && next.every((value, index) => value === selected[index]))
       return;
-    onFiltersChange({ ...filters, statusValues: next });
+    onFiltersChange({ ...filters, availabilityValues: next });
   };
 
   // A value appears once per family: the picker never offers one already held, so its
@@ -186,53 +199,59 @@ export function SearchCriteriaForm({
                   </label>
                 ))}
               </div>
-              <div className="status-picker">
+              <div className="availability-picker">
                 <button
-                  ref={statusButtonRef}
+                  ref={availabilityButtonRef}
                   type="button"
-                  className="status-disclosure"
-                  data-testid="status-disclosure"
-                  aria-expanded={statusOpen}
-                  aria-controls={statusPanelId}
-                  onClick={() => setStatusOpen((open) => !open)}
+                  className="availability-disclosure"
+                  data-testid="availability-disclosure"
+                  aria-expanded={availabilityOpen}
+                  aria-controls={availabilityPanelId}
+                  onClick={() => setAvailabilityOpen((open) => !open)}
                 >
-                  <span className="basic-field-label">{t('search.criteria.statuses')}</span>
-                  <span>{statusSummary}</span>
-                  <span aria-hidden="true">{statusOpen ? '▴' : '▾'}</span>
+                  <span className="basic-field-label">
+                    {t('search.criteria.availability.label')}
+                  </span>
+                  <span>{availabilitySummary}</span>
+                  <span aria-hidden="true">{availabilityOpen ? '▴' : '▾'}</span>
                 </button>
-                {statusOpen ? (
+                {availabilityOpen ? (
                   <div
-                    ref={statusPanelRef}
-                    id={statusPanelId}
-                    className="status-panel"
+                    ref={availabilityPanelRef}
+                    id={availabilityPanelId}
+                    className="availability-panel"
                     role="group"
-                    aria-label={t('search.criteria.statuses')}
+                    aria-label={t('search.criteria.availability.label')}
                   >
-                    <div className="status-options">
+                    <div className="availability-options">
                       {options.map((option) => (
-                        <div className="status-option" key={option.value}>
+                        <div className="availability-option" key={option.value}>
                           <label className="inline-check">
                             <input
                               type="checkbox"
-                              name="statusValues"
-                              data-status={option.value}
+                              name="availabilityValues"
+                              data-availability={option.value}
                               checked={selected.includes(option.value)}
-                              onChange={(event) => changeStatus(option.value, event.target.checked)}
+                              onChange={(event) =>
+                                changeAvailability(option.value, event.target.checked)
+                              }
                             />
                             {option.label}
                           </label>
                           <button
                             type="button"
-                            className="status-only"
-                            data-testid={`status-only-${option.value}`}
+                            className="availability-only"
+                            data-testid={`availability-only-${option.value}`}
                             data-selected={selected.length === 1 && selected[0] === option.value}
-                            aria-label={t('search.criteria.status.only', { status: option.label })}
-                            title={t('search.criteria.status.only', { status: option.label })}
+                            aria-label={t('search.criteria.availability.only', {
+                              value: option.label,
+                            })}
+                            title={t('search.criteria.availability.only', { value: option.label })}
                             onClick={() =>
-                              onFiltersChange({ ...filters, statusValues: [option.value] })
+                              onFiltersChange({ ...filters, availabilityValues: [option.value] })
                             }
                           >
-                            <span className="status-only-icon" aria-hidden="true" />
+                            <span className="availability-only-icon" aria-hidden="true" />
                           </button>
                         </div>
                       ))}
@@ -240,15 +259,28 @@ export function SearchCriteriaForm({
                     {selected.length < options.length ? (
                       <button
                         type="button"
-                        className="button ghost small status-select-all"
-                        data-testid="status-select-all"
-                        onClick={() => onFiltersChange({ ...filters, statusValues })}
+                        className="button ghost small availability-select-all"
+                        data-testid="availability-select-all"
+                        onClick={() => onFiltersChange({ ...filters, availabilityValues })}
                       >
-                        {t('search.criteria.status.selectAll')}
+                        {t('search.criteria.availability.selectAll')}
                       </button>
                     ) : null}
                   </div>
                 ) : null}
+              </div>
+              <div className="inline-field basic-checked-from-field">
+                <label htmlFor={checkedFromId}>{t('search.criteria.checkedFrom.label')}</label>
+                <input
+                  id={checkedFromId}
+                  name="availabilityCheckedFrom"
+                  type="date"
+                  data-testid="availability-checked-from"
+                  value={filters.availabilityCheckedFrom}
+                  onChange={(event) =>
+                    onFiltersChange({ ...filters, availabilityCheckedFrom: event.target.value })
+                  }
+                />
               </div>
             </div>
 

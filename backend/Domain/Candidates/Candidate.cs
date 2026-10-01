@@ -1,3 +1,5 @@
+using KeplerTalento.Domain.Identity;
+
 namespace KeplerTalento.Domain.Candidates;
 
 /// <summary>
@@ -26,7 +28,6 @@ public sealed class Candidate
         Id = id;
         FirstName = firstName;
         LastName = lastName;
-        Status = CandidateStatuses.New;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = createdAtUtc;
     }
@@ -39,8 +40,6 @@ public sealed class Candidate
     public string Location { get; private set; } = string.Empty;
     public string Province { get; private set; } = string.Empty;
     public string Country { get; private set; } = string.Empty;
-    public string Availability { get; private set; } = string.Empty;
-    public string Status { get; private set; } = CandidateStatuses.New;
     public string Source { get; private set; } = string.Empty;
     public string Notes { get; private set; } = string.Empty;
     public DateOnly? ReceivedAt { get; private set; }
@@ -50,6 +49,25 @@ public sealed class Candidate
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public DateTimeOffset? DeletedAtUtc { get; private set; }
+
+    /// <summary>
+    /// The latest availability check (KTL-36): one of <see cref="CandidateAvailabilityStates"/>.
+    /// Only the latest check is kept; it changes only through <see cref="RecordAvailability"/>.
+    /// </summary>
+    public string AvailabilityState { get; private set; } = CandidateAvailabilityStates.Unknown;
+
+    /// <summary>The calendar day the check was made. Null exactly when the state is unknown.</summary>
+    public DateOnly? AvailabilityCheckedOn { get; private set; }
+
+    /// <summary>The day until which the candidate is unavailable. Only on an unavailable check.</summary>
+    public DateOnly? AvailabilityUntil { get; private set; }
+
+    /// <summary>
+    /// Who recorded the check. Nullable even for a known check, because the current actor may
+    /// have no stored user (the development actor); always null for an unknown check.
+    /// </summary>
+    public Guid? AvailabilityCheckedByUserId { get; private set; }
+    public User? CheckedBy { get; private set; }
 
     /// <summary>
     /// Provenance of a record loaded from the legacy Access dataset. Null for records the
@@ -144,7 +162,8 @@ public sealed class Candidate
 
     /// <summary>
     /// Applies the editable field set of a candidate, leaving identity, consent and
-    /// retention metadata alone. Status travels through <see cref="ChangeStatus"/>.
+    /// retention metadata alone. The availability check travels through
+    /// <see cref="RecordAvailability"/>, never through this method.
     /// </summary>
     public void UpdateDetails(
         string firstName,
@@ -154,41 +173,61 @@ public sealed class Candidate
         string location,
         string province,
         string country,
-        string availability,
         string source,
         string notes,
         DateTimeOffset updatedAtUtc)
     {
         SetIdentity(firstName, lastName, updatedAtUtc);
-        SetDetails(
-            phone,
-            email,
-            location,
-            province,
-            country,
-            availability,
-            Status,
-            source,
-            notes,
-            updatedAtUtc);
+        SetDetails(phone, email, location, province, country, source, notes, updatedAtUtc);
     }
 
     /// <summary>
-    /// Moves the candidate to one of the permitted statuses. An unknown value is refused
-    /// here as well as by the database check constraint, so a status can never be stored
-    /// outside the set whichever path writes it.
+    /// Records an availability check, replacing the previous one. The invariants are refused
+    /// here as well as by the validator and the database check constraints, so an inconsistent
+    /// check can never be stored whichever path writes it. Recording <c>unknown</c> clears the
+    /// dates and the checker.
     /// </summary>
-    public void ChangeStatus(string status, DateTimeOffset updatedAtUtc)
+    public void RecordAvailability(
+        string state,
+        DateOnly? checkedOn,
+        DateOnly? until,
+        Guid? checkedByUserId,
+        DateTimeOffset updatedAtUtc)
     {
-        if (!CandidateStatuses.IsKnown(status))
+        if (!CandidateAvailabilityStates.IsKnown(state))
         {
-            throw new ArgumentOutOfRangeException(nameof(status));
+            throw new ArgumentOutOfRangeException(nameof(state));
         }
-        if (Status == status)
+
+        if (state == CandidateAvailabilityStates.Unknown)
         {
+            if (checkedOn is not null || until is not null)
+            {
+                throw new ArgumentException("An unknown availability carries no dates.", nameof(checkedOn));
+            }
+            AvailabilityState = state;
+            AvailabilityCheckedOn = null;
+            AvailabilityUntil = null;
+            AvailabilityCheckedByUserId = null;
+            UpdatedAtUtc = updatedAtUtc;
             return;
         }
-        Status = status;
+
+        if (checkedOn is null)
+        {
+            throw new ArgumentException("A known availability needs its check date.", nameof(checkedOn));
+        }
+        if (until is not null && (state != CandidateAvailabilityStates.Unavailable || until < checkedOn))
+        {
+            throw new ArgumentException(
+                "An until date is only valid on an unavailable check, on or after the check date.",
+                nameof(until));
+        }
+
+        AvailabilityState = state;
+        AvailabilityCheckedOn = checkedOn;
+        AvailabilityUntil = until;
+        AvailabilityCheckedByUserId = checkedByUserId;
         UpdatedAtUtc = updatedAtUtc;
     }
 
@@ -205,23 +244,15 @@ public sealed class Candidate
         string location,
         string province,
         string country,
-        string availability,
-        string status,
         string source,
         string notes,
         DateTimeOffset updatedAtUtc)
     {
-        if (!CandidateStatuses.IsKnown(status))
-        {
-            throw new ArgumentOutOfRangeException(nameof(status));
-        }
         Phone = phone.Trim();
         Email = email.Trim();
         Location = location.Trim();
         Province = province.Trim();
         Country = country.Trim();
-        Availability = availability.Trim();
-        Status = status;
         Source = source.Trim();
         Notes = notes;
         UpdatedAtUtc = updatedAtUtc;

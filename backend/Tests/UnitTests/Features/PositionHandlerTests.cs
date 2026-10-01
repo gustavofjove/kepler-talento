@@ -193,7 +193,9 @@ public sealed class PositionHandlerTests
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"version\":99}")]
-    [InlineData("{\"version\":1,\"skillMode\":\"SOME\"}")]
+    [InlineData("{\"version\":2,\"skillMode\":\"SOME\"}")]
+    // KTL-36: a version 1 document is refused rather than upgraded on read.
+    [InlineData("{\"version\":1,\"statusValues\":[\"new\"]}")]
     public async Task Get_refuses_unreadable_stored_requirements_instead_of_returning_empty_ones(string stored)
     {
         var repository = new StubPositionRepository();
@@ -246,7 +248,9 @@ public sealed class PositionHandlerTests
         Assert.Equal("ALL", read.Requirements.SkillMode);
         Assert.Equal("Java", Assert.Single(read.Requirements.SkillCriteria!)!.Value);
         Assert.Equal("yes", read.Requirements.HasCv);
-        Assert.Contains("\"version\":1", repository.Items.Single().Requirements, StringComparison.Ordinal);
+        Assert.Contains("\"version\":2", repository.Items.Single().Requirements, StringComparison.Ordinal);
+        Assert.Contains("\"availabilityValues\":[\"unknown\",\"available\",\"unavailable\"]", repository.Items.Single().Requirements, StringComparison.Ordinal);
+        Assert.DoesNotContain("statusValues", repository.Items.Single().Requirements, StringComparison.Ordinal);
     }
 
     [Fact]

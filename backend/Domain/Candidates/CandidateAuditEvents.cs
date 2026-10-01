@@ -15,7 +15,18 @@ public static class CandidateAuditEvents
 {
     public const string Created = "candidate.created";
     public const string Updated = "candidate.updated";
+
+    /// <summary>
+    /// No longer written since KTL-36 removed the candidate status. It stays in the catalogue so
+    /// that events recorded before then can still be read and filtered.
+    /// </summary>
     public const string StatusChanged = "candidate.status_changed";
+
+    /// <summary>
+    /// An availability check was recorded (KTL-36). Like every candidate event it carries the
+    /// candidate id only, never the value or the dates.
+    /// </summary>
+    public const string AvailabilityChecked = "candidate.availability_checked";
     public const string Removed = "candidate.removed";
     public const string Restored = "candidate.restored";
     public const string RelationsChanged = "candidate.relations_changed";

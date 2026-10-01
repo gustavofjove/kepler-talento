@@ -12,13 +12,13 @@ relies on.
 ### Requirement: Candidate record field set
 
 The candidate record SHALL persist identity (first name, last name), contact details
-(phone, email), location (location, province, country), availability, status, source,
-notes, consent and retention metadata (received date, consent date, review due date),
-active state, creation and update timestamps, and a concurrency token. Identity, contact,
-location, country, availability, source and notes SHALL be persisted encrypted as defined by
-the personal-data-encryption capability. Because the database cannot inspect an encrypted
-value, required identity SHALL be enforced by application validation before any write, and
-the database SHALL still reject a missing value.
+(phone, email), location (location, province, country), source, notes, the availability
+check (value, check date, until date and checker), consent and retention metadata (received
+date, consent date, review due date), active state, creation and update timestamps, and a
+concurrency token. Identity, contact, location, country, source and notes SHALL be persisted
+encrypted as defined by the personal-data-encryption capability. Because the database cannot
+inspect an encrypted value, required identity SHALL be enforced by application validation before
+any write, and the database SHALL still reject a missing value.
 
 #### Scenario: Candidate is persisted and read back
 
@@ -35,22 +35,6 @@ the database SHALL still reject a missing value.
 
 - **WHEN** a direct database write supplies no value for first name or last name
 - **THEN** the database rejects the write
-
-### Requirement: Constrained candidate status
-
-Candidate status SHALL be restricted at the database level to `new`, `available`,
-`in_process`, `hired`, or `rejected`. The restriction SHALL be enforced by a constraint
-or lookup relationship, not by application convention alone.
-
-#### Scenario: Unknown status is written
-
-- **WHEN** a write sets a status outside the permitted set
-- **THEN** the database rejects the write
-
-#### Scenario: Permitted status is written
-
-- **WHEN** a write sets any of the five permitted statuses
-- **THEN** the write succeeds and the status reads back unchanged
 
 ### Requirement: Consent and retention metadata integrity
 
@@ -289,3 +273,35 @@ filters on tags, and listing a candidate's active notes by recency.
 - **WHEN** a candidate's active notes are queried newest first
 - **THEN** the query is served by an index covering the owning candidate and creation time
   rather than a full scan
+
+### Requirement: Constrained availability check
+
+The availability check SHALL be constrained at the database level, not by application convention
+alone:
+
+- the value SHALL be `unknown`, `available` or `unavailable`, and SHALL default to `unknown`;
+- an `unknown` check SHALL have no check date and no checker, and a known check SHALL have a check
+  date;
+- an until date SHALL exist only on an `unavailable` check and SHALL NOT be earlier than its check
+  date;
+- the checker SHALL reference an existing application user, and that user SHALL NOT be deletable
+  while referenced.
+
+The value, dates and checker SHALL be stored in clear, because they are not free text. The
+candidate record SHALL hold no status and no free-text availability column.
+
+#### Scenario: Unknown value is written
+
+- **WHEN** a direct database write sets an availability value outside the permitted set
+- **THEN** the database rejects the write
+
+#### Scenario: Inconsistent check is written
+
+- **WHEN** a direct database write stores an `unknown` check with a check date, a known check
+  without one, an until date on a non-`unavailable` check, or an until date before the check date
+- **THEN** the database rejects the write
+
+#### Scenario: Candidate is written without availability
+
+- **WHEN** a candidate row is inserted without availability values
+- **THEN** it is stored as `unknown` with no dates and no checker

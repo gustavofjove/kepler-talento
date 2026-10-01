@@ -1,16 +1,18 @@
 import type { TFunction } from 'i18next';
-import type { CandidateStatus } from '../../candidates/models/candidate.models';
+import { formatDay } from '../../../core/i18n/format';
+import type { CandidateAvailabilityState } from '../../candidates/models/candidate.models';
+import { availabilityLabel } from '../../candidates/components/candidate-availability.logic';
 import {
-  ALL_CANDIDATE_STATUSES,
+  ALL_AVAILABILITY_STATES,
   type MultiValueMode,
   type SearchFilters,
 } from '../models/search.models';
 import { CATALOG_FAMILY_ORDER } from '../../catalogs/components/catalog-family-rows.logic';
 import { CRITERIA_GROUPS } from './criteria-group.model';
-import { selectedStatuses } from './search-basic-filters.logic';
+import { selectedAvailability } from './search-basic-filters.logic';
 
-export interface StatusOption {
-  value: CandidateStatus;
+export interface AvailabilityOption {
+  value: CandidateAvailabilityState;
   label: string;
 }
 
@@ -19,11 +21,8 @@ export interface SummaryGroup {
   values: string[];
 }
 
-export function statusOptions(t: TFunction): StatusOption[] {
-  return ALL_CANDIDATE_STATUSES.map((value) => ({
-    value,
-    label: t(`search.criteria.status.${value}`),
-  }));
+export function availabilityOptions(t: TFunction): AvailabilityOption[] {
+  return ALL_AVAILABILITY_STATES.map((value) => ({ value, label: availabilityLabel(value, t) }));
 }
 
 const modeLabel = (mode: MultiValueMode, t: TFunction): string =>
@@ -34,22 +33,28 @@ const modeLabel = (mode: MultiValueMode, t: TFunction): string =>
  * "says" in words: the search page, the preset list and the preset detail all render it.
  */
 export function buildSummaryGroups(filters: SearchFilters, t: TFunction): SummaryGroup[] {
-  const options = statusOptions(t);
+  const options = availabilityOptions(t);
   const groups: SummaryGroup[] = [];
-  const selected = selectedStatuses(
-    filters.statusValues,
+  const selected = selectedAvailability(
+    filters.availabilityValues,
     options.map((option) => option.value),
   );
-  const statusLabel = (status: string): string =>
-    options.find((option) => option.value === status)?.label ?? status;
+  const optionLabel = (value: string): string =>
+    options.find((option) => option.value === value)?.label ?? value;
 
   if (filters.text.trim()) {
     groups.push({ label: t('search.criteria.text'), values: [filters.text.trim()] });
   }
   if (selected.length < options.length) {
     groups.push({
-      label: t('search.criteria.statuses'),
-      values: selected.map((status) => statusLabel(status)),
+      label: t('search.criteria.availability.label'),
+      values: selected.map((value) => optionLabel(value)),
+    });
+  }
+  if (filters.availabilityCheckedFrom) {
+    groups.push({
+      label: t('search.criteria.checkedFrom.label'),
+      values: [formatDay(filters.availabilityCheckedFrom)],
     });
   }
   if (filters.hasCv) {

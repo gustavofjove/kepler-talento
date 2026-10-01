@@ -162,8 +162,6 @@ public sealed class EncryptedStorageSecurityTests(PostgreSqlFixture database) : 
             location = "Albacete",
             province = "Albacete",
             country = "España",
-            availability = "Inmediata",
-            status = "available",
             source = "Referencia",
             notes = Notes,
             receivedAt = (string?)null,

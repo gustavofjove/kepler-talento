@@ -18,7 +18,6 @@ public static class CandidateTextLimits
     public const int Location = 160;
     public const int Province = 120;
     public const int Country = 120;
-    public const int Availability = 120;
     public const int Source = 120;
 
     public const int Degree = 200;

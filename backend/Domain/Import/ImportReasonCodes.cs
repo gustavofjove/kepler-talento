@@ -13,6 +13,12 @@ public static class ImportReasonCodes
     public const string FieldTooLong = "field.too_long";
     public const string EmailInvalid = "email.invalid";
     public const string DateInvalid = "date.invalid";
+
+    /// <summary>
+    /// Retired by KTL-36, which removed the <c>status</c> column from the contract: no evaluation
+    /// produces it any more. It stays in <see cref="RowCodes"/> only so outcomes stored before then
+    /// keep satisfying the table's check constraint and keep reading back.
+    /// </summary>
     public const string StatusUnknown = "status.unknown";
     public const string ReferenceMalformed = "reference.malformed";
     public const string ReferenceUnresolved = "reference.unresolved";

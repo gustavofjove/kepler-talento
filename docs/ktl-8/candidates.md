@@ -11,6 +11,7 @@ for candidate data, holds no copy of it, and has no local fallback.
 | GET    | `/api/candidates/{id}`                   | `candidates.read`   |
 | POST   | `/api/candidates`                        | `candidates.create` |
 | PUT    | `/api/candidates/{id}`                   | `candidates.update` |
+| PUT    | `/api/candidates/{id}/availability`      | `candidates.update` |
 | PUT    | `/api/candidates/{id}/active`            | `candidates.delete` |
 | PUT    | `/api/candidates/{id}/languages`         | `candidates.update` |
 | PUT    | `/api/candidates/{id}/programs`          | `candidates.update` |
@@ -73,24 +74,33 @@ fails closed without a real actor; authentication remains deferred.
 
 ## Error codes
 
-| Code                                   | Status | Spanish message                                                                        |
-| -------------------------------------- | ------ | -------------------------------------------------------------------------------------- |
-| `candidate.first_name.required`        | 400    | `El nombre es obligatorio.`                                                            |
-| `candidate.last_name.required`         | 400    | `Los apellidos son obligatorios.`                                                      |
-| `candidate.status.invalid`             | 400    | `El estado del candidato no es válido.`                                                |
-| `candidate.date.invalid`               | 400    | `La fecha no es válida.`                                                               |
-| `candidate.catalog_value.unknown`      | 400    | `El valor indicado no existe en el catálogo correspondiente.`                          |
-| `candidate.relation.duplicate`         | 400    | `El candidato ya tiene este valor registrado.`                                         |
-| `candidate.removed`                    | 400    | `No se puede modificar un candidato desactivado. Reactívelo primero.`                  |
-| `candidate.document.primary_ambiguous` | 400    | `Solo puede haber un documento principal por candidato.`                               |
-| `candidate.constraint.violation`       | 400    | `La solicitud contiene datos no válidos.`                                              |
-| `candidate.not_found`                  | 404    | `Candidato no encontrado.`                                                             |
-| `candidate.concurrency.conflict`       | 409    | `El candidato ha cambiado desde que se cargó. Vuelva a cargarlo e inténtelo de nuevo.` |
+| Code                                        | Status | Spanish message                                                                                                       |
+| ------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| `candidate.first_name.required`             | 400    | `El nombre es obligatorio.`                                                                                           |
+| `candidate.last_name.required`              | 400    | `Los apellidos son obligatorios.`                                                                                     |
+| `candidate.availability.invalid`            | 400    | `La disponibilidad indicada no es válida.`                                                                            |
+| `candidate.availability.checked_on.invalid` | 400    | `La fecha de comprobación es obligatoria, no puede ser futura y solo se indica si la disponibilidad está comprobada.` |
+| `candidate.availability.until.invalid`      | 400    | `La fecha «hasta» solo se indica con «No disponible» y no puede ser anterior a la fecha de comprobación.`             |
+| `candidate.date.invalid`                    | 400    | `La fecha no es válida.`                                                                                              |
+| `candidate.catalog_value.unknown`           | 400    | `El valor indicado no existe en el catálogo correspondiente.`                                                         |
+| `candidate.relation.duplicate`              | 400    | `El candidato ya tiene este valor registrado.`                                                                        |
+| `candidate.removed`                         | 400    | `No se puede modificar un candidato desactivado. Reactívelo primero.`                                                 |
+| `candidate.document.primary_ambiguous`      | 400    | `Solo puede haber un documento principal por candidato.`                                                              |
+| `candidate.constraint.violation`            | 400    | `La solicitud contiene datos no válidos.`                                                                             |
+| `candidate.not_found`                       | 404    | `Candidato no encontrado.`                                                                                            |
+| `candidate.concurrency.conflict`            | 409    | `El candidato ha cambiado desde que se cargó. Vuelva a cargarlo e inténtelo de nuevo.`                                |
 
-## Status
+## Availability check (KTL-36)
 
-A candidate's status is one of `new`, `available`, `in_process`, `hired`, `rejected`,
-enforced by the validator, by the domain, and by a database check constraint.
+`POST /api/candidates` and general `PUT /api/candidates/{id}` neither accept nor change
+availability. The dedicated `PUT /api/candidates/{id}/availability` accepts
+`{"state":"unavailable","checkedOn":"2026-10-01","until":"2026-11-01","version":3}`.
+The state is `unknown`, `available` or `unavailable`; a known state requires a check date no
+later than tomorrow in UTC. `unknown` takes no dates and clears the checker. Only `unavailable`
+may have `until`, which cannot precede `checkedOn`. An earlier check date is allowed to amend
+an error. A removed candidate is refused. The server assigns the checker; responses expose its
+display name and never its user id. All checks advance the candidate version and record
+`candidate.availability_checked` without values or dates in the audit event.
 
 ## Consent and retention metadata
 
@@ -115,7 +125,7 @@ browser cache replaces its entry from the response rather than computing a guess
 
 ## Auditing
 
-`candidate.created`, `candidate.updated`, `candidate.status_changed`, `candidate.removed`,
+`candidate.created`, `candidate.updated`, `candidate.availability_checked`, `candidate.removed`,
 `candidate.restored`, `candidate.relations_changed` and `candidate.documents_changed` are
 written to `AUD_Events` in the same transaction as the change, carrying the acting actor,
 the candidate identifier and the request correlation id — and **no field values**, because
@@ -123,6 +133,8 @@ every interesting candidate field is personal data and an audit trail that repro
 would be a second copy of the record with a longer retention. A refused write records
 nothing, and a request that changes nothing (deactivating an already-inactive candidate) is
 not audited as a change.
+
+Historical `candidate.status_changed` events remain readable but are no longer written.
 
 ## Logs
 
