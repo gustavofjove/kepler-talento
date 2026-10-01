@@ -30,6 +30,27 @@ describe('CatalogManagementPage rows', () => {
   const rows = () => screen.getAllByTestId('catalog-row');
   const nameOf = (row: HTMLElement) => within(row).getAllByRole('cell')[2].textContent ?? '';
 
+  it('lists catalog families alphabetically with each level family beside its catalog', async () => {
+    await renderPage();
+
+    expect(
+      within(screen.getByRole('combobox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual([
+      'Estados de formación',
+      'Etiquetas',
+      'Habilidades',
+      'Habilidades (niveles)',
+      'Idiomas',
+      'Idiomas (niveles)',
+      'Programas',
+      'Programas (niveles)',
+      'Sectores',
+      'Tipos de formación',
+    ]);
+  });
+
   it('starts the inline edit when a plain part of the row is clicked, without navigating', async () => {
     await renderPage();
     const row = rows()[0];
