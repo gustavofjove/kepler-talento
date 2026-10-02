@@ -49,10 +49,11 @@ describe('CandidateAvailabilityBlock', () => {
   it('shows an unchecked candidate and records a dated check, then undoes it', async () => {
     const user = userEvent.setup();
     renderBlock();
-    expect(screen.getByTestId('candidate-availability-line')).toHaveTextContent('Sin comprobar');
+    expect(screen.getByTestId('candidate-availability-line')).toHaveTextContent(/^Sin comprobar$/);
     expect(screen.queryByTestId('availability-reconfirm')).toBeNull();
 
     await user.click(screen.getByTestId('availability-change'));
+    expect(screen.getByTestId('availability-save')).toHaveAccessibleName('Registrar');
     expect(screen.queryByTestId('availability-checked-on')).toBeNull();
     await user.click(screen.getByTestId('availability-state-available'));
     expect(screen.getByTestId('availability-checked-on')).toHaveValue(localDay());

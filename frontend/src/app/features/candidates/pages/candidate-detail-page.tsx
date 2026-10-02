@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useBlocker, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
-import { formatDate } from '../../../core/i18n/format';
+import { formatDate, formatElapsed, localDay } from '../../../core/i18n/format';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { CandidateAvailabilityBlock } from '../components/candidate-availability';
@@ -21,6 +21,7 @@ import { candidateFullName } from '../candidate-name';
 import { displayPhone, mailtoHref } from '../contact-links';
 import { useCandidatePositions } from '../use-candidate-positions';
 import { useCandidate } from '../use-candidates';
+import './candidate-detail-page.css';
 
 /** «30 sept 2026, 11:49» in the active language and the viewer's time zone (KTL-34). */
 const AUDIT_DATE_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
@@ -29,6 +30,8 @@ export function CandidateDetailPage() {
   const { t } = useTranslation();
   const { id: candidateId = '' } = useParams<{ id: string }>();
   const { confirmDialogService } = useServices();
+  const timestampDetailsId = useId();
+  const [showTimestampDetails, setShowTimestampDetails] = useState(false);
   const notifyError = useErrorToast();
   const candidateService = useCandidate(candidateId);
   const item = candidateService.find(candidateId);
@@ -195,10 +198,22 @@ export function CandidateDetailPage() {
   return (
     <section className="page">
       <Breadcrumb items={trail} />
-      <div className="toolbar">
-        <div className="page-header">
+      <div className="toolbar candidate-detail__toolbar">
+        <div className="page-header candidate-detail__heading">
           <h1>
-            {item.firstName} {item.lastName}
+            {item.isActive ? (
+              candidateFullName(item)
+            ) : (
+              <Trans
+                i18nKey="candidate.detail.inactiveSuffix"
+                values={{ name: candidateFullName(item) }}
+                components={{
+                  inactive: (
+                    <span className="candidate-detail__inactive" data-testid="candidate-inactive" />
+                  ),
+                }}
+              />
+            )}
             {canReadPositions ? <CandidatePipelineBadges links={positions.links} /> : null}
           </h1>
           <p className="muted contact-links" data-testid="candidate-contact">
@@ -208,25 +223,51 @@ export function CandidateDetailPage() {
               <span data-testid="candidate-phone">{displayPhone(item.phone)}</span>
             ) : null}
           </p>
-          {/* KTL-36: acts immediately, so it stays outside the edit-mode coordinator. */}
-          <CandidateAvailabilityBlock key={item.id} candidate={item} />
         </div>
-        <div className="toolbar">
+        <div className="candidate-detail__status">
           {canEdit ? (
-            <>
-              <button
-                className={item.isActive ? 'button danger' : 'button secondary'}
-                type="button"
-                onClick={() => void setActive(!item.isActive)}
-              >
-                {t(
-                  item.isActive
-                    ? 'candidate.detail.logicalDeactivate'
-                    : 'candidate.detail.logicalActivate',
-                )}
-              </button>
-            </>
+            <button
+              className={item.isActive ? 'button danger' : 'button secondary'}
+              type="button"
+              onClick={() => void setActive(!item.isActive)}
+            >
+              {t(
+                item.isActive
+                  ? 'candidate.detail.logicalDeactivate'
+                  : 'candidate.detail.logicalActivate',
+              )}
+            </button>
           ) : null}
+          <div className="candidate-detail__timestamps" data-testid="candidate-timestamps">
+            <span>
+              {t('candidate.detail.updatedAgo', {
+                elapsed: formatElapsed(localDay(new Date(item.updatedAt))),
+              })}
+            </span>
+            <button
+              className="candidate-detail__timestamp-info"
+              type="button"
+              aria-label={t('candidate.detail.showRecordDates')}
+              aria-expanded={showTimestampDetails}
+              aria-controls={timestampDetailsId}
+              onClick={() => setShowTimestampDetails((current) => !current)}
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" focusable="false">
+                <circle cx="10" cy="10" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M10 9v5M10 6v1" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+            </button>
+          </div>
+          <p
+            id={timestampDetailsId}
+            className="candidate-detail__exact-dates"
+            hidden={!showTimestampDetails}
+          >
+            {t('candidate.detail.recordDates', {
+              created: formatDate(item.createdAt, AUDIT_DATE_TIME),
+              updated: formatDate(item.updatedAt, AUDIT_DATE_TIME),
+            })}
+          </p>
         </div>
       </div>
       {canEdit && !isActive ? (
@@ -235,7 +276,7 @@ export function CandidateDetailPage() {
         </p>
       ) : null}
       {/* One full-width panel per row, in reading order (KTL-27), except the main data and
-          audit panels, which share a row while there is room (KTL-34); the main panel's editor
+          availability panels, which share a row while there is room (KTL-37); the main panel's editor
           takes the whole row. Each editable panel switches to its editor in place (KTL-29). The
           CV preview sits beside the panels on wide screens and after them otherwise (KTL-28). */}
       <div className="page-split">
@@ -247,18 +288,10 @@ export function CandidateDetailPage() {
                 data-testid="candidate-summary-row"
               >
                 <CandidateMainPanel candidate={item} control={control('main')} />
-                <article className="panel" data-testid="candidate-audit">
-                  <h2>{t('candidate.detail.audit')}</h2>
-                  <dl className="prop-list">
-                    <dt>{t('candidate.detail.created')}</dt>
-                    <dd>{formatDate(item.createdAt, AUDIT_DATE_TIME)}</dd>
-                    <dt>{t('candidate.detail.updated')}</dt>
-                    <dd>{formatDate(item.updatedAt, AUDIT_DATE_TIME)}</dd>
-                    <dt>{t('candidate.detail.active')}</dt>
-                    <dd data-testid="candidate-active">
-                      {t(item.isActive ? 'candidate.detail.yes' : 'candidate.detail.no')}
-                    </dd>
-                  </dl>
+                <article className="panel">
+                  <h2>{t('candidate.availability.title')}</h2>
+                  {/* KTL-36: acts immediately, so it stays outside the edit-mode coordinator. */}
+                  <CandidateAvailabilityBlock key={item.id} candidate={item} />
                 </article>
               </div>
               <CandidateCompetencies candidate={item} control={control('competencies')} />

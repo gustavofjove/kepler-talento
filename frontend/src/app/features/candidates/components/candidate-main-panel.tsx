@@ -9,6 +9,8 @@ import { useCandidates } from '../use-candidates';
 import { CandidateForm } from './candidate-form';
 import { CandidatePanel } from './candidate-panel';
 import type { PanelControl } from './candidate-panel.logic';
+import { reviewUrgency, showReception } from './candidate-main-panel.logic';
+import './candidate-main-panel.css';
 
 const FORM_ID = 'candidate-main-form';
 
@@ -24,6 +26,7 @@ export function CandidateMainPanel({ candidate, control }: Props) {
   const candidateService = useCandidates();
   const notifyError = useErrorToast();
   const [saving, setSaving] = useState(false);
+  const urgency = reviewUrgency(candidate.reviewDueAt);
 
   const save = async (draft: CandidateDraft): Promise<void> => {
     setSaving(true);
@@ -61,17 +64,33 @@ export function CandidateMainPanel({ candidate, control }: Props) {
           <dl className="prop-list">
             <dt>{t('candidate.detail.location')}</dt>
             <dd>{candidateLocation(candidate)}</dd>
-            <dt>{t('candidate.detail.receivedAt')}</dt>
-            <dd>
-              {candidate.receivedAt
-                ? formatDay(candidate.receivedAt)
-                : t('candidate.detail.pending')}
-            </dd>
+            {showReception(candidate.receivedAt, candidate.createdAt) ? (
+              <>
+                <dt>{t('candidate.detail.receivedAt')}</dt>
+                <dd>
+                  {candidate.receivedAt
+                    ? formatDay(candidate.receivedAt)
+                    : t('candidate.detail.pending')}
+                </dd>
+              </>
+            ) : null}
             <dt>{t('candidate.detail.reviewDueAt')}</dt>
             <dd>
               {candidate.reviewDueAt
                 ? formatDay(candidate.reviewDueAt)
                 : t('candidate.detail.pending')}
+              {urgency ? (
+                <>
+                  {' '}
+                  <span className={`candidate-review candidate-review--${urgency}`}>
+                    {t(
+                      urgency === 'overdue'
+                        ? 'candidate.detail.reviewOverdue'
+                        : 'candidate.detail.reviewDueSoon',
+                    )}
+                  </span>
+                </>
+              ) : null}
             </dd>
           </dl>
           {candidate.notes ? <p>{candidate.notes}</p> : null}

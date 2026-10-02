@@ -1,0 +1,11 @@
+.candidate-review {
+  font-weight: 600;
+}
+
+.candidate-review--overdue {
+  color: var(--danger);
+}
+
+.candidate-review--dueSoon {
+  color: var(--warning);
+}
