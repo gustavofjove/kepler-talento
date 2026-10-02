@@ -28,12 +28,68 @@ test('records, reconfirms, amends and undoes an availability check', async ({ pa
   const candidate = (await created.json()) as { id: string; version: number };
   await page.goto(`/app/candidates/${candidate.id}`);
 
-  await expect(page.getByTestId('candidate-availability-line')).toContainText('Sin comprobar');
+  await expect(page.getByTestId('candidate-availability-line')).toHaveText('Sin comprobar');
   await page.getByTestId('availability-change').click();
+  await page.getByTestId('availability-state-available').check();
+  const checkedOn = page.getByTestId('availability-checked-on');
+  const register = page.getByTestId('availability-save');
+  const cancel = page.getByTestId('availability-cancel');
+  await expect(register).toHaveText('Registrar');
+  const wideDate = await checkedOn.boundingBox();
+  const wideRegister = await register.boundingBox();
+  const wideCancel = await cancel.boundingBox();
+  expect(wideDate && wideRegister && wideCancel).toBeTruthy();
+  expect(Math.abs(wideDate!.y - wideRegister!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(wideRegister!.y - wideCancel!.y)).toBeLessThanOrEqual(1);
+  expect(wideDate!.height).toBe(wideRegister!.height);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrowDate = await checkedOn.boundingBox();
+  const narrowRegister = await register.boundingBox();
+  expect(narrowDate && narrowRegister).toBeTruthy();
+  expect(narrowRegister!.y).toBeGreaterThan(narrowDate!.y);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   await page.getByTestId('availability-state-unavailable').check();
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const until = await page.getByTestId('availability-until').boundingBox();
+  const unavailableDate = await checkedOn.boundingBox();
+  const unavailableRegister = await register.boundingBox();
+  const unavailableCancel = await cancel.boundingBox();
+  expect(until && unavailableDate && unavailableRegister && unavailableCancel).toBeTruthy();
+  expect(Math.abs(until!.y - unavailableDate!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(unavailableDate!.y - unavailableRegister!.y)).toBeLessThanOrEqual(1);
+  expect(Math.abs(unavailableRegister!.y - unavailableCancel!.y)).toBeLessThanOrEqual(1);
+  expect(until!.height).toBe(unavailableRegister!.height);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('availability-until')).toBeVisible();
+  await expect(register).toBeVisible();
+  await expect(cancel).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByTestId('availability-until').fill('2027-01-15');
   await page.getByTestId('availability-save').click();
   await expect(page.getByTestId('candidate-availability-line')).toContainText('No disponible');
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const valueBox = await page.getByTestId('candidate-availability-line').boundingBox();
+  const metaBox = await page.getByTestId('candidate-availability-meta').boundingBox();
+  const actionsBox = await page.locator('.candidate-availability__actions').boundingBox();
+  expect(valueBox && metaBox && actionsBox).toBeTruthy();
+  expect(Math.abs(metaBox!.y - valueBox!.y)).toBeLessThan(12);
+  expect(metaBox!.x).toBeGreaterThan(valueBox!.x + valueBox!.width);
+  expect(
+    actionsBox!.y - Math.max(metaBox!.y + metaBox!.height, valueBox!.y + valueBox!.height),
+  ).toBeGreaterThanOrEqual(10);
+  const weights = await page.locator('.candidate-availability__summary').evaluate((summary) => {
+    const status = summary.querySelector('.candidate-availability__line')!;
+    const metadata = summary.querySelector('.candidate-availability__meta')!;
+    return [getComputedStyle(status).fontWeight, getComputedStyle(metadata).fontWeight];
+  });
+  expect(weights).toEqual(['600', '400']);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('candidate-availability-meta')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expect(page.getByTestId('availability-reconfirm')).toBeVisible();
 
   await page.getByTestId('availability-reconfirm').click();

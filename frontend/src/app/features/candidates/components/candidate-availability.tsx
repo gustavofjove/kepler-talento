@@ -124,31 +124,33 @@ export function CandidateAvailabilityBlock({ candidate }: CandidateAvailabilityP
 
   return (
     <div className="candidate-availability" data-testid="candidate-availability">
-      <p className="candidate-availability__line" data-testid="candidate-availability-line">
-        {t('candidate.availability.line', { value: line })}
-        {lapsed ? (
-          <>
-            {' '}
-            <span className="candidate-availability__lapsed">
-              {t('candidate.availability.lapsed')}
-            </span>
-          </>
-        ) : null}
-      </p>
-      {check.state !== 'unknown' ? (
-        <p className="candidate-availability__meta" data-testid="candidate-availability-meta">
-          {check.checkedByDisplayName
-            ? t('candidate.availability.checkedBy', {
-                date: formatDay(check.checkedOn),
-                name: check.checkedByDisplayName,
-                elapsed: formatElapsed(check.checkedOn),
-              })
-            : t('candidate.availability.checked', {
-                date: formatDay(check.checkedOn),
-                elapsed: formatElapsed(check.checkedOn),
-              })}
+      <div className="candidate-availability__summary">
+        <p className="candidate-availability__line" data-testid="candidate-availability-line">
+          {line}
+          {lapsed ? (
+            <>
+              {' '}
+              <span className="candidate-availability__lapsed">
+                {t('candidate.availability.lapsed')}
+              </span>
+            </>
+          ) : null}
         </p>
-      ) : null}
+        {check.state !== 'unknown' ? (
+          <p className="candidate-availability__meta" data-testid="candidate-availability-meta">
+            {check.checkedByDisplayName
+              ? t('candidate.availability.checkedBy', {
+                  date: formatDay(check.checkedOn),
+                  name: check.checkedByDisplayName,
+                  elapsed: formatElapsed(check.checkedOn),
+                })
+              : t('candidate.availability.checked', {
+                  date: formatDay(check.checkedOn),
+                  elapsed: formatElapsed(check.checkedOn),
+                })}
+          </p>
+        ) : null}
+      </div>
       {lapsed ? (
         <p
           className="candidate-availability__hint"
@@ -228,56 +230,58 @@ export function CandidateAvailabilityBlock({ candidate }: CandidateAvailabilityP
               </label>
             ))}
           </fieldset>
-          {form.state !== 'unknown' ? (
-            <div className="candidate-availability__dates">
-              {form.state === 'unavailable' ? (
+          <div className="candidate-availability__entry-row">
+            {form.state !== 'unknown' ? (
+              <div className="candidate-availability__dates">
+                {form.state === 'unavailable' ? (
+                  <div className="field">
+                    <label htmlFor={`${formId}-until`}>{t('candidate.availability.until')}</label>
+                    <input
+                      id={`${formId}-until`}
+                      name="availabilityUntil"
+                      type="date"
+                      data-testid="availability-until"
+                      value={form.until}
+                      onChange={(event) => setForm({ ...form, until: event.target.value })}
+                    />
+                  </div>
+                ) : null}
                 <div className="field">
-                  <label htmlFor={`${formId}-until`}>{t('candidate.availability.until')}</label>
+                  <label htmlFor={`${formId}-checked-on`}>
+                    {t('candidate.availability.checkedOn')}
+                  </label>
                   <input
-                    id={`${formId}-until`}
-                    name="availabilityUntil"
+                    id={`${formId}-checked-on`}
+                    name="availabilityCheckedOn"
                     type="date"
-                    data-testid="availability-until"
-                    value={form.until}
-                    onChange={(event) => setForm({ ...form, until: event.target.value })}
+                    data-testid="availability-checked-on"
+                    value={form.checkedOn}
+                    onChange={(event) => setForm({ ...form, checkedOn: event.target.value })}
                   />
                 </div>
-              ) : null}
-              <div className="field">
-                <label htmlFor={`${formId}-checked-on`}>
-                  {t('candidate.availability.checkedOn')}
-                </label>
-                <input
-                  id={`${formId}-checked-on`}
-                  name="availabilityCheckedOn"
-                  type="date"
-                  data-testid="availability-checked-on"
-                  value={form.checkedOn}
-                  onChange={(event) => setForm({ ...form, checkedOn: event.target.value })}
-                />
               </div>
+            ) : null}
+            <div className="form-actions">
+              <button
+                className="button"
+                type="submit"
+                name="availabilitySave"
+                data-testid="availability-save"
+                disabled={busy}
+              >
+                {t('candidate.availability.save')}
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                name="availabilityCancel"
+                data-testid="availability-cancel"
+                disabled={busy}
+                onClick={closeForm}
+              >
+                {t('candidate.availability.cancel')}
+              </button>
             </div>
-          ) : null}
-          <div className="form-actions">
-            <button
-              className="button"
-              type="submit"
-              name="availabilitySave"
-              data-testid="availability-save"
-              disabled={busy}
-            >
-              {t('candidate.availability.save')}
-            </button>
-            <button
-              className="button secondary"
-              type="button"
-              name="availabilityCancel"
-              data-testid="availability-cancel"
-              disabled={busy}
-              onClick={closeForm}
-            >
-              {t('candidate.availability.cancel')}
-            </button>
           </div>
         </form>
       ) : null}

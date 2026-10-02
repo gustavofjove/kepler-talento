@@ -202,9 +202,13 @@ export function CandidateForm({
             id="reviewDueAt"
             name="reviewDueAt"
             type="date"
+            aria-describedby="reviewDueAt-hint"
             value={draft.reviewDueAt}
             onChange={set('reviewDueAt')}
           />
+          <p id="reviewDueAt-hint" className="muted">
+            {t('candidate.form.reviewDueAtHint')}
+          </p>
         </div>
       </div>
       <div className="field">

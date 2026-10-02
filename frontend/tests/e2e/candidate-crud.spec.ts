@@ -23,6 +23,33 @@ test.describe('Candidate CRUD', () => {
     await expect(page.locator('.toast')).toBeVisible();
     await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
     await expect(page.locator('h1')).toContainText(`${firstName} ${lastName} Editado`);
+    const summary = page.getByTestId('candidate-summary-row');
+    const main = summary.locator('article').first();
+    const availability = summary.locator('article').last();
+    await expect(availability.getByTestId('candidate-availability')).toBeVisible();
+    await expect(page.getByTestId('candidate-audit')).toHaveCount(0);
+    const wideMain = await main.boundingBox();
+    const wideAvailability = await availability.boundingBox();
+    expect(wideMain && wideAvailability).toBeTruthy();
+    expect(Math.abs(wideMain!.y - wideAvailability!.y)).toBeLessThan(12);
+
+    const timestamps = page.getByTestId('candidate-timestamps');
+    await expect(timestamps).toContainText('Actualizado');
+    const info = timestamps.getByRole('button');
+    await info.focus();
+    await page.keyboard.press('Enter');
+    await expect(info).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('.candidate-detail__exact-dates')).toContainText('Creado');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const narrowMain = await main.boundingBox();
+    const narrowAvailability = await availability.boundingBox();
+    expect(narrowMain && narrowAvailability).toBeTruthy();
+    expect(narrowAvailability!.y).toBeGreaterThan(narrowMain!.y);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      390,
+    );
+    await page.setViewportSize({ width: 1280, height: 720 });
 
     // KTL-23: the breadcrumb names the stored record and leads back to the list.
     const breadcrumb = page.getByTestId('breadcrumb');
@@ -43,7 +70,7 @@ test.describe('Candidate CRUD', () => {
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();
 
-    await expect(page.getByTestId('candidate-active')).toHaveText('No');
+    await expect(page.getByTestId('candidate-inactive')).toBeVisible();
 
     await page.goto('/app/candidates');
     await expect(page.locator(`text=${firstName} ${lastName} Editado`)).toHaveCount(0);
@@ -61,11 +88,11 @@ test.describe('Candidate CRUD', () => {
 
     await page.click('button:has-text("Baja lógica")');
     await page.getByTestId('confirm-accept').click();
-    await expect(page.getByTestId('candidate-active')).toHaveText('No');
+    await expect(page.getByTestId('candidate-inactive')).toBeVisible();
 
     await page.click('button:has-text("Alta lógica")');
     await page.getByTestId('confirm-accept').click();
-    await expect(page.getByTestId('candidate-active')).toHaveText('Sí');
+    await expect(page.getByTestId('candidate-inactive')).toHaveCount(0);
 
     await page.goto('/app/candidates');
     await page.fill('input[name="text"]', firstName);

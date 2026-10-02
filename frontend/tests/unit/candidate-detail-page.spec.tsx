@@ -12,6 +12,7 @@ import type { CandidateDocument } from '../../src/app/features/candidates/models
 import type { DocumentService } from '../../src/app/features/documents/services/document.service';
 import { createCandidateTestBed, type CandidateTestBed } from './support/candidate-doubles';
 import { loadedCatalogService } from './support/catalog-doubles';
+import { localDay } from '../../src/app/core/i18n/format';
 
 const EDITABLE = ['main', 'competencies', 'education', 'experience', 'notes', 'documents'];
 const editButton = (panel: string) => screen.queryByTestId(`candidate-panel-${panel}-edit`);
@@ -168,7 +169,7 @@ describe('CandidateDetailPage', () => {
 
     const order = [
       'Datos principales',
-      'Auditoría',
+      'Disponibilidad',
       'Competencias',
       'Formación',
       'Experiencia',
@@ -187,7 +188,7 @@ describe('CandidateDetailPage', () => {
     expect(panel.getByText('Sin programas asociados.')).toBeInTheDocument();
   });
 
-  it('puts Datos principales and Auditoría side by side, and gives the editor the whole row (KTL-34)', async () => {
+  it('puts Datos principales and Disponibilidad side by side, and gives the editor the whole row (KTL-37)', async () => {
     asEditor();
     await renderAt('/app/candidates/c1');
     await loaded();
@@ -195,11 +196,12 @@ describe('CandidateDetailPage', () => {
     const row = screen.getByTestId('candidate-summary-row');
     expect(row).toHaveClass('grid', 'two');
     expect(row.children).toHaveLength(2);
-    const audit = within(row).getByTestId('candidate-audit');
-    expect(audit).toHaveTextContent('Auditoría');
-    // Readable Spanish date and time, never the raw ISO timestamp.
-    expect(audit).not.toHaveTextContent(/\d{4}-\d{2}-\d{2}T/);
-    expect(audit).toHaveTextContent(/\d{1,2} \p{L}+\.? \d{4}, \d{1,2}:\d{2}/u);
+    expect(within(row).getByRole('heading', { name: 'Disponibilidad' })).toBeInTheDocument();
+    expect(within(row).getByTestId('candidate-availability')).toBeInTheDocument();
+    expect(screen.queryByTestId('candidate-audit')).toBeNull();
+    expect(
+      within(screen.getByTestId('candidate-contact')).queryByTestId('candidate-availability'),
+    ).toBeNull();
     expect(within(row).getByRole('heading', { name: 'Datos principales' })).toBeInTheDocument();
 
     await userEvent.click(editButton('main')!);
@@ -207,6 +209,58 @@ describe('CandidateDetailPage', () => {
 
     await userEvent.click(editButton('education')!);
     expect(row).toHaveClass('two');
+  });
+
+  it('shows a relative update line and reveals exact record times by keyboard', async () => {
+    bed.api.seed({
+      id: 'c1',
+      firstName: 'Ona',
+      lastName: 'Marti',
+      createdAt: '2026-09-29T09:49:00Z',
+      updatedAt: '2026-09-30T08:10:00Z',
+    });
+    await renderAt('/app/candidates/c1');
+    await loaded();
+
+    expect(screen.queryByRole('button', { name: 'Baja lógica' })).toBeNull();
+    const timestamps = screen.getByTestId('candidate-timestamps');
+    expect(timestamps).toHaveTextContent('Actualizado');
+    expect(timestamps).not.toHaveTextContent(/^Actualizado\s*$/);
+    const info = within(timestamps).getByRole('button', { name: 'Ver fechas del registro' });
+    info.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(info).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById(info.getAttribute('aria-controls')!)).toHaveTextContent(
+      /Creado .* · Actualizado .*\d{1,2}:\d{2}/,
+    );
+  });
+
+  it('marks a due LOPD review, hides matching reception, and explains the form field', async () => {
+    asEditor();
+    const today = localDay();
+    bed.api.seed({
+      id: 'c1',
+      firstName: 'Ona',
+      lastName: 'Marti',
+      receivedAt: today,
+      createdAt: new Date().toISOString(),
+      reviewDueAt: today,
+    });
+    await renderAt('/app/candidates/c1');
+    await loaded();
+
+    const main = within(
+      screen.getByRole('heading', { name: 'Datos principales' }).closest('article')!,
+    );
+    expect(main.queryByText('Recepción')).toBeNull();
+    expect(main.getByText('Revisión LOPD')).toBeInTheDocument();
+    expect(main.getByText('(próxima)')).toBeInTheDocument();
+
+    await userEvent.click(editButton('main')!);
+    expect(main.getByLabelText('Fecha recepción')).toBeInTheDocument();
+    const review = main.getByLabelText('Fecha de revisión LOPD');
+    const hint = document.getElementById(review.getAttribute('aria-describedby')!);
+    expect(hint).toHaveTextContent('Fecha en la que revisar');
   });
 
   describe('CV preview (KTL-28)', () => {
@@ -290,9 +344,10 @@ describe('CandidateDetailPage', () => {
       bed.api.seed({ id: 'c9', firstName: 'Ida', lastName: 'Baja', isActive: false });
       asEditor();
       await renderAt('/app/candidates/c9');
-      await screen.findByRole('heading', { level: 1, name: 'Ida Baja' });
+      await screen.findByRole('heading', { level: 1, name: 'Ida Baja (Inactivo)' });
 
       expect(EDITABLE.filter((panel) => editButton(panel))).toEqual(['main', 'documents']);
+      expect(screen.getByTestId('candidate-inactive')).toHaveTextContent('(Inactivo)');
       expect(screen.getByTestId('candidate-removed-hint')).toHaveTextContent(/reactívalo/);
     });
   });
@@ -656,13 +711,15 @@ describe('CandidateDetailPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'Baja lógica' }));
 
-      await waitFor(() => expect(screen.getByTestId('candidate-active')).toHaveTextContent('No'));
+      await waitFor(() =>
+        expect(screen.getByTestId('candidate-inactive')).toHaveTextContent('(Inactivo)'),
+      );
       expect(screen.queryByTestId('candidate-panel-competencies-save')).toBeNull();
       expect(screen.queryByTestId('candidate-skill-add')).toBeNull();
       expect(editButton('competencies')).toBeNull();
       // Reactivating does not reopen the panel that was closed.
       await userEvent.click(screen.getByRole('button', { name: 'Alta lógica' }));
-      await waitFor(() => expect(screen.getByTestId('candidate-active')).toHaveTextContent('Sí'));
+      await waitFor(() => expect(screen.queryByTestId('candidate-inactive')).toBeNull());
       expect(screen.queryByTestId('candidate-panel-competencies-save')).toBeNull();
     });
 

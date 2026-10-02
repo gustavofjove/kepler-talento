@@ -1,13 +1,21 @@
-/* KTL-36: the availability block under the contact line. */
+/* KTL-36 availability actions inside the KTL-37 summary panel. */
 .candidate-availability {
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 12px;
+}
+
+.candidate-availability__summary {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
 }
 
 .candidate-availability__line {
   color: var(--fg-1);
   font-weight: 600;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -20,7 +28,12 @@
 .candidate-availability__hint {
   color: var(--fg-2);
   font-size: 13px;
+  line-height: 1.5;
   margin: 0;
+}
+
+.candidate-availability__meta {
+  font-weight: 400;
 }
 
 .candidate-availability__actions {
@@ -35,7 +48,6 @@
   border-radius: var(--r-md);
   display: grid;
   gap: 12px;
-  max-width: 32rem;
   padding: 12px;
 }
 
@@ -60,4 +72,21 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.candidate-availability__entry-row {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.candidate-availability__entry-row .form-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.candidate-availability__dates input[type='date'],
+.candidate-availability__entry-row .button {
+  height: 40px;
 }
