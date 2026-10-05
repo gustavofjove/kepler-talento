@@ -297,17 +297,18 @@ export function RowCvDownloadButton({ candidateId, name }: { candidateId: string
       disabled={busy}
       onClick={() => void download()}
     >
-      <DiskIcon />
+      <DownloadIcon />
     </button>
   );
 }
 
 /**
- * A floppy disk for «Descargar». Decorative: the button carries the name. Drawn on the 16px grid
- * it is shown at, with 1px strokes on half-pixel coordinates, so the long outer edges render as
- * crisp single pixels instead of smearing across two and looking heavier than the inner lines.
+ * An arrow dropping into a tray for «Descargar» — not a floppy disk, which reads as saving
+ * changes. Decorative: the button carries the name. Drawn on the 16px grid it is shown at, with
+ * 1px strokes on half-pixel coordinates, so the long edges render as crisp single pixels instead
+ * of smearing across two.
  */
-function DiskIcon() {
+function DownloadIcon() {
   return (
     <svg
       className="row-cv-toggle__icon"
@@ -322,9 +323,9 @@ function DiskIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M2.5 1.5h8.5l3.5 3.5v8.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z" />
-      <path d="M4.5 1.5v3.5h6v-3.5" />
-      <path d="M4.5 14.5v-5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5" />
+      <path d="M7.5 1.5v9" />
+      <path d="M4.5 7.5l3 3 3-3" />
+      <path d="M1.5 11.5v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2" />
     </svg>
   );
 }

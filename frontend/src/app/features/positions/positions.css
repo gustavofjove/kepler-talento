@@ -27,6 +27,12 @@
   padding-right: 24px;
 }
 
+/* Text-only rows match the height of tables whose rows carry 28px controls (10px + 28px + 10px).
+ * On a cell, `height` acts as a minimum. */
+.positions-table td {
+  height: 48px;
+}
+
 .positions-table tbody tr:last-child td {
   border-bottom: 0;
 }
