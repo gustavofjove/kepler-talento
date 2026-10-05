@@ -198,6 +198,10 @@ describe('CandidateDetailPage', () => {
     expect(row.children).toHaveLength(2);
     expect(within(row).getByRole('heading', { name: 'Disponibilidad' })).toBeInTheDocument();
     expect(within(row).getByTestId('candidate-availability')).toBeInTheDocument();
+    expect(within(row).getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'neutral',
+    );
     expect(screen.queryByTestId('candidate-audit')).toBeNull();
     expect(
       within(screen.getByTestId('candidate-contact')).queryByTestId('candidate-availability'),

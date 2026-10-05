@@ -14,7 +14,10 @@
 
 .candidate-availability__line {
   color: var(--fg-1);
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   line-height: 1.5;
   margin: 0;
 }

@@ -95,6 +95,20 @@ describe('CandidateListPage', () => {
     });
     expect(screen.getByTestId('candidate-list-total')).toHaveTextContent('Mostrando 25 de 30');
     expect(currentSearch).toBe('');
+    const checked = rows().find((row) =>
+      within(row).queryByTestId('candidate-availability-elapsed'),
+    )!;
+    expect(within(checked).getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'success',
+    );
+    const unchecked = rows().find(
+      (row) => !within(row).queryByTestId('candidate-availability-elapsed'),
+    )!;
+    expect(within(unchecked).getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'neutral',
+    );
   });
 
   it('renders no breadcrumb, being a top-level destination (KTL-23)', async () => {

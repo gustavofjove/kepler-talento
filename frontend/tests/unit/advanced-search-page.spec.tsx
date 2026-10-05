@@ -100,6 +100,23 @@ describe('AdvancedSearchPage', () => {
     expect(localStorage.getItem('rrhh.search.last-filters.v1')).toContain('previous');
   });
 
+  it('shows completed exports as success chips', async () => {
+    const listBatches = vi
+      .spyOn(services.exportService, 'listBatches')
+      .mockReturnValue([
+        { id: 'batch-1', fileName: 'test.csv', rowCount: 1, exportedAt: '2026-10-05T10:00:00Z' },
+      ]);
+    try {
+      renderPage({
+        search: vi.fn().mockResolvedValue(page([])),
+        emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS),
+      });
+      await userEvent.click(screen.getByTestId('open-export-history'));
+      expect(screen.getByText('Completado')).toHaveAttribute('data-tone', 'success');
+    } finally {
+      listBatches.mockRestore();
+    }
+  });
   it('opens status choices without starting a new search', async () => {
     const search = vi.fn().mockResolvedValue(page([]));
     renderPage({ search, emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS) });

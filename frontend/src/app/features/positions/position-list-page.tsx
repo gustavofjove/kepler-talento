@@ -1,3 +1,5 @@
+import { StatusChip } from '../../shared/components/status-chip';
+import { positionStatusTone } from './position-status.logic';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -127,7 +129,9 @@ export function PositionListPage() {
                   </td>
                   <td>{item.location || '—'}</td>
                   <td>
-                    <span className="badge">{t(`positions.status.${item.status}`)}</span>
+                    <StatusChip tone={positionStatusTone(item.status)}>
+                      {t(`positions.status.${item.status}`)}
+                    </StatusChip>
                   </td>
                   <td data-testid="position-candidate-count">
                     {formatNumber(item.candidateCount)}

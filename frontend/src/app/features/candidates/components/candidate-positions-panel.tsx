@@ -1,3 +1,5 @@
+import { StatusChip } from '../../../shared/components/status-chip';
+import { positionStatusTone } from '../../positions/position-status.logic';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -150,7 +152,9 @@ export function CandidatePositionsPanel({
                       </Link>
                     </td>
                     <td>
-                      <span className="badge">{t(`positions.status.${link.positionStatus}`)}</span>
+                      <StatusChip tone={positionStatusTone(link.positionStatus)}>
+                        {t(`positions.status.${link.positionStatus}`)}
+                      </StatusChip>
                     </td>
                     <td>
                       {editable ? (

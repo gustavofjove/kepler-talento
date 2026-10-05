@@ -34,6 +34,9 @@
   --primary: var(--fj-orange);
   --primary-dark: var(--fj-orange-dark);
   --danger: #c8342b;
+  --danger-bg: #fbe9e7;
+  --danger-dark: #9b2c24;
+  --neutral-bg: #eceff3;
   --warning: #d97706;
   --ok: var(--fj-green);
 }
@@ -340,6 +343,27 @@ tbody tr:hover {
   font-weight: 600;
   min-height: 22px;
   padding: 2px 8px;
+}
+
+.badge--success,
+.badge--danger,
+.badge--neutral {
+  cursor: default;
+}
+
+.badge--success {
+  background: var(--fj-green-bg);
+  color: var(--fj-green-dark);
+}
+
+.badge--danger {
+  background: var(--danger-bg);
+  color: var(--danger-dark);
+}
+
+.badge--neutral {
+  background: var(--neutral-bg);
+  color: var(--fg-2);
 }
 
 .muted {

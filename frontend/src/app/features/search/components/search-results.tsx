@@ -8,7 +8,7 @@ import {
   RowCvActions,
   RowCvInlineRow,
 } from '../../candidates/components/row-cv-preview/row-cv-preview';
-import { availabilityCell } from '../../candidates/components/candidate-availability.logic';
+import { AvailabilityCell } from '../../candidates/components/availability-cell';
 import { useRowCvTable } from '../../candidates/components/row-cv-preview/row-cv-preview.context';
 import { displayPhone, mailtoHref } from '../../candidates/contact-links';
 import type { SearchResult, SearchResultPage } from '../models/search.models';
@@ -97,13 +97,11 @@ export function SearchResults({
                     </td>
                     <td>{displayPhone(result.phone)}</td>
                     <td>
-                      <span data-testid="search-availability-cell">
-                        {availabilityCell(
-                          result.availabilityState,
-                          result.availabilityCheckedOn,
-                          t,
-                        )}
-                      </span>
+                      <AvailabilityCell
+                        state={result.availabilityState}
+                        checkedOn={result.availabilityCheckedOn}
+                        testIdPrefix="search-availability"
+                      />
                     </td>
                     <td>
                       {formatDate(result.updatedAt, {

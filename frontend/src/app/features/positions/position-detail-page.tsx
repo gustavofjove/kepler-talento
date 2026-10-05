@@ -1,3 +1,5 @@
+import { StatusChip } from '../../shared/components/status-chip';
+import { positionStatusTone } from './position-status.logic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
@@ -124,7 +126,9 @@ export function PositionDetailPage() {
       <div className="toolbar position-detail-toolbar">
         <div className="page-header position-detail-title">
           <h1>{position.title}</h1>
-          <span className="badge">{t(`positions.status.${position.status}`)}</span>
+          <StatusChip tone={positionStatusTone(position.status)}>
+            {t(`positions.status.${position.status}`)}
+          </StatusChip>
         </div>
         {canManage ? (
           <Link className="button primary" to={`/app/positions/${position.id}/edit`}>

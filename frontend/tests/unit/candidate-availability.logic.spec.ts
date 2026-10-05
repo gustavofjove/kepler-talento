@@ -1,6 +1,7 @@
-import { i18n } from '../../src/app/core/i18n/i18n';
+import { positionStatusTone } from '../../src/app/features/positions/position-status.logic';
 import {
-  availabilityCell,
+  availabilityElapsed,
+  availabilityTone,
   canReconfirm,
   initialForm,
   isLapsed,
@@ -21,7 +22,20 @@ const unavailable = {
 
 describe('candidate availability and pipeline helpers', () => {
   it('shows unchecked candidates without elapsed time', () => {
-    expect(availabilityCell('unknown', null, i18n.t.bind(i18n))).toBe('Sin comprobar');
+    expect(availabilityElapsed('unknown', null)).toBeNull();
+    expect(availabilityElapsed('unknown', '2026-09-01')).toBeNull();
+    expect(availabilityElapsed('available', null)).toBeNull();
+    expect(availabilityElapsed('available', '2026-09-01', new Date('2026-09-01T12:00:00Z'))).toBe(
+      'hoy',
+    );
+    expect(availabilityElapsed('unavailable', '2026-03-01', new Date('2026-09-01T12:00:00Z'))).toBe(
+      'hace 6 meses',
+    );
+    expect(availabilityTone('unknown')).toBe('neutral');
+    expect(availabilityTone('available')).toBe('success');
+    expect(availabilityTone('unavailable')).toBe('danger');
+    expect(positionStatusTone('open')).toBe('success');
+    expect(positionStatusTone('closed')).toBe('neutral');
   });
 
   it('requires a new check after an until date lapses', () => {

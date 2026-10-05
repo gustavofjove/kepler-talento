@@ -87,7 +87,9 @@ describe('SearchResults (KTL-30)', () => {
 
     for (const header of ['Candidato', 'Teléfono', 'Disponibilidad', 'Actualizado'])
       expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
-    expect(screen.queryByText('Disponible')).toBeNull();
+    expect(screen.getByTestId('search-availability-chip')).toHaveTextContent('Disponible');
+    expect(screen.getByTestId('search-availability-chip')).toHaveAttribute('data-tone', 'success');
+    expect(screen.getByTestId('search-availability-elapsed')).toBeVisible();
     expect(screen.getByTestId('search-total')).toHaveTextContent(
       '1 candidato encontrado · Página 1 de 1',
     );
@@ -95,6 +97,14 @@ describe('SearchResults (KTL-30)', () => {
     expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
   });
 
+  it('shows unchecked availability without elapsed text', () => {
+    renderResults({
+      ...onePage,
+      items: [{ ...result, availabilityState: 'unknown', availabilityCheckedOn: null }],
+    });
+    expect(screen.getByTestId('search-availability-chip')).toHaveAttribute('data-tone', 'neutral');
+    expect(screen.queryByTestId('search-availability-elapsed')).toBeNull();
+  });
   it('has no CV column, «Ver» or «Abrir CV» without the download permission (KTL-35)', () => {
     renderResults(onePage, undefined, []);
 

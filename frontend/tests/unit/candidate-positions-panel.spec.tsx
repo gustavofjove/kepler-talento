@@ -122,7 +122,8 @@ describe('CandidatePositionsPanel (KTL-30)', () => {
     expect(within(first).getByRole('combobox', { name: 'Estado en Backend' })).toHaveValue(
       'interview',
     );
-    expect(within(second).getByText('Cerrada')).toBeVisible();
+    expect(within(second).getByText('Cerrada')).toHaveAttribute('data-tone', 'neutral');
+    expect(within(first).getByText('Abierta')).toHaveAttribute('data-tone', 'success');
     expect(within(second).getByText('Descartado')).toBeVisible();
     expect(second).toHaveClass('position-row-past');
     expect(within(second).queryByRole('combobox')).toBeNull();

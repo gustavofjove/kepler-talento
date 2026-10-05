@@ -28,7 +28,10 @@ test('records, reconfirms, amends and undoes an availability check', async ({ pa
   const candidate = (await created.json()) as { id: string; version: number };
   await page.goto(`/app/candidates/${candidate.id}`);
 
-  await expect(page.getByTestId('candidate-availability-line')).toHaveText('Sin comprobar');
+  await expect(page.getByTestId('candidate-availability-chip')).toHaveAttribute(
+    'data-tone',
+    'neutral',
+  );
   await page.getByTestId('availability-change').click();
   await page.getByTestId('availability-state-available').check();
   const checkedOn = page.getByTestId('availability-checked-on');
@@ -70,7 +73,11 @@ test('records, reconfirms, amends and undoes an availability check', async ({ pa
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByTestId('availability-until').fill('2027-01-15');
   await page.getByTestId('availability-save').click();
-  await expect(page.getByTestId('candidate-availability-line')).toContainText('No disponible');
+  await expect(page.getByTestId('candidate-availability-chip')).toHaveAttribute(
+    'data-tone',
+    'danger',
+  );
+  await expect(page.getByTestId('candidate-availability-until')).toBeVisible();
   await page.setViewportSize({ width: 1366, height: 768 });
   const valueBox = await page.getByTestId('candidate-availability-line').boundingBox();
   const metaBox = await page.getByTestId('candidate-availability-meta').boundingBox();
@@ -82,7 +89,7 @@ test('records, reconfirms, amends and undoes an availability check', async ({ pa
     actionsBox!.y - Math.max(metaBox!.y + metaBox!.height, valueBox!.y + valueBox!.height),
   ).toBeGreaterThanOrEqual(10);
   const weights = await page.locator('.candidate-availability__summary').evaluate((summary) => {
-    const status = summary.querySelector('.candidate-availability__line')!;
+    const status = summary.querySelector('.badge')!;
     const metadata = summary.querySelector('.candidate-availability__meta')!;
     return [getComputedStyle(status).fontWeight, getComputedStyle(metadata).fontWeight];
   });
@@ -148,7 +155,12 @@ test('marks an expired until date and searches from a check date', async ({ page
   expect(checked.ok(), await checked.text()).toBe(true);
 
   await page.goto(`/app/candidates/${candidate.id}`);
-  await expect(page.getByTestId('candidate-availability-line')).toContainText('vencido');
+  await expect(page.getByTestId('candidate-availability-chip')).toHaveAttribute(
+    'data-tone',
+    'danger',
+  );
+  await expect(page.getByTestId('candidate-availability-until')).toBeVisible();
+  await expect(page.getByTestId('candidate-availability-lapsed-hint')).toBeVisible();
   await expect(page.getByTestId('availability-reconfirm')).toHaveCount(0);
   await page.goto('/app/search');
   await page.getByTestId('availability-checked-from').fill('2026-03-01');

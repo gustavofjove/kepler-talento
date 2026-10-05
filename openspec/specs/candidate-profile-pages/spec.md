@@ -575,10 +575,10 @@ request SHALL be sent.
 
 The candidate page SHALL show the candidate's availability in a panel headed «Disponibilidad» in the first summary row beside Datos principales, never in the page header:
 
-- **Line:** «Sin comprobar», «Disponible», «No disponible» or «No disponible hasta {date}».
+- **Line:** the value as a toned chip — neutral «Sin comprobar», green «Disponible» or red «No disponible» — followed, for «No disponible» with an until date, by «hasta {date}» as text, and by the «(vencido)» marker when that date has passed.
 - **When known, check metadata:** «Comprobado el {date} por {name} · {time elapsed}». The time elapsed is in the active language («hoy», «hace 7 meses»). Dates are calendar days shown in the stored day in every time zone.
 
-The value SHALL NOT repeat «Disponibilidad» beneath the panel heading. When there is room, the check metadata SHALL sit to the right of the value on the same row; it SHALL wrap without horizontal scrolling when there is not. Only the value SHALL be bold. The summary row, hints and actions SHALL have readable vertical separation.
+The value SHALL NOT repeat «Disponibilidad» beneath the panel heading. When there is room, the check metadata SHALL sit to the right of the value on the same row; it SHALL wrap without horizontal scrolling when there is not. The check metadata SHALL be regular weight. The summary row, hints and actions SHALL have readable vertical separation.
 
 For an actor holding `candidates.update` on an active candidate, the block SHALL offer:
 
@@ -599,7 +599,7 @@ The block SHALL act immediately. It SHALL NOT take part in per-panel edit mode, 
 #### Scenario: Unchecked candidate
 
 - **WHEN** an editor opens a candidate whose availability is `unknown`
-- **THEN** the block reads «Sin comprobar» without a repeated «Disponibilidad» label and offers «Registrar comprobación» but not «Sigue igual»
+- **THEN** the block shows a neutral «Sin comprobar» chip without a repeated «Disponibilidad» label and offers «Registrar comprobación» but not «Sigue igual»
 
 #### Scenario: Reconfirming
 
@@ -609,7 +609,7 @@ The block SHALL act immediately. It SHALL NOT take part in per-panel edit mode, 
 #### Scenario: Check metadata beside the value
 
 - **WHEN** a reader opens a checked candidate on a wide sections column
-- **THEN** the bold availability value is on the left and regular-weight «Comprobado el …» metadata is to its right; on a narrow column they remain readable without horizontal scrolling
+- **THEN** the availability chip is on the left and regular-weight «Comprobado el …» metadata is to its right; on a narrow column they remain readable without horizontal scrolling
 
 #### Scenario: Undoing a reconfirm
 
@@ -619,12 +619,12 @@ The block SHALL act immediately. It SHALL NOT take part in per-panel edit mode, 
 #### Scenario: Lapsed until date
 
 - **WHEN** a reader opens a candidate checked «No disponible» until a date that has passed
-- **THEN** the line is marked «(vencido)», the hint asks for a new check, and «Sigue igual» is not offered
+- **THEN** the line shows the red «No disponible» chip, «hasta» that date and the «(vencido)» marker, the hint asks for a new check, and «Sigue igual» is not offered
 
 #### Scenario: Changing the value
 
 - **WHEN** an editor opens «Cambiar…», chooses «No disponible», enters an until date and saves
-- **THEN** the block shows «No disponible hasta» that date with today's check, and focus returns to «Cambiar…»
+- **THEN** the block shows a red «No disponible» chip followed by «hasta» that date with today's check, and focus returns to «Cambiar…»
 
 #### Scenario: Registering in the inline form
 

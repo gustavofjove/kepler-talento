@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
-import { localDay } from '../../src/app/core/i18n/format';
+import { formatDay, localDay } from '../../src/app/core/i18n/format';
 import { signal } from '../../src/app/core/state/signal';
 import { CandidateAvailabilityBlock } from '../../src/app/features/candidates/components/candidate-availability';
 import { useCandidate } from '../../src/app/features/candidates/use-candidates';
@@ -50,6 +50,11 @@ describe('CandidateAvailabilityBlock', () => {
     const user = userEvent.setup();
     renderBlock();
     expect(screen.getByTestId('candidate-availability-line')).toHaveTextContent(/^Sin comprobar$/);
+    expect(screen.getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'neutral',
+    );
+    expect(screen.queryByTestId('candidate-availability-until')).toBeNull();
     expect(screen.queryByTestId('availability-reconfirm')).toBeNull();
 
     await user.click(screen.getByTestId('availability-change'));
@@ -64,6 +69,14 @@ describe('CandidateAvailabilityBlock', () => {
     );
     expect(screen.getByTestId('candidate-availability-status')).toHaveTextContent(
       'Comprobación registrada',
+    );
+    expect(screen.getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'success',
+    );
+    expect(screen.getByTestId('candidate-availability-status')).toHaveAttribute(
+      'aria-live',
+      'polite',
     );
     expect(screen.getByTestId('candidate-availability-meta')).toHaveTextContent('Test User');
     await user.click(screen.getByTestId('availability-undo'));
@@ -123,7 +136,16 @@ describe('CandidateAvailabilityBlock', () => {
     });
     await bed.service.ensureAggregate('candidate-1');
     renderBlock();
-    expect(screen.getByTestId('candidate-availability-line')).toHaveTextContent('vencido');
+    expect(screen.getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'danger',
+    );
+    expect(screen.getByTestId('candidate-availability-until')).toHaveTextContent(
+      'hasta el ' + formatDay('2026-03-02'),
+    );
+    expect(screen.getByTestId('candidate-availability-until').nextElementSibling).toHaveTextContent(
+      '(vencido)',
+    );
     expect(screen.getByTestId('candidate-availability-lapsed-hint')).toBeVisible();
     expect(screen.queryByTestId('availability-reconfirm')).toBeNull();
   });

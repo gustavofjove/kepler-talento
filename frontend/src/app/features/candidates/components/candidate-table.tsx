@@ -6,7 +6,7 @@ import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
 import { displayPhone, mailtoHref } from '../contact-links';
 import type { CandidateListItem } from '../models/candidate.models';
-import { availabilityCell } from './candidate-availability.logic';
+import { AvailabilityCell } from './availability-cell';
 import { RowCvActions, RowCvInlineRow } from './row-cv-preview/row-cv-preview';
 import { useRowCvTable } from './row-cv-preview/row-cv-preview.context';
 import { type ListSort, type SortField, sortIndicator } from '../pages/candidate-list.logic';
@@ -125,13 +125,11 @@ export function CandidateTable({
                   </td>
                   <td>{displayPhone(candidate.phone)}</td>
                   <td>
-                    <span data-testid="candidate-availability-cell">
-                      {availabilityCell(
-                        candidate.availabilityState,
-                        candidate.availabilityCheckedOn,
-                        t,
-                      )}
-                    </span>
+                    <AvailabilityCell
+                      state={candidate.availabilityState}
+                      checkedOn={candidate.availabilityCheckedOn}
+                      testIdPrefix="candidate-availability"
+                    />
                     {!candidate.isActive ? (
                       <span className="badge inactive-badge">{t('candidates.list.inactive')}</span>
                     ) : null}

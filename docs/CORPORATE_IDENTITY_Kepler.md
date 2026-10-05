@@ -139,7 +139,17 @@ KeplerDesk y en cualquier otra aplicacion del ecosistema Kepler.
 
 ### Badges y estados
 
-- Badges compactos de `22px` de alto.
+- Compact status chips are at least `22px` high, with pale backgrounds and dark labels.
+- Use `.badge--success` for available candidates, open positions and completed exports;
+  `.badge--danger` for unavailable candidates; `.badge--neutral` for unchecked candidates and
+  closed positions. Plain `.badge` and other status families keep their existing appearance.
+- Chips always carry a label and have no border, solid fill, hover change or pointer cursor.
+- WCAG contrast ratios: success (`--fj-green-dark` on `--fj-green-bg`) **6.95:1**;
+  danger (`--danger-dark` on `--danger-bg`) **6.44:1**;
+  neutral (`--fg-2` on `--neutral-bg`) **7.82:1**. The neutral background remains visible on
+  hovered rows (`--bg-2`).
+- Availability elapsed text follows the chip in regular 12px `--fg-2`, with **9.02:1** contrast
+  on white and **8.64:1** on hovered rows.
 - Usar color semantico solo para comunicar estado, prioridad, riesgo o categoria importante.
 - Evitar mezclar mas de tres colores de estado en una misma zona sin necesidad real.
 
@@ -193,6 +203,9 @@ Cada nueva aplicacion del ecosistema debe partir de estos elementos:
   --fj-green: #476a30;
   --fj-green-dark: #3a5727;
   --fj-green-bg: #e8efe2;
+  --danger-bg: #fbe9e7;
+  --danger-dark: #9b2c24;
+  --neutral-bg: #eceff3;
   --fg-1: #162136;
   --fg-2: #3a4a60;
   --fg-3: #7a8699;

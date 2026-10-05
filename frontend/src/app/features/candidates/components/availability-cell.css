@@ -1,0 +1,12 @@
+.availability-cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.availability-cell__elapsed {
+  color: var(--fg-2);
+  font-size: 12px;
+  font-weight: 400;
+}

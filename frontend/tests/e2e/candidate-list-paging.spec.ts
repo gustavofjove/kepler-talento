@@ -113,6 +113,27 @@ test.describe('Candidate list paged by the server', () => {
 
     await page.locator('select[name="availability"]').selectOption('unavailable');
 
+    await expect(rows(page).first().getByTestId('candidate-availability-chip')).toHaveAttribute(
+      'data-tone',
+      'danger',
+    );
+    await expect(rows(page).first().getByTestId('candidate-availability-elapsed')).toBeVisible();
+    const chip = rows(page).first().getByTestId('candidate-availability-chip');
+    const appearance = () =>
+      chip.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          cursor: style.cursor,
+          background: style.backgroundColor,
+          color: style.color,
+          border: style.borderTopWidth,
+        };
+      });
+    const beforeHover = await appearance();
+    expect(beforeHover.cursor).toBe('default');
+    expect(beforeHover.border).toBe('0px');
+    await chip.hover();
+    expect(await appearance()).toEqual(beforeHover);
     // Every third seeded candidate is unavailable.
     await expect(rows(page)).toHaveCount(9);
     await expect(page).toHaveURL(/availability=unavailable/);

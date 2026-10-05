@@ -4,6 +4,7 @@ import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDay, formatElapsed, localDay } from '../../../core/i18n/format';
 import { errorText, TranslatableError } from '../../../core/i18n/translatable-error';
 import { useErrorToast } from '../../../core/services/use-error-toast';
+import { StatusChip } from '../../../shared/components/status-chip';
 import { FormError } from '../../../shared/components/form-error';
 import {
   ALL_AVAILABILITY_STATES,
@@ -14,6 +15,7 @@ import {
 } from '../models/candidate.models';
 import {
   availabilityLabel,
+  availabilityTone,
   canReconfirm,
   initialForm,
   isLapsed,
@@ -117,16 +119,18 @@ export function CandidateAvailabilityBlock({ candidate }: CandidateAvailabilityP
   const setState = (state: CandidateAvailabilityState): void =>
     setForm((current) => (current ? { ...current, state } : current));
 
-  const line =
-    check.state === 'unavailable' && check.until
-      ? t('candidate.availability.unavailableUntil', { date: formatDay(check.until) })
-      : availabilityLabel(check.state, t);
-
   return (
     <div className="candidate-availability" data-testid="candidate-availability">
       <div className="candidate-availability__summary">
         <p className="candidate-availability__line" data-testid="candidate-availability-line">
-          {line}
+          <StatusChip tone={availabilityTone(check.state)} testId="candidate-availability-chip">
+            {availabilityLabel(check.state, t)}
+          </StatusChip>
+          {check.state === 'unavailable' && check.until ? (
+            <span data-testid="candidate-availability-until">
+              {t('candidate.availability.untilDate', { date: formatDay(check.until) })}
+            </span>
+          ) : null}
           {lapsed ? (
             <>
               {' '}

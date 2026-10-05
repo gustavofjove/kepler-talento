@@ -181,6 +181,24 @@ describe('Position pages', () => {
     beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
     afterEach(() => vi.useRealTimers());
 
+    it('renders closed positions with a neutral chip', async () => {
+      positionService.list.mockImplementation(async () => {
+        const page: PositionPage = {
+          items: [{ ...stored, status: 'closed', candidateCount: 0 }],
+          page: 1,
+          pageSize: 25,
+          totalCount: 1,
+        };
+        positionService.state.set(page);
+        return page;
+      });
+      renderAt('/app/positions');
+      expect(await screen.findByText('Cerrada', { selector: 'span' })).toHaveAttribute(
+        'data-tone',
+        'neutral',
+      );
+    });
+
     it('loads open positions sorted by update and renders them from the service signal', async () => {
       renderAt('/app/positions');
 
@@ -190,6 +208,10 @@ describe('Position pages', () => {
         '/app/positions/pos-1',
       );
       expect(screen.getByTestId('position-candidate-count')).toHaveTextContent('3');
+      expect(screen.getByText('Abierta', { selector: 'span' })).toHaveAttribute(
+        'data-tone',
+        'success',
+      );
       expect(positionService.list).toHaveBeenLastCalledWith(
         expect.objectContaining({
           status: 'open',
@@ -541,6 +563,10 @@ describe('Position pages', () => {
       renderAt('/app/positions/pos-1');
 
       expect(await screen.findByRole('heading', { level: 1, name: stored.title })).toBeVisible();
+      expect(screen.getByText('Abierta', { selector: 'span' })).toHaveAttribute(
+        'data-tone',
+        'success',
+      );
       await waitFor(() =>
         expect(candidateSearchService.search).toHaveBeenCalledWith(
           stored.requirements,
@@ -562,6 +588,10 @@ describe('Position pages', () => {
 
       await screen.findByRole('heading', { level: 1, name: stored.title });
       await waitFor(() => expect(candidateSearchService.search).toHaveBeenCalledTimes(1));
+      expect(screen.getByText('Cerrada', { selector: 'span' })).toHaveAttribute(
+        'data-tone',
+        'neutral',
+      );
     });
 
     it('makes no candidate request and explains why without candidates.read', async () => {

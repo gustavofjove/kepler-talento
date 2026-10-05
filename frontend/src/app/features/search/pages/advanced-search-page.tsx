@@ -1,3 +1,4 @@
+import { StatusChip } from '../../../shared/components/status-chip';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -337,9 +338,9 @@ export function AdvancedSearchPage() {
                         <td>{batch.fileName}</td>
                         <td>{batch.rowCount}</td>
                         <td>
-                          <span className="status status--success">
+                          <StatusChip tone="success">
                             {t('search.export.history.completed')}
-                          </span>
+                          </StatusChip>
                         </td>
                       </tr>
                     ))}

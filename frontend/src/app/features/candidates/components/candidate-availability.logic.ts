@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import { formatElapsed } from '../../../core/i18n/format';
+import type { ChipTone } from '../../../shared/components/status-chip';
 import type {
   CandidateAvailability,
   CandidateAvailabilityInput,
@@ -11,21 +12,24 @@ export function availabilityLabel(state: CandidateAvailabilityState, t: TFunctio
   return t(`candidate.availability.state.${state}`);
 }
 
-/**
- * What a table cell shows (KTL-36): the value and how long ago it was checked, or
- * «Sin comprobar». The until date and the checker are not part of the table projection.
- */
-export function availabilityCell(
+const tones: Record<CandidateAvailabilityState, ChipTone> = {
+  unknown: 'neutral',
+  available: 'success',
+  unavailable: 'danger',
+};
+
+export function availabilityTone(state: CandidateAvailabilityState): ChipTone {
+  return tones[state];
+}
+
+/** Elapsed time is shown separately from the value, only for a known check. */
+export function availabilityElapsed(
   state: CandidateAvailabilityState,
   checkedOn: string | null,
-  t: TFunction,
   now: Date = new Date(),
-): string {
-  if (state === 'unknown' || !checkedOn) return availabilityLabel('unknown', t);
-  return t('candidate.availability.cell', {
-    value: availabilityLabel(state, t),
-    elapsed: formatElapsed(checkedOn, now),
-  });
+): string | null {
+  if (state === 'unknown' || !checkedOn) return null;
+  return formatElapsed(checkedOn, now);
 }
 
 /** An unavailable check whose until date is before `today` (both `YYYY-MM-DD`). */
