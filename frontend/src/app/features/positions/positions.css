@@ -58,6 +58,11 @@
   gap: 14px;
 }
 
+/* Line the remove button up with its left-aligned "Acciones" header. */
+.position-candidate-actions {
+  justify-content: flex-start;
+}
+
 .position-presets h2 {
   margin: 0;
 }
