@@ -155,7 +155,7 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
                       </td>
                       <td>{formatDate(link.addedAtUtc, { dateStyle: 'medium' })}</td>
                       <td data-row-link-ignore="">
-                        <div className="form-actions">
+                        <div className="form-actions position-candidate-actions">
                           {editable ? (
                             <button
                               className="button ghost small"
