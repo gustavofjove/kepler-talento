@@ -227,7 +227,10 @@ h3 {
   outline-offset: 0;
 }
 
+/* `align-content: start` keeps label and control at the top when a sibling field in the same
+ * row is taller (e.g. it has a hint), instead of spreading the extra height between them. */
 .field {
+  align-content: start;
   display: grid;
   gap: 6px;
 }
