@@ -60,6 +60,9 @@ public static class DocumentErrors
     public static ConflictException PrimaryConflictException() =>
         new(PrimaryConflict, "Otro documento ya se ha marcado como principal.");
 
+    public static ConflictException NotAvailableException() =>
+        new(NotAvailable, "El documento no está disponible para marcarlo como principal.");
+
     public static void Require(ICurrentActor actor, string permission)
     {
         if (!actor.IsAuthenticated || !actor.HasPermission(permission)) throw new ForbiddenException();

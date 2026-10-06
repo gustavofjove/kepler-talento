@@ -3,33 +3,26 @@ import { useTranslation } from 'react-i18next';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { FormError } from '../../../shared/components/form-error';
+import { formatDate } from '../../../core/i18n/format';
+import { StatusChip } from '../../../shared/components/status-chip';
+import {
+  CloseIcon,
+  DownloadIcon,
+  FileIcon,
+  StarIcon,
+  TrashIcon,
+  UploadIcon,
+} from '../../../shared/components/icons';
+import {
+  ACCEPTED_FILES,
+  canMarkPrimary,
+  documentDetails,
+  documentExplanationKey,
+  documentStateChip,
+  formatFileSize,
+} from './candidate-documents.logic';
 import type { Candidate, CandidateDocument } from '../models/candidate.models';
-
-const ACCEPTED_FILES = '.pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png,.tif,.tiff,.bmp';
-
-/** i18n keys under `candidate.profile.documents.` for a document's availability state. */
-function availability(document: CandidateDocument): {
-  label: string;
-  explanation?: string;
-  downloadable: boolean;
-} {
-  switch (document.availabilityState) {
-    case 'Pending':
-      return { label: 'state.pending', downloadable: false };
-    case 'Available':
-      return { label: 'state.available', downloadable: true };
-    case 'Error':
-      return { label: 'state.error', explanation: 'explanation.error', downloadable: false };
-    case 'Refused':
-      return {
-        label: 'state.unavailable',
-        explanation: 'explanation.refused',
-        downloadable: false,
-      };
-    default:
-      return { label: 'state.unavailable', explanation: 'explanation.legacy', downloadable: false };
-  }
-}
+import './candidate-documents.css';
 
 interface Props {
   candidate: Candidate | undefined;
@@ -50,6 +43,7 @@ export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange 
   const [documents, setDocuments] = useState<CandidateDocument[]>(candidate?.documents ?? []);
   const [selectedFile, setSelectedFile] = useState<File | undefined>();
   const [isPrimary, setIsPrimary] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
   const [pollingExhausted, setPollingExhausted] = useState(false);
   const [uploadError, setUploadError] = useState<string | undefined>();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -162,6 +156,7 @@ export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange 
       toastService.show(t('candidate.profile.documents.primaryUpdated'), 'success');
     } catch (error) {
       notifyError(error, t('candidate.profile.documents.primaryFailure'));
+      await refresh();
     }
   };
 
@@ -193,107 +188,212 @@ export function CandidateDocuments({ candidate, readOnly = false, onDirtyChange 
   };
 
   return (
-    <section className="section-block" data-testid="candidate-documents">
+    <section className="section-block candidate-documents" data-testid="candidate-documents">
       {!documents.length ? (
         <p className="empty-state">{t('candidate.profile.documents.empty')}</p>
       ) : null}
-      <div className="item-list">
+      <ul className="document-list">
         {documents.map((document) => {
-          const state = availability(document);
+          const chip = documentStateChip(document.availabilityState);
+          const explanation = documentExplanationKey(document.availabilityState);
+          const details = documentDetails(document);
+          const filename = document.originalFilename;
+          const downloadLabel = t('candidate.profile.documents.action.download', { filename });
+          const primaryLabel = t('candidate.profile.documents.action.markPrimary', { filename });
+          const removeLabel = t('candidate.profile.documents.action.remove', { filename });
           return (
-            <div className="item-row" key={document.id} data-testid="candidate-document">
-              <p className="item-main">
-                <strong>{document.originalFilename}</strong>
-                <span className="badge">
-                  {document.isPrimary
-                    ? t('candidate.profile.documents.primary')
-                    : document.documentType}
-                </span>
-                <span className="badge" data-testid="document-availability">
-                  {t(`candidate.profile.documents.${state.label}`)}
-                </span>
-                {state.explanation ? (
-                  <span>{t(`candidate.profile.documents.${state.explanation}`)}</span>
+            <li className="document-row" key={document.id} data-testid="candidate-document">
+              <span className="document-row__icon">
+                <FileIcon />
+              </span>
+              <div className="document-row__main">
+                <div className="document-row__heading">
+                  <strong className="document-row__filename" title={filename}>
+                    {filename}
+                  </strong>
+                  {document.isPrimary ? (
+                    <span className="badge">{t('candidate.profile.documents.primary')}</span>
+                  ) : null}
+                </div>
+                <div className="document-row__details">
+                  {explanation
+                    ? t(explanation)
+                    : t(
+                        details.type
+                          ? 'candidate.profile.documents.detailsWithType'
+                          : 'candidate.profile.documents.details',
+                        {
+                          format: details.format,
+                          size: formatFileSize(details.sizeBytes),
+                          date: formatDate(document.uploadedAt, { dateStyle: 'medium' }),
+                          type: details.type,
+                        },
+                      )}
+                  {pollingExhausted && document.availabilityState === 'Pending' ? (
+                    <div>
+                      {t('candidate.profile.documents.stillScanning')}{' '}
+                      <button
+                        className="button ghost small"
+                        type="button"
+                        onClick={() => void refresh()}
+                      >
+                        {t('candidate.profile.documents.refresh')}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <span
+                className="document-row__state"
+                data-testid="document-availability"
+                data-state={document.availabilityState ?? 'LegacyUnavailable'}
+              >
+                {chip ? <StatusChip tone={chip.tone}>{t(chip.labelKey)}</StatusChip> : null}
+              </span>
+              <div className="document-row__actions">
+                {canDownload && document.availabilityState === 'Available' ? (
+                  <button
+                    className="button ghost icon-button"
+                    type="button"
+                    data-testid="document-download"
+                    aria-label={downloadLabel}
+                    title={downloadLabel}
+                    onClick={() => void download(document)}
+                  >
+                    <DownloadIcon />
+                  </button>
+                ) : (
+                  <span className="document-row__slot" aria-hidden="true" />
+                )}
+                {canUpload ? (
+                  <>
+                    {canMarkPrimary(document) ? (
+                      <button
+                        className="button ghost icon-button"
+                        type="button"
+                        data-testid="document-mark-primary"
+                        aria-label={primaryLabel}
+                        title={primaryLabel}
+                        onClick={() => void markPrimary(document.id)}
+                      >
+                        <StarIcon />
+                      </button>
+                    ) : (
+                      <span className="document-row__slot" aria-hidden="true" />
+                    )}
+                    <button
+                      className="button ghost icon-button is-danger"
+                      type="button"
+                      data-testid="document-remove"
+                      aria-label={removeLabel}
+                      title={removeLabel}
+                      onClick={() => void remove(document)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </>
                 ) : null}
-              </p>
-              {canDownload && state.downloadable ? (
-                <button
-                  className="button secondary"
-                  type="button"
-                  onClick={() => void download(document)}
-                >
-                  {t('candidate.profile.documents.download')}
-                </button>
-              ) : null}
-              {canUpload && !document.isPrimary ? (
-                <button
-                  className="button ghost"
-                  type="button"
-                  onClick={() => void markPrimary(document.id)}
-                >
-                  {t('candidate.profile.documents.markPrimary')}
-                </button>
-              ) : null}
-              {canUpload ? (
-                <button
-                  className="button danger"
-                  type="button"
-                  onClick={() => void remove(document)}
-                >
-                  {t('candidate.profile.documents.remove')}
-                </button>
-              ) : null}
-            </div>
+              </div>
+            </li>
           );
         })}
-      </div>
-      {pollingExhausted ? (
-        <p className="empty-state">
-          {t('candidate.profile.documents.stillScanning')}{' '}
-          <button className="button ghost" type="button" onClick={() => void refresh()}>
-            {t('candidate.profile.documents.refresh')}
-          </button>
-        </p>
-      ) : null}
+      </ul>
       {canUpload ? (
-        <form className="section-block" onSubmit={upload} noValidate>
+        <form
+          className="section-block candidate-add-form document-upload"
+          onSubmit={upload}
+          noValidate
+        >
+          <h3>{t('candidate.profile.documents.upload.title')}</h3>
           <FormError message={uploadError} testId="document-upload-error" />
-          <div className="grid two">
-            <div className="field">
-              <label htmlFor="file">{t('candidate.profile.documents.file')}</label>
-              <input
-                id="file"
-                ref={fileInput}
-                name="file"
-                data-testid="document-file"
-                type="file"
-                accept={ACCEPTED_FILES}
-                onChange={onFileSelected}
-              />
-            </div>
-            <div className="field">
-              <label className="inline-check">
-                <input
-                  name="isPrimary"
-                  data-testid="document-is-primary"
-                  type="checkbox"
-                  checked={isPrimary}
-                  onChange={(event) => setIsPrimary(event.target.checked)}
-                />
-                {t('candidate.profile.documents.isPrimary')}
-              </label>
-            </div>
-          </div>
-          <div className="form-actions">
-            <button
-              className="button"
-              type="submit"
-              data-testid="document-upload"
-              disabled={!selectedFile}
+          <label className="visually-hidden" htmlFor="file">
+            {t('candidate.profile.documents.upload.choose')}
+          </label>
+          <input
+            className="visually-hidden"
+            id="file"
+            ref={fileInput}
+            name="file"
+            data-testid="document-file"
+            type="file"
+            accept={ACCEPTED_FILES}
+            onChange={onFileSelected}
+          />
+          {!selectedFile ? (
+            <div
+              className={`document-drop-zone${isDragging ? ' is-dragging' : ''}`}
+              data-testid="document-drop-zone"
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragging(false);
+                setSelectedFile(event.dataTransfer.files[0]);
+              }}
             >
-              {t('candidate.profile.documents.upload')}
-            </button>
-          </div>
+              <UploadIcon />
+              <p>{t('candidate.profile.documents.upload.drop')}</p>
+              <p className="document-upload__hint">
+                {t('candidate.profile.documents.upload.hint')}
+              </p>
+              <button
+                className="button ghost"
+                type="button"
+                data-testid="document-choose"
+                onClick={() => fileInput.current?.click()}
+              >
+                {t('candidate.profile.documents.upload.choose')}
+              </button>
+            </div>
+          ) : (
+            <div className="document-selected" data-testid="document-selected">
+              <div className="document-selected__file">
+                <FileIcon />
+                <div className="document-row__main">
+                  <strong className="document-row__filename" title={selectedFile.name}>
+                    {selectedFile.name}
+                  </strong>
+                  <span className="document-row__details">{formatFileSize(selectedFile.size)}</span>
+                </div>
+                <button
+                  className="button ghost icon-button"
+                  type="button"
+                  data-testid="document-clear"
+                  aria-label={t('candidate.profile.documents.upload.clear')}
+                  title={t('candidate.profile.documents.upload.clear')}
+                  onClick={() => {
+                    setSelectedFile(undefined);
+                    if (fileInput.current) fileInput.current.value = '';
+                  }}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+              <div className="document-selected__controls">
+                <label className="inline-check">
+                  <input
+                    name="isPrimary"
+                    data-testid="document-is-primary"
+                    type="checkbox"
+                    checked={isPrimary}
+                    onChange={(event) => setIsPrimary(event.target.checked)}
+                  />
+                  {t('candidate.profile.documents.isPrimary')}
+                </label>
+                <button
+                  className="button"
+                  type="submit"
+                  data-testid="document-upload"
+                  disabled={!selectedFile}
+                >
+                  {t('candidate.profile.documents.upload.submit')}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
       ) : null}
     </section>

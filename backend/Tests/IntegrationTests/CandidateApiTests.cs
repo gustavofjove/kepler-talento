@@ -271,6 +271,13 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         var second = await UploadAsync(client, created.Id, "dos.pdf", "%PDF-1.7\ntwo", false);
         var two = (await second.Content.ReadFromJsonAsync<DocumentResponse>())!;
 
+        await using (var scanDb = NewDbContext())
+        {
+            var document = await scanDb.Documents.SingleAsync(value => value.Id == two.Id);
+            document.MarkClean(null, DateTimeOffset.UtcNow);
+            await scanDb.SaveChangesAsync();
+        }
+
         // The primary flag moves from one document to the other in a single write. The
         // index enforcing "at most one primary" is not deferrable, so this is the case
         // that proves the ordered two-phase write.
@@ -298,6 +305,70 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         await using var auditDb = NewDbContext();
         Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.primary.changed"));
         Assert.True(await auditDb.AuditEvents.AnyAsync(audit => audit.EventType == "document.removed"));
+    }
+
+    [Theory]
+    [InlineData("Pending")]
+    [InlineData("Infected")]
+    [InlineData("Rejected")]
+    [InlineData("ScanFailed")]
+    [InlineData("LegacyUnavailable")]
+    public async Task Marking_an_unavailable_document_primary_is_refused(string state)
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Full);
+        using var client = factory.CreateClient();
+        var created = await CreateAsync(client, "Test", "Documents");
+        var firstResponse = await UploadAsync(client, created.Id, "first.pdf", "%PDF-1.7\nfirst", true);
+        var first = (await firstResponse.Content.ReadFromJsonAsync<DocumentResponse>())!;
+        var secondResponse = await UploadAsync(client, created.Id, "second.pdf", "%PDF-1.7\nsecond", false);
+        var second = (await secondResponse.Content.ReadFromJsonAsync<DocumentResponse>())!;
+        await using (var db = NewDbContext())
+        {
+            var document = await db.Documents.SingleAsync(value => value.Id == second.Id);
+            if (state == "LegacyUnavailable")
+            {
+                document.SetSourceKey("synthetic-document");
+                db.Entry(document).Property(value => value.Sha256).CurrentValue = "";
+                document.MarkClean(null, DateTimeOffset.UtcNow);
+            }
+            else if (state != "Pending")
+            {
+                document.MarkUnavailable(Enum.Parse<KeplerTalento.Domain.Documents.DocumentScanState>(state),
+                    "synthetic.scan.failure", DateTimeOffset.UtcNow);
+            }
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.PutAsJsonAsync(
+            $"/api/candidates/{created.Id}/documents/{second.Id}/primary", new { });
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        using var problem = System.Text.Json.JsonDocument.Parse(body);
+        Assert.Equal("document.not_available", problem.RootElement.GetProperty("code").GetString());
+        Assert.DoesNotContain("storageKey", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("synthetic.scan.failure", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(await StoredDocumentKeyByIdAsync(second.Id), body, StringComparison.Ordinal);
+
+        foreach (var actor in new[] { TestActor.Unauthenticated, TestActor.Reader })
+        {
+            await using var deniedFactory = CreateFactory(actor);
+            using var deniedClient = deniedFactory.CreateClient();
+            foreach (var id in new[] { second.Id, Guid.NewGuid() })
+            {
+                var denied = await deniedClient.PutAsJsonAsync(
+                    $"/api/candidates/{created.Id}/documents/{id}/primary", new { });
+                Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+                Assert.DoesNotContain("document.not_available", await denied.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            }
+        }
+
+        await using var assertionDb = NewDbContext();
+        var primary = Assert.Single(await assertionDb.Documents.AsNoTracking()
+            .Where(value => value.CandidateId == created.Id && value.IsPrimary).ToListAsync());
+        Assert.Equal(first.Id, primary.Id);
+        Assert.False((await assertionDb.Documents.SingleAsync(value => value.Id == second.Id)).IsPrimary);
+        Assert.False(await assertionDb.AuditEvents.AnyAsync(value => value.EventType == "document.primary.changed"));
     }
 
     [Fact]

@@ -101,5 +101,18 @@
   "cvPanel.downloadLabel": "Download {{name}}'s CV",
   "cvPanel.downloadFailed": "The CV could not be downloaded.",
   "cvPanel.downloadUnavailable": "This candidate's CV can no longer be downloaded.",
-  "cvPanel.empty": "This candidate no longer has a CV that can be previewed."
+  "cvPanel.empty": "This candidate no longer has a CV that can be previewed.",
+  "candidate.profile.documents.details": "{{format}} · {{size}} · {{date}}",
+  "candidate.profile.documents.detailsWithType": "{{type}} · {{format}} · {{size}} · {{date}}",
+  "candidate.profile.documents.state.refused": "Rejected",
+  "candidate.profile.documents.state.legacy": "No file",
+  "candidate.profile.documents.action.download": "Download {{filename}}",
+  "candidate.profile.documents.action.markPrimary": "Mark {{filename}} as primary CV",
+  "candidate.profile.documents.action.remove": "Remove {{filename}}",
+  "candidate.profile.documents.upload.title": "Upload document",
+  "candidate.profile.documents.upload.drop": "Drop a file here or select one",
+  "candidate.profile.documents.upload.hint": "PDF, Word, ODT, RTF, TXT or image · maximum 20 MB",
+  "candidate.profile.documents.upload.choose": "Select file",
+  "candidate.profile.documents.upload.clear": "Clear file",
+  "candidate.profile.documents.upload.submit": "Upload document"
 }

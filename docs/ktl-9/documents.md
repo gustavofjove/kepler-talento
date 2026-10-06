@@ -29,19 +29,32 @@ El multipart usa los campos `file`, `documentType` e `isPrimary`. Ninguna respue
 `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff`, nombre saneado en
 `Content-Disposition: attachment` y no admite rangos.
 
+Since KTL-39, `PUT …/primary` returns `409` with code `document.not_available` when the
+document cannot be downloaded (pending, infected, rejected, scan failed, or legacy without a
+binary). Authentication and `documents.upload` are checked before looking up its state. A refusal
+leaves the primary flag unchanged and records no `document.primary.changed` audit event. Upload
+with `isPrimary=true` may still designate a pending document primary.
+
 Desde KTL-20, el mismo endpoint `/content` sirve tanto la descarga explícita como la vista previa
 PDF de la página de detalle. Conserva exactamente los mismos controles de autorización, análisis
 y caché. Consulte [la vista previa de documentos](../ktl-20/document-preview.md).
 
 ## Estados para la interfaz
 
-| Estado API          | Texto                                               |
-| ------------------- | --------------------------------------------------- |
-| `Pending`           | `En análisis`                                       |
-| `Available`         | `Disponible`                                        |
-| `Refused`           | `No disponible` y explicación no técnica            |
-| `Error`             | `Error de análisis` y opción de reintento posterior |
-| `LegacyUnavailable` | `Documento heredado sin archivo asociado.`          |
+| Estado API          | Texto                                                  |
+| ------------------- | ------------------------------------------------------ |
+| `Pending`           | `En análisis`                                          |
+| `Available`         | No chip; download offered with permission              |
+| `Refused`           | `Rechazado` (danger) and non-technical explanation     |
+| `Error`             | `Error de análisis` y opción de reintento posterior    |
+| `LegacyUnavailable` | `Sin archivo` (neutral) and missing-binary explanation |
+
+Pending uses a neutral chip; scan errors use a danger chip. Document rows show filename,
+primary badge, format, size and upload date, with fixed download, primary and removal slots.
+Only available non-primary documents offer primary designation in edit mode. Below 520px of panel
+width, state and actions move below the filename. The upload subsection supports file selection
+and dropping the first file, shows a selected-file card, and allows clearing it before submission.
+An unsubmitted selection participates in the existing panel dirty guard.
 
 Eliminar el principal deja al candidato sin principal. El usuario debe elegir otro de forma
 explícita. Los eventos `document.upload.accepted`, `document.scan`,

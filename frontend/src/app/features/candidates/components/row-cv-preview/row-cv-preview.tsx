@@ -21,6 +21,7 @@ import {
   type CvPlacement,
   type OpenRowCv,
 } from './row-cv-preview.logic';
+import { DownloadIcon } from '../../../../shared/components/icons';
 import './row-cv-preview.css';
 
 /** Marks the CV area, so focus inside it can be followed when it moves or closes. */
@@ -299,34 +300,6 @@ export function RowCvDownloadButton({ candidateId, name }: { candidateId: string
     >
       <DownloadIcon />
     </button>
-  );
-}
-
-/**
- * An arrow dropping into a tray for «Descargar» — not a floppy disk, which reads as saving
- * changes. Decorative: the button carries the name. Drawn on the 16px grid it is shown at, with
- * 1px strokes on half-pixel coordinates, so the long edges render as crisp single pixels instead
- * of smearing across two.
- */
-function DownloadIcon() {
-  return (
-    <svg
-      className="row-cv-toggle__icon"
-      viewBox="0 0 16 16"
-      width="16"
-      height="16"
-      aria-hidden="true"
-      focusable="false"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M7.5 1.5v9" />
-      <path d="M4.5 7.5l3 3 3-3" />
-      <path d="M1.5 11.5v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2" />
-    </svg>
   );
 }
 

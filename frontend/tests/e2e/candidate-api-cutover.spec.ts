@@ -63,7 +63,7 @@ test.describe('Candidate API cutover', () => {
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4 prueba'),
     });
-    await documents.locator('button:has-text("Subir CV")').click();
+    await documents.getByTestId('document-upload').click();
 
     await expect(documents.locator('text=cv-prueba.pdf')).toBeVisible();
     await finishPanel(page, 'documents');

@@ -37,15 +37,19 @@ test.describe('Security operational flows', () => {
       mimeType: 'application/pdf',
       buffer: pdfBuffer,
     });
-    await page.click('button:has-text("Subir CV")');
+    await page.getByTestId('document-upload').click();
 
     await expect(
       page.getByText('Archivo aceptado. El análisis de seguridad está en curso.'),
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Descargar' })).toHaveCount(0);
-    await expect(page.getByTestId('document-availability')).toHaveText('Disponible', {
-      timeout: 25_000,
-    });
+    await expect(page.getByTestId('document-availability')).toHaveAttribute(
+      'data-state',
+      'Available',
+      {
+        timeout: 25_000,
+      },
+    );
 
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('candidate-document').getByRole('button', { name: 'Descargar' }).click();

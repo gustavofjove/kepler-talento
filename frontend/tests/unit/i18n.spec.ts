@@ -43,9 +43,9 @@ describe('i18n foundation', () => {
   it('resolves every candidate document state and availability key', () => {
     for (const key of [
       'state.pending',
-      'state.available',
+      'state.refused',
       'state.error',
-      'state.unavailable',
+      'state.legacy',
       'explanation.error',
       'explanation.refused',
       'explanation.legacy',

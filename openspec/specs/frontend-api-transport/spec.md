@@ -331,8 +331,9 @@ feature service SHALL report an upload as succeeding without having transmitted 
 
 When the API accepts work whose result is not immediately available, the interface SHALL present
 the intermediate state to the user in Spanish rather than reporting completion. It SHALL observe
-the server's state until it settles, SHALL show the settled outcome — available or refused with
-a non-technical reason — and SHALL stop observing when the user leaves the view.
+the server's state until it settles, SHALL show the settled outcome — available, by offering the
+document's download without a pending or refused label, or refused with a non-technical reason —
+and SHALL stop observing when the user leaves the view.
 
 #### Scenario: Accepted upload is not yet available
 
@@ -343,8 +344,8 @@ a non-technical reason — and SHALL stop observing when the user leaves the vie
 #### Scenario: Work settles as available
 
 - **WHEN** the observed document becomes available
-- **THEN** the interface shows it as "disponible" and offers a download, without requiring the
-  user to reload the page
+- **THEN** the interface removes its "en análisis" state, shows no state label for it, and offers
+  a download to holders of the download permission, without requiring the user to reload the page
 
 #### Scenario: Work settles as refused
 

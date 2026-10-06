@@ -77,9 +77,13 @@ test.describe('Secure access', () => {
       buffer: PDF_BYTES,
     });
     await documents.getByTestId('document-upload').click();
-    await expect(documents.getByTestId('document-availability')).toHaveText('Disponible', {
-      timeout: 25_000,
-    });
+    await expect(documents.getByTestId('document-availability')).toHaveAttribute(
+      'data-state',
+      'Available',
+      {
+        timeout: 25_000,
+      },
+    );
     const aggregate = await adminPage.request.get(`/api/candidates/${candidateId}`, {
       headers: authorizationHeaders(adminPage),
     });
