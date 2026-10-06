@@ -144,6 +144,9 @@ KeplerDesk y en cualquier otra aplicacion del ecosistema Kepler.
   `.badge--danger` for unavailable candidates; `.badge--neutral` for unchecked candidates and
   closed positions. Plain `.badge` and other status families keep their existing appearance.
 - Chips always carry a label and have no border, solid fill, hover change or pointer cursor.
+- Document chips appear only for unavailable states: «En análisis» and «Sin archivo» use
+  neutral; «Error de análisis» and «Rechazado» use danger. Available documents have no state
+  chip. «Principal» keeps the plain orange `.badge`, sized to its label beside the filename.
 - WCAG contrast ratios: success (`--fj-green-dark` on `--fj-green-bg`) **6.95:1**;
   danger (`--danger-dark` on `--danger-bg`) **6.44:1**;
   neutral (`--fg-2` on `--neutral-bg`) **7.82:1**. The neutral background remains visible on

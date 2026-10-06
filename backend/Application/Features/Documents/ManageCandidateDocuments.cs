@@ -43,6 +43,9 @@ public sealed class SetPrimaryCandidateDocumentHandler(
     public async Task<CandidateDocumentResponse> Handle(SetPrimaryCandidateDocumentCommand request, CancellationToken cancellationToken)
     {
         DocumentErrors.Require(actor, Permissions.DocumentsUpload);
+        var availableDocument = await documents.FindAsync(request.CandidateId, request.DocumentId, cancellationToken)
+            ?? throw DocumentErrors.Missing();
+        if (!availableDocument.CanBeDownloaded) throw DocumentErrors.NotAvailableException();
         var outcome = await documents.SetPrimaryAsync(
             request.CandidateId,
             request.DocumentId,

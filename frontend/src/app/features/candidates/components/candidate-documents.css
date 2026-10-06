@@ -1,0 +1,127 @@
+.candidate-documents {
+  container-type: inline-size;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.document-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto auto;
+  grid-template-areas: 'icon main state actions';
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-1);
+}
+
+.document-row__icon {
+  grid-area: icon;
+  color: var(--fg-3);
+}
+
+.document-row__main {
+  grid-area: main;
+  min-width: 0;
+}
+
+.document-row__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-row__heading .badge {
+  flex-shrink: 0;
+}
+
+.document-row__filename {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.document-row__details,
+.document-upload__hint {
+  font-size: 12px;
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.document-row__state {
+  grid-area: state;
+}
+
+.document-row__actions {
+  grid-area: actions;
+  display: flex;
+  gap: 4px;
+}
+
+.candidate-documents .icon-button,
+.document-row__slot {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.candidate-documents .icon-button.is-danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg-1);
+}
+
+.document-drop-zone {
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  padding: 20px;
+  text-align: center;
+}
+
+.document-drop-zone.is-dragging {
+  border-color: var(--primary);
+  background: var(--fj-orange-pale);
+}
+
+.document-selected {
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+
+.document-selected__file {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 32px;
+  gap: 12px;
+  align-items: center;
+}
+
+.document-selected__file .document-row__main {
+  grid-area: auto;
+}
+
+.document-selected__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@container (max-width: 520px) {
+  .document-row {
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-areas: 'icon main main' '. state actions';
+  }
+}

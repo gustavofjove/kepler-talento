@@ -257,6 +257,12 @@ and availability state — against a candidate, and SHALL keep at most one docum
 per candidate as a stored invariant that holds under concurrent writes rather than as a writer
 convention. Document metadata SHALL NOT expose an internal storage path or key.
 
+Designating an existing document as primary SHALL be refused, with a stable code and without
+changing which document is primary, when that document is not available (its scan is not clean,
+or it is a legacy record without a stored binary). The refusal SHALL be decided only after the
+caller's authentication and document-management permission have been checked. An upload MAY
+still designate the uploaded document primary while its scan is pending.
+
 #### Scenario: Document appears after an accepted upload
 
 - **WHEN** an authorized actor uploads a document for a candidate and the upload is accepted
@@ -276,7 +282,7 @@ convention. Document metadata SHALL NOT expose an internal storage path or key.
 
 #### Scenario: A second document is marked primary
 
-- **WHEN** a document is marked primary while another already is
+- **WHEN** an available document is marked primary while another already is
 - **THEN** the previously primary document is no longer primary, and exactly one document is
   primary
 
@@ -296,6 +302,27 @@ convention. Document metadata SHALL NOT expose an internal storage path or key.
 
 - **WHEN** a candidate's document collection is read
 - **THEN** no response field exposes a storage path, storage key or filesystem location
+
+#### Scenario: An unavailable document is marked primary
+
+- **WHEN** an actor holding the document-management permission marks primary a document that is
+  pending scan, infected, rejected, unscannable, or a legacy record without a stored binary
+- **THEN** the request is refused as a conflict with the stable code `document.not_available`,
+  the candidate's primary document is unchanged, no primary-change audit event is recorded, and
+  the response discloses no storage key, path or scanner detail
+
+#### Scenario: Unauthorized caller marks an unavailable document primary
+
+- **WHEN** an unauthenticated caller, or one without the document-management permission, marks
+  any document primary
+- **THEN** the request is refused for authorization exactly as for an available document, without
+  revealing the document's availability
+
+#### Scenario: Upload designates a pending document primary
+
+- **WHEN** an authorized actor uploads a document with the primary option selected
+- **THEN** the uploaded document is primary while its scan is still pending, and any previously
+  primary document is no longer primary
 
 ### Requirement: Per-operation candidate authorization
 

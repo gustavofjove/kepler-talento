@@ -40,27 +40,58 @@ test.describe('Candidate documents flow', () => {
     });
     const candidateId = await createCandidate(page, 'CV');
     const documents = page.getByTestId('candidate-documents');
+    const marker = Date.now();
+    const pdfName = `candidate-cv-${marker}.pdf`;
+    const textName = `candidate-cv-${marker}.txt`;
+
+    await expect(documents.getByTestId('document-drop-zone')).toBeVisible();
+    await expect(documents.getByTestId('document-choose')).toBeVisible();
 
     await documents.getByTestId('document-file').setInputFiles({
-      name: 'candidate-cv.pdf',
+      name: pdfName,
       mimeType: 'application/pdf',
       buffer: PDF_BYTES,
     });
+    await expect(documents.getByTestId('document-selected')).toContainText(pdfName);
+    await expect(documents.getByTestId('document-is-primary')).toBeChecked();
+    await documents.getByTestId('document-clear').click();
+    await expect(documents.getByTestId('document-drop-zone')).toBeVisible();
+    const dropped = await page.evaluateHandle(
+      ({ name, bytes }) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([new Uint8Array(bytes)], name, { type: 'application/pdf' }));
+        return transfer;
+      },
+      { name: pdfName, bytes: Array.from(PDF_BYTES) },
+    );
+    await documents
+      .getByTestId('document-drop-zone')
+      .dispatchEvent('drop', { dataTransfer: dropped });
+    await dropped.dispose();
+    await expect(documents.getByTestId('document-selected')).toContainText(pdfName);
     await documents.getByTestId('document-upload').click();
+    await expect(documents.getByTestId('document-drop-zone')).toBeVisible();
 
     await expect(
       page.getByText('Archivo aceptado. El análisis de seguridad está en curso.'),
     ).toBeVisible();
-    await expect(documents.getByTestId('document-availability')).toHaveText('En análisis');
+    await expect(documents.getByTestId('document-availability')).toHaveAttribute(
+      'data-state',
+      'Pending',
+    );
     await expect(documents.getByRole('button', { name: 'Descargar' })).toHaveCount(0);
 
-    await expect(documents.getByTestId('document-availability')).toHaveText('Disponible', {
-      timeout: 25_000,
-    });
+    await expect(documents.getByTestId('document-availability')).toHaveAttribute(
+      'data-state',
+      'Available',
+      {
+        timeout: 25_000,
+      },
+    );
     const downloadPromise = page.waitForEvent('download');
     await documents.getByRole('button', { name: 'Descargar' }).click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe('candidate-cv.pdf');
+    expect(download.suggestedFilename()).toBe(pdfName);
     const stream = await download.createReadStream();
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(Buffer.from(chunk));
@@ -89,18 +120,44 @@ test.describe('Candidate documents flow', () => {
     await editPanel(page, 'documents');
     const refreshedDocuments = page.getByTestId('candidate-documents');
     await refreshedDocuments.getByTestId('document-file').setInputFiles({
-      name: 'candidate-cv.txt',
+      name: textName,
       mimeType: 'text/plain',
       buffer: Buffer.from('Curriculum vitae', 'utf-8'),
     });
     await refreshedDocuments.getByTestId('document-is-primary').uncheck();
     await refreshedDocuments.getByTestId('document-upload').click();
-    await expect(refreshedDocuments.getByTestId('document-availability').first()).toHaveText(
-      'Disponible',
+    await expect(refreshedDocuments.getByTestId('candidate-document')).toHaveCount(2);
+    await expect(refreshedDocuments.getByTestId('document-selected')).toHaveCount(0);
+    await expect(refreshedDocuments.getByTestId('document-availability').first()).toHaveAttribute(
+      'data-state',
+      'Available',
       { timeout: 25_000 },
     );
+    await expect(refreshedDocuments.getByTestId('document-download')).toHaveCount(2, {
+      timeout: 25_000,
+    });
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoHorizontalScroll(page);
+      const rows = refreshedDocuments.getByTestId('candidate-document');
+      const positions = await rows.evaluateAll((items) =>
+        items.map((item) => {
+          const download = item
+            .querySelector('[data-testid="document-download"]')!
+            .getBoundingClientRect();
+          const remove = item
+            .querySelector('[data-testid="document-remove"]')!
+            .getBoundingClientRect();
+          const heading = item.querySelector('.document-row__heading')!.getBoundingClientRect();
+          return { download: download.x, remove: remove.x, below: download.y >= heading.bottom };
+        }),
+      );
+      expect(Math.abs(positions[0]!.download - positions[1]!.download)).toBeLessThan(1);
+      expect(Math.abs(positions[0]!.remove - positions[1]!.remove)).toBeLessThan(1);
+      if (width === 390) expect(positions.every((position) => position.below)).toBe(true);
+    }
     await finishPanel(page, 'documents');
-    await page.getByTestId('preview-document-select').selectOption({ label: 'candidate-cv.txt' });
+    await page.getByTestId('preview-document-select').selectOption({ label: textName });
     await expect(page.getByTestId('cv-preview-unsupported')).toBeVisible();
   });
 
@@ -113,7 +170,7 @@ test.describe('Candidate documents flow', () => {
     oversized.write('%PDF-1.4');
 
     await documents.getByTestId('document-file').setInputFiles({
-      name: 'demasiado-grande.pdf',
+      name: `demasiado-grande-${Date.now()}.pdf`,
       mimeType: 'application/pdf',
       buffer: oversized,
     });
@@ -126,7 +183,7 @@ test.describe('Candidate documents flow', () => {
       headers: authorizationHeaders(page),
       multipart: {
         file: {
-          name: 'demasiado-grande.pdf',
+          name: `demasiado-grande-${Date.now()}.pdf`,
           mimeType: 'application/pdf',
           buffer: oversized,
         },
