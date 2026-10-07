@@ -96,6 +96,12 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                 // KTL-36 design D5: the partial index serves the «comprobado desde» filter.
                 Assert.Contains("IX_CND_Candidates_IsActive_AvailabilityCheckedOn", plan, StringComparison.Ordinal);
             }
+            if (name == NewestFirstCase)
+            {
+                // KTL-40: the home page's «Últimos añadidos» reads its page straight off the
+                // partial creation-time index, with no sort over the active population.
+                Assert.Contains("IX_CND_Candidates_IsActive_CreatedAtUtc", plan, StringComparison.Ordinal);
+            }
         }
 
         var path = Path.Combine(RepositoryRoot(), "docs", "ktl-10", "query-plans.md");
@@ -122,6 +128,11 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
                     new SearchOptions(deepPage, SearchPaging.MaximumPageSize, new SearchSort(field, direction), true));
             }
         }
+
+        yield return (
+            NewestFirstCase,
+            unfiltered,
+            new SearchOptions(1, 5, new SearchSort(SearchSortField.CreatedAt, SearchSortDirection.Descending), false));
 
         foreach (var (name, filters) in FilterCases(catalog))
         {
@@ -198,6 +209,7 @@ public sealed class SearchQueryPlanTests(PostgreSqlFixture database, ITestOutput
     }
 
     private const string CheckedFromCase = "Checked from a recent date";
+    private const string NewestFirstCase = "Newest active candidates first, home page panel";
 
     /// <summary>
     /// The earliest of the most recent checks in the scale dataset: about one candidate in thirty

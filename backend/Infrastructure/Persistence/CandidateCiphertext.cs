@@ -33,6 +33,8 @@ public sealed class CandidateCiphertext
     public DateOnly? AvailabilityCheckedOn { get; private set; }
 
     public DateTimeOffset UpdatedAtUtc { get; private set; }
+
+    public DateTimeOffset CreatedAtUtc { get; private set; }
 }
 
 internal sealed class CandidateCiphertextConfiguration : IEntityTypeConfiguration<CandidateCiphertext>

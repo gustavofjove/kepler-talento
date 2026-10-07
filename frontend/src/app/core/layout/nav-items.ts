@@ -27,7 +27,8 @@ export interface NavGroup {
 
 /** Top-level entries, shown horizontally on wide viewports. */
 export const TOP_LEVEL_ITEMS: NavItem[] = [
-  { label: 'Dashboard', to: '/app', end: true, testId: 'nav-dashboard' },
+  // KTL-40: the home page is «Inicio». The test id keeps its old name; e2e specs bind to it.
+  { label: 'Inicio', to: '/app', end: true, testId: 'nav-dashboard' },
   {
     label: 'Candidatos',
     to: '/app/candidates',

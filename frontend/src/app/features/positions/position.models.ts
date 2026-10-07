@@ -10,6 +10,8 @@ export interface PositionListItem {
   version: number;
   /** KTL-30: how many candidates have been added to the position. */
   candidateCount: number;
+  /** KTL-40: how many of them sit at each stage; the five add up to `candidateCount`. */
+  stageCounts: Record<PositionCandidateStage, number>;
 }
 export interface PositionPage {
   items: PositionListItem[];
@@ -17,7 +19,7 @@ export interface PositionPage {
   pageSize: number;
   totalCount: number;
 }
-export interface Position extends Omit<PositionListItem, 'candidateCount'> {
+export interface Position extends Omit<PositionListItem, 'candidateCount' | 'stageCounts'> {
   description: string;
   requirements: SearchFilters;
   createdAtUtc: string;

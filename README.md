@@ -302,8 +302,14 @@ página visible.
 
 La página, la ordenación y los filtros de estado, CV e inactivos viajan en la URL, así que un
 enlace copiado reabre la misma vista; el texto buscado nunca se escribe en la URL. «Incluir
-inactivos» requiere `candidates.delete`. El dashboard muestra solo recuentos que el servidor puede
-calcular; desaparecen «Pendientes de revisión» y «Recibidos este mes».
+inactivos» requiere `candidates.delete`.
+
+Desde KTL-40 la página de inicio se llama «Inicio» (antes «Dashboard»). Resume los candidatos
+activos y su disponibilidad, las posiciones abiertas con sus candidatos por etapa, los últimos
+candidatos disponibles y añadidos y las búsquedas guardadas más usadas. Cada cifra y cada fila
+lleva a la vista filtrada, la ficha, la posición o la búsqueda que hay detrás. Cada panel se carga
+por separado y solo aparece con su permiso. Consulta la
+[nota de versión](docs/ktl-40/release-notes.md).
 
 Consulta el [contrato del listado](docs/ktl-18/list-contract.md) y la
 [nota de versión](docs/ktl-18/release-notes.md).
@@ -404,6 +410,17 @@ Rutas de diagnóstico:
 - `http://localhost:4200/api/health/scanner`: estado separado de ClamAV; puede estar
   degradado sin impedir la descarga de documentos que ya estaban limpios.
 - `http://localhost:4200/platform/reference`: arnés sintético, solo en Development/Test.
+
+Para ver «Inicio» y las posiciones con contenido, carga el conjunto de datos de demostración
+(ficticio; solo se escribe en un stack local, a través de la API):
+
+```powershell
+cd frontend
+npm run seed:demo              # crea lo que falte; se puede repetir
+npm run seed:demo -- --remove  # lo retira
+```
+
+Detalles en [docs/ktl-40/demo-data.md](docs/ktl-40/demo-data.md).
 
 Para detener los contenedores sin borrar datos:
 

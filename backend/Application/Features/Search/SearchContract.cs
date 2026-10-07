@@ -59,6 +59,9 @@ public enum SearchSortField
     /// both directions.
     /// </summary>
     AvailabilityCheckedOn,
+
+    /// <summary>When the candidate record was created (KTL-40). Every candidate has one.</summary>
+    CreatedAt,
 }
 
 public enum SearchSortDirection
@@ -88,6 +91,7 @@ public sealed record SearchSort(SearchSortField Field, SearchSortDirection Direc
             "updatedAt" => SearchSortField.UpdatedAt,
             "lastName" => SearchSortField.LastName,
             "availabilityCheckedOn" => SearchSortField.AvailabilityCheckedOn,
+            "createdAt" => SearchSortField.CreatedAt,
             _ => (SearchSortField?)null,
         };
         if (parsedField is null)

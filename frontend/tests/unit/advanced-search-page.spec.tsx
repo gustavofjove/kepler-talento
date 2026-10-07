@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
@@ -320,6 +320,97 @@ describe('AdvancedSearchPage', () => {
       await waitFor(() => expect(picker).toHaveValue(''));
       expect(searching.search).toHaveBeenCalledTimes(1);
       expect(toastService.show).toHaveBeenCalledWith('El preset ya no existe.', 'error');
+    });
+  });
+
+  describe('preset named in the address (KTL-40)', () => {
+    const presetId = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+
+    const LocationProbe = () => {
+      const location = useLocation();
+      return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+    };
+
+    const renderAt = (url: string, candidateSearchService: unknown) =>
+      render(
+        <ServicesProvider
+          value={
+            {
+              ...services,
+              candidateSearchService,
+              searchPresetsService,
+              authService,
+              toastService,
+            } as unknown as Services
+          }
+        >
+          <MemoryRouter initialEntries={[url]}>
+            <AdvancedSearchPage />
+            <LocationProbe />
+          </MemoryRouter>
+        </ServicesProvider>,
+      );
+
+    const idleSearch = () => ({
+      search: vi.fn().mockResolvedValue(page([])),
+      emptyFilters: () => structuredClone(EMPTY_SEARCH_FILTERS),
+    });
+
+    it('applies the preset once, selects it and removes it from the address', async () => {
+      searchPresetsService.state.set({
+        status: 'loaded',
+        presets: [
+          {
+            id: presetId,
+            name: 'Java senior',
+            filters: structuredClone(EMPTY_SEARCH_FILTERS),
+            createdAt: '2026-03-01T09:00:00Z',
+            updatedAt: '2026-03-01T09:00:00Z',
+            version: 1,
+          },
+        ],
+      });
+      searchPresetsService.applyPreset.mockResolvedValue({
+        ...structuredClone(EMPTY_SEARCH_FILTERS),
+        text: 'java',
+      });
+      const searching = idleSearch();
+
+      renderAt(`/app/search?preset=${presetId}`, searching);
+
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(1));
+      expect(searchPresetsService.applyPreset).toHaveBeenCalledTimes(1);
+      expect(searchPresetsService.applyPreset).toHaveBeenCalledWith(presetId);
+      expect(searching.search.mock.calls[0][0]).toMatchObject({ text: 'java' });
+      expect(screen.getByRole('combobox', { name: 'Preset guardado' })).toHaveValue(presetId);
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/app\/search$/);
+    });
+
+    it('refuses a value that is not an id without calling the API and runs the default search', async () => {
+      const searching = idleSearch();
+
+      renderAt('/app/search?preset=abc', searching);
+
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(1));
+      expect(searchPresetsService.applyPreset).not.toHaveBeenCalled();
+      expect(searching.search.mock.calls[0][0]).toEqual(EMPTY_SEARCH_FILTERS);
+      expect(toastService.show).toHaveBeenCalledWith('No se pudo cargar el preset.', 'error');
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/app\/search$/);
+    });
+
+    it('shows the apply-failed error and the default results for a deleted preset', async () => {
+      searchPresetsService.applyPreset.mockRejectedValue(
+        new AppError('NOT_FOUND', 'El preset ya no existe.'),
+      );
+      const searching = idleSearch();
+
+      renderAt(`/app/search?preset=${presetId}`, searching);
+
+      await waitFor(() => expect(searching.search).toHaveBeenCalledTimes(1));
+      expect(searching.search.mock.calls[0][0]).toEqual(EMPTY_SEARCH_FILTERS);
+      expect(toastService.show).toHaveBeenCalledWith('El preset ya no existe.', 'error');
+      expect(screen.getByRole('combobox', { name: 'Preset guardado' })).toHaveValue('');
+      expect(screen.getByTestId('location')).toHaveTextContent(/^\/app\/search$/);
     });
   });
 });

@@ -90,6 +90,12 @@ public sealed class CandidateConfiguration : IEntityTypeConfiguration<Candidate>
             .IsDescending(true, false)
             .HasFilter("\"IsActive\"")
             .HasDatabaseName("IX_CND_Candidates_IsActive_AvailabilityCheckedOn");
+        // KTL-40: the creation-time sort behind the home page's «Últimos añadidos», over the same
+        // default (active) population.
+        builder.HasIndex(candidate => new { candidate.CreatedAtUtc, candidate.Id })
+            .IsDescending(true, false)
+            .HasFilter("\"IsActive\"")
+            .HasDatabaseName("IX_CND_Candidates_IsActive_CreatedAtUtc");
         builder.HasIndex(candidate => candidate.SourceKey)
             .IsUnique()
             .HasFilter("\"SourceKey\" IS NOT NULL")

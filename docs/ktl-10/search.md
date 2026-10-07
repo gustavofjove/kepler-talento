@@ -6,7 +6,7 @@ that candidate matches.
 
 > **KTL-18.** The candidate list now shares this endpoint and contract rather than having its
 > own. Search gained optional `sortField`/`sortDirection` (`updatedAt`, `lastName`, `availabilityCheckedOn`,
-> with the identifier always the final tie-breaker) and `includeInactive`, which requires
+> and since KTL-40 `createdAt`, with the identifier always the final tie-breaker) and `includeInactive`, which requires
 > `candidates.delete`; each item gained `isActive`. Requests that omit them behave as described
 > below. See [`docs/ktl-18/list-contract.md`](../ktl-18/list-contract.md).
 

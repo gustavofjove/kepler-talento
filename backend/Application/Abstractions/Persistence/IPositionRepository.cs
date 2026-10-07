@@ -49,7 +49,15 @@ public sealed record PositionSummary(
     string Status,
     DateTimeOffset UpdatedAtUtc,
     uint Version,
-    int CandidateCount);
+    int CandidateCount,
+    PositionStageCounts StageCounts);
+
+/// <summary>
+/// How many of a position's links sit at each stage (KTL-40). Counts only, never names, so like
+/// <see cref="PositionSummary.CandidateCount"/> they need no candidate permission. Links to removed
+/// candidates are counted, so the five values always add up to the candidate count.
+/// </summary>
+public sealed record PositionStageCounts(int New, int Shortlisted, int Interview, int Hired, int Rejected);
 
 public sealed record PositionPage(IReadOnlyList<PositionSummary> Items, int Page, int PageSize, int TotalCount);
 

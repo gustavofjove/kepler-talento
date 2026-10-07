@@ -21,6 +21,7 @@
     "prepare": "cd .. && husky",
     "security:rls": "node ../scripts/check-rls.js",
     "security:storage": "node ../scripts/check-storage-policies.js",
+    "seed:demo": "node ../scripts/seed-demo-data.js",
     "smoke:staging": "node ../scripts/smoke-staging.js",
     "release:gate": "node ../scripts/release-gate.js"
   },

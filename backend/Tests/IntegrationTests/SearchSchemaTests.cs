@@ -155,6 +155,23 @@ public sealed class SearchSchemaTests(PostgreSqlFixture database) : IClassFixtur
     }
 
     [Fact]
+    public async Task The_creation_time_has_a_partial_index_ending_in_the_identifier_tie_breaker()
+    {
+        await MigrateAsync();
+
+        var definitions = await QueryAsync(
+            """
+            SELECT indexdef FROM pg_indexes
+            WHERE schemaname = 'public' AND indexname = 'IX_CND_Candidates_IsActive_CreatedAtUtc'
+            """);
+
+        // KTL-40: the creation-time sort over active candidates, behind «Últimos añadidos».
+        var definition = Assert.Single(definitions);
+        Assert.Contains("(\"CreatedAtUtc\" DESC, \"Id\")", definition, StringComparison.Ordinal);
+        Assert.Contains("WHERE \"IsActive\"", definition, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task No_index_orders_or_filters_on_an_encrypted_name()
     {
         await MigrateAsync();

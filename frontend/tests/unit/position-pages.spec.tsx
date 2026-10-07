@@ -43,6 +43,7 @@ const stored: Position = {
 };
 
 const emptyPage: PositionPage = { items: [], page: 1, pageSize: 25, totalCount: 0 };
+const noStages = { new: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0 };
 const noResults: SearchResultPage = { items: [], page: 1, pageSize: 25, totalCount: 0 };
 
 function LocationProbe() {
@@ -89,7 +90,7 @@ describe('Position pages', () => {
       state,
       list: vi.fn(async () => {
         const page = {
-          items: [{ ...stored, candidateCount: 3 }],
+          items: [{ ...stored, candidateCount: 3, stageCounts: { ...noStages, new: 3 } }],
           page: 1,
           pageSize: 25,
           totalCount: 1,
@@ -184,7 +185,7 @@ describe('Position pages', () => {
     it('renders closed positions with a neutral chip', async () => {
       positionService.list.mockImplementation(async () => {
         const page: PositionPage = {
-          items: [{ ...stored, status: 'closed', candidateCount: 0 }],
+          items: [{ ...stored, status: 'closed', candidateCount: 0, stageCounts: noStages }],
           page: 1,
           pageSize: 25,
           totalCount: 1,

@@ -159,8 +159,26 @@ public sealed class PositionHandlerTests
         Assert.Equal(seeded.Id, item.Id);
         Assert.Equal(1, page.TotalCount);
         Assert.Equal(
-            ["CandidateCount", "Id", "Location", "Status", "Title", "UpdatedAtUtc", "Version"],
+            ["CandidateCount", "Id", "Location", "StageCounts", "Status", "Title", "UpdatedAtUtc", "Version"],
             typeof(PositionListItemResponse).GetProperties().Select(property => property.Name).Order());
+        Assert.Equal(
+            ["Hired", "Interview", "New", "Rejected", "Shortlisted"],
+            typeof(PositionStageCountsResponse).GetProperties().Select(property => property.Name).Order());
+    }
+
+    [Fact]
+    public async Task List_maps_the_stage_counts_of_each_position()
+    {
+        var repository = new StubPositionRepository();
+        var seeded = repository.Seed("Programador sénior");
+        repository.StageCounts[seeded.Id] = new PositionStageCounts(New: 3, Shortlisted: 0, Interview: 1, Hired: 0, Rejected: 2);
+        var handler = new ListPositionsHandler(repository, Actor.Reader);
+
+        var page = await handler.Handle(new(null, null, null, null, null, null), CancellationToken.None);
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal(new PositionStageCountsResponse(3, 0, 1, 0, 2), item.StageCounts);
+        Assert.Equal(6, item.CandidateCount);
     }
 
     // ---- get ----
@@ -485,6 +503,7 @@ public sealed class PositionHandlerTests
         public List<Position> Items { get; } = [];
         public int Calls { get; private set; }
         public PositionListOptions? LastListOptions { get; private set; }
+        public Dictionary<Guid, PositionStageCounts> StageCounts { get; } = [];
         public string? LastAuditEventType { get; private set; }
         public uint? ExpectedVersion { get; private set; }
         public PositionSaveOutcome NextOutcome { get; set; } = PositionSaveOutcome.Saved;
@@ -504,7 +523,12 @@ public sealed class PositionHandlerTests
             LastListOptions = options;
             var items = Items
                 .Where(item => options.Status == "all" || item.Status == options.Status)
-                .Select(item => new PositionSummary(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version, 0))
+                .Select(item =>
+                {
+                    var counts = StageCounts.GetValueOrDefault(item.Id, new PositionStageCounts(0, 0, 0, 0, 0));
+                    var total = counts.New + counts.Shortlisted + counts.Interview + counts.Hired + counts.Rejected;
+                    return new PositionSummary(item.Id, item.Title, item.Location, item.Status, item.UpdatedAtUtc, item.Version, total, counts);
+                })
                 .ToArray();
             return Task.FromResult(new PositionPage(items, options.Page, options.PageSize, items.Length));
         }

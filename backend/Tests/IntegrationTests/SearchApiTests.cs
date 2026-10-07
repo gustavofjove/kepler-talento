@@ -707,6 +707,17 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
             Assert.DoesNotContain("candidateId", body, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("totalCount", body, StringComparison.OrdinalIgnoreCase);
 
+            // KTL-40: the home page's newest-first request is refused the same way.
+            var newest = await client.PostAsJsonAsync(SearchRoute, new
+            {
+                filters = new { },
+                pageSize = 5,
+                sortField = "createdAt",
+                sortDirection = "desc",
+            });
+            Assert.Equal(HttpStatusCode.Forbidden, newest.StatusCode);
+            Assert.DoesNotContain("candidateId", await newest.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+
             // Validation and catalog resolution must not run for a refused caller.
             var invalid = await client.PostAsJsonAsync(SearchRoute, new
             {
@@ -763,7 +774,7 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     public static TheoryData<string, string> SortCases()
     {
         var data = new TheoryData<string, string>();
-        foreach (var field in new[] { "updatedAt", "lastName", "availabilityCheckedOn" })
+        foreach (var field in new[] { "updatedAt", "lastName", "availabilityCheckedOn", "createdAt" })
         {
             foreach (var direction in new[] { "asc", "desc" })
             {
@@ -806,6 +817,8 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
         {
             "lastName" => item => $"{item.LastName}{item.FirstName}",
             "availabilityCheckedOn" => item => item.AvailabilityCheckedOn?.ToString("yyyy-MM-dd") ?? "unchecked",
+            // The projection carries no creation time; every tied candidate shares one instant.
+            "createdAt" => _ => "same creation instant",
             _ => item => item.UpdatedAt.UtcTicks.ToString("D20", System.Globalization.CultureInfo.InvariantCulture),
         };
         for (var index = 1; index < seen.Count; index++)
@@ -821,8 +834,68 @@ public sealed class SearchApiTests(PostgreSqlFixture database) : IClassFixture<P
     }
 
     [Theory]
+    [InlineData("desc")]
+    [InlineData("asc")]
+    public async Task Sorting_by_creation_time_orders_alike_with_and_without_a_text_filter(string direction)
+    {
+        await SeedAsync();
+        // Distinct creation instants, plus a pair sharing one so the identifier must decide.
+        var origin = new DateTimeOffset(2026, 6, 1, 9, 0, 0, TimeSpan.Zero);
+        var created = new List<(Guid Id, DateTimeOffset CreatedAt)>();
+        await using (var dbContext = NewDbContext())
+        {
+            foreach (var minutes in new[] { 30, 0, 90, 60, 60, 15 })
+            {
+                var candidate = new Candidate(Guid.CreateVersion7(), "Alta", CreatedMarker, origin.AddMinutes(minutes));
+                dbContext.Candidates.Add(candidate);
+                created.Add((candidate.Id, candidate.CreatedAtUtc));
+            }
+            await dbContext.SaveChangesAsync();
+        }
+        var ours = created.Select(row => row.Id).ToHashSet();
+        var expected = (direction == "asc"
+                ? created.OrderBy(row => row.CreatedAt)
+                : created.OrderByDescending(row => row.CreatedAt))
+            .ThenBy(row => row.Id.ToString(), StringComparer.Ordinal)
+            .Select(row => row.Id)
+            .ToList();
+        using var factory = CreateFactory(TestActor.Reader);
+        using var client = factory.CreateClient();
+
+        async Task<List<Guid>> OrderAsync(object filters)
+        {
+            var seen = new List<Guid>();
+            for (var page = 1; ; page++)
+            {
+                var result = await ReadPageAsync(await client.PostAsJsonAsync(SearchRoute, new
+                {
+                    filters,
+                    page,
+                    pageSize = 4,
+                    sortField = "createdAt",
+                    sortDirection = direction,
+                }));
+                if (result.Items.Count == 0)
+                {
+                    break;
+                }
+                seen.AddRange(result.Items.Select(item => item.CandidateId));
+            }
+            Assert.Equal(seen.Count, seen.Distinct().Count());
+            return [.. seen.Where(ours.Contains)];
+        }
+
+        // SQL path (no text) and the encrypted stage (text) must agree exactly.
+        Assert.Equal(expected, await OrderAsync(new { }));
+        Assert.Equal(expected, await OrderAsync(new { text = CreatedMarker }));
+    }
+
+    private const string CreatedMarker = "AltaKtl40";
+
+    [Theory]
     [InlineData("email")]
     [InlineData("\"UpdatedAtUtc\"; DROP TABLE \"CND_Candidates\"; --")]
+    [InlineData("createdAtUtc")]
     [InlineData("LastName")]
     public async Task An_unknown_sort_field_is_refused_with_a_stable_code_and_never_reaches_the_query(string sortField)
     {

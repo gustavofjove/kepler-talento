@@ -7,6 +7,7 @@ using KeplerTalento.Application.Features.Positions;
 using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Catalogs;
 using KeplerTalento.Domain.Identity;
+using KeplerTalento.Domain.Positions;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -209,8 +210,56 @@ public sealed class PositionApiTests(PostgreSqlFixture database) : IClassFixture
         Assert.Equal(["items", "page", "pageSize", "totalCount"], json.RootElement.EnumerateObject().Select(p => p.Name).Order());
         foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())
         {
-            Assert.Equal(["candidateCount", "id", "location", "status", "title", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
+            Assert.Equal(["candidateCount", "id", "location", "stageCounts", "status", "title", "updatedAtUtc", "version"], item.EnumerateObject().Select(p => p.Name).Order());
+            Assert.Equal(["hired", "interview", "new", "rejected", "shortlisted"], item.GetProperty("stageCounts").EnumerateObject().Select(p => p.Name).Order());
         }
+    }
+
+    [Fact]
+    public async Task The_list_counts_links_per_stage_for_a_reader_without_candidate_permission()
+    {
+        await ResetAsync();
+        await AddRoleAsync("positions_reader", Permissions.PositionsRead);
+        await AddUserAsync("manager", "manager@example.test", "rrhh_user");
+        await AddUserAsync("reader", "reader@example.test", "positions_reader");
+        await using var factory = CreateFactory();
+        using var manager = await ClientAsync(factory, "manager");
+        var busy = await CreateAsync(manager, "Con enlaces");
+        var empty = await CreateAsync(manager, "Sin enlaces");
+
+        // new ×3, interview ×1, rejected ×2; one rejected candidate is logically removed.
+        string[] stages = ["new", "new", "new", "interview", "rejected", "rejected"];
+        var candidateIds = new List<Guid>();
+        await using (var db = NewDbContext())
+        {
+            var now = DateTimeOffset.UtcNow;
+            for (var index = 0; index < stages.Length; index++)
+            {
+                var candidate = new Candidate(Guid.CreateVersion7(), $"Etapa{index}", "Recuento", now);
+                if (index == stages.Length - 1) candidate.Deactivate(now);
+                db.Candidates.Add(candidate);
+                var link = new PositionCandidate(Guid.CreateVersion7(), busy.Id, candidate.Id, now);
+                link.ChangeStage(stages[index], now);
+                db.PositionCandidates.Add(link);
+                candidateIds.Add(candidate.Id);
+            }
+            await db.SaveChangesAsync();
+        }
+
+        using var reader = await ClientAsync(factory, "reader");
+        using var response = await reader.GetAsync("/api/positions");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        var page = JsonSerializer.Deserialize<PositionPageResponse>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        var counted = page.Items.Single(item => item.Id == busy.Id);
+        Assert.Equal(new PositionStageCountsResponse(New: 3, Shortlisted: 0, Interview: 1, Hired: 0, Rejected: 2), counted.StageCounts);
+        Assert.Equal(6, counted.CandidateCount);
+        Assert.Equal(new PositionStageCountsResponse(0, 0, 0, 0, 0), page.Items.Single(item => item.Id == empty.Id).StageCounts);
+
+        // Counts name no one: no candidate identifier or name reaches a position reader.
+        Assert.All(candidateIds, id => Assert.DoesNotContain(id.ToString(), body, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain("Recuento", body, StringComparison.Ordinal);
     }
 
     [Theory]

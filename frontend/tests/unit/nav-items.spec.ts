@@ -16,7 +16,7 @@ describe('nav-items table', () => {
     ]);
 
     expect(mapped).toEqual([
-      ['Dashboard', '/app', null],
+      ['Inicio', '/app', null],
       ['Candidatos', '/app/candidates', 'candidates.read'],
       ['Búsqueda', '/app/search', 'candidates.read'],
       ['Posiciones', '/app/positions', 'positions.read'],
@@ -71,7 +71,7 @@ describe('isAdminRoute', () => {
 
 describe('visibleItems', () => {
   it('keeps entries without a permission requirement', () => {
-    expect(visibleItems(TOP_LEVEL_ITEMS, {}).map((item) => item.label)).toEqual(['Dashboard']);
+    expect(visibleItems(TOP_LEVEL_ITEMS, {}).map((item) => item.label)).toEqual(['Inicio']);
   });
 
   it('keeps only the entries the permission map grants', () => {

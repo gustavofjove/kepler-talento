@@ -49,6 +49,7 @@ npx playwright test tests/e2e/candidate-crud.spec.ts
 npm run build:all             # tsc + vite build + dotnet build (warnings are errors)
 npm run lint && npm run format:check                 # required before any change is done; format:check covers the whole repo
 npm run security:rls && npm run security:storage     # security gates
+npm run seed:demo             # fabricated demo data into the local stack via the API (--remove withdraws it)
 ```
 
 EF Core migrations (schema changes only through these, never hand-written SQL):

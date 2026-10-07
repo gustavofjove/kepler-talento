@@ -1,7 +1,7 @@
 import { StatusChip } from '../../../shared/components/status-chip';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { usePermission, useSearchPresets, useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import { AppError, toAppError } from '../../../shared/models/error.models';
@@ -18,6 +18,7 @@ import {
   type SearchFilters,
   type SearchResultPage,
 } from '../models/search.models';
+import { PRESET_PARAM, isPresetId } from './advanced-search.logic';
 import '../../../shared/components/modal.css';
 import './advanced-search-page.css';
 
@@ -73,6 +74,10 @@ export function AdvancedSearchPage() {
   const inFlight = useRef<AbortController | null>(null);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The preset named in the address when the page opened; consumed by the first run.
+  const linkedPreset = useRef<string | null>(searchParams.get(PRESET_PARAM));
+
   const execute = useCallback(
     async (next: SearchFilters, page: number): Promise<void> => {
       inFlight.current?.abort();
@@ -109,6 +114,33 @@ export function AdvancedSearchPage() {
     [candidateSearchService, notifyError, t],
   );
 
+  /**
+   * Applies the preset named by `?preset=<id>` exactly as choosing it in the picker would -
+   * recording the use - and selects it there. An id that is not a GUID never reaches the API;
+   * it fails like a deleted preset: the apply-failed error, empty filters, the default search.
+   */
+  const applyLinkedPreset = useCallback(
+    async (presetId: string): Promise<void> => {
+      if (!isPresetId(presetId)) {
+        toastService.show(t('search.presets.applyFailed'), 'error');
+        await execute(candidateSearchService.emptyFilters(), 1);
+        return;
+      }
+      setSelectedPresetId(presetId);
+      try {
+        const applied = await searchPresetsService.applyPreset(presetId);
+        setFilters(applied);
+        setFiltersCollapsed(true);
+        await execute(applied, 1);
+      } catch (error) {
+        setSelectedPresetId('');
+        notifyError(error, t('search.presets.applyFailed'));
+        await execute(candidateSearchService.emptyFilters(), 1);
+      }
+    },
+    [candidateSearchService, execute, notifyError, searchPresetsService, t, toastService],
+  );
+
   /** Debounced entry point for user-driven searches. */
   const schedule = useCallback(
     (next: SearchFilters, page: number): void => {
@@ -125,7 +157,15 @@ export function AdvancedSearchPage() {
   );
 
   useEffect(() => {
-    void execute(candidateSearchService.emptyFilters(), 1);
+    // KTL-40: `?preset=<id>` (the home page's saved searches) is read once and removed from
+    // the address straight away, so neither a reload nor Back applies - and records - it again.
+    const presetFromLink = linkedPreset.current;
+    linkedPreset.current = null;
+    if (presetFromLink !== null) {
+      void applyLinkedPreset(presetFromLink);
+    } else {
+      void execute(candidateSearchService.emptyFilters(), 1);
+    }
     void searchPresetsService.load().catch(() => {
       toastService.show(t('search.presets.loadFailed'), 'error');
     });
@@ -135,7 +175,20 @@ export function AdvancedSearchPage() {
       }
       inFlight.current?.abort();
     };
-  }, [candidateSearchService, execute, searchPresetsService, toastService, t]);
+  }, [applyLinkedPreset, candidateSearchService, execute, searchPresetsService, toastService, t]);
+
+  // Idempotent, so it may run again whenever the address changes.
+  useEffect(() => {
+    if (searchParams.has(PRESET_PARAM)) {
+      setSearchParams(
+        (params) => {
+          params.delete(PRESET_PARAM);
+          return params;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, setSearchParams]);
 
   const run = (next: SearchFilters): void => {
     const cloned = cloneSearchFilters(next);

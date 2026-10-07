@@ -114,6 +114,8 @@ public sealed class SearchHandlerTests
     [InlineData("lastName", "desc", SearchSortField.LastName, SearchSortDirection.Descending)]
     [InlineData("availabilityCheckedOn", "asc", SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Ascending)]
     [InlineData("availabilityCheckedOn", "desc", SearchSortField.AvailabilityCheckedOn, SearchSortDirection.Descending)]
+    [InlineData("createdAt", "asc", SearchSortField.CreatedAt, SearchSortDirection.Ascending)]
+    [InlineData("createdAt", "desc", SearchSortField.CreatedAt, SearchSortDirection.Descending)]
     public async Task Each_documented_sort_field_is_accepted_in_both_directions(
         string field,
         string direction,
@@ -132,6 +134,8 @@ public sealed class SearchHandlerTests
     [InlineData("email", null, SearchErrors.SortFieldInvalid)]
     [InlineData("UpdatedAtUtc\"; DROP TABLE \"CND_Candidates\"; --", null, SearchErrors.SortFieldInvalid)]
     [InlineData("LASTNAME", null, SearchErrors.SortFieldInvalid)]
+    // KTL-40: only the documented wire value; the column name is not an alias.
+    [InlineData("createdAtUtc", "desc", SearchErrors.SortFieldInvalid)]
     // KTL-36: the former status sort is an unknown field like any other.
     [InlineData("status", "asc", SearchErrors.SortFieldInvalid)]
     [InlineData(null, "sideways", SearchErrors.SortDirectionInvalid)]
