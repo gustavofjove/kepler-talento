@@ -42,7 +42,8 @@ export const UNKNOWN_AVAILABILITY: CandidateAvailability = {
 export type CandidateLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 /** The closed set of fields the list and search may be ordered by (KTL-18). */
-export type CandidateSortField = 'updatedAt' | 'lastName' | 'availabilityCheckedOn';
+/** `createdAt` (KTL-40) has no list column; it is reached by URL, e.g. from the home page. */
+export type CandidateSortField = 'updatedAt' | 'lastName' | 'availabilityCheckedOn' | 'createdAt';
 export type CandidateSortDirection = 'asc' | 'desc';
 export type HasCvFilter = '' | 'yes' | 'no';
 

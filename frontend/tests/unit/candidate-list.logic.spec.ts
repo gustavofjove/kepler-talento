@@ -73,6 +73,17 @@ describe('candidate list logic', () => {
       expect(view.filters.hasCvFilter).toBe('');
     });
 
+    it('sorts by creation newest first by default (KTL-40)', () => {
+      const view = readListView(new URLSearchParams('sort=createdAt'));
+
+      expect(view.sort).toEqual({ field: 'createdAt', direction: 'desc' });
+      expect(toListQuery(view)).toMatchObject({ sortField: 'createdAt', sortDirection: 'desc' });
+      expect(writeListView(view).toString()).toBe('sort=createdAt');
+      expect(
+        writeListView(readListView(new URLSearchParams('sort=createdAt&dir=asc'))).toString(),
+      ).toBe('sort=createdAt&dir=asc');
+    });
+
     it('keeps an unknown sort field so the API can refuse it', () => {
       expect(toListQuery(readListView(new URLSearchParams('sort=email'))).sortField).toBe('email');
     });

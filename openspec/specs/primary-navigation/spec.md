@@ -9,13 +9,15 @@ input methods (pointer, keyboard, touch).
 
 ### Requirement: Primary navigation entries and permission visibility
 
-The primary navigation SHALL offer `Dashboard`, `Candidatos`, `Búsqueda`, `Catálogos`,
+The primary navigation SHALL offer `Inicio`, `Candidatos`, `Búsqueda`, `Catálogos`,
 `Presets`, `Usuarios`, `Roles`, `Importación` and `Auditoría`, each pointing at its existing route.
+`Inicio` SHALL point at the application home route and SHALL replace the former `Dashboard` label;
+no entry SHALL be labelled `Dashboard`.
 An entry SHALL be rendered only when the signed-in profile holds the permission that governs its
 destination: `Candidatos` and `Búsqueda` require `candidates.read`, `Catálogos` requires
 `catalogs.manage`, `Presets` requires `presets.manage`, `Usuarios` requires `users.manage`,
 `Roles` requires `roles.manage`, `Importación` requires `candidates.import`, `Auditoría` requires
-`audit.read`. `Dashboard` SHALL always be present for an authenticated user.
+`audit.read`. `Inicio` SHALL always be present for an authenticated user.
 
 Hiding an entry is a convenience only. The system SHALL continue to enforce access to
 every destination through the route guard and through the API or database authorization that
@@ -30,11 +32,17 @@ All entry labels SHALL be rendered in Spanish with correct accents.
   `users.manage`, `roles.manage`, `candidates.import` and `audit.read` opens the application
 - **THEN** all nine destinations are reachable from the primary navigation
 
+#### Scenario: The home entry is labelled Inicio
+
+- **WHEN** any authenticated user views the primary navigation
+- **THEN** the entry leading to the home route reads `Inicio`
+- **AND** no entry reads `Dashboard`
+
 #### Scenario: A user without candidate permission does not see candidate entries
 
 - **WHEN** a profile without `candidates.read` opens the application
 - **THEN** `Candidatos` and `Búsqueda` are absent from the navigation
-- **AND** `Dashboard` is still present
+- **AND** `Inicio` is still present
 
 #### Scenario: Reaching a hidden destination by URL is still refused
 
@@ -72,7 +80,7 @@ group MAY contain fewer than six children.
 #### Scenario: Administration entries are no longer top-level
 
 - **WHEN** a user with every permission views the primary navigation
-- **THEN** the top level offers `Dashboard`, `Candidatos`, `Búsqueda` and `Admin`
+- **THEN** the top level offers `Inicio`, `Candidatos`, `Búsqueda` and `Admin`
 - **AND** `Catálogos`, `Presets`, `Usuarios`, `Roles`, `Importación` and `Auditoría` are reachable
   only after opening `Admin`
 
@@ -156,7 +164,7 @@ navigation first renders.
 #### Scenario: Horizontal top level
 
 - **WHEN** the viewport is 1280 pixels wide
-- **THEN** `Dashboard`, `Candidatos`, `Búsqueda` and `Admin` are laid out horizontally in
+- **THEN** `Inicio`, `Candidatos`, `Búsqueda` and `Admin` are laid out horizontally in
   the header
 - **AND** no hamburger control is present
 
@@ -182,7 +190,7 @@ Activating the hamburger SHALL open a full-width vertical panel below the header
 panel SHALL take part in the normal document flow and displace the page content downward
 rather than overlaying it.
 
-Within that panel, `Dashboard`, `Candidatos` and `Búsqueda` SHALL be full-width vertical
+Within that panel, `Inicio`, `Candidatos` and `Búsqueda` SHALL be full-width vertical
 entries, and `Admin` SHALL behave as an accordion: activating it SHALL reveal its visible
 children below it, displacing the entries that follow, and the children SHALL be indented
 relative to their siblings to convey the hierarchy.
@@ -203,7 +211,7 @@ pixels.
 #### Scenario: Opening the vertical panel
 
 - **WHEN** the user activates the hamburger
-- **THEN** a full-width vertical panel opens below the header containing `Dashboard`,
+- **THEN** a full-width vertical panel opens below the header containing `Inicio`,
   `Candidatos`, `Búsqueda` and the `Admin` accordion
 
 #### Scenario: Expanding the administration accordion
@@ -340,7 +348,7 @@ placeholder label SHALL be shown, and the remaining parent segments SHALL stay a
 permission rule above. When the record fails to load or is not found, the parent segments SHALL
 still be offered in the same way. The record label SHALL NOT be copied into the page URL, the document title or any log.
 
-Top-level destinations SHALL NOT render a breadcrumb. These are the Dashboard, the candidate list,
+Top-level destinations SHALL NOT render a breadcrumb. These are Inicio, the candidate list,
 Búsqueda, the position list, the preset list, Catálogos, Usuarios, Roles, Importación and Auditoría.
 
 The trail SHALL be a navigation landmark with the Spanish accessible name `Ruta de navegación`,
@@ -418,7 +426,7 @@ correct accents.
 
 #### Scenario: Top-level pages have no trail
 
-- **WHEN** the user opens the Dashboard, the candidate list, Búsqueda, the position list, the preset
+- **WHEN** the user opens Inicio, the candidate list, Búsqueda, the position list, the preset
   list, Catálogos, Usuarios, Roles, Importación or Auditoría
 - **THEN** no breadcrumb trail is rendered
 

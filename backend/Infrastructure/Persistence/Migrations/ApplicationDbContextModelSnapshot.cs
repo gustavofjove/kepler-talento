@@ -216,6 +216,11 @@ namespace Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_CND_Candidates_IsActive_AvailabilityCheckedOn")
                         .HasFilter("\"IsActive\"");
 
+                    b.HasIndex("CreatedAtUtc", "Id")
+                        .IsDescending(true, false)
+                        .HasDatabaseName("IX_CND_Candidates_IsActive_CreatedAtUtc")
+                        .HasFilter("\"IsActive\"");
+
                     b.HasIndex("IsActive", "UpdatedAtUtc")
                         .HasDatabaseName("IX_CND_Candidates_IsActive_UpdatedAtUtc");
 
@@ -1490,6 +1495,9 @@ namespace Infrastructure.Persistence.Migrations
                 {
                     b.Property<DateOnly?>("AvailabilityCheckedOn")
                         .HasColumnType("date");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()

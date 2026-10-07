@@ -148,10 +148,10 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         var stored = dbContext.CandidateCiphertexts.AsNoTracking().Where(row => ids.Contains(row.Id));
         var raw = text.Length > 0
             ? await stored
-                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, row.Email, row.Phone, row.Notes, row.AvailabilityCheckedOn, row.UpdatedAtUtc))
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, row.Email, row.Phone, row.Notes, row.AvailabilityCheckedOn, row.UpdatedAtUtc, row.CreatedAtUtc))
                 .ToListAsync(cancellationToken)
             : await stored
-                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, null, null, null, row.AvailabilityCheckedOn, row.UpdatedAtUtc))
+                .Select(row => new StoredRow(row.Id, row.FirstName, row.LastName, null, null, null, row.AvailabilityCheckedOn, row.UpdatedAtUtc, row.CreatedAtUtc))
                 .ToListAsync(cancellationToken);
 
         var term = EncryptedSearchSemantics.Fold(text);
@@ -182,7 +182,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                     byName ? First() : string.Empty,
                     byName ? Last() : string.Empty,
                     row.AvailabilityCheckedOn,
-                    row.UpdatedAtUtc);
+                    row.UpdatedAtUtc,
+                    row.CreatedAtUtc);
             });
         var rows = new List<EncryptedSearchRow>(raw.Count);
         foreach (var row in decided)
@@ -224,7 +225,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         string? Phone,
         string? Notes,
         DateOnly? AvailabilityCheckedOn,
-        DateTimeOffset UpdatedAtUtc);
+        DateTimeOffset UpdatedAtUtc,
+        DateTimeOffset CreatedAtUtc);
 
     /// <summary>A row that matched, with the decrypted names only when the order needs them.</summary>
     private sealed record EncryptedSearchRow(
@@ -232,7 +234,8 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
         string FirstName,
         string LastName,
         DateOnly? AvailabilityCheckedOn,
-        DateTimeOffset UpdatedAtUtc)
+        DateTimeOffset UpdatedAtUtc,
+        DateTimeOffset CreatedAtUtc)
     {
         // Precomputed once per row: sorting compares identifiers many times.
         public string IdKey { get; } = Id.ToString("D");
@@ -258,6 +261,7 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
             },
             SearchSortField.AvailabilityCheckedOn => (left, right) =>
                 Nullable.Compare(left.AvailabilityCheckedOn, right.AvailabilityCheckedOn),
+            SearchSortField.CreatedAt => (left, right) => left.CreatedAtUtc.UtcTicks.CompareTo(right.CreatedAtUtc.UtcTicks),
             _ => (left, right) => left.UpdatedAtUtc.UtcTicks.CompareTo(right.UpdatedAtUtc.UtcTicks),
         };
         return (left, right) =>
@@ -333,6 +337,9 @@ public sealed class CandidateSearchQuery(ApplicationDbContext dbContext)
                     .ThenBy(candidate => candidate.AvailabilityCheckedOn)
                 : query.OrderBy(candidate => candidate.AvailabilityCheckedOn == null)
                     .ThenByDescending(candidate => candidate.AvailabilityCheckedOn),
+            SearchSortField.CreatedAt => ascending
+                ? query.OrderBy(candidate => candidate.CreatedAtUtc)
+                : query.OrderByDescending(candidate => candidate.CreatedAtUtc),
             _ => ascending
                 ? query.OrderBy(candidate => candidate.UpdatedAtUtc)
                 : query.OrderByDescending(candidate => candidate.UpdatedAtUtc),

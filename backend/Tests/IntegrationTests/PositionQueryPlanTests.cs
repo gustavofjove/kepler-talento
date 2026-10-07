@@ -4,6 +4,7 @@ using KeplerTalento.Application.Abstractions.Correlation;
 using KeplerTalento.Application.Abstractions.Identity;
 using KeplerTalento.Application.Abstractions.Persistence;
 using KeplerTalento.Application.Features.Search;
+using KeplerTalento.Domain.Candidates;
 using KeplerTalento.Domain.Positions;
 using KeplerTalento.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,9 @@ public sealed class PositionQueryPlanTests(PostgreSqlFixture database, ITestOutp
 {
     private const int PositionCount = 5_000;
     private const double BudgetMilliseconds = 250;
+    private const int LinkedPositionCount = 100;
+    private const int LinksPerPosition = 60;
+    private const int LinkedCandidateCount = 300;
 
     [Fact]
     public async Task Representative_position_lists_are_bounded_and_skip_heavy_columns()
@@ -39,7 +43,9 @@ public sealed class PositionQueryPlanTests(PostgreSqlFixture database, ITestOutp
         report.AppendLine("# KTL-15 position list query plans");
         report.AppendLine();
         report.AppendLine($"Captured by `PositionQueryPlanTests` against {PositionCount:N0} positions, each with a");
-        report.AppendLine("representative description and requirements document. Regenerate by running");
+        report.AppendLine($"representative description and requirements document; the {LinkedPositionCount} most recently updated");
+        report.AppendLine($"carry {LinksPerPosition} candidate links each, spread over every stage, so the per-stage counts");
+        report.AppendLine("(KTL-40) are part of the plan. Regenerate by running");
         report.AppendLine("`dotnet test backend/Tests/IntegrationTests/IntegrationTests.csproj --filter PositionQueryPlanTests`.");
         report.AppendLine();
 
@@ -169,7 +175,30 @@ public sealed class PositionQueryPlanTests(PostgreSqlFixture database, ITestOutp
             }
         }
         await dbContext.SaveChangesAsync();
+        dbContext.ChangeTracker.Clear();
+
+        // KTL-40: the list projects a count per stage, so the most recently updated positions -
+        // the default page - carry links spread over every stage, as a busy recruiting desk would.
+        var candidates = Enumerable.Range(0, LinkedCandidateCount)
+            .Select(index => new Candidate(Guid.CreateVersion7(), $"Candidato{index}", "Plan", origin))
+            .ToList();
+        dbContext.Candidates.AddRange(candidates);
+        var linkedPositions = await dbContext.Positions.AsNoTracking()
+            .OrderByDescending(position => position.UpdatedAtUtc).Take(LinkedPositionCount)
+            .Select(position => position.Id).ToListAsync();
+        foreach (var (positionId, positionIndex) in linkedPositions.Select((id, index) => (id, index)))
+        {
+            for (var offset = 0; offset < LinksPerPosition; offset++)
+            {
+                var candidate = candidates[(positionIndex + offset) % candidates.Count];
+                var link = new PositionCandidate(Guid.CreateVersion7(), positionId, candidate.Id, origin);
+                link.ChangeStage(PositionCandidateStages.All[offset % PositionCandidateStages.All.Count], origin);
+                dbContext.PositionCandidates.Add(link);
+            }
+        }
+        await dbContext.SaveChangesAsync();
         await dbContext.Database.ExecuteSqlRawAsync("ANALYZE \"OPS_Positions\"");
+        await dbContext.Database.ExecuteSqlRawAsync("ANALYZE \"OPS_PositionCandidates\"");
     }
 
     private ApplicationDbContext NewContext() =>

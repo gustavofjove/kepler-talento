@@ -1,0 +1,148 @@
+/*
+ * «Inicio» (KTL-40). Columns come from the shared `.grid` rules; the summary row wraps with
+ * flex-basis instead of adding a breakpoint, so the card and tiles stack on a narrow screen.
+ */
+.dashboard {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.dashboard-summary > * {
+  min-width: 0;
+}
+
+.dashboard-candidates {
+  flex: 2 1 320px;
+}
+
+.dashboard-tile {
+  flex: 1 1 180px;
+}
+
+.dashboard-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.dashboard-panel__header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+}
+
+.dashboard-panel__header h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.dashboard-panel__empty {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.dashboard-figure,
+.dashboard-tile__value {
+  color: var(--fj-navy);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dashboard-figure {
+  font-size: 24px;
+}
+
+.dashboard-figure:hover,
+.dashboard-tile__value:hover {
+  text-decoration: underline;
+}
+
+.availability-bar {
+  background: var(--neutral-bg);
+  border-radius: var(--r-pill);
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+}
+
+.availability-bar__segment {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+.availability-bar__segment--success {
+  background: var(--ok);
+}
+
+.availability-bar__segment--danger {
+  background: var(--danger);
+}
+
+.availability-bar__segment--neutral {
+  background: var(--border-2);
+}
+
+.dashboard-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-list__row {
+  align-items: center;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.dashboard-list__row:first-child {
+  border-top: 0;
+}
+
+.dashboard-list__name {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-list__meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dashboard-positions-table .numeric {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}

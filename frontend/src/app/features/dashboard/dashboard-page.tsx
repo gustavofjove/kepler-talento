@@ -1,126 +1,184 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { usePermission, useServices } from '../../core/di/services-context';
+import { usePermission, useSearchPresets, useServices } from '../../core/di/services-context';
 import { formatNumber } from '../../core/i18n/format';
 import type { CandidateListQuery } from '../candidates/models/candidate.models';
-
-interface Counts {
-  active: number;
-  withoutCv: number;
-  withPrimaryCv: number;
-  /** Absent for actors who may not see removed candidates. */
-  inactive?: number;
-}
-
-const COUNT_QUERY: CandidateListQuery = {
-  page: 1,
-  pageSize: 1,
-  sortField: 'updatedAt',
-  sortDirection: 'desc',
-  text: '',
-  availability: '',
-  hasCv: '',
-  includeInactive: false,
-};
+import { CandidateSummary, CountTile } from './components/candidate-summary';
+import { DashboardActions } from './components/dashboard-actions';
+import { OpenPositionsPanel } from './components/open-positions-panel';
+import { RecentCandidatesPanel } from './components/recent-candidates-panel';
+import { SavedSearchesPanel } from './components/saved-searches-panel';
+import {
+  CANDIDATE_QUERIES,
+  DASHBOARD_HREFS,
+  OPEN_POSITIONS_QUERY,
+  availabilitySplit,
+  inactiveCount,
+} from './dashboard.logic';
+import { combinePanels, usePanelData, type PanelState } from './use-panel-data';
+import './dashboard.css';
 
 /**
- * Operational counts, taken from the server's totals (KTL-18).
+ * «Inicio» (KTL-40): candidates and their availability, open positions and their stages, recent
+ * candidates and shared saved searches, each figure leading to where the user acts on it.
  *
- * Each figure is the `totalCount` of a one-row search, so no candidate list reaches the
- * browser to be counted. "Pendientes de revisión" and "Recibidos este mes" were removed: the
- * search contract has no review-date or received-date filter, and computing them used to
- * mean downloading every candidate's retention metadata.
+ * Every permission is read here once and passed down. A panel the actor may not see is not
+ * rendered and sends no request; that is courtesy, not the control - the API refuses anyway.
+ * At most seven requests, in parallel: five candidate searches, one position list, one preset
+ * list (design D1).
  */
 export function DashboardPage() {
-  const { candidateService } = useServices();
+  const { candidateService, positionService, searchPresetsService } = useServices();
   const { t } = useTranslation();
+  const canReadCandidates = usePermission('candidates.read');
   const canSeeRemoved = usePermission('candidates.delete');
-  const [counts, setCounts] = useState<Counts | null>(null);
-  const [failed, setFailed] = useState(false);
+  const canCreateCandidate = usePermission('candidates.create');
+  const canImport = usePermission('candidates.import');
+  const canReadPositions = usePermission('positions.read');
+  const canManagePositions = usePermission('positions.manage');
+  const canManagePresets = usePermission('presets.manage');
+
+  const search = useCallback(
+    (query: CandidateListQuery) => (signal: AbortSignal) =>
+      candidateService.listPage(query, signal),
+    [candidateService],
+  );
+  const count = useCallback(
+    (query: CandidateListQuery) => (signal: AbortSignal) =>
+      candidateService.listPage(query, signal).then((page) => page.totalCount),
+    [candidateService],
+  );
+  const loaders = useMemo(
+    () => ({
+      recentAvailable: search(CANDIDATE_QUERIES.recentAvailable),
+      recentAdded: search(CANDIDATE_QUERIES.recentAdded),
+      unavailable: count(CANDIDATE_QUERIES.unavailableCount),
+      withoutCv: count(CANDIDATE_QUERIES.withoutCvCount),
+      everyone: count(CANDIDATE_QUERIES.everyoneCount),
+      positions: (signal: AbortSignal) => positionService.search(OPEN_POSITIONS_QUERY, signal),
+    }),
+    [count, positionService, search],
+  );
+
+  const recentAvailable = usePanelData(loaders.recentAvailable, canReadCandidates);
+  const recentAdded = usePanelData(loaders.recentAdded, canReadCandidates);
+  const unavailable = usePanelData(loaders.unavailable, canReadCandidates);
+  const withoutCv = usePanelData(loaders.withoutCv, canReadCandidates);
+  const everyone = usePanelData(loaders.everyone, canReadCandidates && canSeeRemoved);
+  const positions = usePanelData(loaders.positions, canReadPositions);
+  const presets = useSearchPresets();
 
   useEffect(() => {
-    const controller = new AbortController();
-    const total = (patch: Partial<CandidateListQuery>) =>
-      candidateService
-        .listPage({ ...COUNT_QUERY, ...patch }, controller.signal)
-        .then((page) => page.totalCount);
-    Promise.all([
-      total({}),
-      total({ hasCv: 'no' }),
-      total({ hasCv: 'yes' }),
-      canSeeRemoved ? total({ includeInactive: true }) : Promise.resolve(undefined),
-    ])
-      .then(([active, withoutCv, withPrimaryCv, everyone]) => {
-        if (!controller.signal.aborted) {
-          setCounts({
-            active,
-            withoutCv,
-            withPrimaryCv,
-            inactive: everyone === undefined ? undefined : everyone - active,
-          });
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setFailed(true);
-        }
-      });
-    return () => controller.abort();
-  }, [candidateService, canSeeRemoved]);
+    if (!canReadCandidates) return;
+    // The panel shows the failure itself, from the presets state.
+    searchPresetsService.load().catch(() => undefined);
+  }, [canReadCandidates, searchPresetsService]);
 
-  const value = (count: number | undefined) =>
-    count === undefined ? (failed ? '—' : '…') : formatNumber(count);
+  const split = useMemo<PanelState<ReturnType<typeof availabilitySplit>>>(() => {
+    const parts = combinePanels(recentAdded, recentAvailable, unavailable);
+    if (parts.status !== 'ready') return parts;
+    const [added, available, unavailableCount] = parts.data;
+    return {
+      status: 'ready',
+      data: availabilitySplit(added.totalCount, available.totalCount, unavailableCount),
+    };
+  }, [recentAdded, recentAvailable, unavailable]);
+
+  const inactive = useMemo<PanelState<number>>(() => {
+    const parts = combinePanels(everyone, recentAdded);
+    if (parts.status !== 'ready') return parts;
+    return { status: 'ready', data: inactiveCount(parts.data[0], parts.data[1].totalCount) };
+  }, [everyone, recentAdded]);
+
+  const openPositions = useMemo<PanelState<number>>(
+    () =>
+      positions.status === 'ready'
+        ? { status: 'ready', data: positions.data.totalCount }
+        : positions,
+    [positions],
+  );
 
   return (
-    <section className="page">
+    <section className="page dashboard">
       <div className="toolbar">
         <div className="page-header">
           <h1>{t('dashboard.title')}</h1>
           <p className="muted">{t('dashboard.subtitle')}</p>
         </div>
-        <Link className="button" to="/app/candidates/new">
-          {t('candidate.new')}
-        </Link>
-      </div>
-      {failed ? (
-        <p className="empty-state" data-testid="dashboard-error">
-          {t('dashboard.error')}
-        </p>
-      ) : null}
-      <div className="grid three">
-        <article className="panel kpi-card" data-testid="kpi-active">
-          <span className="kpi-label">{t('dashboard.kpi.active')}</span>
-          <span className="kpi-value">{value(counts?.active)}</span>
-        </article>
-        <article className="panel kpi-card" data-testid="kpi-without-cv">
-          <span className="kpi-label">{t('dashboard.kpi.withoutCv')}</span>
-          <span className="kpi-value">{value(counts?.withoutCv)}</span>
-        </article>
-        <article className="panel kpi-card" data-testid="kpi-with-primary-cv">
-          <span className="kpi-label">{t('dashboard.kpi.withPrimaryCv')}</span>
-          <span className="kpi-value">{value(counts?.withPrimaryCv)}</span>
-        </article>
+        <DashboardActions
+          canCreateCandidate={canCreateCandidate}
+          canManagePositions={canManagePositions}
+          canImport={canImport}
+        />
       </div>
 
-      <div className="grid three">
-        <article className="panel stack">
-          <h2>{t('dashboard.shortcuts.title')}</h2>
-          <p className="muted">{t('dashboard.shortcuts.subtitle')}</p>
-          <Link className="button secondary" to="/app/candidates">
-            {t('dashboard.shortcuts.list')}
-          </Link>
-          <Link className="button secondary" to="/app/search">
-            {t('candidate.search')}
-          </Link>
-        </article>
-        {canSeeRemoved ? (
-          <article className="panel kpi-card" data-testid="kpi-inactive">
-            <span className="kpi-label">{t('dashboard.kpi.inactive')}</span>
-            <span className="kpi-value">{value(counts?.inactive)}</span>
-          </article>
-        ) : null}
-      </div>
+      {!canReadCandidates && !canReadPositions ? (
+        <p className="empty-state" data-testid="dashboard-no-access">
+          {t('dashboard.noAccess')}
+        </p>
+      ) : null}
+
+      {canReadCandidates || canReadPositions ? (
+        <div className="dashboard-summary">
+          {canReadCandidates ? (
+            <CandidateSummary split={split} inactive={canSeeRemoved ? inactive : undefined} />
+          ) : null}
+          {canReadPositions ? (
+            <CountTile
+              title={t('dashboard.kpi.openPositions')}
+              testId="kpi-open-positions"
+              href={DASHBOARD_HREFS.positions}
+              count={openPositions}
+            />
+          ) : null}
+          {canReadCandidates ? (
+            <CountTile
+              title={t('dashboard.kpi.withoutCv')}
+              testId="kpi-without-cv"
+              href={DASHBOARD_HREFS.withoutCv}
+              count={withoutCv}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {canReadPositions ? (
+        <OpenPositionsPanel positions={positions} canManagePositions={canManagePositions} />
+      ) : null}
+
+      {canReadCandidates ? (
+        <>
+          <div className="grid two">
+            <RecentCandidatesPanel
+              title={t('dashboard.recentAvailable.title')}
+              testId="dashboard-recent-available"
+              emptyText={t('dashboard.recentAvailable.empty')}
+              candidates={recentAvailable}
+              viewAll={(page) => (
+                <Link to={DASHBOARD_HREFS.available} data-testid="dashboard-recent-available-all">
+                  {t('dashboard.viewAllCount', { value: formatNumber(page.totalCount) })}
+                </Link>
+              )}
+            />
+            <RecentCandidatesPanel
+              title={t('dashboard.recentAdded.title')}
+              testId="dashboard-recent-added"
+              emptyText={t('dashboard.recentAdded.empty')}
+              candidates={recentAdded}
+              flagMissingCv
+              viewAll={() => (
+                <Link to={DASHBOARD_HREFS.recentAdded} data-testid="dashboard-recent-added-all">
+                  {t('dashboard.viewAll')}
+                </Link>
+              )}
+            />
+          </div>
+          <div className="grid two">
+            <SavedSearchesPanel presets={presets} canManagePresets={canManagePresets} />
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

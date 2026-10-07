@@ -146,12 +146,19 @@ describe('PrimaryNav - entries and permissions', () => {
     expect(screen.queryByTestId('nav-presets')).not.toBeInTheDocument();
   });
 
-  it('hides candidate entries without candidates.read but keeps Dashboard', () => {
+  it('hides candidate entries without candidates.read but keeps Inicio', () => {
     renderNav(['roles.manage']);
 
     expect(screen.queryByTestId('nav-candidates')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-search')).not.toBeInTheDocument();
-    expect(screen.getByTestId('nav-dashboard')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-dashboard')).toHaveTextContent('Inicio');
+  });
+
+  it('labels the home entry Inicio and offers no Dashboard entry (KTL-40)', () => {
+    renderNav([]);
+
+    expect(screen.getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/app');
+    expect(screen.queryByRole('link', { name: 'Dashboard' })).not.toBeInTheDocument();
   });
 
   it('renders the group with a single child when only one admin permission is held', async () => {

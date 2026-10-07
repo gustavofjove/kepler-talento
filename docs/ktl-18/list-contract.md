@@ -75,6 +75,11 @@ consent and retention dates, location and source in order to render a page of na
 | `updatedAt`             | `UpdatedAtUtc` (default, with `desc`)         |
 | `lastName`              | `LastName`, then `FirstName`                  |
 | `availabilityCheckedOn` | check date, unchecked last in both directions |
+| `createdAt`             | `CreatedAtUtc`, when the record was created   |
+
+`createdAt` (KTL-40) has no list column; the home page's «Últimos añadidos» links to
+`/app/candidates?sort=createdAt`. With a text filter it is applied by the encrypted stage, which
+orders identically.
 
 `sortDirection` applies to every term of the chosen field. The candidate identifier ascending is
 **always** the final term, whatever the field and direction, so pages never overlap or skip for
@@ -89,6 +94,7 @@ Supporting indexes (migration `Ktl18CandidateSortIndexes`, grants unchanged):
 
 - `IX_CND_Candidates_IsActive_LastName_FirstName_Id`
 - `IX_CND_Candidates_IsActive_AvailabilityCheckedOn` (KTL-36)
+- `IX_CND_Candidates_IsActive_CreatedAtUtc` (KTL-40, migration `CandidateCreatedAtSortIndex`)
 - `IX_CND_Candidates_IsActive_UpdatedAtUtc` (existing, KTL-6)
 
 `SearchQueryPlanTests` captures each field in both directions at the last page of a 3,000-row
@@ -126,7 +132,7 @@ so the back button, a reload and a pasted link reopen the same view. Defaults ar
 | `cv`           | `yes` / `no`           | none        | ignored                      |
 | `inactive`     | `1` includes removed   | absent      | ignored                      |
 
-¹ `desc` for `updatedAt` and `availabilityCheckedOn`, `asc` for `lastName`.
+¹ `desc` for `updatedAt`, `availabilityCheckedOn` and `createdAt`, `asc` for `lastName`.
 
 An unknown sort field is the one value not silently replaced: a silently ignored sort is a wrong
 answer presented as a right one, so the page shows the API's refusal.
@@ -141,12 +147,21 @@ Selection is scoped to the page on screen. Changing page, sort or any filter cle
 header states how many rows on this page are selected. A bulk action acts only on selected rows of
 the current page, loading each one's aggregate for its concurrency version first.
 
-## Dashboard
+## Home page («Inicio»)
 
-The dashboard's counts are the `totalCount` of one-row searches (`pageSize: 1`): active, without
-primary CV, with primary CV, and — for `candidates.delete` holders — inactive. "Pendientes de
-revisión" and "Recibidos este mes" were removed: the search contract has no filter for them, and
-computing them meant downloading every candidate's retention metadata.
+Since KTL-40 the home page (formerly «Dashboard») composes its figures from this contract with no
+endpoint of its own: five searches with no text filter, all on the SQL path.
+
+| Search                          | Used for                                                 |
+| ------------------------------- | -------------------------------------------------------- |
+| `createdAt desc`, page size 5   | «Últimos añadidos»; its `totalCount` is the active total |
+| `available`, check date desc, 5 | «Últimos disponibles»; its `totalCount` is «disponibles» |
+| `unavailable`, page size 1      | «no disponibles»                                         |
+| `hasCv: no`, page size 1        | «Sin CV principal»                                       |
+| `includeInactive`, page size 1  | «inactivos», only for `candidates.delete` holders        |
+
+«Sin comprobar» is the active total minus the other two, never below zero. Each figure links to
+this list with the matching URL parameters. See [`docs/ktl-40/release-notes.md`](../ktl-40/release-notes.md).
 
 ## Unpaged route
 

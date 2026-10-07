@@ -77,9 +77,11 @@ export const LIST_PARAMS = {
   includeInactive: 'inactive',
 } as const;
 
-/** Newest first for update time and check date; alphabetical for the rest. */
+/** Newest first for update time, check date and creation time; alphabetical for the rest. */
 export function defaultDirection(field: string): SortDirection {
-  return field === 'updatedAt' || field === 'availabilityCheckedOn' ? 'desc' : 'asc';
+  return field === 'updatedAt' || field === 'availabilityCheckedOn' || field === 'createdAt'
+    ? 'desc'
+    : 'asc';
 }
 
 function positiveInteger(value: string | null): number | undefined {

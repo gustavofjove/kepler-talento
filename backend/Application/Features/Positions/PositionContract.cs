@@ -19,7 +19,15 @@ public sealed record PositionResponse(
     uint Version);
 
 public sealed record PositionListItemResponse(
-    Guid Id, string Title, string Location, string Status, DateTimeOffset UpdatedAtUtc, uint Version, int CandidateCount);
+    Guid Id, string Title, string Location, string Status, DateTimeOffset UpdatedAtUtc, uint Version, int CandidateCount,
+    PositionStageCountsResponse StageCounts);
+
+/// <summary>Per-stage link counts (KTL-40), named after <see cref="PositionCandidateStages"/>.</summary>
+public sealed record PositionStageCountsResponse(int New, int Shortlisted, int Interview, int Hired, int Rejected)
+{
+    public static PositionStageCountsResponse From(PositionStageCounts counts) =>
+        new(counts.New, counts.Shortlisted, counts.Interview, counts.Hired, counts.Rejected);
+}
 
 public sealed record PositionPageResponse(
     IReadOnlyList<PositionListItemResponse> Items, int Page, int PageSize, int TotalCount);

@@ -26,10 +26,28 @@ public sealed class PositionRepository(ApplicationDbContext dbContext, ICurrentA
             "status" => descending ? query.OrderByDescending(x => x.Status).ThenBy(x => x.Id) : query.OrderBy(x => x.Status).ThenBy(x => x.Id),
             _ => descending ? query.OrderByDescending(x => x.UpdatedAtUtc).ThenBy(x => x.Id) : query.OrderBy(x => x.UpdatedAtUtc).ThenBy(x => x.Id),
         };
-        var items = await query.Skip((options.Page - 1) * options.PageSize).Take(options.PageSize)
-            .Select(x => new PositionSummary(x.Id, x.Title, x.Location, x.Status, x.UpdatedAtUtc, x.Version,
-                // KTL-30: a count only, never names, so it needs no candidate permission.
-                dbContext.PositionCandidates.Count(link => link.PositionId == x.Id)))
+        var page = query.Skip((options.Page - 1) * options.PageSize).Take(options.PageSize);
+        // Counts only, never names, so they need no candidate permission (KTL-30 total, KTL-40 per
+        // stage). Joining after Take pages first, so the one aggregate per row runs for the page's
+        // rows only - never for the rows a deep page skips (design D2).
+        var items = await (
+            from x in page
+            from counts in dbContext.PositionCandidates
+                .Where(link => link.PositionId == x.Id)
+                .GroupBy(link => link.PositionId)
+                .Select(links => new
+                {
+                    Total = (int?)links.Count(),
+                    New = (int?)links.Count(link => link.Stage == PositionCandidateStages.New),
+                    Shortlisted = (int?)links.Count(link => link.Stage == PositionCandidateStages.Shortlisted),
+                    Interview = (int?)links.Count(link => link.Stage == PositionCandidateStages.Interview),
+                    Hired = (int?)links.Count(link => link.Stage == PositionCandidateStages.Hired),
+                    Rejected = (int?)links.Count(link => link.Stage == PositionCandidateStages.Rejected),
+                })
+                .DefaultIfEmpty()
+            select new PositionSummary(x.Id, x.Title, x.Location, x.Status, x.UpdatedAtUtc, x.Version,
+                counts.Total ?? 0,
+                new PositionStageCounts(counts.New ?? 0, counts.Shortlisted ?? 0, counts.Interview ?? 0, counts.Hired ?? 0, counts.Rejected ?? 0)))
             .ToListAsync(cancellationToken);
         return new PositionPage(items, options.Page, options.PageSize, total);
     }

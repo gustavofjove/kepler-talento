@@ -85,6 +85,18 @@ Each item of `GET /api/positions` now carries `candidateCount`, the number of li
 It names no one, so it needs only `positions.read`. The Posiciones table shows it in a
 «Candidatos» column.
 
+Since KTL-40 each item also carries `stageCounts`, the same links counted per stage:
+
+```json
+"stageCounts": { "new": 3, "shortlisted": 2, "interview": 1, "hired": 0, "rejected": 4 }
+```
+
+Links to logically removed candidates are counted, so the five values always add up to
+`candidateCount`. They too need only `positions.read`. The page is selected first and one grouped
+aggregate per row then reads that position's links from the unique pair index, so a deep page never
+counts the rows it skips; the plans are in [`docs/ktl-15/query-plans.md`](../ktl-15/query-plans.md).
+The home page («Inicio») shows the counts; the Posiciones table does not.
+
 ## Audit
 
 Adding, restaging and removing a link each record one event: `position.candidate_added`,

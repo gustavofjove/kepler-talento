@@ -154,11 +154,12 @@ size of 100, SHALL reject page numbers below 1 and sizes outside 1 through 100.
 
 Results SHALL be ordered by a caller-selected sort field and direction, drawn from a closed,
 documented set of sortable fields, defaulting to update time descending. The documented set SHALL
-be update time, last name and availability check date. The candidate status SHALL NOT be a sort
-field. When sorting by availability check date, candidates without a check date SHALL come last in
-either direction. The candidate identifier ascending SHALL always be applied as the final
-tie-breaker, so that pages remain stable and non-overlapping for unchanged data whichever sort is
-chosen.
+be update time, last name, availability check date and creation time. The candidate status SHALL
+NOT be a sort field. When sorting by availability check date, candidates without a check date SHALL
+come last in either direction. The candidate identifier ascending SHALL always be applied as the
+final tie-breaker, so that pages remain stable and non-overlapping for unchanged data whichever sort
+is chosen. Sorting by creation time SHALL order identically whether or not the search carries a
+text filter.
 
 A sort field outside the documented set SHALL be rejected with a stable validation problem before
 the query executes. A caller-supplied sort field SHALL NOT be incorporated into the executed query
@@ -201,6 +202,18 @@ in any form other than selection from that closed set.
 - **WHEN** an authorized actor sorts by availability check date descending, then ascending
 - **THEN** descending lists the most recent check first and ascending the oldest first, and in both
   directions every `unknown` candidate follows every checked candidate
+
+#### Scenario: Sorted by creation time
+
+- **WHEN** an authorized actor sorts by `createdAt` descending, then ascending
+- **THEN** descending lists the most recently created candidate first and ascending the oldest
+  first, with the identifier ascending as the final tie-breaker and non-overlapping pages
+
+#### Scenario: Creation sort with a text filter
+
+- **WHEN** an authorized actor sorts by `createdAt` and also supplies a text filter
+- **THEN** the matching candidates are ordered exactly as the same candidates would be without the
+  text filter
 
 #### Scenario: Former status sort is requested
 
