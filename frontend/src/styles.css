@@ -366,6 +366,66 @@ tbody tr:hover {
   color: var(--fg-2);
 }
 
+/*
+ * Catalog value colours (KTL-41). A chip, summary chip or swatch carrying
+ * `data-catalog-color` reads these properties; without the attribute it falls back to
+ * the orange tokens. Text on background is at least 5.7:1 for every colour (see
+ * docs/CORPORATE_IDENTITY_Kepler.md). Status tones (.badge--*) are a separate family.
+ */
+[data-catalog-color='orange'] {
+  --catalog-chip-bg: var(--fj-orange-pale);
+  --catalog-chip-border: var(--fj-orange-soft);
+  --catalog-chip-fg: var(--fj-orange-dark);
+}
+
+[data-catalog-color='yellow'] {
+  --catalog-chip-bg: #fcf3d2;
+  --catalog-chip-border: #f0dc94;
+  --catalog-chip-fg: #6e5200;
+}
+
+[data-catalog-color='green'] {
+  --catalog-chip-bg: #e6f2df;
+  --catalog-chip-border: #c5e0b6;
+  --catalog-chip-fg: #335f27;
+}
+
+[data-catalog-color='teal'] {
+  --catalog-chip-bg: #dcf1ee;
+  --catalog-chip-border: #b0ded7;
+  --catalog-chip-fg: #1b5c54;
+}
+
+[data-catalog-color='blue'] {
+  --catalog-chip-bg: #e2ecfa;
+  --catalog-chip-border: #bfd4f2;
+  --catalog-chip-fg: #234e8c;
+}
+
+[data-catalog-color='indigo'] {
+  --catalog-chip-bg: #e7e7f9;
+  --catalog-chip-border: #c9c9ef;
+  --catalog-chip-fg: #3b3b8c;
+}
+
+[data-catalog-color='violet'] {
+  --catalog-chip-bg: #f1e5f8;
+  --catalog-chip-border: #dcc4ee;
+  --catalog-chip-fg: #66338c;
+}
+
+[data-catalog-color='pink'] {
+  --catalog-chip-bg: #fbe5ee;
+  --catalog-chip-border: #f2c4d7;
+  --catalog-chip-fg: #962a5a;
+}
+
+[data-catalog-color='grey'] {
+  --catalog-chip-bg: #e8ebef;
+  --catalog-chip-border: #cdd3db;
+  --catalog-chip-fg: #3d4756;
+}
+
 .muted {
   color: var(--muted);
 }

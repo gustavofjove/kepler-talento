@@ -1,10 +1,12 @@
 import type { ApiTransport } from '../../../core/http/api-transport';
-import type { CatalogFamily, CatalogItem } from '../models/catalog.models';
+import type { CatalogColor, CatalogFamily, CatalogItem } from '../models/catalog.models';
 
 export interface CatalogItemPayload {
   nameEs: string;
   code?: string;
   nameEn?: string;
+  /** Omitted: the default on create, the stored colour on update. */
+  color?: CatalogColor;
 }
 
 /**

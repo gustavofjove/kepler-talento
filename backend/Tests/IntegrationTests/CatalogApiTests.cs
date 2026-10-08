@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -305,6 +307,224 @@ public sealed class CatalogApiTests(PostgreSqlFixture database) : IClassFixture<
         Assert.True(reader.GetBoolean(2));
         Assert.False(reader.GetBoolean(3));
         Assert.False(reader.GetBoolean(4));
+    }
+
+    [Fact]
+    public async Task Colour_round_trips_through_create_update_and_list()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+
+        // every seeded value starts in the default colour
+        var seeded = (await client.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{Family}"))!;
+        Assert.All(seeded, item => Assert.Equal(CatalogColors.Default, item.Color));
+
+        // create with a colour, and without one
+        var withColour = await client.PostAsJsonAsync(
+            $"/api/catalogs/{CatalogFamilies.Tag}",
+            new { nameEs = "Urgente", code = (string?)null, nameEn = (string?)null, color = "pink" });
+        Assert.Equal(HttpStatusCode.Created, withColour.StatusCode);
+        var tag = (await withColour.Content.ReadFromJsonAsync<CatalogItemResponse>())!;
+        Assert.Equal("pink", tag.Color);
+        var withoutColour = await client.PostAsJsonAsync(
+            $"/api/catalogs/{Family}",
+            new { nameEs = "Sueco", code = (string?)null, nameEn = (string?)null });
+        Assert.Equal(CatalogColors.Default, (await withoutColour.Content.ReadFromJsonAsync<CatalogItemResponse>())!.Color);
+
+        // recolour under the version check
+        var recolour = await client.PutAsJsonAsync(
+            $"/api/catalogs/{CatalogFamilies.Tag}/{tag.Id}",
+            new { nameEs = "Urgente", code = (string?)null, nameEn = (string?)null, version = tag.Version, color = "blue" });
+        Assert.Equal(HttpStatusCode.OK, recolour.StatusCode);
+        var recoloured = (await recolour.Content.ReadFromJsonAsync<CatalogItemResponse>())!;
+        Assert.Equal("blue", recoloured.Color);
+
+        // a rename without a colour keeps it
+        var rename = await client.PutAsJsonAsync(
+            $"/api/catalogs/{CatalogFamilies.Tag}/{tag.Id}",
+            new { nameEs = "Muy urgente", code = (string?)null, nameEn = (string?)null, version = recoloured.Version });
+        Assert.Equal(HttpStatusCode.OK, rename.StatusCode);
+        Assert.Equal("blue", (await ReadAsync(tag.Id)).Color);
+
+        // deactivation keeps it too, and the list reports it
+        var stored = await ReadAsync(tag.Id);
+        await client.PutAsJsonAsync(
+            $"/api/catalogs/{CatalogFamilies.Tag}/{tag.Id}/active",
+            new { isActive = false, version = stored.Version });
+        var listed = (await client.GetFromJsonAsync<CatalogItemResponse[]>(
+            $"/api/catalogs/{CatalogFamilies.Tag}?includeInactive=true"))!;
+        Assert.Equal("blue", listed.Single(item => item.Id == tag.Id).Color);
+
+        // the colour change is audited as an update by the acting user
+        await using var dbContext = NewDbContext();
+        Assert.Equal(2, await dbContext.AuditEvents.CountAsync(audit =>
+            audit.EventType == CatalogAuditEvents.Updated
+            && audit.SubjectId == tag.Id.ToString("N")
+            && audit.ActorUserId == TestActor.StoredUserId));
+    }
+
+    [Theory]
+    [InlineData(CatalogFamilies.Language, "magenta", CatalogErrors.ColorInvalid, "El color no es válido.")]
+    [InlineData(CatalogFamilies.Language, "Blue", CatalogErrors.ColorInvalid, "El color no es válido.")]
+    [InlineData(CatalogFamilies.LanguageLevel, "blue", CatalogErrors.ColorNotSupported, "Esta familia de catálogo no admite color.")]
+    [InlineData(CatalogFamilies.Sector, "green", CatalogErrors.ColorNotSupported, "Esta familia de catálogo no admite color.")]
+    public async Task Invalid_colour_is_rejected_and_stores_nothing(
+        string family,
+        string color,
+        string code,
+        string message)
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        var target = (await client.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{family}"))![0];
+        var countBefore = await CountAsync(family);
+
+        var create = await client.PostAsJsonAsync(
+            $"/api/catalogs/{family}",
+            new { nameEs = "Nuevo valor", code = (string?)null, nameEn = (string?)null, color });
+        var update = await client.PutAsJsonAsync(
+            $"/api/catalogs/{family}/{target.Id}",
+            new { nameEs = target.NameEs, code = (string?)null, nameEn = (string?)null, version = target.Version, color });
+
+        foreach (var response in new[] { create, update })
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains(code, body, StringComparison.Ordinal);
+            Assert.Contains(message, body, StringComparison.Ordinal);
+        }
+        Assert.Equal(countBefore, await CountAsync(family));
+        Assert.Equal(CatalogColors.Default, (await ReadAsync(target.Id)).Color);
+        await using var dbContext = NewDbContext();
+        Assert.False(await dbContext.AuditEvents.AnyAsync(audit => audit.EventType.StartsWith("catalog.")));
+    }
+
+    [Fact]
+    public async Task A_stale_version_rejects_a_colour_change()
+    {
+        await ResetAsync();
+        await using var factory = CreateFactory(TestActor.Manager);
+        using var client = factory.CreateClient();
+        var target = (await client.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{Family}"))![0];
+        await client.PutAsJsonAsync(
+            $"/api/catalogs/{Family}/{target.Id}",
+            new { nameEs = target.NameEs, code = (string?)null, nameEn = (string?)null, version = target.Version, color = "green" });
+
+        var stale = await client.PutAsJsonAsync(
+            $"/api/catalogs/{Family}/{target.Id}",
+            new { nameEs = target.NameEs, code = (string?)null, nameEn = (string?)null, version = target.Version, color = "violet" });
+
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.Contains(CatalogErrors.ConcurrencyConflict, await stale.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Equal("green", (await ReadAsync(target.Id)).Color);
+    }
+
+    [Fact]
+    public async Task Colour_changes_fail_closed_before_validation()
+    {
+        await ResetAsync();
+        CatalogItemResponse target;
+        await using (var managerFactory = CreateFactory(TestActor.Manager))
+        {
+            using var managerClient = managerFactory.CreateClient();
+            target = (await managerClient.GetFromJsonAsync<CatalogItemResponse[]>($"/api/catalogs/{Family}"))![0];
+        }
+
+        foreach (var actor in new[] { TestActor.Unauthenticated, TestActor.Reader })
+        {
+            await using var factory = CreateFactory(actor);
+            using var client = factory.CreateClient();
+
+            // An invalid colour still yields 403, not 400: authorization runs first, so a caller
+            // without the capability cannot probe the palette through validation problems.
+            foreach (var color in new[] { "magenta", "blue" })
+            {
+                var create = await client.PostAsJsonAsync(
+                    $"/api/catalogs/{Family}",
+                    new { nameEs = "Sueco", code = (string?)null, nameEn = (string?)null, color });
+                var update = await client.PutAsJsonAsync(
+                    $"/api/catalogs/{Family}/{target.Id}",
+                    new { nameEs = target.NameEs, code = (string?)null, nameEn = (string?)null, version = target.Version, color });
+
+                Assert.Equal(HttpStatusCode.Forbidden, create.StatusCode);
+                Assert.Equal(HttpStatusCode.Forbidden, update.StatusCode);
+                Assert.DoesNotContain(CatalogErrors.ColorInvalid, await create.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            }
+        }
+
+        Assert.Equal(CatalogColors.Default, (await ReadAsync(target.Id)).Color);
+        Assert.Equal(SeededCount, await CountAsync(Family));
+        await using var dbContext = NewDbContext();
+        Assert.False(await dbContext.AuditEvents.AnyAsync(audit => audit.EventType.StartsWith("catalog.")));
+    }
+
+    [Fact]
+    public async Task Migration_backfills_existing_values_with_the_default_colour()
+    {
+        await ResetAsync();
+        await using var dbContext = NewDbContext();
+        var migrator = dbContext.GetService<IMigrator>();
+        var applied = (await dbContext.Database.GetAppliedMigrationsAsync()).ToList();
+        var colourMigration = applied.Single(id => id.EndsWith("_AddCatalogItemColor", StringComparison.Ordinal));
+        var previous = applied[applied.IndexOf(colourMigration) - 1];
+
+        try
+        {
+            // Roll back to the schema before KTL-41, write a value the old way, then migrate.
+            await migrator.MigrateAsync(previous);
+            var id = Guid.CreateVersion7();
+            await dbContext.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "CAT_CatalogItems"
+                    ("Id", "Family", "Code", "NameEs", "NameNormalized", "SortOrder", "IsActive", "CreatedAtUtc", "UpdatedAtUtc")
+                VALUES ({id}, 'tag', 'PRE_KTL41', 'Previo', 'previo', 999, TRUE, now(), now())
+                """);
+            await migrator.MigrateAsync();
+
+            Assert.Equal(CatalogColors.Default, (await ReadAsync(id)).Color);
+        }
+        finally
+        {
+            await migrator.MigrateAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Database_rejects_a_colour_outside_the_palette()
+    {
+        await ResetAsync();
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            """UPDATE "CAT_CatalogItems" SET "Color" = 'magenta' WHERE "Family" = 'language'""",
+            connection);
+
+        var exception = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync());
+
+        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+        Assert.Equal("CK_CAT_CatalogItems_Color", exception.ConstraintName);
+    }
+
+    [Fact]
+    public async Task Runtime_role_can_update_the_colour_but_still_cannot_delete()
+    {
+        await ResetAsync();
+        await using var connection = new NpgsqlConnection(database.ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT has_column_privilege('ktl_runtime', '"CAT_CatalogItems"', 'Color', 'SELECT'),
+                   has_column_privilege('ktl_runtime', '"CAT_CatalogItems"', 'Color', 'UPDATE'),
+                   has_table_privilege('ktl_runtime', '"CAT_CatalogItems"', 'DELETE')
+            """,
+            connection);
+        await using var reader = await command.ExecuteReaderAsync();
+
+        Assert.True(await reader.ReadAsync());
+        Assert.True(reader.GetBoolean(0));
+        Assert.True(reader.GetBoolean(1));
+        Assert.False(reader.GetBoolean(2));
     }
 
     [Fact]

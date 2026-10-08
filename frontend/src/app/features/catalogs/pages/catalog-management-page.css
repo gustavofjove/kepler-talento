@@ -1,0 +1,44 @@
+/* The family selector with «Nuevo» to its right, always on the select's line: the selector
+ * shrinks on a narrow screen rather than pushing the button below it. */
+.catalog-family-bar {
+  align-items: end;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 12px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.catalog-family-bar .field {
+  flex: 0 1 320px;
+  min-width: 0;
+}
+
+.catalog-family-bar .button {
+  flex: none;
+  min-height: 34px;
+}
+
+/* The add form's second half (KTL-41): the colour circle, then the code filling the rest. */
+.catalog-create-pair {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.catalog-create-color {
+  flex: none;
+  justify-items: center;
+}
+
+/* Centred on the 34px line of the neighbouring input. */
+.catalog-create-color .catalog-color-swatch {
+  margin: 6px 0;
+}
+
+.catalog-create-code {
+  flex: 1;
+  min-width: 0;
+}

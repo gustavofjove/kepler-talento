@@ -12,6 +12,7 @@ public sealed record CatalogItemResponse(
     string? NameEn,
     int SortOrder,
     bool IsActive,
+    string Color,
     uint Version)
 {
     public static CatalogItemResponse From(CatalogItem item) => new(
@@ -21,6 +22,7 @@ public sealed record CatalogItemResponse(
         item.NameEn,
         item.SortOrder,
         item.IsActive,
+        item.Color,
         item.Version);
 }
 
@@ -34,6 +36,8 @@ public static class CatalogErrors
     public const string NotFound = "catalog.not_found";
     public const string ReorderIncomplete = "catalog.reorder.incomplete";
     public const string ConcurrencyConflict = "catalog.concurrency.conflict";
+    public const string ColorInvalid = "catalog.color.invalid";
+    public const string ColorNotSupported = "catalog.color.not_supported";
 
     public const string NameRequiredMessage = "El nombre es obligatorio.";
     public const string NameDuplicateMessage = "Ya existe un valor con ese nombre.";
@@ -43,6 +47,8 @@ public static class CatalogErrors
     public const string ReorderIncompleteMessage = "El nuevo orden debe incluir todos los valores de la familia.";
     public const string ConcurrencyConflictMessage =
         "El valor ha cambiado desde que se cargó. Vuelva a cargarlo e inténtelo de nuevo.";
+    public const string ColorInvalidMessage = "El color no es válido.";
+    public const string ColorNotSupportedMessage = "Esta familia de catálogo no admite color.";
 }
 
 internal static class CatalogGuards
@@ -84,4 +90,17 @@ internal static class CatalogValidators
         rule.Must(value => !string.IsNullOrWhiteSpace(value))
             .WithErrorCode(CatalogErrors.NameRequired)
             .WithMessage(CatalogErrors.NameRequiredMessage);
+
+    public static IRuleBuilderOptions<T, string?> MustBeAKnownColor<T>(this IRuleBuilder<T, string?> rule) =>
+        rule.Must(CatalogColors.IsKnown)
+            .WithErrorCode(CatalogErrors.ColorInvalid)
+            .WithMessage(CatalogErrors.ColorInvalidMessage);
+
+    /// <summary>Only the chip families may hold a colour other than the default (KTL-41).</summary>
+    public static IRuleBuilderOptions<T, string?> MustBeSupportedBy<T>(
+        this IRuleBuilder<T, string?> rule,
+        Func<T, string> family) =>
+        rule.Must((command, color) => color == CatalogColors.Default || CatalogColors.Supports(family(command)))
+            .WithErrorCode(CatalogErrors.ColorNotSupported)
+            .WithMessage(CatalogErrors.ColorNotSupportedMessage);
 }

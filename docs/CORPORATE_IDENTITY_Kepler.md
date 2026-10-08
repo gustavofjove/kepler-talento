@@ -153,6 +153,34 @@ KeplerDesk y en cualquier otra aplicacion del ecosistema Kepler.
   hovered rows (`--bg-2`).
 - Availability elapsed text follows the chip in regular 12px `--fg-2`, with **9.02:1** contrast
   on white and **8.64:1** on hovered rows.
+
+### Catalog value colours (KTL-41)
+
+- Skills, languages, programs and tags carry one colour from a closed palette of nine pastel
+  tokens. A catalog chip, a criteria-summary chip and the colour circle read
+  `--catalog-chip-bg`, `--catalog-chip-border` and `--catalog-chip-fg` from
+  `[data-catalog-color='<token>']` in `styles.css`; without the attribute they fall back to the
+  orange tokens. Catalog colours are categories, not states: they never replace the
+  `.badge--*` status tones, and catalog chips keep a 1px border that status chips do not have.
+- WCAG contrast of chip text (`--catalog-chip-fg`) on its background (`--catalog-chip-bg`), and on
+  hovered rows (`--bg-2`):
+
+  | Token    | Name     | Background         | Border             | Text               | Text on bg | On hover |
+  | -------- | -------- | ------------------ | ------------------ | ------------------ | ---------- | -------- |
+  | `orange` | Naranja  | `--fj-orange-pale` | `--fj-orange-soft` | `--fj-orange-dark` | **5.74:1** | 6.26:1   |
+  | `yellow` | Amarillo | `#fcf3d2`          | `#f0dc94`          | `#6e5200`          | **6.58:1** | 7.01:1   |
+  | `green`  | Verde    | `#e6f2df`          | `#c5e0b6`          | `#335f27`          | **6.46:1** | 7.17:1   |
+  | `teal`   | Turquesa | `#dcf1ee`          | `#b0ded7`          | `#1b5c54`          | **6.60:1** | 7.44:1   |
+  | `blue`   | Azul     | `#e2ecfa`          | `#bfd4f2`          | `#234e8c`          | **6.93:1** | 7.92:1   |
+  | `indigo` | Índigo   | `#e7e7f9`          | `#c9c9ef`          | `#3b3b8c`          | **7.85:1** | 9.19:1   |
+  | `violet` | Violeta  | `#f1e5f8`          | `#dcc4ee`          | `#66338c`          | **7.16:1** | 8.32:1   |
+  | `pink`   | Rosa     | `#fbe5ee`          | `#f2c4d7`          | `#962a5a`          | **6.32:1** | 7.25:1   |
+  | `grey`   | Gris     | `#e8ebef`          | `#cdd3db`          | `#3d4756`          | **7.86:1** | 9.01:1   |
+
+- Secondary chip text (level, details, «pendiente») uses `--fg-2`, at least **7.39:1** on every
+  background; `--fg-3` falls to about 3:1 there and is not used inside catalog chips.
+- Colour is never the only cue: chips keep their text, and the colour dialog names every colour
+  and marks the current one with a check icon.
 - Usar color semantico solo para comunicar estado, prioridad, riesgo o categoria importante.
 - Evitar mezclar mas de tres colores de estado en una misma zona sin necesidad real.
 

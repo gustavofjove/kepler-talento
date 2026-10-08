@@ -97,6 +97,80 @@ export function UploadIcon() {
     </svg>
   );
 }
+export function PencilIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.25}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 2.5l2.5 2.5-8 8H3v-2.5z M9.5 4l2.5 2.5" />
+    </svg>
+  );
+}
+/** Deactivation: a value taken out of use, never deleted. */
+export function BanIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.25}
+      strokeLinecap="round"
+    >
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M4.1 11.9l7.8-7.8" />
+    </svg>
+  );
+}
+/** Reactivation: a retired value put back in use. */
+export function RestoreIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.25}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 8a5 5 0 1 0 1.5-3.5 M2.5 2v3h3" />
+    </svg>
+  );
+}
+export function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 8.5l3.5 3.5 6.5-8" />
+    </svg>
+  );
+}
 export function CloseIcon() {
   return (
     <svg

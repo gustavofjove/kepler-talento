@@ -30,6 +30,7 @@ import {
   ToggleButtonGroup,
 } from 'react-aria-components';
 import { useTranslation } from 'react-i18next';
+import type { CatalogColor } from '../models/catalog.models';
 import {
   filterOptions,
   MAX_TOGGLE_LEVELS,
@@ -65,6 +66,8 @@ export interface CatalogValuePickerProps {
   headerAction?: ReactNode;
   /** Extra chip text for an item's details, e.g. a certification. */
   detailText?: (item: PickerItem) => string | undefined;
+  /** The catalog colour a chip is drawn in (KTL-41); without it chips keep the default. */
+  colorOf?: (item: PickerItem) => CatalogColor | undefined;
   /** Family-specific fields inside the chip editor. `set` changes the editor's draft only. */
   renderDetails?: (draft: PickerItem, set: (next: PickerItem) => void) => ReactNode;
   onAdd: (item: PickerItem) => void;
@@ -103,6 +106,7 @@ export function CatalogValuePicker({
   disabled = false,
   headerAction,
   detailText,
+  colorOf,
   renderDetails,
   onAdd,
   onChange,
@@ -244,6 +248,7 @@ export function CatalogValuePicker({
                   data-testid={ids.chip}
                   data-value={item.value}
                   data-status={item.status}
+                  data-catalog-color={colorOf?.(item)}
                   onAction={canEdit ? () => setEditingKey(item.key) : undefined}
                 >
                   <span className="catalog-picker-chip-value">{item.value}</span>
@@ -316,6 +321,18 @@ export function CatalogValuePicker({
                     textValue={option.id}
                     className="catalog-picker-option"
                   >
+                    {colorOf ? (
+                      // Decorative: the option is still named by its text alone.
+                      <span
+                        className="catalog-picker-option-swatch"
+                        data-catalog-color={colorOf({
+                          key: option.id,
+                          value: option.id,
+                          level: '',
+                        })}
+                        aria-hidden="true"
+                      />
+                    ) : null}
                     {option.id}
                   </ListBoxItem>
                 )}

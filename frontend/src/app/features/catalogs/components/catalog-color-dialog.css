@@ -1,0 +1,74 @@
+/* The colour dialog (KTL-41): the shared .dialog box, narrowed to fit a 3×3 grid. */
+.catalog-color-modal {
+  display: grid;
+  justify-items: center;
+  max-width: 420px;
+  width: 100%;
+}
+
+.catalog-color-dialog {
+  outline: none;
+}
+
+.catalog-color-dialog h2 {
+  font-size: 18px;
+}
+
+.catalog-color-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  outline: none;
+}
+
+/* On a narrow screen the name wraps below its circle instead of breaking mid-word. */
+.catalog-color-option {
+  align-items: center;
+  border: 1px solid var(--border-1);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 44px;
+  min-width: 0;
+  outline: none;
+  padding: 6px 22px 6px 8px;
+  position: relative;
+}
+
+.catalog-color-option[data-hovered] {
+  background: var(--bg-2);
+}
+
+.catalog-color-option[data-selected] {
+  border-color: var(--fj-orange-bright);
+}
+
+.catalog-color-option[data-focus-visible] {
+  outline: 2px solid var(--fj-orange-bright);
+  outline-offset: 1px;
+}
+
+.catalog-color-option-swatch {
+  background: var(--catalog-chip-bg);
+  border: 2px solid var(--catalog-chip-fg);
+  border-radius: var(--r-pill);
+  flex: none;
+  height: 22px;
+  width: 22px;
+}
+
+.catalog-color-option-name {
+  flex: 1 0 auto;
+  font-size: 13px;
+}
+
+/* A corner mark, so it takes no width from the name. */
+.catalog-color-option-check {
+  color: var(--fj-orange-dark);
+  display: inline-flex;
+  position: absolute;
+  right: 4px;
+  top: 4px;
+}

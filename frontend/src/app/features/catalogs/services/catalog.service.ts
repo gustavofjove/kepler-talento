@@ -1,6 +1,8 @@
 import { signal } from '../../../core/state/signal';
 import { AppError, toAppError } from '../../../shared/models/error.models';
+import { DEFAULT_CATALOG_COLOR } from '../catalog-color.logic';
 import {
+  CatalogColor,
   CatalogFamily,
   CatalogItem,
   CatalogLoadStatus,
@@ -30,6 +32,10 @@ export class CatalogService {
   readonly catalogs = signal<CatalogState>({ status: 'idle', items: {} });
 
   private inFlight: Promise<void> | null = null;
+
+  /** Per-family name → colour, rebuilt when the state object changes, so chips look up in O(1). */
+  private readonly colorIndex = new Map<CatalogFamily, Map<string, CatalogColor>>();
+  private colorIndexState: CatalogState | null = null;
 
   constructor(private readonly api: CatalogGateway) {}
 
@@ -71,11 +77,28 @@ export class CatalogService {
     return this.list(family).map((item) => item.nameEs);
   }
 
+  /**
+   * The chip colour of a value, looked up by the Spanish name chips and saved criteria carry.
+   * Deactivated values keep their colour; a name that no longer resolves is drawn in the default.
+   */
+  colorOf(family: CatalogFamily, nameEs: string): CatalogColor {
+    const state = this.catalogs();
+    if (this.colorIndexState !== state) {
+      this.colorIndexState = state;
+      this.colorIndex.clear();
+    }
+    let byName = this.colorIndex.get(family);
+    if (!byName) {
+      byName = new Map((state.items[family] ?? []).map((item) => [item.nameEs, item.color]));
+      this.colorIndex.set(family, byName);
+    }
+    return byName.get(nameEs) ?? DEFAULT_CATALOG_COLOR;
+  }
+
   async create(
     family: CatalogFamily,
     nameEs: string,
-    code?: string,
-    nameEn?: string,
+    options: { code?: string; nameEn?: string; color?: CatalogColor } = {},
   ): Promise<CatalogItem> {
     const trimmedName = nameEs.trim();
     if (!trimmedName) {
@@ -83,8 +106,9 @@ export class CatalogService {
     }
     const created = await this.api.create(family, {
       nameEs: trimmedName,
-      code: code?.trim() || undefined,
-      nameEn: nameEn?.trim() || undefined,
+      code: options.code?.trim() || undefined,
+      nameEn: options.nameEn?.trim() || undefined,
+      color: options.color,
     });
     await this.refresh(family);
     return created;
@@ -93,7 +117,7 @@ export class CatalogService {
   async update(
     family: CatalogFamily,
     id: string,
-    patch: { nameEs: string; code?: string; nameEn?: string },
+    patch: { nameEs: string; code?: string; nameEn?: string; color?: CatalogColor },
   ): Promise<CatalogItem> {
     const trimmedName = patch.nameEs.trim();
     if (!trimmedName) {
@@ -104,6 +128,7 @@ export class CatalogService {
       nameEs: trimmedName,
       code: patch.code?.trim() || undefined,
       nameEn: patch.nameEn?.trim() || undefined,
+      color: patch.color,
       version: current.version,
     });
     await this.refresh(family);

@@ -44,10 +44,10 @@
 /* A read-only criterion, drawn like the value chips of the search form's pickers. */
 .filters-summary .chip {
   align-items: center;
-  background: var(--fj-orange-pale);
-  border: 1px solid var(--fj-orange-soft);
+  background: var(--catalog-chip-bg, var(--fj-orange-pale));
+  border: 1px solid var(--catalog-chip-border, var(--fj-orange-soft));
   border-radius: var(--r-pill);
-  color: var(--fj-orange-dark);
+  color: var(--catalog-chip-fg, var(--fj-orange-dark));
   display: inline-flex;
   font-family: var(--font-display);
   font-size: 12px;

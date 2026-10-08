@@ -5,9 +5,15 @@ export interface CatalogItem {
   nameEn?: string;
   sortOrder: number;
   isActive: boolean;
+  /** The chip colour (KTL-41). Always `orange` outside the colourable families. */
+  color: CatalogColor;
   /** Row version carried back on writes so a stale change is rejected as a conflict. */
   version: number;
 }
+
+/** The closed palette tokens; the hues live in `styles.css` under `[data-catalog-color]`. */
+export type CatalogColor =
+  'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'indigo' | 'violet' | 'pink' | 'grey';
 
 export type CatalogLoadStatus = 'idle' | 'loading' | 'loaded' | 'error';
 

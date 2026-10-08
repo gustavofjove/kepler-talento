@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ToggleButton, ToggleButtonGroup } from 'react-aria-components';
 import { CatalogValuePicker } from '../../catalogs/components/catalog-value-picker';
+import { useCatalogs } from '../../catalogs/use-catalogs';
 import {
   normalizeName,
   pickerTestIds,
@@ -47,6 +48,7 @@ export function CriteriaGroup({
   onModeChange,
 }: Props) {
   const { t } = useTranslation();
+  const catalogs = useCatalogs();
   const idPrefix = `search-${group.kind}`;
   const label = t(group.labelKey);
   const items = criteria.map(toItem);
@@ -87,6 +89,7 @@ export function CriteriaGroup({
         items={items}
         disabled={disabled}
         headerAction={modeToggle}
+        colorOf={(item) => catalogs.colorOf(group.valueFamily, item.value)}
         onAdd={(item) => onCriteriaChange([...criteria, toCriterion(item)])}
         onChange={(item) =>
           onCriteriaChange(

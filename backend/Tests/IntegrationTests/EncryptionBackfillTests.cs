@@ -119,7 +119,6 @@ public sealed class EncryptionBackfillTests(PostgreSqlFixture database) : IClass
         {
             await reset.Database.EnsureDeletedAsync();
             await reset.GetService<IMigrator>().MigrateAsync(BeforeEncryption);
-            await DatabaseInitializer.SeedCatalogsAsync(reset, CancellationToken.None);
         }
 
         var lucia = Guid.CreateVersion7();
@@ -127,8 +126,12 @@ public sealed class EncryptionBackfillTests(PostgreSqlFixture database) : IClass
         await using (var connection = new NpgsqlConnection(database.ConnectionString))
         {
             await connection.OpenAsync();
+            // The sector is written in the historical schema's own terms: the current EF model may
+            // carry catalog columns added after the encryption migration (KTL-41 added "Color").
             await using var command = new NpgsqlCommand(
                 """
+                INSERT INTO "CAT_CatalogItems" ("Id", "Family", "Code", "NameEs", "NameNormalized", "SortOrder", "IsActive", "CreatedAtUtc", "UpdatedAtUtc")
+                VALUES (gen_random_uuid(), 'sector', 'SERVICIOS', 'Servicios', 'servicios', 1, true, now(), now());
                 INSERT INTO "CND_Candidates" ("Id", "FirstName", "LastName", "Phone", "Email", "Notes", "Status", "IsActive", "CreatedAtUtc", "UpdatedAtUtc")
                 VALUES (@lucia, 'Lucía', 'Fernández', '600 123 456', 'Lucia@Example.test', 'Notas privadas', 'available', true, now(), now()),
                        (@pablo, 'Pablo', 'Ruiz', '', 'pablo@example.test', '', 'available', true, now(), now());
@@ -149,6 +152,7 @@ public sealed class EncryptionBackfillTests(PostgreSqlFixture database) : IClass
         await using (var migrate = NewContext(TestFieldEncryption.KeyFile))
         {
             await DatabaseInitializer.MigrateAsync(migrate, CancellationToken.None);
+            await DatabaseInitializer.SeedCatalogsAsync(migrate, CancellationToken.None);
         }
         return new SeededIds(lucia, pablo);
     }

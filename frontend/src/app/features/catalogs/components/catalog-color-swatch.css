@@ -1,0 +1,31 @@
+/* A catalog value's colour as a filled circle (KTL-41). Fill and ring come from the palette
+ * properties set by [data-catalog-color] in styles.css. */
+.catalog-color-swatch {
+  background: var(--catalog-chip-bg, var(--fj-orange-pale));
+  border: 2px solid var(--catalog-chip-fg, var(--fj-orange-dark));
+  border-radius: var(--r-pill);
+  display: inline-block;
+  flex: none;
+  height: 22px;
+  padding: 0;
+  vertical-align: middle;
+  width: 22px;
+}
+
+.catalog-color-swatch--button {
+  cursor: pointer;
+}
+
+.catalog-color-swatch--button:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px var(--catalog-chip-border, var(--fj-orange-soft));
+}
+
+.catalog-color-swatch--button:focus-visible {
+  outline: 2px solid var(--fj-orange-bright);
+  outline-offset: 2px;
+}
+
+.catalog-color-swatch--button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}

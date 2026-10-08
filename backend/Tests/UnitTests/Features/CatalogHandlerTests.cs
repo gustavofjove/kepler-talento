@@ -162,6 +162,81 @@ public sealed class CatalogHandlerTests
         Assert.Equal("El nombre es obligatorio.", error.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Create_without_a_colour_uses_the_default()
+    {
+        var handler = new CreateCatalogItemHandler(SeededRepository(), Actor.Manager);
+
+        var created = await handler.Handle(new(Family, "Alemán", null, null), CancellationToken.None);
+
+        Assert.Equal(CatalogColors.Default, created.Color);
+    }
+
+    [Fact]
+    public async Task Create_stores_the_chosen_colour()
+    {
+        var repository = SeededRepository();
+        var handler = new CreateCatalogItemHandler(repository, Actor.Manager);
+
+        var created = await handler.Handle(
+            new(CatalogFamilies.Tag, "Urgente", null, null, CatalogColors.Pink),
+            CancellationToken.None);
+
+        Assert.Equal(CatalogColors.Pink, created.Color);
+        Assert.Equal(CatalogColors.Pink, repository.Items.Single(item => item.NameEs == "Urgente").Color);
+    }
+
+    [Fact]
+    public async Task Create_validator_rejects_an_unknown_colour_with_the_Spanish_message()
+    {
+        IValidator<CreateCatalogItemCommand> validator = new CreateCatalogItemValidator();
+
+        var result = await validator.ValidateAsync(new(Family, "Alemán", null, null, "magenta"));
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(CatalogErrors.ColorInvalid, error.ErrorCode);
+        Assert.Equal("El color no es válido.", error.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(CatalogFamilies.LanguageLevel)]
+    [InlineData(CatalogFamilies.EducationType)]
+    [InlineData(CatalogFamilies.Sector)]
+    public async Task Create_validator_rejects_a_colour_on_a_family_without_chips(string family)
+    {
+        IValidator<CreateCatalogItemCommand> validator = new CreateCatalogItemValidator();
+
+        var result = await validator.ValidateAsync(new(family, "Nuevo", null, null, CatalogColors.Blue));
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal(CatalogErrors.ColorNotSupported, error.ErrorCode);
+        Assert.Equal("Esta familia de catálogo no admite color.", error.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Create_validator_accepts_the_default_colour_on_a_family_without_chips()
+    {
+        IValidator<CreateCatalogItemCommand> validator = new CreateCatalogItemValidator();
+
+        var result = await validator.ValidateAsync(
+            new(CatalogFamilies.SkillLevel, "Experto", null, null, CatalogColors.Default));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public async Task Create_with_a_colour_denies_a_reader_and_stores_nothing()
+    {
+        var repository = SeededRepository();
+        var handler = new CreateCatalogItemHandler(repository, Actor.Reader);
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => handler.Handle(new(Family, "Alemán", null, null, CatalogColors.Blue), CancellationToken.None));
+
+        Assert.Equal(2, repository.Items.Count);
+        Assert.Null(repository.LastAuditEventType);
+    }
+
     // ---- update ----
 
     [Fact]
@@ -241,6 +316,73 @@ public sealed class CatalogHandlerTests
         var handler = new UpdateCatalogItemHandler(repository, Actor.Reader);
         await Assert.ThrowsAsync<ForbiddenException>(
             () => handler.Handle(new(Family, repository.Items[0].Id, "Otro", null, null, 0), CancellationToken.None));
+        Assert.Null(repository.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task Update_changes_the_colour_under_the_version_check_and_audits_it()
+    {
+        var repository = SeededRepository();
+        var target = repository.Items[0];
+        var handler = new UpdateCatalogItemHandler(repository, Actor.Manager);
+
+        var updated = await handler.Handle(
+            new(Family, target.Id, "Inglés", null, null, 4, CatalogColors.Blue),
+            CancellationToken.None);
+
+        Assert.Equal(CatalogColors.Blue, updated.Color);
+        Assert.Equal(4u, repository.ExpectedVersion);
+        Assert.Equal(CatalogAuditEvents.Updated, repository.LastAuditEventType);
+    }
+
+    [Fact]
+    public async Task Update_without_a_colour_keeps_the_stored_one()
+    {
+        var repository = SeededRepository();
+        var target = repository.Items[1];
+        target.Recolor(CatalogColors.Green, DateTimeOffset.UtcNow);
+        var handler = new UpdateCatalogItemHandler(repository, Actor.Manager);
+
+        var updated = await handler.Handle(
+            new(Family, target.Id, "Francés nuevo", null, null, 0),
+            CancellationToken.None);
+
+        Assert.Equal(CatalogColors.Green, updated.Color);
+    }
+
+    [Fact]
+    public async Task Update_validator_rejects_an_unknown_colour()
+    {
+        IValidator<UpdateCatalogItemCommand> validator = new UpdateCatalogItemValidator();
+
+        var result = await validator.ValidateAsync(new(Family, Guid.NewGuid(), "Inglés", null, null, 0, "Blue"));
+
+        Assert.Equal(CatalogErrors.ColorInvalid, Assert.Single(result.Errors).ErrorCode);
+    }
+
+    [Fact]
+    public async Task Update_validator_rejects_a_colour_on_a_level_family()
+    {
+        IValidator<UpdateCatalogItemCommand> validator = new UpdateCatalogItemValidator();
+
+        var result = await validator.ValidateAsync(
+            new(CatalogFamilies.LanguageLevel, Guid.NewGuid(), "B2", null, null, 0, CatalogColors.Blue));
+
+        Assert.Equal(CatalogErrors.ColorNotSupported, Assert.Single(result.Errors).ErrorCode);
+    }
+
+    [Fact]
+    public async Task Update_with_a_colour_denies_a_reader_and_changes_nothing()
+    {
+        var repository = SeededRepository();
+        var handler = new UpdateCatalogItemHandler(repository, Actor.Reader);
+
+        await Assert.ThrowsAsync<ForbiddenException>(
+            () => handler.Handle(
+                new(Family, repository.Items[0].Id, "Inglés", null, null, 0, CatalogColors.Blue),
+                CancellationToken.None));
+
+        Assert.Equal(CatalogColors.Default, repository.Items[0].Color);
         Assert.Null(repository.LastAuditEventType);
     }
 
