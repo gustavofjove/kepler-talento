@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { PickerItem } from '../../catalogs/components/catalog-value-picker.logic';
 import type { CatalogFamily } from '../../catalogs/models/catalog.models';
+import { randomId } from '../../../shared/random-id';
 import type { Candidate } from '../models/candidate.models';
 import {
   type CandidateRelationsService,
@@ -64,7 +65,7 @@ function toEntries<T extends { id: string }>(
 ): T[] {
   return items.map((item) => {
     const base = saved.find((entry) => entry.id === item.key);
-    return build(item, base ?? ({ id: crypto.randomUUID() } as Partial<T>));
+    return build(item, base ?? ({ id: randomId() } as Partial<T>));
   });
 }
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { errorText } from '../../../core/i18n/translatable-error';
 import { FormError } from '../../../shared/components/form-error';
+import { randomId } from '../../../shared/random-id';
 import { useCatalogs } from '../../catalogs/use-catalogs';
 import { CatalogStatusNotice } from '../../catalogs/components/catalog-status';
 import { useCatalogStatus } from '../../catalogs/components/use-catalog-status';
@@ -60,7 +61,7 @@ export function CandidateExperience({ candidate, control }: Props) {
 
   const add = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const entry = normalizeExperience({ ...draft, id: crypto.randomUUID() });
+    const entry = normalizeExperience({ ...draft, id: randomId() });
     try {
       validateExperienceEntry(entry);
     } catch (err) {
