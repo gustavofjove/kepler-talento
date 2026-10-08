@@ -96,6 +96,11 @@ EOF
 chmod 600 /opt/apps/ktl-secrets/ktl.env
 ```
 
+Create and edit `ktl.env` on the server only. A copy edited on Windows ends its lines in CR:
+Compose strips it but the shell in Step 2 keeps it, so the roles get passwords the API never
+sends (`28P01: password authentication failed`). `deploy.sh` refuses such a file. To repair it,
+run `sed -i 's/\r$//' /opt/apps/ktl-secrets/ktl.env`, then the `ALTER ROLE` block in Step 2.
+
 Generate the field-encryption key file (KTL-33) on a developer machine, where the .NET SDK is
 installed, and copy it over:
 
@@ -135,6 +140,24 @@ GRANT CONNECT ON DATABASE kepler_talento TO ktl_runtime;
 \connect kepler_talento
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SQL
+```
+
+The roles must hold exactly the passwords in `ktl.env`. If the file is regenerated or repaired
+later, set them again, check both logins over the network the way the containers connect, and
+redeploy with `deploy.sh --force`:
+
+```bash
+. /opt/apps/ktl-secrets/ktl.env
+docker exec -i hts-postgres psql -v ON_ERROR_STOP=1 -U postgres \
+  -v migrator_password="$KTL_MIGRATOR_PASSWORD" -v runtime_password="$KTL_RUNTIME_PASSWORD" <<'SQL'
+ALTER ROLE ktl_migrator PASSWORD :'migrator_password';
+ALTER ROLE ktl_runtime PASSWORD :'runtime_password';
+SQL
+for role in migrator runtime; do   # prints ktl_migrator, then ktl_runtime
+  var="KTL_$(echo $role | tr a-z A-Z)_PASSWORD"; eval pw=\$$var
+  docker run --rm --network lan_data_net -e PGPASSWORD="$pw" postgres:16-alpine \
+    psql -h hts-postgres -U ktl_$role -d kepler_talento -tAc 'select current_user'
+done
 ```
 
 Kepler is developed against PostgreSQL 17 but runs on the server's 16: it uses no 17-only
