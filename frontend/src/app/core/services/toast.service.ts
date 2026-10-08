@@ -1,4 +1,5 @@
 import { signal } from '../../core/state/signal';
+import { randomId } from '../../shared/random-id';
 
 export interface ToastMessage {
   id: string;
@@ -10,7 +11,7 @@ export class ToastService {
   readonly messages = signal<ToastMessage[]>([]);
 
   show(text: string, type: ToastMessage['type'] = 'info'): void {
-    const id = crypto.randomUUID();
+    const id = randomId();
     this.messages.update((messages) => [...messages, { id, text, type }]);
     window.setTimeout(() => this.dismiss(id), 4200);
   }
