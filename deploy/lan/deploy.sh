@@ -27,6 +27,13 @@ if [ ! -r "$ENV_FILE" ]; then
   log "missing $ENV_FILE; see docs/deploy-lan-server.md"
   exit 1
 fi
+# A file edited on Windows ends its lines in CR. Compose strips it but a shell that sources the
+# file keeps it, so the role passwords set from the shell would never match what the API sends.
+if grep -q "$(printf '\r')" "$ENV_FILE"; then
+  log "$ENV_FILE has Windows line endings; run: sed -i 's/\\r\$//' $ENV_FILE"
+  log "then reset the role passwords (docs/deploy-lan-server.md, Step 2)"
+  exit 1
+fi
 
 cd "$REPO_DIR"
 git fetch --quiet origin "$BRANCH"
