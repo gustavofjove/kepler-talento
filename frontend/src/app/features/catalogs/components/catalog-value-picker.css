@@ -82,10 +82,10 @@
 
 .catalog-picker-chip {
   align-items: center;
-  background: var(--fj-orange-pale);
-  border: 1px solid var(--fj-orange-soft);
+  background: var(--catalog-chip-bg, var(--fj-orange-pale));
+  border: 1px solid var(--catalog-chip-border, var(--fj-orange-soft));
   border-radius: var(--r-pill);
-  color: var(--fj-orange-dark);
+  color: var(--catalog-chip-fg, var(--fj-orange-dark));
   cursor: pointer;
   display: inline-flex;
   font-family: var(--font-display);
@@ -128,9 +128,11 @@
   font-weight: 500;
 }
 
+/* --fg-2, not --fg-3: on every catalog colour (KTL-41) --fg-3 falls below 4.5:1. The lighter
+ * weight keeps the detail secondary to the value. */
 .catalog-picker-chip-detail,
 .catalog-picker-chip-pending {
-  color: var(--fg-3);
+  color: var(--fg-2);
   font-family: var(--font-body);
   font-weight: 400;
 }
@@ -152,7 +154,7 @@
 }
 
 .catalog-picker-chip-remove[data-hovered] {
-  background: var(--fj-orange-soft);
+  background: var(--catalog-chip-border, var(--fj-orange-soft));
 }
 
 .catalog-picker-chip-remove[data-focus-visible] {
@@ -236,10 +238,23 @@
 }
 
 .catalog-picker-option {
+  align-items: center;
   border-radius: var(--r-sm);
   cursor: pointer;
+  display: flex;
+  gap: 8px;
   outline: none;
   padding: 6px 10px;
+}
+
+/* The value's catalog colour beside its name (KTL-41), drawn like the catalog page's circle. */
+.catalog-picker-option-swatch {
+  background: var(--catalog-chip-bg, var(--fj-orange-pale));
+  border: 2px solid var(--catalog-chip-fg, var(--fj-orange-dark));
+  border-radius: var(--r-pill);
+  flex: none;
+  height: 14px;
+  width: 14px;
 }
 
 .catalog-picker-option[data-focused],

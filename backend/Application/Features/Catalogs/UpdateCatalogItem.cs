@@ -6,13 +6,15 @@ using MediatR;
 
 namespace KeplerTalento.Application.Features.Catalogs;
 
+/// <summary>A null <paramref name="Color"/> keeps the stored colour.</summary>
 public sealed record UpdateCatalogItemCommand(
     string Family,
     Guid Id,
     string NameEs,
     string? Code,
     string? NameEn,
-    uint Version) : IRequest<CatalogItemResponse>;
+    uint Version,
+    string? Color = null) : IRequest<CatalogItemResponse>;
 
 public sealed class UpdateCatalogItemValidator : AbstractValidator<UpdateCatalogItemCommand>
 {
@@ -20,6 +22,11 @@ public sealed class UpdateCatalogItemValidator : AbstractValidator<UpdateCatalog
     {
         RuleFor(command => command.Family).MustBeAKnownFamily();
         RuleFor(command => command.NameEs).MustBeAUsableName();
+        When(command => command.Color is not null, () =>
+            RuleFor(command => command.Color)
+                .Cascade(CascadeMode.Stop)
+                .MustBeAKnownColor()
+                .MustBeSupportedBy(command => command.Family));
     }
 }
 
@@ -45,6 +52,10 @@ public sealed class UpdateCatalogItemHandler(ICatalogRepository catalogs, ICurre
         if (!string.IsNullOrWhiteSpace(request.Code))
         {
             item.ChangeCode(request.Code, DateTimeOffset.UtcNow);
+        }
+        if (request.Color is not null)
+        {
+            item.Recolor(request.Color, DateTimeOffset.UtcNow);
         }
         var outcome = await catalogs.SaveAsync(
             CatalogAuditEvents.Updated,

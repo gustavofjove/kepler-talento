@@ -16,12 +16,14 @@ public sealed class CatalogItem
         string nameEs,
         string? nameEn,
         int sortOrder,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        string color = CatalogColors.Default)
     {
         Id = id;
         Family = family;
         Code = code;
         SortOrder = sortOrder;
+        Color = color;
         CreatedAtUtc = createdAtUtc;
         UpdatedAtUtc = createdAtUtc;
         Rename(nameEs, nameEn, createdAtUtc);
@@ -35,6 +37,9 @@ public sealed class CatalogItem
     public string? NameEn { get; private set; }
     public int SortOrder { get; private set; }
     public bool IsActive { get; private set; } = true;
+
+    /// <summary>One of <see cref="CatalogColors.All"/>; the chip colour of this value.</summary>
+    public string Color { get; private set; } = CatalogColors.Default;
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public DateTimeOffset UpdatedAtUtc { get; private set; }
     public uint Version { get; private set; }
@@ -60,6 +65,16 @@ public sealed class CatalogItem
             return;
         }
         SortOrder = sortOrder;
+        UpdatedAtUtc = updatedAtUtc;
+    }
+
+    public void Recolor(string color, DateTimeOffset updatedAtUtc)
+    {
+        if (Color == color)
+        {
+            return;
+        }
+        Color = color;
         UpdatedAtUtc = updatedAtUtc;
     }
 

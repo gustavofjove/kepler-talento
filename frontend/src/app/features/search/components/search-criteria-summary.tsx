@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCatalogs } from '../../catalogs/use-catalogs';
 import type { SearchFilters } from '../models/search.models';
 import { buildSummaryGroups } from './search-criteria.logic';
 import './search-filters.css';
@@ -19,7 +19,10 @@ interface SearchCriteriaSummaryProps {
  */
 export function SearchCriteriaSummary({ filters, layout = 'columns' }: SearchCriteriaSummaryProps) {
   const { t } = useTranslation();
-  const groups = useMemo(() => buildSummaryGroups(filters, t), [filters, t]);
+  // Not memoised: the catalog colours are read through the subscribed service, so the summary
+  // is rebuilt (cheaply) on the re-render a recolour triggers rather than kept stale.
+  const catalogs = useCatalogs();
+  const groups = buildSummaryGroups(filters, t, (family, name) => catalogs.colorOf(family, name));
   const inline = layout === 'inline';
 
   return (
@@ -34,8 +37,8 @@ export function SearchCriteriaSummary({ filters, layout = 'columns' }: SearchCri
             <span className="summary-group" key={group.label}>
               <span className="summary-label">{group.label}</span>
               {group.values.map((value) => (
-                <span className="chip" key={value}>
-                  {value}
+                <span className="chip" key={value.text} data-catalog-color={value.color}>
+                  {value.text}
                 </span>
               ))}
             </span>
@@ -44,8 +47,8 @@ export function SearchCriteriaSummary({ filters, layout = 'columns' }: SearchCri
               <h3>{group.label}</h3>
               <div className="summary-values">
                 {group.values.map((value) => (
-                  <span className="chip" key={value}>
-                    {value}
+                  <span className="chip" key={value.text} data-catalog-color={value.color}>
+                    {value.text}
                   </span>
                 ))}
               </div>

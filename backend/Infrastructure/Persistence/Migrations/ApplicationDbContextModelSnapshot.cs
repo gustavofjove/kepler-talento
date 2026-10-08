@@ -691,6 +691,13 @@ namespace Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("orange");
+
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -745,6 +752,8 @@ namespace Infrastructure.Persistence.Migrations
 
                     b.ToTable("CAT_CatalogItems", null, t =>
                         {
+                            t.HasCheckConstraint("CK_CAT_CatalogItems_Color", "\"Color\" IN ('orange', 'yellow', 'green', 'teal', 'blue', 'indigo', 'violet', 'pink', 'grey')");
+
                             t.HasCheckConstraint("CK_CAT_CatalogItems_Family", "\"Family\" IN ('language', 'program', 'skill', 'language_level', 'program_level', 'skill_level', 'education_type', 'education_status', 'sector', 'tag')");
 
                             t.HasCheckConstraint("CK_CAT_CatalogItems_Name", "char_length(\"NameEs\") > 0 AND char_length(\"NameNormalized\") > 0 AND char_length(\"Code\") > 0");

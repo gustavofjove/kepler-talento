@@ -11,9 +11,14 @@ namespace KeplerTalento.Web.Features.Catalogs;
 /// </summary>
 public static class CatalogEndpoints
 {
-    public sealed record CreateCatalogItemRequest(string NameEs, string? Code, string? NameEn);
+    public sealed record CreateCatalogItemRequest(string NameEs, string? Code, string? NameEn, string? Color = null);
 
-    public sealed record UpdateCatalogItemRequest(string NameEs, string? Code, string? NameEn, uint Version);
+    public sealed record UpdateCatalogItemRequest(
+        string NameEs,
+        string? Code,
+        string? NameEn,
+        uint Version,
+        string? Color = null);
 
     public sealed record ReorderCatalogFamilyRequest(IReadOnlyList<Guid> OrderedIds);
 
@@ -55,7 +60,7 @@ public static class CatalogEndpoints
             {
                 if (!Manages(actor)) throw new ForbiddenException();
                 var created = await sender.Send(
-                    new CreateCatalogItemCommand(family, request.NameEs, request.Code, request.NameEn),
+                    new CreateCatalogItemCommand(family, request.NameEs, request.Code, request.NameEn, request.Color),
                     cancellationToken);
                 return Results.Created($"/api/catalogs/{family}/{created.Id}", created);
             })
@@ -93,7 +98,14 @@ public static class CatalogEndpoints
             {
                 if (!Manages(actor)) throw new ForbiddenException();
                 var updated = await sender.Send(
-                    new UpdateCatalogItemCommand(family, id, request.NameEs, request.Code, request.NameEn, request.Version),
+                    new UpdateCatalogItemCommand(
+                        family,
+                        id,
+                        request.NameEs,
+                        request.Code,
+                        request.NameEn,
+                        request.Version,
+                        request.Color),
                     cancellationToken);
                 return Results.Ok(updated);
             })

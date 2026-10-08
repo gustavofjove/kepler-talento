@@ -12,7 +12,10 @@ function PathProbe() {
   return null;
 }
 
-/** KTL-31: a catalog value has no page of its own, so its row opens the inline editor. */
+/**
+ * A catalog value has no page of its own. Since KTL-41 its row is plain: the pencil in «Acciones»
+ * opens the inline editor, and the add form opens from «Nuevo».
+ */
 describe('CatalogManagementPage rows', () => {
   const renderPage = async () => {
     const catalogService = await loadedCatalogService();
@@ -51,24 +54,37 @@ describe('CatalogManagementPage rows', () => {
     ]);
   });
 
-  it('starts the inline edit when a plain part of the row is clicked, without navigating', async () => {
+  it('does not start the edit, or navigate, when the row is clicked', async () => {
     await renderPage();
     const row = rows()[0];
-    const name = nameOf(row);
 
     await userEvent.click(within(row).getAllByRole('cell')[0]);
+    await userEvent.click(within(row).getAllByRole('cell')[2]);
 
-    expect(within(row).getByRole('textbox', { name: `Nombre de ${name}` })).toHaveValue(name);
-    expect(within(row).getByTestId('catalog-edit-save')).toBeInTheDocument();
+    expect(within(row).queryByRole('textbox')).toBeNull();
+    expect(within(row).queryByRole('button', { name: /^Editar / })).not.toBeNull();
     expect(path).toBe('/app/admin/catalogs');
   });
 
-  it('offers no «Editar» button: the name is the keyboard way into the edit', async () => {
+  it('starts the inline edit from the labelled pencil button', async () => {
     await renderPage();
     const row = rows()[0];
     const name = nameOf(row);
 
-    expect(within(row).queryByRole('button', { name: 'Editar' })).toBeNull();
+    const edit = within(row).getByRole('button', { name: `Editar ${name}` });
+    expect(edit).toHaveAttribute('title', 'Editar');
+    expect(edit.textContent).toBe('');
+    await userEvent.click(edit);
+
+    expect(within(row).getByRole('textbox', { name: `Nombre de ${name}` })).toHaveValue(name);
+    expect(within(row).getByTestId('catalog-edit-save')).toBeInTheDocument();
+  });
+
+  it('opens the edit from the keyboard', async () => {
+    await renderPage();
+    const row = rows()[0];
+    const name = nameOf(row);
+
     within(row)
       .getByRole('button', { name: `Editar ${name}` })
       .focus();
@@ -77,23 +93,38 @@ describe('CatalogManagementPage rows', () => {
     expect(within(row).getByTestId('catalog-edit-save')).toBeInTheDocument();
   });
 
-  it('ignores row clicks on other rows while one row is being edited', async () => {
+  it('disables the other rows’ actions while one row is being edited', async () => {
     await renderPage();
-    await userEvent.click(within(rows()[0]).getAllByRole('cell')[0]);
+    await userEvent.click(within(rows()[0]).getByTestId('catalog-edit'));
 
-    await userEvent.click(within(rows()[1]).getAllByRole('cell')[0]);
-
-    expect(within(rows()[1]).queryByRole('textbox')).toBeNull();
-    expect(within(rows()[0]).getByTestId('catalog-edit-save')).toBeInTheDocument();
+    for (const button of within(rows()[1]).getAllByRole('button')) {
+      expect(button).toBeDisabled();
+    }
+    expect(screen.getByTestId('catalog-new')).toBeDisabled();
   });
 
-  it('keeps the other row controls from starting the edit', async () => {
-    await renderPage();
-    const row = rows()[1];
+  it('deactivates and reactivates with labelled icon buttons', async () => {
+    const catalogService = await renderPage();
+    const toggle = vi.spyOn(catalogService, 'toggleActive');
+    // The confirm dialog is mounted by the shell, not this page; answer it directly.
+    const confirm = vi.spyOn(services.confirmDialogService, 'confirm').mockResolvedValue(true);
+    const row = rows()[0];
+    const name = nameOf(row);
 
-    await userEvent.click(within(row).getByTestId('catalog-move-up'));
+    const deactivate = within(row).getByRole('button', { name: `Desactivar ${name}` });
+    expect(deactivate).toHaveAttribute('title', 'Desactivar');
+    expect(deactivate.textContent).toBe('');
+    await userEvent.click(deactivate);
 
-    await waitFor(() => expect(screen.queryByRole('textbox', { name: /^Nombre de/ })).toBeNull());
+    expect(confirm).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(toggle).toHaveBeenCalledTimes(1));
+    const activate = await within(rows()[0]).findByRole('button', { name: `Activar ${name}` });
+    expect(activate).toHaveAttribute('title', 'Activar');
+    await userEvent.click(activate);
+    await waitFor(() => expect(toggle).toHaveBeenCalledTimes(2));
+    // Reactivation needs no confirmation.
+    expect(confirm).toHaveBeenCalledTimes(1);
+    confirm.mockRestore();
   });
 
   it('reorders with labelled arrow buttons instead of «Subir» and «Bajar» text', async () => {
@@ -111,5 +142,53 @@ describe('CatalogManagementPage rows', () => {
     await userEvent.click(down);
 
     expect(move).toHaveBeenCalledWith('language', expect.any(String), 1);
+    expect(screen.queryByRole('textbox', { name: /^Nombre de/ })).toBeNull();
+  });
+
+  describe('«Nuevo»', () => {
+    it('hides the add form until «Nuevo» is pressed', async () => {
+      await renderPage();
+
+      expect(screen.queryByTestId('catalog-create-form')).toBeNull();
+      const add = screen.getByRole('button', { name: 'Nuevo' });
+      expect(add).toHaveAttribute('aria-expanded', 'false');
+
+      await userEvent.click(add);
+
+      expect(screen.getByTestId('catalog-create-form')).toBeInTheDocument();
+      expect(screen.getByLabelText('Nombre (es)')).toHaveFocus();
+      expect(add).toHaveAttribute('aria-expanded', 'true');
+      expect(add).toBeDisabled();
+    });
+
+    it('closes the form, empty, on «Cancelar»', async () => {
+      await renderPage();
+      await userEvent.click(screen.getByRole('button', { name: 'Nuevo' }));
+      await userEvent.type(screen.getByLabelText('Nombre (es)'), 'Borrador');
+
+      await userEvent.click(screen.getByTestId('catalog-create-cancel'));
+
+      expect(screen.queryByTestId('catalog-create-form')).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'Nuevo' }));
+      expect(screen.getByLabelText('Nombre (es)')).toHaveValue('');
+    });
+
+    it('closes the form after a value is added', async () => {
+      const catalogService = await renderPage();
+      await userEvent.click(screen.getByRole('button', { name: 'Nuevo' }));
+      await userEvent.type(screen.getByLabelText('Nombre (es)'), 'Neerlandés');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Añadir' }));
+
+      await waitFor(() => expect(screen.queryByTestId('catalog-create-form')).toBeNull());
+      expect(catalogService.activeNames('language')).toContain('Neerlandés');
+    });
+
+    it('locks the row editors while the add form is open', async () => {
+      await renderPage();
+      await userEvent.click(screen.getByRole('button', { name: 'Nuevo' }));
+
+      expect(within(rows()[0]).getByTestId('catalog-edit')).toBeDisabled();
+    });
   });
 });

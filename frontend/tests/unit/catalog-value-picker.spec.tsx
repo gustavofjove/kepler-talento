@@ -492,4 +492,64 @@ describe('CatalogValuePicker', () => {
     await user.keyboard('{Backspace}');
     expect(chips()).toHaveLength(0);
   });
+
+  describe('catalog colours (KTL-41)', () => {
+    const colours: Record<string, 'blue' | 'green'> = { Inglés: 'blue', Alemán: 'green' };
+    const initial: PickerItem[] = [
+      { key: 'ingles', value: 'Inglés', level: 'B2' },
+      { key: 'frances', value: 'Francés', level: '' },
+    ];
+
+    it('draws each chip in its value colour, read-only and editable alike', () => {
+      const { unmount } = render(
+        <Host initial={initial} readOnly colorOf={(item) => colours[item.value]} />,
+      );
+      expect(chip('Inglés')).toHaveAttribute('data-catalog-color', 'blue');
+      // No colour resolved: the chip keeps the default look.
+      expect(chip('Francés')).not.toHaveAttribute('data-catalog-color');
+      unmount();
+
+      render(<Host initial={initial} colorOf={(item) => colours[item.value]} />);
+      expect(chip('Inglés')).toHaveAttribute('data-catalog-color', 'blue');
+    });
+
+    it('colours a newly added chip', async () => {
+      render(<Host colorOf={(item) => colours[item.value]} />);
+
+      await userEvent.type(await openInput(), 'alem');
+      await userEvent.click(await screen.findByRole('option', { name: 'Alemán' }));
+
+      expect(chip('Alemán')).toHaveAttribute('data-catalog-color', 'green');
+    });
+
+    it('shows each offered value with its colour circle on the left, named by its text alone', async () => {
+      render(<Host colorOf={(item) => colours[item.value]} />);
+
+      await openInput();
+      const option = await screen.findByRole('option', { name: 'Inglés' });
+
+      const swatch = option.querySelector('.catalog-picker-option-swatch');
+      expect(swatch).toHaveAttribute('data-catalog-color', 'blue');
+      expect(swatch).toHaveAttribute('aria-hidden', 'true');
+      expect(option.firstElementChild).toBe(swatch);
+      expect(option).toHaveTextContent(/^Inglés$/);
+    });
+
+    it('offers plain text options without a resolver', async () => {
+      render(<Host />);
+
+      await openInput();
+      const option = await screen.findByRole('option', { name: 'Inglés' });
+
+      expect(option.querySelector('.catalog-picker-option-swatch')).toBeNull();
+    });
+
+    it('leaves every chip uncoloured without a resolver', () => {
+      render(<Host initial={initial} />);
+
+      for (const element of chips()) {
+        expect(element).not.toHaveAttribute('data-catalog-color');
+      }
+    });
+  });
 });

@@ -14,6 +14,7 @@ test('creates and assigns a tag, manages a note, and filters by the tag', async 
 
   await page.goto('/app/catalogs');
   await page.selectOption('select[name="family"]', 'tag');
+  await page.getByTestId('catalog-new').click();
   await page.fill('input[name="newNameEs"]', tag);
   await page.fill('input[name="newCode"]', `KTL_TAG_${suffix}`);
   await page

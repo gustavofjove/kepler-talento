@@ -52,6 +52,11 @@ por sí sola una restricción de contacto.
 El detalle de rutas, códigos de error, unicidad de nombres, concurrencia y auditoría está en
 [`docs/ktl-6/catalogs.md`](docs/ktl-6/catalogs.md).
 
+Desde KTL-41, las habilidades, idiomas, programas y etiquetas tienen un color (nueve tonos pastel;
+naranja por defecto) que se elige en Catálogos al crear o editar un valor y que se aplica a sus
+chips en toda la aplicación, y que el selector de valores muestra junto a cada opción. El contrato (`color` en la API, migración `AddCatalogItemColor`) está
+en [`docs/ktl-41/release-notes.md`](docs/ktl-41/release-notes.md).
+
 ## Etiquetas y notas personalizadas KTL-21
 
 La ficha del candidato permite asignar etiquetas del catálogo (panel «Competencias») y mantener un
@@ -108,8 +113,9 @@ los botones «Abrir» y «Editar» y el diálogo de criterios de los presets: ca
 criterios como etiquetas en una línea bajo su fila. Los teléfonos se muestran como texto, sin
 enlace `tel:`.
 
-En Catálogos, al hacer clic en una fila se abre su edición en línea (ya no hay botón «Editar») y
-«Subir»/«Bajar» son flechas. Todas las tablas comparten el estilo `.data-table`
+En Catálogos, «Subir»/«Bajar» son flechas. Desde KTL-41, la fila no reacciona al clic: la edición
+en línea se abre con el lápiz de «Acciones», «Desactivar»/«Activar» son iconos, y el formulario de
+alta queda oculto hasta pulsar «Nuevo», junto al selector de familia. Todas las tablas comparten el estilo `.data-table`
 (`frontend/src/app/shared/components/data-table.css`): celdas centradas verticalmente y controles
 compactos de 28px. Usuarios solo adopta el estilo, porque sus filas se editan en el sitio. La página de detalle de usuario y la unificación de las páginas de consulta y edición
 quedan para tickets futuros. Consulta la [nota de versión KTL-31](docs/ktl-31/release-notes.md).

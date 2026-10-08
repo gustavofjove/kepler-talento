@@ -3,11 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { useServices } from '../../../core/di/services-context';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import '../../../shared/components/data-table.css';
-import { isRowClick } from '../../../shared/components/row-link';
+import './catalog-management-page.css';
+import { BanIcon, PencilIcon, RestoreIcon } from '../../../shared/components/icons';
+import { colorNameKey, DEFAULT_CATALOG_COLOR, isColorableFamily } from '../catalog-color.logic';
+import { CatalogColorPickerSwatch, CatalogColorSwatch } from '../components/catalog-color-swatch';
 import { ArrowDownIcon, ArrowUpIcon } from '../components/move-icons';
 import { useCatalogs } from '../use-catalogs';
 import {
   CATALOG_FAMILY_LABELS,
+  type CatalogColor,
   type CatalogFamily,
   type CatalogItem,
 } from '../models/catalog.models';
@@ -23,13 +27,19 @@ export function CatalogManagementPage() {
   const catalogService = useCatalogs();
 
   const [activeFamily, setActiveFamily] = useState<CatalogFamily>('language');
+  // The add form is hidden until «Nuevo» asks for it.
+  const [creating, setCreating] = useState(false);
   const [newNameEs, setNewNameEs] = useState('');
   const [newCode, setNewCode] = useState('');
+  const [newColor, setNewColor] = useState<CatalogColor>(DEFAULT_CATALOG_COLOR);
   const [editingId, setEditingId] = useState('');
   const [editNameEs, setEditNameEs] = useState('');
   const [editCode, setEditCode] = useState('');
+  const [editColor, setEditColor] = useState<CatalogColor>(DEFAULT_CATALOG_COLOR);
 
   const items = catalogService.list(activeFamily, true);
+  // Only the chip families take a colour (KTL-41); the others show no colour column or field.
+  const colorable = isColorableFamily(activeFamily);
   const activeCount = items.filter((item) => item.isActive).length;
   const isLoading = catalogService.status === 'idle' || catalogService.status === 'loading';
   const hasFailed = catalogService.status === 'error';
@@ -38,14 +48,24 @@ export function CatalogManagementPage() {
     setEditingId('');
     setEditNameEs('');
     setEditCode('');
+    setEditColor(DEFAULT_CATALOG_COLOR);
+  };
+
+  const closeCreate = (): void => {
+    setCreating(false);
+    setNewNameEs('');
+    setNewCode('');
+    setNewColor(DEFAULT_CATALOG_COLOR);
   };
 
   const createItem = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     try {
-      await catalogService.create(activeFamily, newNameEs, newCode);
-      setNewNameEs('');
-      setNewCode('');
+      await catalogService.create(activeFamily, newNameEs, {
+        code: newCode,
+        color: colorable ? newColor : undefined,
+      });
+      closeCreate();
       toastService.show(t('catalogs.management.toast.created'), 'success');
     } catch (error) {
       notifyError(error, t('catalogs.management.error.create'));
@@ -56,11 +76,17 @@ export function CatalogManagementPage() {
     setEditingId(item.id);
     setEditNameEs(item.nameEs);
     setEditCode(item.code);
+    setEditColor(item.color);
   };
 
   const saveEdit = async (item: CatalogItem): Promise<void> => {
     try {
-      await catalogService.update(activeFamily, item.id, { nameEs: editNameEs, code: editCode });
+      await catalogService.update(activeFamily, item.id, {
+        nameEs: editNameEs,
+        code: editCode,
+        // Sent only when changed: an unchanged colour is kept by the API anyway.
+        color: colorable && editColor !== item.color ? editColor : undefined,
+      });
       cancelEdit();
       toastService.show(t('catalogs.management.toast.updated'), 'success');
     } catch (error) {
@@ -128,23 +154,37 @@ export function CatalogManagementPage() {
 
       <div className="panel stack">
         <div className="toolbar">
-          <div className="field field--wide">
-            <label htmlFor="family">{t('catalogs.management.family')}</label>
-            <select
-              id="family"
-              name="family"
-              value={activeFamily}
-              onChange={(e) => {
-                setActiveFamily(e.target.value as CatalogFamily);
-                cancelEdit();
-              }}
+          <div className="catalog-family-bar">
+            <div className="field field--wide">
+              <label htmlFor="family">{t('catalogs.management.family')}</label>
+              <select
+                id="family"
+                name="family"
+                value={activeFamily}
+                onChange={(e) => {
+                  setActiveFamily(e.target.value as CatalogFamily);
+                  setNewColor(DEFAULT_CATALOG_COLOR);
+                  cancelEdit();
+                }}
+              >
+                {FAMILY_OPTIONS.map((family) => (
+                  <option key={family.key} value={family.key}>
+                    {family.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              className="button"
+              type="button"
+              data-testid="catalog-new"
+              aria-expanded={creating}
+              aria-controls="catalog-create-form"
+              disabled={creating || !!editingId || isLoading || hasFailed}
+              onClick={() => setCreating(true)}
             >
-              {FAMILY_OPTIONS.map((family) => (
-                <option key={family.key} value={family.key}>
-                  {family.label}
-                </option>
-              ))}
-            </select>
+              {t('catalogs.management.action.new')}
+            </button>
           </div>
           <p className="muted">
             {isLoading
@@ -159,37 +199,69 @@ export function CatalogManagementPage() {
           activeFamily,
         ) && <p className="muted">{t('catalogs.management.levelOrderHint')}</p>}
 
-        <form className="grid two" onSubmit={(event) => void createItem(event)} noValidate>
-          <div className="field">
-            <label htmlFor="newNameEs">{t('catalogs.management.form.name')}</label>
-            <input
-              id="newNameEs"
-              name="newNameEs"
-              value={newNameEs}
-              onChange={(e) => setNewNameEs(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="newCode">{t('catalogs.management.form.code')}</label>
-            <input
-              id="newCode"
-              name="newCode"
-              value={newCode}
-              placeholder={t('catalogs.management.form.codePlaceholder')}
-              onChange={(e) => setNewCode(e.target.value)}
-            />
-          </div>
-          <div className="form-actions span-all">
-            <button
-              className="button"
-              type="submit"
-              disabled={!!editingId || isLoading || hasFailed}
-            >
-              {t('catalogs.management.form.add')}
-            </button>
-          </div>
-        </form>
+        {creating ? (
+          <form
+            id="catalog-create-form"
+            className="grid two"
+            data-testid="catalog-create-form"
+            onSubmit={(event) => void createItem(event)}
+            noValidate
+          >
+            <div className="field">
+              <label htmlFor="newNameEs">{t('catalogs.management.form.name')}</label>
+              <input
+                id="newNameEs"
+                name="newNameEs"
+                value={newNameEs}
+                onChange={(e) => setNewNameEs(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            {/* The name takes one half; the colour (chip families only) and the code share the other. */}
+            <div className="catalog-create-pair">
+              {colorable ? (
+                <div className="field catalog-create-color">
+                  <label htmlFor="newColor">{t('catalogs.management.form.color')}</label>
+                  <CatalogColorPickerSwatch
+                    id="newColor"
+                    color={newColor}
+                    label={t('catalogs.color.changeNewLabel', { color: t(colorNameKey(newColor)) })}
+                    testId="new-catalog-color-trigger"
+                    onChange={setNewColor}
+                  />
+                </div>
+              ) : null}
+              <div className="field catalog-create-code">
+                <label htmlFor="newCode">{t('catalogs.management.form.code')}</label>
+                <input
+                  id="newCode"
+                  name="newCode"
+                  value={newCode}
+                  placeholder={t('catalogs.management.form.codePlaceholder')}
+                  onChange={(e) => setNewCode(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="form-actions span-all">
+              <button
+                className="button"
+                type="submit"
+                disabled={!!editingId || isLoading || hasFailed}
+              >
+                {t('catalogs.management.form.add')}
+              </button>
+              <button
+                className="button ghost"
+                type="button"
+                data-testid="catalog-create-cancel"
+                onClick={closeCreate}
+              >
+                {t('catalogs.management.action.cancel')}
+              </button>
+            </div>
+          </form>
+        ) : null}
 
         {isLoading ? (
           <p className="empty-state">{t('catalogs.management.loading')}</p>
@@ -201,13 +273,14 @@ export function CatalogManagementPage() {
           <p className="empty-state">{t('catalogs.management.empty')}</p>
         ) : (
           <div className="table-wrap">
-            {/* A catalog value has no page of its own: its row opens the inline editor instead. */}
+            {/* A catalog value has no page of its own; its pencil opens the inline editor. */}
             <table className="catalog-table data-table">
               <thead>
                 <tr>
                   <th>{t('catalogs.management.column.order')}</th>
                   <th>{t('catalogs.management.column.code')}</th>
                   <th>{t('catalogs.management.column.name')}</th>
+                  {colorable ? <th>{t('catalogs.management.column.color')}</th> : null}
                   <th>{t('catalogs.management.column.status')}</th>
                   <th>{t('catalogs.management.column.actions')}</th>
                 </tr>
@@ -218,20 +291,11 @@ export function CatalogManagementPage() {
                   // While one row is edited, the other rows' actions are disabled
                   // (not hidden, so the table does not reflow) until Save or Cancel.
                   const isLocked = !!editingId && !isEditing;
-                  // Only an idle table edits on row click; a locked or editing row stays put.
-                  const canStartEdit = !editingId;
                   return (
                     <tr
                       key={item.id}
-                      className={
-                        isEditing ? 'is-editing' : canStartEdit ? 'row-link-row' : undefined
-                      }
+                      className={isEditing ? 'is-editing' : undefined}
                       data-testid="catalog-row"
-                      onClick={(event) => {
-                        if (canStartEdit && event.button === 0 && isRowClick(event)) {
-                          startEdit(item);
-                        }
-                      }}
                     >
                       <td>{item.sortOrder}</td>
                       <td>
@@ -266,21 +330,26 @@ export function CatalogManagementPage() {
                             required
                           />
                         ) : (
-                          // The row's keyboard target: the name reads as text and starts the edit.
-                          <button
-                            className="row-link"
-                            type="button"
-                            data-testid="catalog-edit"
-                            aria-label={t('catalogs.management.action.editLabel', {
-                              name: item.nameEs,
-                            })}
-                            disabled={isLocked}
-                            onClick={() => startEdit(item)}
-                          >
-                            {item.nameEs}
-                          </button>
+                          item.nameEs
                         )}
                       </td>
+                      {colorable ? (
+                        <td className="catalog-color-cell">
+                          {isEditing ? (
+                            <CatalogColorPickerSwatch
+                              color={editColor}
+                              label={t('catalogs.color.changeLabel', {
+                                name: item.nameEs,
+                                color: t(colorNameKey(editColor)),
+                              })}
+                              testId="catalog-color-trigger"
+                              onChange={setEditColor}
+                            />
+                          ) : (
+                            <CatalogColorSwatch color={item.color} />
+                          )}
+                        </td>
+                      ) : null}
                       <td>
                         <span className="badge">
                           {t(
@@ -316,6 +385,19 @@ export function CatalogManagementPage() {
                               <button
                                 className="button ghost icon-button"
                                 type="button"
+                                data-testid="catalog-edit"
+                                aria-label={t('catalogs.management.action.editLabel', {
+                                  name: item.nameEs,
+                                })}
+                                title={t('catalogs.management.action.edit')}
+                                disabled={isLocked || creating}
+                                onClick={() => startEdit(item)}
+                              >
+                                <PencilIcon />
+                              </button>
+                              <button
+                                className="button ghost icon-button"
+                                type="button"
                                 data-testid="catalog-move-up"
                                 aria-label={t('catalogs.management.action.moveUpLabel', {
                                   name: item.nameEs,
@@ -340,16 +422,29 @@ export function CatalogManagementPage() {
                                 <ArrowDownIcon />
                               </button>
                               <button
-                                className={item.isActive ? 'button danger' : 'button secondary'}
+                                className={
+                                  item.isActive
+                                    ? 'button danger icon-button'
+                                    : 'button secondary icon-button'
+                                }
                                 type="button"
-                                disabled={isLocked}
-                                onClick={() => void toggle(item)}
-                              >
-                                {t(
+                                data-testid="catalog-toggle-active"
+                                data-active={item.isActive}
+                                aria-label={t(
+                                  item.isActive
+                                    ? 'catalogs.management.action.deactivateLabel'
+                                    : 'catalogs.management.action.activateLabel',
+                                  { name: item.nameEs },
+                                )}
+                                title={t(
                                   item.isActive
                                     ? 'catalogs.management.action.deactivate'
                                     : 'catalogs.management.action.activate',
                                 )}
+                                disabled={isLocked}
+                                onClick={() => void toggle(item)}
+                              >
+                                {item.isActive ? <BanIcon /> : <RestoreIcon />}
                               </button>
                             </>
                           )}

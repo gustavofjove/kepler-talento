@@ -8,6 +8,7 @@ import {
   type SearchFilters,
 } from '../models/search.models';
 import { CATALOG_FAMILY_ORDER } from '../../catalogs/components/catalog-family-rows.logic';
+import type { CatalogColor, CatalogFamily } from '../../catalogs/models/catalog.models';
 import { CRITERIA_GROUPS } from './criteria-group.model';
 import { selectedAvailability } from './search-basic-filters.logic';
 
@@ -16,10 +17,19 @@ export interface AvailabilityOption {
   label: string;
 }
 
+export interface SummaryValue {
+  text: string;
+  /** Set for catalog criteria only (KTL-41); other chips keep the default colour. */
+  color?: CatalogColor;
+}
+
 export interface SummaryGroup {
   label: string;
-  values: string[];
+  values: SummaryValue[];
 }
+
+/** Resolves a catalog value's colour by family and Spanish name, e.g. `CatalogService.colorOf`. */
+export type CatalogColorResolver = (family: CatalogFamily, nameEs: string) => CatalogColor;
 
 export function availabilityOptions(t: TFunction): AvailabilityOption[] {
   return ALL_AVAILABILITY_STATES.map((value) => ({ value, label: availabilityLabel(value, t) }));
@@ -32,7 +42,11 @@ const modeLabel = (mode: MultiValueMode, t: TFunction): string =>
  * One block per filter type, laid out in columns. The single source of what a filter set
  * "says" in words: the search page, the preset list and the preset detail all render it.
  */
-export function buildSummaryGroups(filters: SearchFilters, t: TFunction): SummaryGroup[] {
+export function buildSummaryGroups(
+  filters: SearchFilters,
+  t: TFunction,
+  colorOf?: CatalogColorResolver,
+): SummaryGroup[] {
   const options = availabilityOptions(t);
   const groups: SummaryGroup[] = [];
   const selected = selectedAvailability(
@@ -43,24 +57,26 @@ export function buildSummaryGroups(filters: SearchFilters, t: TFunction): Summar
     options.find((option) => option.value === value)?.label ?? value;
 
   if (filters.text.trim()) {
-    groups.push({ label: t('search.criteria.text'), values: [filters.text.trim()] });
+    groups.push({ label: t('search.criteria.text'), values: [{ text: filters.text.trim() }] });
   }
   if (selected.length < options.length) {
     groups.push({
       label: t('search.criteria.availability.label'),
-      values: selected.map((value) => optionLabel(value)),
+      values: selected.map((value) => ({ text: optionLabel(value) })),
     });
   }
   if (filters.availabilityCheckedFrom) {
     groups.push({
       label: t('search.criteria.checkedFrom.label'),
-      values: [formatDay(filters.availabilityCheckedFrom)],
+      values: [{ text: formatDay(filters.availabilityCheckedFrom) }],
     });
   }
   if (filters.hasCv) {
     groups.push({
       label: t('search.criteria.cv'),
-      values: [t(filters.hasCv === 'yes' ? 'search.criteria.cv.yes' : 'search.criteria.cv.no')],
+      values: [
+        { text: t(filters.hasCv === 'yes' ? 'search.criteria.cv.yes' : 'search.criteria.cv.no') },
+      ],
     });
   }
   for (const group of CATALOG_FAMILY_ORDER.map((kind) => CRITERIA_GROUPS[kind])) {
@@ -76,10 +92,10 @@ export function buildSummaryGroups(filters: SearchFilters, t: TFunction): Summar
               mode: modeLabel(filters[`${group.kind}Mode`], t),
             })
           : t(group.labelKey),
-      values: criteria.map(
-        (c) =>
-          `${c.value}${c.level ? ` · ${t('search.criteria.level.atLeast', { level: c.level })}` : ''}`,
-      ),
+      values: criteria.map((c) => ({
+        text: `${c.value}${c.level ? ` · ${t('search.criteria.level.atLeast', { level: c.level })}` : ''}`,
+        color: colorOf?.(group.valueFamily, c.value),
+      })),
     });
   }
   return groups;

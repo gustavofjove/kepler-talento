@@ -9,6 +9,9 @@ public sealed class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogI
     public static readonly string FamilyCheckConstraint =
         "\"Family\" IN (" + string.Join(", ", CatalogFamilies.All.Select(family => $"'{family}'")) + ")";
 
+    public static readonly string ColorCheckConstraint =
+        "\"Color\" IN (" + string.Join(", ", CatalogColors.All.Select(color => $"'{color}'")) + ")";
+
     public void Configure(EntityTypeBuilder<CatalogItem> builder)
     {
         builder.ToTable("CAT_CatalogItems", table =>
@@ -18,6 +21,9 @@ public sealed class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogI
                 "CK_CAT_CatalogItems_Name",
                 "char_length(\"NameEs\") > 0 AND char_length(\"NameNormalized\") > 0 AND char_length(\"Code\") > 0");
             table.HasCheckConstraint("CK_CAT_CatalogItems_SortOrder", "\"SortOrder\" > 0");
+            // Which families may leave the default is a business rule the API enforces;
+            // the database only guarantees the value is a palette token.
+            table.HasCheckConstraint("CK_CAT_CatalogItems_Color", ColorCheckConstraint);
         });
         builder.HasKey(item => item.Id);
         // Candidate relations reference a catalog entry by (Id, Family) so a language
@@ -30,6 +36,11 @@ public sealed class CatalogItemConfiguration : IEntityTypeConfiguration<CatalogI
         builder.Property(item => item.NameEs).HasMaxLength(160).IsRequired();
         builder.Property(item => item.NameNormalized).HasMaxLength(160).IsRequired();
         builder.Property(item => item.NameEn).HasMaxLength(160);
+        // The database default backfills existing rows and covers writers that predate KTL-41.
+        builder.Property(item => item.Color)
+            .HasMaxLength(20)
+            .IsRequired()
+            .HasDefaultValue(CatalogColors.Default);
         builder.Property(item => item.Version).IsRowVersion();
         builder.HasIndex(item => new { item.Family, item.NameNormalized })
             .IsUnique()

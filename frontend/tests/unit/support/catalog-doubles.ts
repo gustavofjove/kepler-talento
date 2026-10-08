@@ -29,6 +29,7 @@ export class FakeCatalogApi implements CatalogGateway {
           nameEs,
           sortOrder: index + 1,
           isActive: true,
+          color: 'orange',
           version: 1,
         })),
       );
@@ -51,6 +52,7 @@ export class FakeCatalogApi implements CatalogGateway {
       nameEn: payload.nameEn,
       sortOrder: items.length + 1,
       isActive: true,
+      color: payload.color ?? 'orange',
       version: 1,
     };
     this.families.set(family, [...items, created]);
@@ -68,6 +70,7 @@ export class FakeCatalogApi implements CatalogGateway {
       nameEs: payload.nameEs,
       code: payload.code?.toUpperCase() || item.code,
       nameEn: payload.nameEn,
+      color: payload.color ?? item.color,
       version: item.version + 1,
     }));
   }

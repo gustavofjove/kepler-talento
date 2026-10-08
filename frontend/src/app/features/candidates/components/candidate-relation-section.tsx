@@ -52,6 +52,7 @@ export function CandidateRelationSection({ kind, items, editing, onItemsChange }
         readOnly={!editing}
         disabled={Boolean(catalogStatus.message)}
         detailText={(item) => detailText(definition.detail, item, t)}
+        colorOf={(item) => catalogs.colorOf(definition.valueFamily, item.value)}
         renderDetails={
           definition.detail === 'certification'
             ? (draft, set) => <CertificationField item={draft} onChange={set} />

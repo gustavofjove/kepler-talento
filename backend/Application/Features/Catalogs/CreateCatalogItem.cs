@@ -6,8 +6,13 @@ using MediatR;
 
 namespace KeplerTalento.Application.Features.Catalogs;
 
-public sealed record CreateCatalogItemCommand(string Family, string NameEs, string? Code, string? NameEn)
-    : IRequest<CatalogItemResponse>;
+/// <summary>A null <paramref name="Color"/> creates the value in <see cref="CatalogColors.Default"/>.</summary>
+public sealed record CreateCatalogItemCommand(
+    string Family,
+    string NameEs,
+    string? Code,
+    string? NameEn,
+    string? Color = null) : IRequest<CatalogItemResponse>;
 
 public sealed class CreateCatalogItemValidator : AbstractValidator<CreateCatalogItemCommand>
 {
@@ -15,6 +20,11 @@ public sealed class CreateCatalogItemValidator : AbstractValidator<CreateCatalog
     {
         RuleFor(command => command.Family).MustBeAKnownFamily();
         RuleFor(command => command.NameEs).MustBeAUsableName();
+        When(command => command.Color is not null, () =>
+            RuleFor(command => command.Color)
+                .Cascade(CascadeMode.Stop)
+                .MustBeAKnownColor()
+                .MustBeSupportedBy(command => command.Family));
     }
 }
 
@@ -41,7 +51,8 @@ public sealed class CreateCatalogItemHandler(ICatalogRepository catalogs, ICurre
             nameEs,
             request.NameEn,
             NextSortOrder(existing),
-            createdAtUtc);
+            createdAtUtc,
+            request.Color ?? CatalogColors.Default);
         catalogs.Add(item);
         var outcome = await catalogs.SaveAsync(
             CatalogAuditEvents.Created,

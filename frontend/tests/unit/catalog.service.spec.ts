@@ -152,6 +152,65 @@ describe('CatalogService', () => {
     it('has no physical delete operation', () => {
       expect('remove' in service).toBe(false);
     });
+
+    it('creates a value with the chosen colour, code and no colour when none is chosen', async () => {
+      const create = vi.spyOn(api, 'create');
+
+      await service.create('tag', 'Urgente', { code: 'urg', color: 'pink' });
+      await service.create('tag', 'Revisar');
+
+      expect(create).toHaveBeenNthCalledWith(
+        1,
+        'tag',
+        expect.objectContaining({ code: 'urg', color: 'pink' }),
+      );
+      expect(create.mock.calls[1][1].color).toBeUndefined();
+      expect(service.colorOf('tag', 'Urgente')).toBe('pink');
+      expect(service.colorOf('tag', 'Revisar')).toBe('orange');
+    });
+
+    it('sends a colour change with the version it read', async () => {
+      const update = vi.spyOn(api, 'update');
+      const target = service.list('skill', true)[0];
+
+      await service.update('skill', target.id, { nameEs: target.nameEs, color: 'blue' });
+
+      expect(update).toHaveBeenCalledWith(
+        'skill',
+        target.id,
+        expect.objectContaining({ color: 'blue', version: target.version }),
+      );
+    });
+  });
+
+  describe('colours', () => {
+    it('defaults every value to orange', () => {
+      expect(service.colorOf('skill', 'Análisis')).toBe('orange');
+    });
+
+    it('falls back to orange for a name the family does not hold', () => {
+      expect(service.colorOf('skill', 'Valor que ya no existe')).toBe('orange');
+      expect(service.colorOf('tag', 'Inglés')).toBe('orange');
+    });
+
+    it('keeps the colour of a deactivated value', async () => {
+      const target = service.list('skill', true).find((item) => item.nameEs === 'Análisis')!;
+      await service.update('skill', target.id, { nameEs: 'Análisis', color: 'green' });
+
+      await service.toggleActive('skill', target.id);
+
+      expect(service.activeNames('skill')).not.toContain('Análisis');
+      expect(service.colorOf('skill', 'Análisis')).toBe('green');
+    });
+
+    it('reflects a recolour once the family has been refetched', async () => {
+      const target = service.list('language', true)[0];
+      expect(service.colorOf('language', target.nameEs)).toBe('orange');
+
+      await service.update('language', target.id, { nameEs: target.nameEs, color: 'violet' });
+
+      expect(service.colorOf('language', target.nameEs)).toBe('violet');
+    });
   });
 
   describe('deactivation', () => {
