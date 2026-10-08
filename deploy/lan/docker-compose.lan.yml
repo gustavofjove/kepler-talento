@@ -1,0 +1,51 @@
+# LAN test server overlay, applied on top of the root docker-compose.yml as project `ktl`.
+# See docs/deploy-lan-server.md. Never used on a developer machine.
+#
+# The server already runs other stacks with a shared PostgreSQL (`hts-postgres` on the external
+# network `lan_data_net`) and a shared Nginx Proxy Manager (on `lan_edge_net`). Kepler uses that
+# PostgreSQL through its own roles and database, and publishes no host port: only its nginx joins
+# the proxy's network. Requires Docker Compose 2.24.4 or later for the `!reset`/`!override` tags.
+services:
+  # Provided by the server instead. The profile is never activated, so neither starts.
+  postgres:
+    profiles: [not-on-lan-server]
+  clamav:
+    profiles: [not-on-lan-server]
+
+  migrator:
+    environment:
+      ConnectionStrings__ApplicationDatabase: Host=${KTL_DB_HOST:-hts-postgres};Port=5432;Database=kepler_talento;Username=ktl_migrator;Password=${KTL_MIGRATOR_PASSWORD:?KTL_MIGRATOR_PASSWORD is required}
+    depends_on: !reset {}
+    networks: [lan_data]
+
+  api:
+    environment:
+      ConnectionStrings__ApplicationDatabase: Host=${KTL_DB_HOST:-hts-postgres};Port=5432;Database=kepler_talento;Username=ktl_runtime;Password=${KTL_RUNTIME_PASSWORD:?KTL_RUNTIME_PASSWORD is required}
+      Authentication__DevelopmentIssuer__SigningKey: ${KTL_DEV_SIGNING_KEY:?KTL_DEV_SIGNING_KEY is required}
+      # No scanner on the server yet: uploads are marked clean unscanned (refused in Production).
+      # Set KTL_CLAMAV_BYPASS=false and KTL_CLAMAV_HOST once a shared ClamAV is reachable.
+      ClamAv__Bypass: ${KTL_CLAMAV_BYPASS:-true}
+      ClamAv__Host: ${KTL_CLAMAV_HOST:-clamav}
+    depends_on: !override
+      migrator:
+        condition: service_completed_successfully
+    networks: [lan_data]
+
+  nginx:
+    environment:
+      # Signs every visitor in through the development token issuer as the bootstrap
+      # administrator. This server holds fabricated demo data only.
+      APP_ENV: test
+    # Nginx Proxy Manager is the only container on the server that publishes host ports.
+    ports: !reset []
+    networks:
+      lan_edge:
+        aliases: [ktl-nginx]
+
+networks:
+  lan_edge:
+    external: true
+    name: lan_edge_net
+  lan_data:
+    external: true
+    name: lan_data_net

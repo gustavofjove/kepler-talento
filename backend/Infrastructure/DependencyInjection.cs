@@ -62,7 +62,15 @@ public static class DependencyInjection
             (FileSystemDocumentStorage)provider.GetRequiredService<IDocumentStorage>());
         services.AddSingleton<IDocumentContentInspector, DocumentContentInspector>();
         services.AddSingleton<IDocumentStorageKeyFactory, DocumentStorageKeyFactory>();
-        services.AddSingleton<IMalwareScanner, ClamAvScanner>();
+        // Program.cs refuses the bypass in Production before this registration is ever used.
+        if (scannerOptions.Bypass)
+        {
+            services.AddSingleton<IMalwareScanner, BypassMalwareScanner>();
+        }
+        else
+        {
+            services.AddSingleton<IMalwareScanner, ClamAvScanner>();
+        }
         services.AddScoped<IDocumentDownloadService, DocumentDownloadService>();
         services.AddScoped<ScanOperationHandler>();
         services.AddScoped<IOperationHandler>(provider => provider.GetRequiredService<ScanOperationHandler>());

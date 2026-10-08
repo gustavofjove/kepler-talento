@@ -274,6 +274,14 @@ if (builder.Environment.IsProduction() && actorOptions.Enabled)
     throw new InvalidOperationException("DevelopmentActor cannot be enabled in Production.");
 }
 
+// Every uploaded file would be promoted unscanned. Acceptable on a test server with fabricated
+// data, never where real CVs arrive.
+var scannerBypass = builder.Configuration.GetSection(ClamAvOptions.SectionName).Get<ClamAvOptions>()?.Bypass == true;
+if (builder.Environment.IsProduction() && scannerBypass)
+{
+    throw new InvalidOperationException("ClamAv:Bypass cannot be enabled in Production.");
+}
+
 var app = builder.Build();
 if (args.Contains("--reconcile", StringComparer.Ordinal))
 {
@@ -318,6 +326,10 @@ await using (var encryptionScope = app.Services.CreateAsyncScope())
         encryptionScope.ServiceProvider.GetRequiredService<AesGcmFieldProtector>(),
         encryptionScope.ServiceProvider.GetRequiredService<ApplicationDbContext>(),
         app.Lifetime.ApplicationStopping);
+}
+if (scannerBypass)
+{
+    app.Logger.LogWarning("ClamAv:Bypass is on: uploaded files are marked clean without a malware scan.");
 }
 
 app.UseForwardedHeaders();

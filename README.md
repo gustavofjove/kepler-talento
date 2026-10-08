@@ -450,6 +450,14 @@ Los volúmenes `postgres-data`, `documents` y `clamav-signatures` son persistent
 `docker compose down --volumes` salvo que quiera eliminar deliberadamente los datos de
 desarrollo.
 
+## Servidor de pruebas en la LAN
+
+El entorno `ktl.lan` corre en el servidor de pruebas compartido con HMS: usa su PostgreSQL y su
+Nginx Proxy Manager, se despliega solo desde `main` cada cinco minutos y contiene únicamente datos
+de demostración. Todo visitante entra como administrador y, mientras no haya ClamAV en el
+servidor, los archivos no se analizan (`ClamAv:Bypass`, rechazado en Production). Instalación y
+operación en la [guía de despliegue](docs/deploy-lan-server.md).
+
 ## Trabajo local sin Compose
 
 ```powershell
