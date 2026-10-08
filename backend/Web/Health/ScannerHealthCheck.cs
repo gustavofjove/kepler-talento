@@ -8,6 +8,13 @@ public sealed class ScannerHealthCheck(ClamAvOptions options) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
+        // Nothing scans while bypassed, so the scanner is never reported ready, whether or not
+        // a ClamAV happens to answer on the configured host.
+        if (options.Bypass)
+        {
+            return HealthCheckResult.Degraded("scanner_bypassed");
+        }
+
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
