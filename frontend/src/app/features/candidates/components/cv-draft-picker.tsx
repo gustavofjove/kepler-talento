@@ -7,17 +7,24 @@ export interface CvDraftStatus {
   text: string;
 }
 
+export interface CvDraftAttach {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}
+
 interface CvDraftPickerProps {
   busy: boolean;
   status: CvDraftStatus | null;
   onPick: (file: File) => void;
+  /** Set once a CV has been read and may be attached on save (KTL-42). */
+  attach?: CvDraftAttach;
 }
 
 /**
  * The «Rellenar desde un CV» control on the create page (KTL-32). Presentational: the page owns
- * the request and the outcome message.
+ * the request, the outcome message and the read CV it may attach on save (KTL-42).
  */
-export function CvDraftPicker({ busy, status, onPick }: CvDraftPickerProps) {
+export function CvDraftPicker({ busy, status, onPick, attach }: CvDraftPickerProps) {
   const { t } = useTranslation();
 
   const pick = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -45,6 +52,19 @@ export function CvDraftPicker({ busy, status, onPick }: CvDraftPickerProps) {
           {t('candidate.cvDraft.hint')}
         </p>
       </div>
+      {attach && (
+        <label className="inline-check cv-draft-attach">
+          <input
+            type="checkbox"
+            name="attachCv"
+            data-testid="cv-draft-attach"
+            checked={attach.checked}
+            disabled={busy}
+            onChange={(event) => attach.onChange(event.target.checked)}
+          />
+          {t('candidate.cvDraft.attach')}
+        </label>
+      )}
       <p
         className={status?.tone === 'error' ? 'cv-draft-status error' : 'cv-draft-status'}
         role="status"

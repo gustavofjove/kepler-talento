@@ -609,6 +609,11 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
             Assert.Equal(
                 HttpStatusCode.Forbidden,
                 (await UploadAsync(client, candidate.Id, "other.pdf", "%PDF-1.7\nother", false)).StatusCode);
+            // Refused before validation: a request with no file gets the same answer (KTL-42).
+            using var noFile = new MultipartFormDataContent();
+            Assert.Equal(
+                HttpStatusCode.Forbidden,
+                (await client.PostAsync($"/api/candidates/{candidate.Id}/documents", noFile)).StatusCode);
             var existing = await client.GetAsync($"/api/candidates/{candidate.Id}/documents/{document.Id}/content");
             var missing = await client.GetAsync($"/api/candidates/{candidate.Id}/documents/{Guid.NewGuid()}/content");
             Assert.Equal(HttpStatusCode.NotFound, existing.StatusCode);
@@ -626,6 +631,11 @@ public sealed class CandidateApiTests(PostgreSqlFixture database) : IClassFixtur
         Assert.Equal(
             HttpStatusCode.NotFound,
             (await uploadClient.GetAsync($"/api/candidates/{candidate.Id}/documents/{document.Id}/content")).StatusCode);
+
+        await using var db = NewDbContext();
+        var stored = Assert.Single(await db.Documents.AsNoTracking()
+            .Where(value => value.CandidateId == candidate.Id).ToListAsync());
+        Assert.Equal(document.Id, stored.Id);
     }
 
     [Fact]

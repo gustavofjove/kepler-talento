@@ -26,11 +26,15 @@ describe('CandidateCreatePage (KTL-29)', () => {
   let bed: CandidateTestBed;
   let granted: Set<string>;
   let extract: ReturnType<typeof vi.fn>;
+  let upload: ReturnType<typeof vi.fn>;
+  let showToast: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     bed = createCandidateTestBed();
     granted = new Set(['candidates.read', 'candidates.create', 'candidates.update']);
+    upload = vi.fn().mockResolvedValue({});
+    showToast = vi.fn();
     extract = vi.fn().mockResolvedValue({
       draftId: 'd1',
       outcome: 'cv_draft.extracted',
@@ -54,6 +58,8 @@ describe('CandidateCreatePage (KTL-29)', () => {
             ...services,
             candidateService: bed.service,
             candidateDraftService: { extract },
+            documentService: { upload },
+            toastService: { show: showToast },
             catalogService,
             authService,
           } as unknown as Services
@@ -115,11 +121,8 @@ describe('CandidateCreatePage (KTL-29)', () => {
     expect(within(screen.getByTestId('breadcrumb')).queryByRole('link')).not.toBeInTheDocument();
   });
 
-  const pickCv = async () =>
-    userEvent.upload(
-      screen.getByTestId('cv-draft-file'),
-      new File(['%PDF-test'], 'cv.pdf', { type: 'application/pdf' }),
-    );
+  const pickCv = async (file = new File(['%PDF-test'], 'cv.pdf', { type: 'application/pdf' })) =>
+    userEvent.upload(screen.getByTestId('cv-draft-file'), file);
 
   describe('CV draft (KTL-32)', () => {
     it('fills the empty fields, says how many, and saves nothing by itself', async () => {
@@ -196,6 +199,147 @@ describe('CandidateCreatePage (KTL-29)', () => {
       resolve({ draftId: 'd1', outcome: 'cv_draft.extracted', fields: {} });
       expect(await screen.findByText(/no aporta datos/)).toBeInTheDocument();
       expect(screen.getByTestId('cv-draft-file')).toBeEnabled();
+    });
+  });
+
+  describe('Attach the read CV on save (KTL-42)', () => {
+    beforeEach(() => granted.add('documents.upload'));
+
+    const saveForm = () => userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    const createdId = () => [...bed.api.candidates.keys()][0];
+
+    it('offers no attach choice before a CV has been read', async () => {
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      expect(screen.queryByTestId('cv-draft-attach')).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ['a draft with fields', undefined],
+      ['an image-only CV', { draftId: 'd1', outcome: 'cv_draft.no_text', fields: {} }],
+    ])('offers the choice, ticked, after %s', async (_, draft) => {
+      if (draft) extract.mockResolvedValue(draft);
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+
+      const choice = await screen.findByTestId('cv-draft-attach');
+      expect(choice).toBeChecked();
+      expect(choice).toHaveAccessibleName('Adjuntar este CV al candidato');
+    });
+
+    it('offers no choice for a refused CV, and attaches nothing', async () => {
+      extract.mockRejectedValue(new TranslatableError('candidate.cvDraft.error.scanner'));
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+      await waitFor(() => expect(screen.getByTestId('cv-draft-status')).toHaveClass('error'));
+      await userEvent.type(screen.getByLabelText('Apellidos'), 'Pena');
+      await userEvent.type(screen.getByLabelText('Nombre'), 'Sara');
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(screen.queryByTestId('cv-draft-attach')).not.toBeInTheDocument();
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it('offers no choice and uploads nothing without documents.upload', async () => {
+      granted.delete('documents.upload');
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+      await screen.findByText(/Se han rellenado 2 campos/);
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(screen.queryByTestId('cv-draft-attach')).not.toBeInTheDocument();
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it('uploads the read CV as the new candidate’s primary CV, then opens it', async () => {
+      const cv = new File(['%PDF-test'], 'cv-ana.pdf', { type: 'application/pdf' });
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv(cv);
+      await screen.findByTestId('cv-draft-attach');
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(upload).toHaveBeenCalledTimes(1);
+      expect(upload).toHaveBeenCalledWith({
+        candidateId: createdId(),
+        file: cv,
+        documentType: 'CV',
+        isPrimary: true,
+      });
+      expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it('attaches nothing when the user clears the choice', async () => {
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+      await userEvent.click(await screen.findByTestId('cv-draft-attach'));
+      expect(screen.getByTestId('cv-draft-attach')).not.toBeChecked();
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it('attaches only the latest CV, with the choice ticked again', async () => {
+      const first = new File(['%PDF-1'], 'primero.pdf', { type: 'application/pdf' });
+      const second = new File(['%PDF-2'], 'segundo.pdf', { type: 'application/pdf' });
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv(first);
+      await userEvent.click(await screen.findByTestId('cv-draft-attach'));
+      await pickCv(second);
+      await waitFor(() => expect(screen.getByTestId('cv-draft-attach')).toBeChecked());
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(upload).toHaveBeenCalledTimes(1);
+      expect(upload.mock.calls[0][0].file).toBe(second);
+    });
+
+    it('keeps the candidate and warns when the CV cannot be attached', async () => {
+      upload.mockRejectedValue(new Error('scanner down'));
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+      await screen.findByTestId('cv-draft-attach');
+      await saveForm();
+
+      expect(await screen.findByTestId('candidate-page')).toBeInTheDocument();
+      expect(bed.api.candidates.size).toBe(1);
+      expect(showToast).toHaveBeenCalledWith(
+        'El candidato se ha guardado, pero el CV no se ha podido adjuntar. Súbelo desde la ficha del candidato.',
+        'warning',
+      );
+    });
+
+    it('uploads nothing when the candidate cannot be created, and keeps the choice', async () => {
+      vi.spyOn(bed.service, 'create').mockRejectedValue(new Error('Conflicto'));
+      await renderPage();
+      await screen.findByLabelText('Nombre');
+
+      await pickCv();
+      await screen.findByTestId('cv-draft-attach');
+      await saveForm();
+
+      await waitFor(() => expect(showToast).toHaveBeenCalledWith('Conflicto', 'error'));
+      expect(upload).not.toHaveBeenCalled();
+      expect(screen.getByTestId('location')).toHaveTextContent('/app/candidates/new');
+      expect(screen.getByTestId('cv-draft-attach')).toBeChecked();
     });
   });
 });

@@ -9,7 +9,8 @@ highlighted and marked «Sugerido del CV». Those the application is less sure o
 «Revisar». Every value stays editable, and nothing is saved until you press «Guardar» as usual.
 
 **What it does not do.** The CV is **not** attached to the new candidate. Upload it from the
-candidate's page after saving, as before. Experience, education, skills and languages are not
+candidate's page after saving, as before. (Superseded by KTL-42, which attaches it on save:
+[release notes](../ktl-42/release-notes.md).) Experience, education, skills and languages are not
 read. A scanned CV without a text layer cannot be read; the page says so, and the form is filled
 in by hand.
 
