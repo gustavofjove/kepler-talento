@@ -13,6 +13,11 @@
   margin: 0;
 }
 
+/* KTL-42: attach the read CV to the candidate on save. */
+.cv-draft-attach {
+  justify-self: start;
+}
+
 .cv-draft-status {
   color: var(--fg-2);
   margin: 0;

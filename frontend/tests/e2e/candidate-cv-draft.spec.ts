@@ -27,7 +27,7 @@ test.describe('Candidate draft from a CV', () => {
       buffer: cv(marker),
     });
 
-  test('fills the empty fields, marks them, and saves only on «Guardar»', async ({ page }) => {
+  test('fills the empty fields, marks them, and saves with the CV attached', async ({ page }) => {
     const marker = Date.now().toString();
     await page.goto('/app/candidates/new');
 
@@ -50,10 +50,25 @@ test.describe('Candidate draft from a CV', () => {
 
     await page.locator('input[name="lastName"]').fill('Quintana Editado');
     await expect(page.getByTestId('lastName-suggested')).toHaveCount(0);
+    // KTL-42: the read CV is offered for attachment, ticked by default.
+    await expect(page.getByTestId('cv-draft-attach')).toBeChecked();
     await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
     await expect(page.locator('h1')).toContainText('Anselmo Quintana Editado');
+    await expect(page.getByTestId('candidate-documents')).toContainText(`cv-${marker}.pdf`);
+  });
+
+  test('saves without the CV when the user clears the attach choice', async ({ page }) => {
+    const marker = Date.now().toString();
+    await page.goto('/app/candidates/new');
+
+    await pick(page, marker);
+    await page.getByTestId('cv-draft-attach').uncheck({ timeout: 90_000 });
+    await page.click('button[type="submit"]');
+
+    await expect(page).toHaveURL(CANDIDATE_PAGE_URL);
+    await expect(page.getByTestId('candidate-documents')).toBeVisible();
     await expect(page.getByTestId('candidate-documents')).not.toContainText(`cv-${marker}.pdf`);
   });
 

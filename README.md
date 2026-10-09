@@ -125,8 +125,13 @@ quedan para tickets futuros. Consulta la [nota de versión KTL-31](docs/ktl-31/r
 En «Nuevo candidato», «Rellenar desde un CV» admite un PDF o DOCX de hasta 20 MB y propone el
 nombre, los apellidos, el email, el teléfono, la localidad y la provincia. Solo rellena los campos
 vacíos, nunca sobrescribe lo que ya se ha escrito, y marca cada valor como «Sugerido del CV» (y
-«Revisar» cuando la confianza es baja). Nada se guarda hasta pulsar «Guardar», y el CV no se
-adjunta al candidato: se sube después desde su ficha.
+«Revisar» cuando la confianza es baja). Nada se guarda hasta pulsar «Guardar».
+
+Desde KTL-42, una vez leído el CV aparece «Adjuntar este CV al candidato», marcado por defecto
+para quien tiene `documents.upload`. Al guardar, el navegador sube ese mismo archivo como CV
+principal mediante la subida de documentos habitual (`POST /api/candidates/{id}/documents`, con
+cuarentena y análisis ClamAV). Si la subida falla, el candidato se conserva y un aviso indica que
+el CV puede subirse desde su ficha.
 
 La API (`POST /api/candidates/draft-from-document`) exige `candidates.create`, analiza el archivo
 con ClamAV antes de leerlo y lo mantiene solo en memoria durante la petición: no se guarda, no se
