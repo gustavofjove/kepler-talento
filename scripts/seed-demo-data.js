@@ -213,6 +213,36 @@ async function seedCandidates(today) {
   return ids;
 }
 
+/**
+ * Languages, programs and skills. Only an empty collection is written, so a re-run adds them to
+ * candidates seeded before this step existed and never overwrites what someone edited in the app.
+ */
+async function seedCompetencies(candidateIds) {
+  let profiled = 0;
+  let collections = 0;
+  for (const [index, profile] of Object.entries(lib.COMPETENCIES)) {
+    const { data: candidate } = await api('GET', `/api/candidates/${candidateIds[Number(index)]}`);
+    if (!candidate.isActive) continue;
+    const bodies = lib.competencyBodies(profile);
+    let version = candidate.version;
+    let wrote = false;
+    for (const family of ['languages', 'programs', 'skills']) {
+      if (candidate[family].length > 0 || bodies[family].length === 0) continue;
+      const { data } = await api('PUT', `/api/candidates/${candidate.id}/${family}`, {
+        [family]: bodies[family],
+        version,
+      });
+      version = data.version;
+      collections++;
+      wrote = true;
+    }
+    if (wrote) profiled++;
+  }
+  report.push(
+    `candidates given languages, programs and skills: ${profiled} (${collections} lists)`,
+  );
+}
+
 async function seedPositions(candidateIds) {
   const existing = new Map((await demoPositions()).map((position) => [position.title, position]));
   let created = 0;
@@ -308,6 +338,7 @@ async function removeCandidatesMarkedRemoved(candidateIds) {
 async function seed() {
   const today = new Date();
   const candidateIds = await seedCandidates(today);
+  await seedCompetencies(candidateIds);
   await seedPositions(candidateIds);
   await seedPresets();
   // Last: links to these candidates were made while they were still active.

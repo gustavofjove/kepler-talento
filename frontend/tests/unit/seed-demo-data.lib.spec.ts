@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { repoRoot } from '../repo-root';
@@ -11,8 +12,16 @@ interface DemoCandidate {
   removed?: boolean;
 }
 
+interface DemoProfile {
+  languages: [string, string][];
+  programs: [string, string, number][];
+  skills: [string, string][];
+}
+
 interface DemoLib {
   CANDIDATES: DemoCandidate[];
+  COMPETENCIES: Record<string, DemoProfile>;
+  competencyBodies(profile: DemoProfile): Record<string, Record<string, unknown>[]>;
   POSITIONS: { title: string; closed?: boolean; links: Record<string, string> }[];
   PRESETS: { name: string; used: number | null; filters: Record<string, unknown> }[];
   STAGES: string[];
@@ -31,6 +40,24 @@ const lib = createRequire(__filename)(
   resolve(repoRoot, 'scripts/seed-demo-data.lib.js'),
 ) as DemoLib;
 const today = new Date(Date.UTC(2026, 9, 7));
+
+/**
+ * The names of one family in the deployment catalog seed, read from its C# source. The API refuses
+ * a name the catalog does not hold, so a typo in the dataset would fail the whole seed run.
+ */
+function seededNames(family: string): string[] {
+  const source = readFileSync(
+    resolve(repoRoot, 'backend/Infrastructure/Persistence/CatalogSeedData.cs'),
+    'utf8',
+  );
+  const block = new RegExp(`\\[CatalogFamilies\\.${family}\\]\\s*=\\s*\\[([\\s\\S]*?)\\],\\s*\\n`)
+    .exec(source)?.[1]
+    ?.replace(/\/\/.*$/gm, '')
+    // new("C#", "CSHARP"): the second string is the stored code, not a name.
+    .replace(/new\("([^"]+)",\s*"[^"]+"\)/g, '"$1"');
+  if (!block) throw new Error(`CatalogFamilies.${family} not found in CatalogSeedData.cs`);
+  return [...block.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+}
 
 describe('demo dataset (KTL-40)', () => {
   it('writes only to a stack on this machine', () => {
@@ -111,6 +138,63 @@ describe('demo dataset (KTL-40)', () => {
         expect(lib.CANDIDATES[Number(index)]).toBeDefined();
       }
     }
+  });
+
+  it('uses only languages, programs, skills and levels the catalog seed holds', () => {
+    const families = {
+      Language: seededNames('Language'),
+      LanguageLevel: seededNames('LanguageLevel'),
+      Program: seededNames('Program'),
+      ProgramLevel: seededNames('ProgramLevel'),
+      Skill: seededNames('Skill'),
+      SkillLevel: seededNames('SkillLevel'),
+    };
+    expect(families.Program).toEqual(expect.arrayContaining(['Navision', 'AutoCAD', 'C#']));
+
+    for (const [index, profile] of Object.entries(lib.COMPETENCIES)) {
+      expect(lib.CANDIDATES[Number(index)]?.removed).toBeFalsy();
+      for (const [language, level] of profile.languages) {
+        expect(families.Language).toContain(language);
+        expect(families.LanguageLevel).toContain(level);
+      }
+      for (const [program, level, years] of profile.programs) {
+        expect(families.Program).toContain(program);
+        expect(families.ProgramLevel).toContain(level);
+        expect(Number.isInteger(years) && years >= 0).toBe(true);
+      }
+      for (const [skill, level] of profile.skills) {
+        expect(families.Skill).toContain(skill);
+        expect(families.SkillLevel).toContain(level);
+      }
+      for (const [, rows] of Object.entries(lib.competencyBodies(profile))) {
+        const names = rows.map((row) => Object.values(row)[1]);
+        expect(new Set(names).size).toBe(names.length);
+      }
+    }
+  });
+
+  it('gives the «Inglés B2 + Navision + AutoCAD» search matches and near misses', () => {
+    const order = seededNames('LanguageLevel');
+    const englishAtLeastB2 = (profile: DemoProfile) =>
+      profile.languages.some(
+        ([language, level]) => language === 'Inglés' && order.indexOf(level) >= order.indexOf('B2'),
+      );
+    const programs = (profile: DemoProfile) => profile.programs.map(([program]) => program);
+    const hits = (profile: DemoProfile) =>
+      [
+        englishAtLeastB2(profile),
+        programs(profile).includes('Navision'),
+        programs(profile).includes('AutoCAD'),
+      ].filter(Boolean).length;
+    const profiles = Object.values(lib.COMPETENCIES);
+
+    expect(profiles.filter((profile) => hits(profile) === 3).length).toBeGreaterThanOrEqual(5);
+    expect(profiles.filter((profile) => hits(profile) === 2).length).toBeGreaterThanOrEqual(3);
+    const preset = lib.PRESETS.find((item) => item.name === 'Inglés B2 + Navision + AutoCAD');
+    expect(preset?.filters).toMatchObject({
+      languageCriteria: [{ value: 'Inglés', level: 'B2' }],
+      programMode: 'ALL',
+    });
   });
 
   it('has used presets in a known order and one never used', () => {

@@ -263,6 +263,268 @@ const POSITIONS = [
   },
 ];
 
+/**
+ * Languages, programs and skills per candidate index (into CANDIDATES), as catalog names from
+ * the deployment seed (backend/Infrastructure/Persistence/CatalogSeedData.cs). Languages are
+ * `[language, level]`, programs `[program, level, years]`, skills `[skill, level]`.
+ *
+ * Built for the «Inglés B2 + Navision + AutoCAD» search (preset of the same name). The language
+ * level is a minimum, so it finds the six candidates marked MATCH and Sofía (index 4, Inglés C1).
+ * The NEAR ones miss on exactly one criterion, so the filter visibly does something.
+ */
+const COMPETENCIES = {
+  0: {
+    // MATCH
+    languages: [
+      ['Inglés', 'B2'],
+      ['Francés', 'A2'],
+    ],
+    programs: [
+      ['Navision', 'Avanzado', 4],
+      ['AutoCAD', 'Medio', 3],
+      ['Excel', 'Avanzado', 6],
+    ],
+    skills: [
+      ['Contabilidad', 'Alto'],
+      ['Facturación', 'Medio'],
+    ],
+  },
+  1: {
+    languages: [['Inglés', 'C1']],
+    programs: [
+      ['Python', 'Avanzado', 5],
+      ['SQL', 'Avanzado', 5],
+      ['Git', 'Medio', 4],
+    ],
+    skills: [['Análisis', 'Alto']],
+  },
+  2: {
+    languages: [['Inglés', 'B1']],
+    programs: [
+      ['Excel', 'Medio', 3],
+      ['Word', 'Avanzado', 5],
+    ],
+    skills: [
+      ['Gestión de proyectos', 'Alto'],
+      ['Liderazgo de equipos', 'Medio'],
+    ],
+  },
+  3: {
+    // MATCH
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['AutoCAD', 'Avanzado', 6],
+      ['Navision', 'Medio', 2],
+      ['SolidWorks', 'Medio', 3],
+    ],
+    skills: [
+      ['Lectura de planos', 'Experto'],
+      ['Control de calidad', 'Alto'],
+    ],
+  },
+  4: {
+    // Matches through the minimum level: C1 is above B2.
+    languages: [
+      ['Inglés', 'C1'],
+      ['Alemán', 'B1'],
+    ],
+    programs: [
+      ['Navision', 'Experto', 8],
+      ['AutoCAD', 'Básico', 1],
+      ['Power BI', 'Medio', 2],
+    ],
+    skills: [
+      ['Compras', 'Alto'],
+      ['Negociación', 'Alto'],
+    ],
+  },
+  5: {
+    languages: [['Inglés', 'A2']],
+    programs: [['Excel', 'Básico', 1]],
+    skills: [
+      ['Atención al cliente', 'Alto'],
+      ['Negociación', 'Medio'],
+    ],
+  },
+  6: {
+    languages: [['Inglés', 'C2']],
+    programs: [
+      ['JavaScript', 'Experto', 7],
+      ['HTML', 'Avanzado', 7],
+      ['CSS', 'Avanzado', 7],
+    ],
+    skills: [['Trabajo en equipo', 'Alto']],
+  },
+  7: {
+    // NEAR: English below the minimum.
+    languages: [['Inglés', 'B1']],
+    programs: [
+      ['Navision', 'Avanzado', 5],
+      ['AutoCAD', 'Avanzado', 5],
+    ],
+    skills: [
+      ['Mantenimiento preventivo', 'Alto'],
+      ['Lectura de planos', 'Alto'],
+    ],
+  },
+  8: {
+    // MATCH
+    languages: [
+      ['Inglés', 'B2'],
+      ['Italiano', 'B1'],
+    ],
+    programs: [
+      ['Navision', 'Avanzado', 3],
+      ['AutoCAD', 'Avanzado', 4],
+      ['Excel', 'Experto', 9],
+    ],
+    skills: [
+      ['Logística de almacén', 'Alto'],
+      ['Gestión documental', 'Medio'],
+    ],
+  },
+  9: {
+    languages: [['Inglés', 'C1']],
+    programs: [
+      ['C#', 'Experto', 8],
+      ['SQL', 'Avanzado', 8],
+    ],
+    skills: [['Liderazgo de equipos', 'Alto']],
+  },
+  10: {
+    // NEAR: no Navision.
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['AutoCAD', 'Experto', 10],
+      ['Revit', 'Avanzado', 6],
+    ],
+    skills: [['Lectura de planos', 'Experto']],
+  },
+  11: {
+    languages: [['Inglés', 'A2']],
+    programs: [
+      ['A3', 'Avanzado', 4],
+      ['ContaPlus', 'Medio', 3],
+    ],
+    skills: [
+      ['Nóminas', 'Alto'],
+      ['Selección de personal', 'Medio'],
+    ],
+  },
+  12: {
+    // MATCH
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['AutoCAD', 'Medio', 2],
+      ['Navision', 'Medio', 2],
+      ['Word', 'Avanzado', 4],
+    ],
+    skills: [['Atención al cliente', 'Alto']],
+  },
+  13: {
+    // MATCH
+    languages: [
+      ['Inglés', 'B2'],
+      ['Portugués', 'B1'],
+    ],
+    programs: [
+      ['Navision', 'Avanzado', 6],
+      ['AutoCAD', 'Avanzado', 5],
+      ['EPLAN', 'Medio', 2],
+    ],
+    skills: [
+      ['Montaje industrial', 'Alto'],
+      ['Prevención de riesgos laborales', 'Medio'],
+    ],
+  },
+  14: {
+    languages: [['Francés', 'B2']],
+    programs: [['Excel', 'Medio', 2]],
+    skills: [['Atención al cliente', 'Experto']],
+  },
+  15: {
+    // NEAR: no AutoCAD.
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['Navision', 'Experto', 9],
+      ['SAP', 'Avanzado', 5],
+    ],
+    skills: [
+      ['Gestión de proyectos', 'Experto'],
+      ['Contabilidad', 'Medio'],
+    ],
+  },
+  16: {
+    languages: [['Inglés', 'B1']],
+    programs: [
+      ['Power BI', 'Avanzado', 3],
+      ['Tableau', 'Medio', 2],
+    ],
+    skills: [['Análisis', 'Experto']],
+  },
+  17: {
+    // MATCH
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['Navision', 'Medio', 3],
+      ['AutoCAD', 'Medio', 3],
+    ],
+    skills: [
+      ['Compras', 'Medio'],
+      ['Negociación', 'Alto'],
+    ],
+  },
+  18: {
+    languages: [['Inglés', 'C1']],
+    programs: [
+      ['Photoshop', 'Experto', 6],
+      ['Illustrator', 'Avanzado', 6],
+    ],
+    skills: [['Trabajo en equipo', 'Alto']],
+  },
+  19: {
+    languages: [['Alemán', 'C1']],
+    programs: [
+      ['MATLAB', 'Avanzado', 4],
+      ['Simulink', 'Medio', 3],
+    ],
+    skills: [['Análisis', 'Alto']],
+  },
+  20: {
+    languages: [['Inglés', 'B1']],
+    programs: [['Word', 'Medio', 3]],
+    skills: [
+      ['Selección de personal', 'Alto'],
+      ['Gestión documental', 'Alto'],
+    ],
+  },
+  21: {
+    languages: [['Inglés', 'B2']],
+    programs: [
+      ['CATIA', 'Medio', 2],
+      ['SolidWorks', 'Avanzado', 4],
+    ],
+    skills: [
+      ['Soldadura', 'Experto'],
+      ['Mecanizado', 'Alto'],
+    ],
+  },
+};
+
+/** The three PUT bodies' collections for one profile; new rows, so every `id` is null. */
+function competencyBodies(profile) {
+  return {
+    languages: profile.languages.map(([language, level]) => ({ id: null, language, level })),
+    programs: profile.programs.map(([program, level, yearsExperience]) => ({
+      id: null,
+      program,
+      level,
+      yearsExperience,
+    })),
+    skills: profile.skills.map(([skill, level]) => ({ id: null, skill, level })),
+  };
+}
+
 const DESCRIPTION = (title) =>
   `<p>Posición de demostración: <strong>${title}</strong>. Datos ficticios creados para enseñar la página de inicio.</p>`;
 
@@ -282,6 +544,19 @@ const PRESETS = [
     name: 'No disponibles con CV',
     used: null,
     filters: { availabilityValues: ['unavailable'], hasCv: 'yes' },
+  },
+  {
+    name: 'Inglés B2 + Navision + AutoCAD',
+    used: 4,
+    filters: {
+      languageCriteria: [{ value: 'Inglés', level: 'B2' }],
+      languageMode: 'ALL',
+      programCriteria: [
+        { value: 'Navision', level: '' },
+        { value: 'AutoCAD', level: '' },
+      ],
+      programMode: 'ALL',
+    },
   },
 ];
 
@@ -363,6 +638,7 @@ function assertLoopback(baseUrl) {
 
 module.exports = {
   CANDIDATES,
+  COMPETENCIES,
   DEMO_DOMAIN,
   DESCRIPTION,
   POSITIONS,
@@ -371,6 +647,7 @@ module.exports = {
   assertLoopback,
   availabilityBody,
   candidateBody,
+  competencyBodies,
   dayOffset,
   emailFor,
   phoneFor,
