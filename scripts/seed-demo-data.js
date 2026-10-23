@@ -243,6 +243,31 @@ async function seedCompetencies(candidateIds) {
   );
 }
 
+/** Education and work history, under the same rule: only an empty collection is written. */
+async function seedBackground(candidateIds, today) {
+  let profiled = 0;
+  let collections = 0;
+  for (const [index, background] of Object.entries(lib.BACKGROUND)) {
+    const { data: candidate } = await api('GET', `/api/candidates/${candidateIds[Number(index)]}`);
+    if (!candidate.isActive) continue;
+    const bodies = lib.backgroundBodies(background, today);
+    let version = candidate.version;
+    let wrote = false;
+    for (const family of ['education', 'experience']) {
+      if (candidate[family].length > 0 || bodies[family].length === 0) continue;
+      const { data } = await api('PUT', `/api/candidates/${candidate.id}/${family}`, {
+        [family]: bodies[family],
+        version,
+      });
+      version = data.version;
+      collections++;
+      wrote = true;
+    }
+    if (wrote) profiled++;
+  }
+  report.push(`candidates given education and experience: ${profiled} (${collections} lists)`);
+}
+
 async function seedPositions(candidateIds) {
   const existing = new Map((await demoPositions()).map((position) => [position.title, position]));
   let created = 0;
@@ -339,6 +364,7 @@ async function seed() {
   const today = new Date();
   const candidateIds = await seedCandidates(today);
   await seedCompetencies(candidateIds);
+  await seedBackground(candidateIds, today);
   await seedPositions(candidateIds);
   await seedPresets();
   // Last: links to these candidates were made while they were still active.

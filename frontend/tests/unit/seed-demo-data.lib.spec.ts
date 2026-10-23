@@ -18,7 +18,17 @@ interface DemoProfile {
   skills: [string, string][];
 }
 
+interface DemoBackground {
+  education: [string, string, string | null, string, string, number | null][];
+  experience: [string, string, string, string, string | null, string][];
+}
+
 interface DemoLib {
+  BACKGROUND: Record<string, DemoBackground>;
+  backgroundBodies(
+    background: DemoBackground,
+    today: Date,
+  ): { education: Record<string, unknown>[]; experience: Record<string, unknown>[] };
   CANDIDATES: DemoCandidate[];
   COMPETENCIES: Record<string, DemoProfile>;
   competencyBodies(profile: DemoProfile): Record<string, Record<string, unknown>[]>;
@@ -169,6 +179,43 @@ describe('demo dataset (KTL-40)', () => {
       for (const [, rows] of Object.entries(lib.competencyBodies(profile))) {
         const names = rows.map((row) => Object.values(row)[1]);
         expect(new Set(names).size).toBe(names.length);
+      }
+    }
+  });
+
+  it('gives every active candidate an education and work history the catalog accepts', () => {
+    const types = seededNames('EducationType');
+    const statuses = seededNames('EducationStatus');
+    const sectors = seededNames('Sector');
+    const active = lib.CANDIDATES.flatMap((candidate, index) => (candidate.removed ? [] : [index]));
+
+    expect(
+      Object.keys(lib.BACKGROUND)
+        .map(Number)
+        .sort((a, b) => a - b),
+    ).toEqual(active);
+    for (const background of Object.values(lib.BACKGROUND)) {
+      expect(background.education.length).toBeGreaterThan(0);
+      for (const [type, degree, , institution, status, endYear] of background.education) {
+        expect(types).toContain(type);
+        expect(statuses).toContain(status);
+        expect(degree.trim() && institution.trim()).toBeTruthy();
+        expect(endYear === null || (endYear >= 1990 && endYear <= 2026)).toBe(true);
+        expect(endYear === null).toBe(status !== 'Finalizada');
+      }
+      expect(background.experience.filter(([, , , , end]) => end === null)).toHaveLength(1);
+      for (const [company, position, sector, start, end] of background.experience) {
+        expect(sectors).toContain(sector);
+        expect(company.trim() && position.trim()).toBeTruthy();
+        expect(start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(Number.isNaN(Date.parse(start))).toBe(false);
+        if (end) expect(end > start && !Number.isNaN(Date.parse(end))).toBe(true);
+      }
+      const { experience } = lib.backgroundBodies(background, today);
+      for (const row of experience) {
+        expect(Number.isInteger(row.yearsExperience) && Number(row.yearsExperience) >= 0).toBe(
+          true,
+        );
       }
     }
   });

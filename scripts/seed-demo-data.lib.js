@@ -525,6 +525,670 @@ function competencyBodies(profile) {
   };
 }
 
+/**
+ * Education and work history per candidate index (into CANDIDATES), consistent with each one's
+ * competencies. Type, status and sector are catalog names from the deployment seed. Education is
+ * `[type, degree, specialty, institution, status, endYear]`; experience is
+ * `[company, position, sector, startDate, endDate, functions]`, with `endDate` null for the
+ * current job. Every company is invented.
+ */
+const BACKGROUND = {
+  0: {
+    education: [
+      [
+        'Grado',
+        'Administración y Dirección de Empresas',
+        'Finanzas',
+        'Universidad Complutense de Madrid',
+        'Finalizada',
+        2016,
+      ],
+    ],
+    experience: [
+      [
+        'Distribuciones Arganda S.L.',
+        'Técnica contable',
+        'Comercio',
+        '2020-03-01',
+        null,
+        'Contabilidad general, facturación y cierres mensuales en Navision.',
+      ],
+      [
+        'Gestoría Retiro Asesores',
+        'Auxiliar contable',
+        'Servicios',
+        '2016-09-01',
+        '2020-02-29',
+        'Registro de facturas y conciliaciones bancarias.',
+      ],
+    ],
+  },
+  1: {
+    education: [
+      [
+        'Grado',
+        'Ingeniería Informática',
+        'Computación',
+        'Universitat Politècnica de València',
+        'Finalizada',
+        2018,
+      ],
+    ],
+    experience: [
+      [
+        'Datos Turia Analytics S.L.',
+        'Ingeniero de datos',
+        'Tecnología',
+        '2021-01-01',
+        null,
+        'Procesos ETL en Python y modelado de datos en SQL.',
+      ],
+      [
+        'Levante Software Factory',
+        'Desarrollador junior',
+        'Tecnología',
+        '2018-07-01',
+        '2020-12-31',
+        'Scripts de integración y mantenimiento de bases de datos.',
+      ],
+    ],
+  },
+  2: {
+    education: [
+      [
+        'Grado',
+        'Ingeniería de Organización Industrial',
+        null,
+        'Universidad de Sevilla',
+        'Finalizada',
+        2015,
+      ],
+      ['Máster', 'Dirección de Proyectos', null, 'Universidad de Sevilla', 'Finalizada', 2017],
+    ],
+    experience: [
+      [
+        'Consultora Guadalquivir Proyectos',
+        'Coordinadora de proyectos',
+        'Servicios',
+        '2019-02-01',
+        null,
+        'Planificación, seguimiento de plazos y coordinación de equipos de hasta 8 personas.',
+      ],
+      [
+        'Instalaciones Triana S.A.',
+        'Técnica de planificación',
+        'Construcción',
+        '2016-06-01',
+        '2019-01-31',
+        'Elaboración de cronogramas y control de costes de obra.',
+      ],
+    ],
+  },
+  3: {
+    education: [
+      [
+        'Ingeniería Técnica',
+        'Ingeniería Técnica Industrial',
+        'Mecánica',
+        'Universidad Politécnica de Madrid',
+        'Finalizada',
+        2014,
+      ],
+    ],
+    experience: [
+      [
+        'Calderería Henares S.L.',
+        'Delineante proyectista',
+        'Metal',
+        '2018-04-01',
+        null,
+        'Planos de fabricación en AutoCAD y SolidWorks; revisión de calidad dimensional.',
+      ],
+      [
+        'Montajes Industriales Getafe',
+        'Delineante',
+        'Industria',
+        '2014-10-01',
+        '2018-03-31',
+        'Delineación de estructuras metálicas y listas de materiales.',
+      ],
+    ],
+  },
+  4: {
+    education: [
+      ['Grado', 'Comercio Internacional', null, 'Universidad de Deusto', 'Finalizada', 2012],
+    ],
+    experience: [
+      [
+        'Suministros Nervión S.A.',
+        'Responsable de compras',
+        'Industria',
+        '2017-05-01',
+        null,
+        'Negociación con proveedores europeos y gestión de pedidos en Navision.',
+      ],
+      [
+        'Exportaciones Abra S.L.',
+        'Técnica de compras',
+        'Comercio',
+        '2012-09-01',
+        '2017-04-30',
+        'Homologación de proveedores y seguimiento de importaciones.',
+      ],
+    ],
+  },
+  5: {
+    education: [
+      [
+        'FP Grado superior',
+        'Gestión de Ventas y Espacios Comerciales',
+        null,
+        'IES Costa del Sol',
+        'Finalizada',
+        2017,
+      ],
+    ],
+    experience: [
+      [
+        'Climatización Málaga Sur S.L.',
+        'Comercial',
+        'Comercio',
+        '2019-03-01',
+        null,
+        'Visitas a clientes, presupuestos y seguimiento de cartera.',
+      ],
+      [
+        'Hipermercado Guadalhorce',
+        'Dependiente',
+        'Comercio',
+        '2017-06-01',
+        '2019-02-28',
+        'Atención al cliente y reposición.',
+      ],
+    ],
+  },
+  6: {
+    education: [
+      [
+        'Grado',
+        'Ingeniería del Software',
+        null,
+        'Universidad Politécnica de Madrid',
+        'Finalizada',
+        2017,
+      ],
+    ],
+    experience: [
+      [
+        'Estudio Web Castellana S.L.',
+        'Desarrolladora front-end sénior',
+        'Tecnología',
+        '2020-09-01',
+        null,
+        'Aplicaciones JavaScript accesibles y sistema de componentes.',
+      ],
+      [
+        'Agencia Digital Chamberí',
+        'Desarrolladora front-end',
+        'Tecnología',
+        '2017-07-01',
+        '2020-08-31',
+        'Maquetación HTML y CSS de sitios corporativos.',
+      ],
+    ],
+  },
+  7: {
+    education: [
+      [
+        'FP Grado superior',
+        'Mecatrónica Industrial',
+        null,
+        'CPIFP Los Enlaces',
+        'Finalizada',
+        2013,
+      ],
+    ],
+    experience: [
+      [
+        'Componentes Ebro S.A.',
+        'Técnico de mantenimiento',
+        'Automoción',
+        '2016-01-01',
+        null,
+        'Mantenimiento preventivo y correctivo de líneas de estampación.',
+      ],
+      [
+        'Talleres Delicias S.L.',
+        'Ayudante de mantenimiento',
+        'Industria',
+        '2013-07-01',
+        '2015-12-31',
+        'Reparaciones mecánicas e interpretación de planos.',
+      ],
+    ],
+  },
+  8: {
+    education: [
+      [
+        'Grado',
+        'Administración y Dirección de Empresas',
+        null,
+        'Universitat de València',
+        'Finalizada',
+        2010,
+      ],
+    ],
+    experience: [
+      [
+        'Logística Puerto de Valencia S.L.',
+        'Jefa de almacén',
+        'Logística y transporte',
+        '2015-02-01',
+        null,
+        'Gestión de stock en Navision, inventarios y equipo de 12 personas.',
+      ],
+      [
+        'Transportes Albufera S.A.',
+        'Administrativa de tráfico',
+        'Logística y transporte',
+        '2010-09-01',
+        '2015-01-31',
+        'Planificación de rutas y documentación de envíos.',
+      ],
+    ],
+  },
+  9: {
+    education: [
+      [
+        'Grado',
+        'Ingeniería Informática',
+        null,
+        'Universidad Carlos III de Madrid',
+        'Finalizada',
+        2012,
+      ],
+      [
+        'Máster',
+        'Ingeniería del Software',
+        'Arquitectura de sistemas',
+        'Universidad Carlos III de Madrid',
+        'Finalizada',
+        2014,
+      ],
+    ],
+    experience: [
+      [
+        'Banca Sol Digital S.A.',
+        'Líder técnico .NET',
+        'Banca y seguros',
+        '2019-01-01',
+        null,
+        'Arquitectura de servicios en C#, revisión de código y liderazgo de un equipo de 6.',
+      ],
+      [
+        'Soluciones Atocha Software',
+        'Desarrollador .NET',
+        'Tecnología',
+        '2014-03-01',
+        '2018-12-31',
+        'Desarrollo de aplicaciones de gestión sobre SQL Server.',
+      ],
+    ],
+  },
+  10: {
+    education: [
+      [
+        'Grado',
+        'Arquitectura Técnica',
+        null,
+        'Universitat Politècnica de Catalunya',
+        'Finalizada',
+        2011,
+      ],
+    ],
+    experience: [
+      [
+        'Construcciones Llobregat S.A.',
+        'Delineante BIM',
+        'Construcción',
+        '2016-04-01',
+        null,
+        'Modelado en Revit y planos de ejecución en AutoCAD.',
+      ],
+      [
+        'Estudio Gràcia Arquitectes',
+        'Delineante',
+        'Construcción',
+        '2011-09-01',
+        '2016-03-31',
+        'Planos de proyecto básico y de ejecución.',
+      ],
+    ],
+  },
+  11: {
+    education: [
+      ['FP Grado superior', 'Administración y Finanzas', null, 'IES Nervión', 'Finalizada', 2014],
+    ],
+    experience: [
+      [
+        'Servicios Integrales Aljarafe S.L.',
+        'Administrativo de RR. HH.',
+        'Servicios',
+        '2017-01-01',
+        null,
+        'Nóminas y seguros sociales en A3; apoyo en procesos de selección.',
+      ],
+      [
+        'Asesoría Macarena',
+        'Auxiliar administrativo',
+        'Servicios',
+        '2014-07-01',
+        '2016-12-31',
+        'Contabilidad en ContaPlus y archivo.',
+      ],
+    ],
+  },
+  12: {
+    education: [['Grado', 'Turismo', null, 'Universidad Rey Juan Carlos', 'Finalizada', 2019]],
+    experience: [
+      [
+        'Hoteles Gran Vía S.A.',
+        'Recepcionista',
+        'Hostelería',
+        '2021-05-01',
+        null,
+        'Atención a clientes, reservas y gestión de incidencias.',
+      ],
+      [
+        'Viajes Lavapiés S.L.',
+        'Agente de viajes',
+        'Servicios',
+        '2019-07-01',
+        '2021-04-30',
+        'Venta de paquetes y atención telefónica.',
+      ],
+    ],
+  },
+  13: {
+    education: [
+      [
+        'FP Grado superior',
+        'Automatización y Robótica Industrial',
+        null,
+        'CIFP Someso',
+        'Finalizada',
+        2015,
+      ],
+      [
+        'Tarjeta del metal',
+        'Tarjeta Profesional de la Construcción del Metal',
+        null,
+        'Fundación del Metal para la Formación',
+        'Finalizada',
+        2016,
+      ],
+    ],
+    experience: [
+      [
+        'Montajes Eléctricos Atlántico S.L.',
+        'Técnico de montaje industrial',
+        'Metal',
+        '2018-02-01',
+        null,
+        'Montaje de cuadros eléctricos con esquemas en EPLAN.',
+      ],
+      [
+        'Astilleros Orzán S.A.',
+        'Electricista naval',
+        'Naval',
+        '2015-09-01',
+        '2018-01-31',
+        'Cableado y conexionado a bordo.',
+      ],
+    ],
+  },
+  14: {
+    education: [
+      [
+        'Grado',
+        'Traducción e Interpretación',
+        'Francés',
+        'Universitat de València',
+        'Finalizada',
+        2020,
+      ],
+    ],
+    experience: [
+      [
+        'Centro de Atención Malvarrosa S.L.',
+        'Agente de atención al cliente',
+        'Servicios',
+        '2020-10-01',
+        null,
+        'Soporte telefónico y por correo en español y francés.',
+      ],
+    ],
+  },
+  15: {
+    education: [
+      [
+        'Grado',
+        'Ingeniería en Tecnologías Industriales',
+        null,
+        'Universidad Politécnica de Madrid',
+        'Finalizada',
+        2009,
+      ],
+      [
+        'Máster',
+        'Administración de Empresas (MBA)',
+        null,
+        'Universidad de Alcalá',
+        'Finalizada',
+        2013,
+      ],
+    ],
+    experience: [
+      [
+        'Energías Meseta S.A.',
+        'Jefe de proyecto',
+        'Energía',
+        '2016-06-01',
+        null,
+        'Dirección de proyectos de instalaciones, presupuestos y relación con cliente.',
+      ],
+      [
+        'Ingeniería Moncloa S.L.',
+        'Ingeniero de proyectos',
+        'Industria',
+        '2009-09-01',
+        '2016-05-31',
+        'Ingeniería de detalle y compras en SAP.',
+      ],
+    ],
+  },
+  16: {
+    education: [['Grado', 'Estadística', null, 'Universidad de Málaga', 'Finalizada', 2020]],
+    experience: [
+      [
+        'Marketing Analítico Sur S.L.',
+        'Analista de datos',
+        'Servicios',
+        '2021-03-01',
+        null,
+        'Cuadros de mando en Power BI y Tableau; análisis de campañas.',
+      ],
+    ],
+  },
+  17: {
+    education: [['Grado', 'Economía', null, 'Universidad del País Vasco', 'Finalizada', 2016]],
+    experience: [
+      [
+        'Recambios Bizkaia S.L.',
+        'Comercial B2B',
+        'Automoción',
+        '2019-09-01',
+        null,
+        'Venta a talleres y distribuidores; negociación de condiciones anuales.',
+      ],
+      [
+        'Ferretería Industrial Deusto',
+        'Técnico de compras',
+        'Comercio',
+        '2016-07-01',
+        '2019-08-31',
+        'Pedidos a proveedores y control de stock.',
+      ],
+    ],
+  },
+  18: {
+    education: [
+      [
+        'Grado',
+        'Diseño',
+        'Diseño gráfico',
+        'Universidad Complutense de Madrid',
+        'Finalizada',
+        2016,
+      ],
+    ],
+    experience: [
+      [
+        'Estudio Creativo Malasaña S.L.',
+        'Diseñadora gráfica',
+        'Servicios',
+        '2018-01-01',
+        null,
+        'Identidad de marca y piezas impresas y digitales en Photoshop e Illustrator.',
+      ],
+      [
+        'Imprenta Lavapiés',
+        'Maquetadora',
+        'Industria',
+        '2016-06-01',
+        '2017-12-31',
+        'Preparación de artes finales.',
+      ],
+    ],
+  },
+  19: {
+    education: [
+      ['Grado', 'Ingeniería Aeroespacial', null, 'Universidad de Zaragoza', 'Finalizada', 2021],
+      ['Máster', 'Ingeniería Aeronáutica', null, 'Universidad de Zaragoza', 'En curso', null],
+    ],
+    experience: [
+      [
+        'Simulaciones Aeronáuticas Aragón S.L.',
+        'Ingeniero de simulación (prácticas)',
+        'Aeronáutica',
+        '2024-09-01',
+        null,
+        'Modelos de control de vuelo en MATLAB y Simulink.',
+      ],
+    ],
+  },
+  20: {
+    education: [
+      [
+        'Grado',
+        'Relaciones Laborales y Recursos Humanos',
+        null,
+        'Universidad Pablo de Olavide',
+        'Finalizada',
+        2013,
+      ],
+    ],
+    experience: [
+      [
+        'Selección Giralda S.L.',
+        'Técnica de selección',
+        'Servicios',
+        '2016-03-01',
+        null,
+        'Procesos de selección completos y gestión documental de expedientes.',
+      ],
+      [
+        'Empleo Temporal Sur S.A.',
+        'Administrativa de personal',
+        'Servicios',
+        '2013-09-01',
+        '2016-02-29',
+        'Contratos, altas y archivo.',
+      ],
+    ],
+  },
+  21: {
+    education: [
+      ['FP Grado medio', 'Soldadura y Calderería', null, 'IES Pirámide', 'Finalizada', 2012],
+      [
+        'Soldadura TIG',
+        'Certificado de soldador TIG',
+        null,
+        'Centro de Formación del Metal de Aragón',
+        'Finalizada',
+        2014,
+      ],
+    ],
+    experience: [
+      [
+        'Estructuras Metálicas Cinco Villas S.L.',
+        'Soldador oficial de primera',
+        'Metal',
+        '2015-05-01',
+        null,
+        'Soldadura TIG y MIG/MAG de estructuras; mecanizado de piezas.',
+      ],
+      [
+        'Talleres Moncayo',
+        'Soldador',
+        'Metal',
+        '2012-07-01',
+        '2015-04-30',
+        'Soldadura con electrodo y montaje en taller.',
+      ],
+    ],
+  },
+};
+
+/** Whole years between two `yyyy-MM-dd` dates; the current job runs to `today`. */
+function yearsBetween(start, end) {
+  const [fromYear, fromMonth] = start.split('-').map(Number);
+  const [toYear, toMonth] = end.split('-').map(Number);
+  return Math.floor((toYear * 12 + toMonth - (fromYear * 12 + fromMonth)) / 12);
+}
+
+/** The two PUT bodies' collections for one background; new rows, so every `id` is null. */
+function backgroundBodies(background, today) {
+  return {
+    education: background.education.map(
+      ([educationType, degree, specialty, institution, status, endYear]) => ({
+        id: null,
+        educationType,
+        degree,
+        specialty,
+        institution,
+        status,
+        endYear,
+        notes: null,
+      }),
+    ),
+    experience: background.experience.map(
+      ([company, position, sector, startDate, endDate, functions]) => ({
+        id: null,
+        company,
+        position,
+        sector,
+        functions,
+        startDate,
+        endDate,
+        yearsExperience: yearsBetween(startDate, endDate ?? dayOffset(today, 0)),
+        isCurrent: endDate === null,
+        notes: null,
+      }),
+    ),
+  };
+}
+
 const DESCRIPTION = (title) =>
   `<p>Posición de demostración: <strong>${title}</strong>. Datos ficticios creados para enseñar la página de inicio.</p>`;
 
@@ -637,6 +1301,7 @@ function assertLoopback(baseUrl) {
 }
 
 module.exports = {
+  BACKGROUND,
   CANDIDATES,
   COMPETENCIES,
   DEMO_DOMAIN,
@@ -646,6 +1311,7 @@ module.exports = {
   STAGES,
   assertLoopback,
   availabilityBody,
+  backgroundBodies,
   candidateBody,
   competencyBodies,
   dayOffset,
