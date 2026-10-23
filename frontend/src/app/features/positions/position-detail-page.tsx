@@ -1,12 +1,13 @@
 import { StatusChip } from '../../shared/components/status-chip';
 import { positionStatusTone } from './position-status.logic';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { usePermission, useServices } from '../../core/di/services-context';
 import { formatDate } from '../../core/i18n/format';
 import { useErrorToast } from '../../core/services/use-error-toast';
 import { Breadcrumb, type BreadcrumbItem } from '../../shared/components/breadcrumb';
+import { CandidateOriginContext, type CandidateOrigin } from '../candidates/candidate-origin';
 import {
   RowCvPreviewProvider,
   RowCvSplit,
@@ -106,6 +107,14 @@ export function PositionDetailPage() {
   );
   useEffect(() => search(1), [search]);
   useEffect(() => () => inFlight.current?.abort(), []);
+  // KTL-44: every candidate opened from this page leads back here through its breadcrumb.
+  const candidateOrigin = useMemo<CandidateOrigin | undefined>(
+    () =>
+      position
+        ? { kind: 'position', positionId: position.id, positionTitle: position.title }
+        : undefined,
+    [position],
+  );
   // The route already requires `positions.read`, so the list link needs no further check.
   const listCrumb: BreadcrumbItem = {
     label: t('breadcrumb.positions'),
@@ -158,33 +167,35 @@ export function PositionDetailPage() {
         <SearchCriteriaSummary filters={position.requirements} />
       </div>
       {/* KTL-35: one CV open across both candidate tables, beside them when there is room. */}
-      <RowCvPreviewProvider>
-        <RowCvSplit>
-          {canReadCandidates ? (
-            <PositionCandidatesPanel
-              state={links}
-              editable={editableLinks}
-              closed={position.status === 'closed'}
-            />
-          ) : null}
-          <div className="panel position-section">
-            <h2>{t('positions.matches.title')}</h2>
+      <CandidateOriginContext.Provider value={candidateOrigin}>
+        <RowCvPreviewProvider>
+          <RowCvSplit>
             {canReadCandidates ? (
-              <SearchResults
-                tableId={POSITION_MATCHES_TABLE_ID}
-                results={results}
-                loading={loading}
-                failed={failed}
-                lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
-                onPageChange={(page) => search(page)}
-                renderRowAction={editableLinks ? matchAction : undefined}
+              <PositionCandidatesPanel
+                state={links}
+                editable={editableLinks}
+                closed={position.status === 'closed'}
               />
-            ) : (
-              <p>{t('positions.matches.forbidden')}</p>
-            )}
-          </div>
-        </RowCvSplit>
-      </RowCvPreviewProvider>
+            ) : null}
+            <div className="panel position-section">
+              <h2>{t('positions.matches.title')}</h2>
+              {canReadCandidates ? (
+                <SearchResults
+                  tableId={POSITION_MATCHES_TABLE_ID}
+                  results={results}
+                  loading={loading}
+                  failed={failed}
+                  lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
+                  onPageChange={(page) => search(page)}
+                  renderRowAction={editableLinks ? matchAction : undefined}
+                />
+              ) : (
+                <p>{t('positions.matches.forbidden')}</p>
+              )}
+            </div>
+          </RowCvSplit>
+        </RowCvPreviewProvider>
+      </CandidateOriginContext.Provider>
     </section>
   );
 }

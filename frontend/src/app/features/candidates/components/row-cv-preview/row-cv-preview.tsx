@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useServices } from '../../../../core/di/services-context';
 import { useErrorToast } from '../../../../core/services/use-error-toast';
+import { useCandidateLinkState } from '../../candidate-origin';
 import { CandidateCvPreview } from '../candidate-cv-preview';
 import type { PreviewContentCache } from '../candidate-cv-preview.logic';
 import {
@@ -379,6 +380,8 @@ export function RowCvInlineRow({
 function RowCvPanel({ open }: { open: OpenRowCv }) {
   const { t } = useTranslation();
   const context = useRowCvPreviewContext();
+  // On a position page «Ver ficha» leads back to it through the candidate's breadcrumb (KTL-44).
+  const linkState = useCandidateLinkState();
   if (!context) return null;
   const { name, candidateId } = open;
   return (
@@ -400,6 +403,7 @@ function RowCvPanel({ open }: { open: OpenRowCv }) {
               <Link
                 className="button ghost small"
                 to={`/app/candidates/${candidateId}`}
+                state={linkState}
                 data-testid="row-cv-open-profile"
               >
                 {t('cvPanel.openProfile')}

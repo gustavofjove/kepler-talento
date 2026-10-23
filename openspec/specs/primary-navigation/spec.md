@@ -319,20 +319,30 @@ Every page that sits below a list SHALL render a breadcrumb trail above its main
 SHALL show where the page sits in the application and SHALL let the user return to its parents in one
 activation. The trails SHALL be:
 
-| Page               | Trail                                    |
-| ------------------ | ---------------------------------------- |
-| Candidate detail   | `Candidatos` › candidate full name       |
-| Candidate creation | `Candidatos` › `Nuevo candidato`         |
-| Position detail    | `Posiciones` › position title            |
-| Position creation  | `Posiciones` › `Nueva posición`          |
-| Position edit      | `Posiciones` › position title › `Editar` |
-| Preset creation    | `Admin` › `Presets` › `Nuevo preset`     |
-| Preset edit        | `Admin` › `Presets` › preset name        |
+| Page                                     | Trail                                               |
+| ---------------------------------------- | --------------------------------------------------- |
+| Candidate detail                         | `Candidatos` › candidate full name                  |
+| Candidate detail, opened from a position | `Posiciones` › position title › candidate full name |
+| Candidate creation                       | `Candidatos` › `Nuevo candidato`                    |
+| Position detail                          | `Posiciones` › position title                       |
+| Position creation                        | `Posiciones` › `Nueva posición`                     |
+| Position edit                            | `Posiciones` › position title › `Editar`            |
+| Preset creation                          | `Admin` › `Presets` › `Nuevo preset`                |
+| Preset edit                              | `Admin` › `Presets` › preset name                   |
 
 `Candidatos`, `Posiciones` and `Presets` SHALL lead to the candidate list, the position list and the
 preset list respectively, without restoring any list filter, sort or page. A candidate full name or
-position title that is not the last segment SHALL lead to that record's detail page. The trail SHALL
-be the same whichever page the user arrived from.
+position title that is not the last segment SHALL lead to that record's detail page.
+
+A candidate detail page SHALL use the position trail only when the user opened it by activating a
+candidate on a position's detail page: a row or name in the position's linked candidates, a row or
+name in its matching candidates, or the open-profile action of a CV shown on that page. The position
+title in that trail SHALL be the one shown on the position page the user came from. Every other way
+of reaching a candidate detail page SHALL give the `Candidatos` trail, including opening it in a new
+tab or window and entering or pasting its address. Moving back or forward in the browser history
+SHALL keep the trail the page was opened with. Every other page's trail SHALL be
+the same whichever page the user arrived from. No trail SHALL contain more than three segments, and
+links leaving a candidate detail page SHALL NOT carry its origin to the next page.
 
 The segment that names the current page (the last one in each trail above) SHALL NOT be activatable
 and SHALL be exposed to assistive technology as the current page. `Admin` SHALL NOT be activatable,
@@ -395,21 +405,59 @@ correct accents.
 - **AND** `Admin` is plain text
 - **AND** activating `Presets` opens the preset list
 
+#### Scenario: A candidate opened from a position leads back to it
+
+- **WHEN** a profile holding `positions.read` and `candidates.read` activates a candidate in a
+  position's linked candidates
+- **THEN** the trail reads `Posiciones` › the position title › the candidate's full name
+- **AND** activating the position title opens that position's detail page
+- **AND** activating `Posiciones` opens the position list
+
+#### Scenario: Matching candidates and the CV panel also lead back
+
+- **WHEN** the user opens a candidate from a position's matching candidates, or through the
+  open-profile action of a CV shown on a position's detail page
+- **THEN** the trail reads `Posiciones` › the position title › the candidate's full name
+
 #### Scenario: The trail does not depend on the origin
 
-- **WHEN** the user opens a candidate's detail page from the advanced search results or from a
-  position's matching candidates
+- **WHEN** the user opens a candidate's detail page from any page other than a position's detail
+  page, such as the candidate list, the advanced search results, Inicio or a candidate's own
+  positions
 - **THEN** the trail reads `Candidatos` › the candidate's full name
+
+#### Scenario: The trail never grows beyond three segments
+
+- **WHEN** the user opens a candidate from position A, follows one of that candidate's positions B,
+  and opens a candidate from B
+- **THEN** the trail reads `Posiciones` › B's title › the candidate's full name
+
+#### Scenario: A new tab or typed address uses the candidate trail
+
+- **WHEN** the user opens a candidate from a position page in a new tab, or enters the candidate's
+  address directly
+- **THEN** the trail reads `Candidatos` › the candidate's full name
+
+#### Scenario: Back and forward keep the position trail
+
+- **WHEN** the user opens a candidate from a position, activates the position title in the trail,
+  and then goes back in the browser history
+- **THEN** the candidate page again reads `Posiciones` › the position title › the candidate's full
+  name
 
 #### Scenario: Loading shows only the parent segments
 
 - **WHEN** a candidate's page is still loading the candidate
 - **THEN** the trail shows `Candidatos`, still activatable, and not the name
+- **AND** when the page was opened from a position, it shows `Posiciones` › the position title
+  instead, both still activatable
 
 #### Scenario: A failed load still offers the way back
 
 - **WHEN** a candidate's detail page fails to load the candidate or the candidate is not found
 - **THEN** the trail still offers `Candidatos` leading to the candidate list
+- **AND** when the page was opened from a position, it offers `Posiciones` and the position title
+  instead
 
 #### Scenario: A segment the viewer may not open is plain text
 

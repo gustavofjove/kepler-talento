@@ -6,6 +6,7 @@ import { formatDate } from '../../../core/i18n/format';
 import { useErrorToast } from '../../../core/services/use-error-toast';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
+import { useCandidateLinkState } from '../../candidates/candidate-origin';
 import {
   RowCvActions,
   RowCvInlineRow,
@@ -34,6 +35,7 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
   const notifyError = useErrorToast();
   const [picking, setPicking] = useState(false);
   const rowLink = useRowLink();
+  const linkState = useCandidateLinkState();
   const { links, status } = state;
   const cv = useRowCvTable(
     POSITION_CANDIDATES_TABLE_ID,
@@ -123,11 +125,15 @@ export function PositionCandidatesPanel({ state, editable, closed }: PositionCan
                         cv.isOpen(link.candidateId) ? 'row-link-row is-cv-open' : 'row-link-row'
                       }
                       data-testid="position-candidate-row"
-                      onClick={rowLink(`/app/candidates/${link.candidateId}`)}
-                      onAuxClick={rowLink(`/app/candidates/${link.candidateId}`)}
+                      onClick={rowLink(`/app/candidates/${link.candidateId}`, linkState)}
+                      onAuxClick={rowLink(`/app/candidates/${link.candidateId}`, linkState)}
                     >
                       <td>
-                        <Link className="row-link" to={`/app/candidates/${link.candidateId}`}>
+                        <Link
+                          className="row-link"
+                          to={`/app/candidates/${link.candidateId}`}
+                          state={linkState}
+                        >
                           {name}
                         </Link>{' '}
                         {link.candidateIsActive ? null : (

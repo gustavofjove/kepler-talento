@@ -173,6 +173,12 @@ navegación sobre el título, por ejemplo «Candidatos › Nombre Apellido» o
 edita, así que ya no existe el tramo «Editar» del candidato. Los listados y el resto de páginas principales no
 muestran ruta. Consulta la [nota de versión KTL-23](docs/ktl-23/release-notes.md).
 
+Desde KTL-44, un candidato abierto desde la página de una posición muestra
+«Posiciones › Título de la posición › Nombre Apellido», y el título vuelve a esa posición. Desde
+cualquier otro sitio, en una pestaña nueva o con la dirección escrita, la ruta sigue siendo
+«Candidatos › Nombre Apellido». La ruta nunca pasa de tres tramos. Consulta la
+[nota de versión KTL-44](docs/ktl-44/release-notes.md).
+
 ## Selector de valores de catálogo KTL-24
 
 Habilidades, idiomas, programas y etiquetas se eligen con un único selector en la búsqueda

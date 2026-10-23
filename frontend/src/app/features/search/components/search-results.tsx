@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { formatDate } from '../../../core/i18n/format';
 import '../../../shared/components/data-table.css';
 import { useRowLink } from '../../../shared/components/row-link';
+import { useCandidateLinkState } from '../../candidates/candidate-origin';
 import {
   RowCvActions,
   RowCvInlineRow,
@@ -42,6 +43,8 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { t } = useTranslation();
   const rowLink = useRowLink();
+  // Set only on a position page, so a candidate opened from its matches leads back (KTL-44).
+  const linkState = useCandidateLinkState();
   const cv = useRowCvTable(
     tableId,
     results.items.map((result) => result.candidateId),
@@ -82,11 +85,15 @@ export function SearchResults({
                     className={
                       cv.isOpen(result.candidateId) ? 'row-link-row is-cv-open' : 'row-link-row'
                     }
-                    onClick={rowLink(`/app/candidates/${result.candidateId}`)}
-                    onAuxClick={rowLink(`/app/candidates/${result.candidateId}`)}
+                    onClick={rowLink(`/app/candidates/${result.candidateId}`, linkState)}
+                    onAuxClick={rowLink(`/app/candidates/${result.candidateId}`, linkState)}
                   >
                     <td>
-                      <Link className="row-link" to={`/app/candidates/${result.candidateId}`}>
+                      <Link
+                        className="row-link"
+                        to={`/app/candidates/${result.candidateId}`}
+                        state={linkState}
+                      >
                         {result.firstName} {result.lastName}
                       </Link>
                       {result.email ? (
