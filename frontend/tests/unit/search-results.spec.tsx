@@ -1,10 +1,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
-import { RowCvPreviewProvider } from '../../src/app/features/candidates/components/row-cv-preview/row-cv-preview';
+import {
+  CandidateOriginContext,
+  type CandidateOrigin,
+} from '../../src/app/features/candidates/candidate-origin';
+import {
+  RowCvPreviewProvider,
+  RowCvSplit,
+} from '../../src/app/features/candidates/components/row-cv-preview/row-cv-preview';
 import { SearchResults } from '../../src/app/features/search/components/search-results';
 import type {
   SearchResult,
@@ -27,6 +34,11 @@ const result: SearchResult = {
 };
 const onePage: SearchResultPage = { items: [result], page: 1, pageSize: 25, totalCount: 1 };
 
+/** The candidate route, showing the location state it was reached with. */
+function CandidatePage() {
+  return <p data-testid="candidate-page" data-state={JSON.stringify(useLocation().state)} />;
+}
+
 describe('SearchResults (KTL-30)', () => {
   const documentService = {
     list: vi.fn(),
@@ -44,6 +56,7 @@ describe('SearchResults (KTL-30)', () => {
     results: SearchResultPage,
     renderRowAction?: (item: SearchResult) => React.ReactNode,
     granted: string[] = ['documents.download'],
+    origin?: CandidateOrigin,
   ) =>
     render(
       <ServicesProvider
@@ -64,19 +77,23 @@ describe('SearchResults (KTL-30)', () => {
             <Route
               path="/search"
               element={
-                <RowCvPreviewProvider>
-                  <SearchResults
-                    results={results}
-                    loading={false}
-                    failed={false}
-                    lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
-                    onPageChange={() => undefined}
-                    renderRowAction={renderRowAction}
-                  />
-                </RowCvPreviewProvider>
+                <CandidateOriginContext.Provider value={origin}>
+                  <RowCvPreviewProvider>
+                    <RowCvSplit>
+                      <SearchResults
+                        results={results}
+                        loading={false}
+                        failed={false}
+                        lastPage={Math.max(1, Math.ceil(results.totalCount / results.pageSize))}
+                        onPageChange={() => undefined}
+                        renderRowAction={renderRowAction}
+                      />
+                    </RowCvSplit>
+                  </RowCvPreviewProvider>
+                </CandidateOriginContext.Provider>
               }
             />
-            <Route path="/app/candidates/:id" element={<p data-testid="candidate-page" />} />
+            <Route path="/app/candidates/:id" element={<CandidatePage />} />
           </Routes>
         </MemoryRouter>
       </ServicesProvider>,
@@ -158,6 +175,50 @@ describe('SearchResults (KTL-30)', () => {
     await userEvent.click(screen.getByText('600000000'));
 
     expect(screen.getByTestId('candidate-page')).toBeInTheDocument();
+    // Outside a position page no origin travels, so the candidate keeps its usual trail (KTL-44).
+    expect(screen.getByTestId('candidate-page')).toHaveAttribute('data-state', 'null');
+  });
+
+  describe('inside a position page (KTL-44)', () => {
+    const origin: CandidateOrigin = {
+      kind: 'position',
+      positionId: 'pos-1',
+      positionTitle: 'Analista',
+    };
+    const carried = JSON.stringify({ candidateOrigin: origin });
+
+    it('carries the origin from the row and the name', async () => {
+      const view = renderResults(onePage, undefined, undefined, origin);
+      await userEvent.click(screen.getByText('600000000'));
+      expect(screen.getByTestId('candidate-page')).toHaveAttribute('data-state', carried);
+      view.unmount();
+
+      renderResults(onePage, undefined, undefined, origin);
+      await userEvent.click(screen.getByRole('link', { name: 'Ana García' }));
+      expect(screen.getByTestId('candidate-page')).toHaveAttribute('data-state', carried);
+    });
+
+    it('carries the origin from «Ver ficha» in the CV panel', async () => {
+      documentService.list.mockResolvedValue([
+        {
+          id: 'doc-1',
+          documentType: 'CV',
+          originalFilename: 'cv.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 10,
+          isPrimary: true,
+          uploadedAt: '2026-01-01T00:00:00Z',
+          availabilityState: 'Available',
+        },
+      ]);
+      documentService.openPreview.mockReturnValue(new Promise(() => {}));
+      renderResults(onePage, undefined, undefined, origin);
+
+      await userEvent.click(screen.getByTestId('row-cv-toggle'));
+      await userEvent.click(await screen.findByTestId('row-cv-open-profile'));
+
+      expect(screen.getByTestId('candidate-page')).toHaveAttribute('data-state', carried);
+    });
   });
 
   it('does not navigate when a control inside the row is clicked', async () => {

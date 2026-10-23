@@ -47,7 +47,12 @@ const noStages = { new: 0, shortlisted: 0, interview: 0, hired: 0, rejected: 0 }
 const noResults: SearchResultPage = { items: [], page: 1, pageSize: 25, totalCount: 0 };
 
 function LocationProbe() {
-  return <p data-testid="location">{useLocation().pathname}</p>;
+  const { pathname, state } = useLocation();
+  return (
+    <p data-testid="location" data-state={JSON.stringify(state)}>
+      {pathname}
+    </p>
+  );
 }
 
 function deferred<T>() {
@@ -725,6 +730,52 @@ describe('Position pages', () => {
       await userEvent.click(within(row).getByText('600111222'));
 
       expect(location()).toHaveTextContent('/app/candidates/c-1');
+    });
+
+    describe('origin for the candidate breadcrumb (KTL-44)', () => {
+      const origin = JSON.stringify({
+        candidateOrigin: {
+          kind: 'position',
+          positionId: 'pos-1',
+          positionTitle: 'Programador sénior',
+        },
+      });
+
+      it('carries the position from a linked candidate’s name', async () => {
+        positionService.listCandidates.mockResolvedValue([link()]);
+        renderAt('/app/positions/pos-1');
+
+        await screen.findByTestId('position-candidates');
+        await userEvent.click(await panel().findByRole('link', { name: 'Ana García' }));
+
+        expect(location()).toHaveTextContent('/app/candidates/c-1');
+        expect(location()).toHaveAttribute('data-state', origin);
+      });
+
+      it('carries the position from a linked candidate’s row', async () => {
+        positionService.listCandidates.mockResolvedValue([link()]);
+        renderAt('/app/positions/pos-1');
+
+        await screen.findByTestId('position-candidates');
+        const row = (await panel().findAllByTestId('position-candidate-row'))[0];
+        await userEvent.click(within(row).getByText('600111222'));
+
+        expect(location()).toHaveTextContent('/app/candidates/c-1');
+        expect(location()).toHaveAttribute('data-state', origin);
+      });
+
+      it('carries the position from a match’s name', async () => {
+        candidateSearchService.search.mockResolvedValue({
+          ...noResults,
+          items: [match('c-9', 'Eva')],
+          totalCount: 1,
+        });
+        renderAt('/app/positions/pos-1');
+
+        await userEvent.click(await screen.findByRole('link', { name: 'Eva Pérez' }));
+        expect(location()).toHaveTextContent('/app/candidates/c-9');
+        expect(location()).toHaveAttribute('data-state', origin);
+      });
     });
 
     it('adds a match and marks already linked matches as added', async () => {

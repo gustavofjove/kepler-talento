@@ -27,17 +27,22 @@ export function isRowClick(event: MouseEvent<HTMLElement>): boolean {
  *
  * The row is a mouse convenience only: keep a real link in the row (e.g. the name, styled with
  * `.row-link`) so keyboard and screen-reader users reach the same destination.
+ *
+ * `state` travels with an in-place navigation only, as with a link; a new tab starts without it.
  */
-export function useRowLink(): (to: string) => (event: MouseEvent<HTMLElement>) => void {
+export function useRowLink(): (
+  to: string,
+  state?: unknown,
+) => (event: MouseEvent<HTMLElement>) => void {
   const navigate = useNavigate();
   return useCallback(
-    (to: string) => (event: MouseEvent<HTMLElement>) => {
+    (to: string, state?: unknown) => (event: MouseEvent<HTMLElement>) => {
       if (!isRowClick(event)) return;
       if (event.ctrlKey || event.metaKey || event.button === 1) {
         window.open(to, '_blank', 'noopener');
         return;
       }
-      void navigate(to);
+      void navigate(to, { state });
     },
     [navigate],
   );

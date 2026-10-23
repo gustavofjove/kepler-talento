@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { Link, useBlocker, useParams } from 'react-router';
+import { Link, useBlocker, useLocation, useParams } from 'react-router';
 import { usePermission, useServices } from '../../../core/di/services-context';
 import { formatDate, formatElapsed, localDay } from '../../../core/i18n/format';
 import { Breadcrumb, type BreadcrumbItem } from '../../../shared/components/breadcrumb';
@@ -18,6 +18,7 @@ import { CandidatePositionsPanel } from '../components/candidate-positions-panel
 import type { PanelControl, PanelId } from '../components/candidate-panel.logic';
 import { CandidateCompetencies } from '../components/candidate-competencies';
 import { candidateFullName } from '../candidate-name';
+import { readCandidateOrigin } from '../candidate-origin';
 import { displayPhone, mailtoHref } from '../contact-links';
 import { useCandidatePositions } from '../use-candidate-positions';
 import { useCandidate } from '../use-candidates';
@@ -43,15 +44,31 @@ export function CandidateDetailPage() {
   // KTL-36 design D8: loaded once for the page, shared by «Posiciones» and the badges, and never
   // requested without positions.read.
   const positions = useCandidatePositions(candidateId, canReadPositions && item !== undefined);
-  // The list is offered in every state, even while loading or after a failure; the name only
+  // KTL-44: opened from a position page, the trail leads back to that position. Links leaving this
+  // page carry no origin, so the trail never grows beyond three segments.
+  const origin = readCandidateOrigin(useLocation().state);
+  // The parents are offered in every state, even while loading or after a failure; the name only
   // once the candidate has loaded.
-  const trail: BreadcrumbItem[] = [
-    {
-      label: t('breadcrumb.candidates'),
-      to: canReadList ? '/app/candidates' : undefined,
-      testId: 'breadcrumb-candidates',
-    },
-  ];
+  const trail: BreadcrumbItem[] = origin
+    ? [
+        {
+          label: t('breadcrumb.positions'),
+          to: canReadPositions ? '/app/positions' : undefined,
+          testId: 'breadcrumb-positions',
+        },
+        {
+          label: origin.positionTitle,
+          to: canReadPositions ? `/app/positions/${origin.positionId}` : undefined,
+          testId: 'breadcrumb-position',
+        },
+      ]
+    : [
+        {
+          label: t('breadcrumb.candidates'),
+          to: canReadList ? '/app/candidates' : undefined,
+          testId: 'breadcrumb-candidates',
+        },
+      ];
   if (aggregate !== 'loading' && item)
     trail.push({ label: candidateFullName(item), current: true });
 

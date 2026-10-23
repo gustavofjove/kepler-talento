@@ -129,6 +129,52 @@ test.describe('Position candidates - manager', () => {
     await closePosition(page, second);
   });
 
+  test('a candidate opened from a position leads back to it through the breadcrumb (KTL-44)', async ({
+    page,
+  }) => {
+    const marker = Date.now();
+    const candidate = await createCandidate(page, `Migas${marker}`, 'Ktl44');
+    const title = `E2E Migas posición ${marker}`;
+    const position = await createPosition(page, title, `Migas${marker}`);
+    await matchRow(page, candidate).getByTestId('add-to-position').click();
+    await expect(linkRow(page, candidate)).toHaveCount(1);
+
+    // From the linked candidates: Posiciones › title › name.
+    await linkRow(page, candidate).locator(`a[href="/app/candidates/${candidate}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/app/candidates/${candidate}$`));
+    const breadcrumb = page.getByTestId('breadcrumb');
+    await expect(breadcrumb.getByTestId('breadcrumb-positions')).toBeVisible();
+    await expect(breadcrumb.getByTestId('breadcrumb-position')).toHaveText(title);
+    await expect(breadcrumb.getByTestId('breadcrumb-candidates')).toHaveCount(0);
+
+    // The title leads back to the position, and Back returns to the same trail.
+    await breadcrumb.getByTestId('breadcrumb-position').click();
+    await expect(page).toHaveURL(new RegExp(`/app/positions/${position}$`));
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/app/candidates/${candidate}$`));
+    await expect(breadcrumb.getByTestId('breadcrumb-position')).toHaveText(title);
+
+    // The candidate's own positions carry no origin; opening the candidate again starts afresh,
+    // so the trail never grows.
+    await page
+      .getByTestId('candidate-positions')
+      .locator(`a[href="/app/positions/${position}"]`)
+      .first()
+      .click();
+    await expect(page).toHaveURL(new RegExp(`/app/positions/${position}$`));
+    await matchRow(page, candidate).locator(`a[href="/app/candidates/${candidate}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`/app/candidates/${candidate}$`));
+    await expect(breadcrumb.getByRole('listitem')).toHaveCount(3);
+    await expect(breadcrumb.getByTestId('breadcrumb-position')).toHaveText(title);
+
+    // A typed address keeps the usual trail.
+    await page.goto(`/app/candidates/${candidate}`);
+    await expect(breadcrumb.getByTestId('breadcrumb-candidates')).toBeVisible();
+    await expect(breadcrumb.getByTestId('breadcrumb-position')).toHaveCount(0);
+
+    await closePosition(page, position);
+  });
+
   test('the picker is keyboard operable and the page fits 390px', async ({ page }) => {
     const marker = Date.now();
     const position = await createPosition(page, `E2E Teclado ${marker}`);

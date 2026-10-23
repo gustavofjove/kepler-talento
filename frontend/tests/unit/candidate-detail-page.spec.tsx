@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, RouterProvider, type DataRouter } from 'react-router';
+import { createMemoryRouter, RouterProvider, useLocation, type DataRouter } from 'react-router';
 import { services, type Services } from '../../src/app/core/di/services';
 import { ServicesProvider } from '../../src/app/core/di/services-context';
 import { signal } from '../../src/app/core/state/signal';
@@ -13,6 +13,12 @@ import type { DocumentService } from '../../src/app/features/documents/services/
 import { createCandidateTestBed, type CandidateTestBed } from './support/candidate-doubles';
 import { loadedCatalogService } from './support/catalog-doubles';
 import { localDay } from '../../src/app/core/i18n/format';
+
+/** Stands in for a destination page and shows the location state it was reached with. */
+function LocationProbe({ testId }: { testId: string }) {
+  const { pathname, state } = useLocation();
+  return <p data-testid={testId} data-path={pathname} data-state={JSON.stringify(state)} />;
+}
 
 const EDITABLE = ['main', 'competencies', 'education', 'experience', 'notes', 'documents'];
 const editButton = (panel: string) => screen.queryByTestId(`candidate-panel-${panel}-edit`);
@@ -36,7 +42,7 @@ describe('CandidateDetailPage', () => {
     positionService.listForCandidate.mockResolvedValue([]);
   });
 
-  const renderAt = async (path: string) => {
+  const renderAt = async (path: string, state?: unknown) => {
     const catalogService = await loadedCatalogService();
     const documentService = {
       list: vi.fn().mockResolvedValue(listed),
@@ -54,8 +60,10 @@ describe('CandidateDetailPage', () => {
         { path: '/app/candidates', element: <p data-testid="list-page" /> },
         { path: '/app/candidates/:id', element: <CandidateDetailPage /> },
         { path: '/app/candidates/:id/edit', element: <CandidateEditRedirect /> },
+        { path: '/app/positions', element: <p data-testid="position-list-page" /> },
+        { path: '/app/positions/:id', element: <LocationProbe testId="position-page" /> },
       ],
-      { initialEntries: [path] },
+      { initialEntries: [{ pathname: path, state }] },
     );
     render(
       <ServicesProvider
@@ -160,6 +168,98 @@ describe('CandidateDetailPage', () => {
       expect(await screen.findByRole('heading', { level: 1 })).not.toHaveTextContent('Ona');
       expect(screen.queryByTestId('candidate-detail-error')).not.toBeInTheDocument();
       expect(trailText()).toEqual(['Candidatos']);
+    });
+  });
+
+  describe('breadcrumb from a position (KTL-44)', () => {
+    const fromPosition = {
+      candidateOrigin: { kind: 'position', positionId: 'p-9', positionTitle: 'Analista de datos' },
+    };
+    const trail = () => within(screen.getByTestId('breadcrumb'));
+    const trailText = () =>
+      trail()
+        .getAllByRole('listitem')
+        .map((item) => item.textContent);
+
+    beforeEach(() => granted.add('positions.read'));
+
+    it('reads «Posiciones › position › name» and leads back to the position', async () => {
+      await renderAt('/app/candidates/c1', fromPosition);
+      await loaded();
+
+      expect(trailText()).toEqual(['Posiciones', 'Analista de datos', 'Ona Marti']);
+      expect(trail().getByTestId('breadcrumb-positions')).toHaveAttribute('href', '/app/positions');
+      expect(trail().getByTestId('breadcrumb-position')).toHaveAttribute(
+        'href',
+        '/app/positions/p-9',
+      );
+      expect(trail().getByText('Ona Marti')).toHaveAttribute('aria-current', 'page');
+      expect(trail().queryByTestId('breadcrumb-candidates')).toBeNull();
+
+      await userEvent.click(trail().getByTestId('breadcrumb-position'));
+      expect(await screen.findByTestId('position-page')).toHaveAttribute(
+        'data-path',
+        '/app/positions/p-9',
+      );
+    });
+
+    it('falls back to «Candidatos › name» for a malformed origin', async () => {
+      await renderAt('/app/candidates/c1', {
+        candidateOrigin: { kind: 'position', positionId: 'p-9' },
+      });
+      await loaded();
+
+      expect(trailText()).toEqual(['Candidatos', 'Ona Marti']);
+    });
+
+    it('offers the position segments while the candidate loads', async () => {
+      vi.spyOn(bed.api, 'get').mockReturnValue(new Promise(() => {}));
+      await renderAt('/app/candidates/c1', fromPosition);
+
+      expect(await screen.findByText('Cargando candidato…')).toBeInTheDocument();
+      expect(trailText()).toEqual(['Posiciones', 'Analista de datos']);
+      expect(trail().getAllByRole('link')).toHaveLength(2);
+    });
+
+    it('keeps the way back to the position when the candidate fails to load', async () => {
+      bed.api.failure = new Error('Servicio no disponible');
+      await renderAt('/app/candidates/c1', fromPosition);
+
+      expect(await screen.findByTestId('candidate-detail-error')).toBeInTheDocument();
+      expect(trailText()).toEqual(['Posiciones', 'Analista de datos']);
+      expect(trail().getAllByRole('link')).toHaveLength(2);
+    });
+
+    it('renders the position segments as plain text without positions.read', async () => {
+      granted.delete('positions.read');
+      await renderAt('/app/candidates/c1', fromPosition);
+      await loaded();
+
+      expect(trailText()).toEqual(['Posiciones', 'Analista de datos', 'Ona Marti']);
+      expect(trail().queryAllByRole('link')).toHaveLength(0);
+    });
+
+    it('does not carry the origin to the candidate’s own positions', async () => {
+      positionService.listForCandidate.mockResolvedValue([
+        {
+          positionId: 'p-1',
+          title: 'Backend',
+          positionStatus: 'open',
+          stage: 'new',
+          addedAtUtc: '2026-09-20T09:00:00Z',
+          updatedAtUtc: '2026-09-20T09:00:00Z',
+          version: 2,
+        },
+      ]);
+      await renderAt('/app/candidates/c1', fromPosition);
+      await loaded();
+
+      await userEvent.click(
+        within(screen.getByTestId('candidate-positions')).getByRole('link', { name: 'Backend' }),
+      );
+      const page = await screen.findByTestId('position-page');
+      expect(page).toHaveAttribute('data-path', '/app/positions/p-1');
+      expect(page).toHaveAttribute('data-state', 'null');
     });
   });
 
