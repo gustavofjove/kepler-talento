@@ -497,6 +497,13 @@ tbody tr:hover {
   margin: 0;
 }
 
+/* Years leading an education or experience row; the width keeps «2019–2024» rows aligned. */
+.item-period {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 9ch;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
