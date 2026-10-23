@@ -36,6 +36,7 @@ const candidate: Candidate = new FakeCandidateApi().seed({
       startDate: '2020-01-01',
       yearsExperience: 4,
       isCurrent: true,
+      functions: 'Mantenimiento de líneas',
     },
   ],
 });
@@ -173,6 +174,66 @@ describe('Candidate profile section panels (KTL-29)', () => {
       expect(screen.getByText('Grado en ADE')).toBeInTheDocument();
       expect(control.onDirtyChange).toHaveBeenLastCalledWith(false);
     });
+
+    it('edits an entry in place, keeping its id and its retired status value', async () => {
+      renderPanel(education);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Editar la formación Grado en ADE' }),
+      );
+
+      expect(screen.getByRole('form', { name: 'Editar formación' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Tipo')).toHaveFocus();
+      // «Finalizado» is not an active education status; the form still holds it.
+      expect(screen.getByLabelText('Estado')).toHaveValue('Finalizado');
+      await userEvent.clear(screen.getByLabelText('Centro'));
+      await userEvent.type(screen.getByLabelText('Centro'), 'UAM');
+      await userEvent.click(screen.getByRole('button', { name: 'Actualizar formación' }));
+
+      expect(screen.getByRole('form', { name: 'Nueva formación' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Centro')).toHaveValue('');
+      expect(control.onDirtyChange).toHaveBeenLastCalledWith(true);
+      await userEvent.click(screen.getByTestId('candidate-panel-education-save'));
+
+      await waitFor(() => expect(control.onClose).toHaveBeenCalled());
+      expect(relations.saveEducation).toHaveBeenCalledWith('c1', [
+        expect.objectContaining({ id: 'e1', institution: 'UAM', status: 'Finalizado' }),
+      ]);
+    });
+
+    it('leaves the panel clean when an edit changes nothing, and can cancel an edit', async () => {
+      renderPanel(education);
+      const edit = screen.getByRole('button', { name: 'Editar la formación Grado en ADE' });
+
+      await userEvent.click(edit);
+      await userEvent.click(screen.getByRole('button', { name: 'Actualizar formación' }));
+      expect(control.onDirtyChange).toHaveBeenLastCalledWith(false);
+
+      await userEvent.click(edit);
+      await userEvent.type(screen.getByLabelText('Centro'), ' Madrid');
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }));
+
+      expect(screen.getByRole('form', { name: 'Nueva formación' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Centro')).toHaveValue('');
+      expect(screen.getByText('UCM', { exact: false })).toBeInTheDocument();
+      expect(control.onDirtyChange).toHaveBeenLastCalledWith(false);
+    });
+
+    it('refuses an edit that blanks a required field and keeps the entry as it was', async () => {
+      renderPanel(education);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Editar la formación Grado en ADE' }),
+      );
+      await userEvent.clear(screen.getByLabelText('Titulación'));
+      await userEvent.click(screen.getByRole('button', { name: 'Actualizar formación' }));
+
+      expect(screen.getByText('La titulación es obligatoria.')).toBeInTheDocument();
+      expect(screen.getByRole('form', { name: 'Editar formación' })).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId('candidate-education')).getByText('Grado en ADE'),
+      ).toBeVisible();
+    });
   });
 
   describe('CandidateExperience', () => {
@@ -190,6 +251,49 @@ describe('Candidate profile section panels (KTL-29)', () => {
         screen.getByText('La fecha de fin no puede ser anterior a la fecha de inicio.'),
       ).toBeInTheDocument();
       expect(relations.saveExperience).not.toHaveBeenCalled();
+    });
+
+    it('edits an entry in place and keeps the fields the form does not show', async () => {
+      renderPanel((c) => <CandidateExperience candidate={candidate} control={c} />);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Editar la experiencia Técnico en Kepler' }),
+      );
+      expect(screen.getByRole('form', { name: 'Editar experiencia' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Empresa')).toHaveFocus();
+      expect(screen.getByLabelText('Fecha inicio')).toHaveValue('2020-01-01');
+      expect(screen.getByLabelText('Fecha fin')).toBeDisabled();
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Puesto actual' }));
+      await userEvent.type(screen.getByLabelText('Fecha fin'), '2024-06-30');
+      await userEvent.click(screen.getByRole('button', { name: 'Actualizar experiencia' }));
+      await userEvent.click(screen.getByTestId('candidate-panel-experience-save'));
+
+      await waitFor(() => expect(control.onClose).toHaveBeenCalled());
+      expect(relations.saveExperience).toHaveBeenCalledWith('c1', [
+        expect.objectContaining({
+          id: 'x1',
+          isCurrent: false,
+          endDate: '2024-06-30',
+          functions: 'Mantenimiento de líneas',
+        }),
+      ]);
+    });
+
+    it('lays out years beside the sector and both dates together on the last row', () => {
+      renderPanel((c) => <CandidateExperience candidate={candidate} control={c} />);
+
+      const fields = Array.from(
+        screen.getByTestId('experience-add-form').querySelectorAll('.grid.two > .field'),
+      ).map((field) => field.querySelector('input, select')?.getAttribute('name'));
+      expect(fields).toEqual([
+        'company',
+        'position',
+        'sector',
+        'yearsExperience',
+        'isCurrent',
+        'startDate',
+        'endDate',
+      ]);
     });
   });
 
@@ -215,6 +319,16 @@ describe('Candidate profile section panels (KTL-29)', () => {
       expect(section.getByText(text, { exact: false })).toBeInTheDocument();
       expect(section.queryByRole('button')).not.toBeInTheDocument();
       expect(section.queryByRole('combobox')).not.toBeInTheDocument();
+    });
+
+    it('leads each row with its years', () => {
+      renderPanel(ui);
+
+      const period = within(screen.getByTestId(testId)).getByTestId(/-period$/);
+      expect(period).toHaveTextContent(
+        testId === 'candidate-education' ? '2020' : '2020–actualidad',
+      );
+      expect(period.parentElement?.firstElementChild).toBe(period);
     });
 
     it('offers editing controls in edit mode', () => {

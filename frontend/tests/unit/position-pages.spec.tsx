@@ -769,6 +769,27 @@ describe('Position pages', () => {
       await waitFor(() => expect(positionService.listCandidates).toHaveBeenCalledTimes(2));
     });
 
+    it('keeps a restaged candidate in its row', async () => {
+      positionService.listCandidates.mockResolvedValue([
+        link(),
+        link({ candidateId: 'c-2', firstName: 'Luis', stage: 'new' }),
+      ]);
+      positionService.changeStage.mockResolvedValue(link({ stage: 'rejected', version: 4 }));
+      renderAt('/app/positions/pos-1');
+
+      const select = await screen.findByRole('combobox', { name: 'Estado de Ana García' });
+      await userEvent.selectOptions(select, 'rejected');
+
+      await waitFor(() =>
+        expect(screen.getByRole('combobox', { name: 'Estado de Ana García' })).toHaveValue(
+          'rejected',
+        ),
+      );
+      const rows = panel().getAllByTestId('position-candidate-row');
+      expect(within(rows[0]).getByRole('link', { name: 'Ana García' })).toBeVisible();
+      expect(within(rows[1]).getByRole('link', { name: 'Luis García' })).toBeVisible();
+    });
+
     it('removes a link only after confirmation', async () => {
       positionService.listCandidates.mockResolvedValue([link()]);
       confirmDialogService.confirm.mockResolvedValueOnce(false);

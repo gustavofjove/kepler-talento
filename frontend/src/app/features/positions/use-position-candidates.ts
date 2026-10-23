@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useServices } from '../../core/di/services-context';
 import type { PositionCandidate, PositionCandidateStage } from './position.models';
-import { isStaleLinkError, upsertPositionCandidate } from './position-candidates.logic';
+import {
+  isStaleLinkError,
+  replacePositionCandidate,
+  upsertPositionCandidate,
+} from './position-candidates.logic';
 
 export type LinkListStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -18,8 +22,8 @@ export interface PositionCandidatesState {
 
 /**
  * The complete link list of one position (KTL-30 design D5). It loads once and is then kept
- * current from each write's server response. A write refused as stale reloads the list before
- * rethrowing, so the caller only has to report the error.
+ * current from each write's server response; a stage change keeps the row where it is. A write
+ * refused as stale reloads the list before rethrowing, so the caller only has to report the error.
  */
 export function usePositionCandidates(
   positionId: string | undefined,
@@ -82,7 +86,7 @@ export function usePositionCandidates(
           stage,
           link.version,
         );
-        setLinks((current) => upsertPositionCandidate(current, next));
+        setLinks((current) => replacePositionCandidate(current, next));
       }),
     [positionId, positionService, staleGuard],
   );

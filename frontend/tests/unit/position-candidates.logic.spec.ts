@@ -1,5 +1,6 @@
 import {
   isStaleLinkError,
+  replacePositionCandidate,
   sortCandidatePositions,
   sortPositionCandidates,
   upsertCandidatePosition,
@@ -83,6 +84,27 @@ describe('position candidate logic', () => {
         stage: 'interview',
       }),
     ).toHaveLength(1);
+  });
+
+  it('replaces a restaged link where it stands instead of re-sorting', () => {
+    const links = [
+      link('a', 'new', '2026-09-02T00:00:00Z'),
+      link('b', 'new', '2026-09-01T00:00:00Z'),
+      link('c', 'interview', '2026-09-03T00:00:00Z'),
+    ];
+
+    const next = replacePositionCandidate(links, { ...links[0], stage: 'rejected', version: 2 });
+
+    expect(next.map((item) => [item.candidateId, item.stage])).toEqual([
+      ['a', 'rejected'],
+      ['b', 'new'],
+      ['c', 'interview'],
+    ]);
+    expect(
+      replacePositionCandidate(links, link('d', 'new', '2026-09-04T00:00:00Z')).map(
+        (item) => item.candidateId,
+      ),
+    ).toEqual(['d', 'a', 'b', 'c']);
   });
 
   it('treats conflicts and missing links as stale, other failures as not', () => {

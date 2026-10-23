@@ -78,6 +78,10 @@ siempre. «Auditoría» no se edita.
   escribe hasta pulsar «Guardar» en ese panel, que guarda solo ese panel; «Cancelar» descarta el
   borrador. En «Competencias» solo se guardan las familias que han cambiado; si una falla, las
   demás quedan guardadas y un nuevo «Guardar» reintenta solo la que falló.
+- **Formación y Experiencia** muestran a la izquierda de cada entrada sus años (`2019–2024`,
+  `2024` o `2020–actualidad`; en formación, el año de fin). Desde KTL-43 cada entrada se puede
+  corregir con «Editar», que la carga en el formulario del panel; «Actualizar» la cambia en su
+  sitio dentro del borrador, que se guarda con «Guardar» como el resto.
 - **Notas y Documentos** mantienen sus acciones inmediatas (añadir, editar, retirar, subir,
   marcar como principal, quitar); «Hecho» vuelve al modo de lectura.
 - **Un panel a la vez.** Abrir otro panel con cambios sin guardar pide confirmación, igual que
@@ -98,7 +102,8 @@ la posición (Nuevo, Preseleccionado, Entrevista, Contratado o Descartado), inde
 estado general. «Quitar de la posición» borra el vínculo para corregir un error; para descartar,
 se usa el estado Descartado. La ficha del candidato muestra el panel «Posiciones», con las
 posiciones abiertas primero y las cerradas atenuadas. Una posición cerrada no admite cambios en
-sus candidatos hasta reabrirla.
+sus candidatos hasta reabrirla. Al cambiar el estado de un candidato, su fila no se mueve; la
+lista vuelve a agruparse por estado al recargar la página (KTL-43).
 
 Ver la lista exige `positions.read` y `candidates.read`; modificarla, `positions.manage` y
 `candidates.read`. Consulta la [nota de versión KTL-30](docs/ktl-30/release-notes.md).

@@ -10,7 +10,7 @@ const stageOrder = (stage: PositionCandidate['stage']): number =>
 
 /**
  * The API's order for a position's links: stage, then newest first, then id. Applied again on
- * the client after a local insert or stage change, so the list never has to be refetched.
+ * the client after a local insert, so the list never has to be refetched.
  */
 export function sortPositionCandidates(links: PositionCandidate[]): PositionCandidate[] {
   return [...links].sort(
@@ -41,6 +41,21 @@ export function upsertPositionCandidate(
     ...links.filter((current) => current.candidateId !== link.candidateId),
     link,
   ]);
+}
+
+/**
+ * Replaces the link with the same candidate where it stands, so a stage change does not move the
+ * row under the user's pointer. The API order returns on the next load. A link no longer in the
+ * list is added in API order.
+ */
+export function replacePositionCandidate(
+  links: PositionCandidate[],
+  link: PositionCandidate,
+): PositionCandidate[] {
+  if (!links.some((current) => current.candidateId === link.candidateId)) {
+    return upsertPositionCandidate(links, link);
+  }
+  return links.map((current) => (current.candidateId === link.candidateId ? link : current));
 }
 
 /** Replaces the link with the same position, or adds it, and keeps the API order. */

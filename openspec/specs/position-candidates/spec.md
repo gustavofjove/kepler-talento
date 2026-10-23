@@ -220,15 +220,23 @@ Both tables open the candidate when a row is clicked outside its links and contr
 the row's keyboard-reachable link, and phones are plain text.
 
 Removal SHALL ask for confirmation. A stage change SHALL save immediately, and a concurrency
-conflict SHALL be reported and the list reloaded. Managers on an open position SHALL have «Añadir
-candidato», which opens a picker searching candidates by text through the existing candidate search
-and shows already-linked candidates as not selectable. The panel SHALL show localized loading,
-empty and error states. Without `candidates.read`, no link request SHALL be sent.
+conflict SHALL be reported and the list reloaded. A saved stage change SHALL keep the link's row
+where it stands, so no row moves under the user; the list SHALL return to the API order on its next
+load. Managers on an open position SHALL have «Añadir candidato», which opens a picker searching
+candidates by text through the existing candidate search and shows already-linked candidates as not
+selectable. The panel SHALL show localized loading, empty and error states. Without
+`candidates.read`, no link request SHALL be sent.
 
 #### Scenario: Candidate is added through the picker
 
 - **WHEN** a manager searches the picker for a non-matching candidate and selects them
 - **THEN** the candidate appears in «Candidatos de la posición» at stage Nuevo
+
+#### Scenario: Restaged candidate keeps its row
+
+- **WHEN** a manager changes the first of two «Nuevo» candidates to «Descartado»
+- **THEN** after the change is saved that candidate is still the first row, and reloading the page
+  lists it after the «Nuevo» candidate
 
 #### Scenario: Closed position is viewed
 

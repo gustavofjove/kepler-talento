@@ -253,6 +253,19 @@ In edit mode, Educación and Experiencia SHALL show the form for a new entry aft
 entries, set apart from them by a visible rule. The form SHALL be titled «Nueva formación» or
 «Nueva experiencia», and that title SHALL be its accessible name.
 
+In edit mode, each Educación and Experiencia entry SHALL also offer «Editar», whose accessible name
+names the entry («Editar la formación {titulación}», «Editar la experiencia {puesto} en
+{empresa}»). «Editar» SHALL load the entry into the same form, retitled «Editar formación» or
+«Editar experiencia», move focus to the form's first field and mark the entry's row as the one
+being edited. The submit control SHALL read «Actualizar formación» or «Actualizar experiencia», and
+«Cancelar edición» SHALL return the form to a new entry without changing the draft. An update SHALL
+apply the same validation as an add, replace the entry in the draft where it stands, keep its
+identity and the fields the form does not show (notes, functions), and return the form to a new
+entry. An update that changes no value SHALL leave the panel without unsaved changes. The form SHALL
+keep offering the entry's education type, education status or sector when that catalog value is no
+longer active, so the update does not drop it. Removing the entry being edited, «Cancelar» or a
+successful «Guardar» SHALL also end the edit.
+
 #### Scenario: Staged changes are saved together
 
 - **WHEN** an editor, with Educación in edit mode, adds one entry and removes another and then
@@ -280,6 +293,40 @@ entries, set apart from them by a visible rule. The form SHALL be titled «Nueva
 
 - **WHEN** an editor puts Educación in edit mode on a candidate with education entries
 - **THEN** the entries are listed first, then a rule, then a form titled «Nueva formación»
+
+#### Scenario: Entry is edited in place
+
+- **WHEN** an editor activates «Editar» on an education entry, changes its centre, activates
+  «Actualizar formación» and then «Guardar»
+- **THEN** the education is saved with that entry in the same position, under the same identity,
+  with the new centre, and the form is titled «Nueva formación» again
+
+#### Scenario: Edit keeps the fields the form does not show
+
+- **WHEN** an editor updates an experience entry that has functions recorded
+- **THEN** the saved entry keeps those functions
+
+#### Scenario: Entry holds a retired catalog value
+
+- **WHEN** an editor edits an education entry whose status is no longer an active catalog value
+- **THEN** the form shows that status selected, and updating the entry keeps it
+
+#### Scenario: Edit that changes nothing
+
+- **WHEN** an editor activates «Editar» on an entry and then «Actualizar» without changing a field
+- **THEN** the panel reports no unsaved changes
+
+#### Scenario: Edit is cancelled
+
+- **WHEN** an editor changes a field of an entry being edited and activates «Cancelar edición»
+- **THEN** the entry is unchanged and the form is empty and titled for a new entry
+
+#### Scenario: Edit refused by validation
+
+- **WHEN** an editor clears the degree of an education entry being edited and activates
+  «Actualizar formación»
+- **THEN** the Spanish validation message is shown at the top of the form, the form stays in edit,
+  and the entry is unchanged
 
 #### Scenario: Only changed families are written
 
@@ -794,3 +841,50 @@ to its label and SHALL sit on the same line as the rest of the entry's text when
 - **WHEN** Experiencia lists an entry with a position, company and sector
 - **THEN** the position chip is as wide as its label and is followed on the same line by the
   company and sector
+
+### Requirement: Educación and Experiencia rows lead with their years
+
+Each Educación and Experiencia row SHALL begin with the years of the entry, in a muted column of
+fixed minimum width so that the rows align, in both read-only and edit mode:
+
+- an experience with a start and an end date in different years SHALL show `{inicio}–{fin}`;
+- an experience with only one of those dates, or both in the same year, SHALL show that year;
+- a current experience with a start date SHALL show `{inicio}–actualidad` and SHALL NOT repeat
+  the «Actual» marker; a current experience without a start date SHALL keep the marker and show no
+  years;
+- an education entry SHALL show its end year.
+
+When no row of a panel has a year, the column SHALL NOT be shown; when any row has one, every row
+SHALL reserve the column.
+
+#### Scenario: Experience range
+
+- **WHEN** Experiencia lists an entry from 1 March 2019 to 30 June 2024
+- **THEN** its row begins with `2019–2024`
+
+#### Scenario: Current role
+
+- **WHEN** Experiencia lists a current role started in 2020
+- **THEN** its row begins with `2020–actualidad` and shows no «Actual» marker
+
+#### Scenario: Education end year
+
+- **WHEN** Educación lists an entry finished in 2020 and another without an end year
+- **THEN** the first row begins with `2020` and the second keeps an empty years column
+
+#### Scenario: No years at all
+
+- **WHEN** no Experiencia entry has a date
+- **THEN** the rows show no years column
+
+### Requirement: Experience form groups its dates
+
+The Experiencia form SHALL order its fields, in a two-column grid, as Empresa and Puesto; Sector
+and Años de experiencia; «Puesto actual» on its own row; and Fecha inicio and Fecha fin together on
+the last row.
+
+#### Scenario: Field order
+
+- **WHEN** an editor opens the Experiencia form
+- **THEN** «Años de experiencia» is beside «Sector», «Puesto actual» follows, and both dates share
+  the last row

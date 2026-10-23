@@ -29,3 +29,16 @@
 .candidate-add-form > h3 {
   margin: 0;
 }
+
+.item-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+/* The Educación or Experiencia entry currently loaded into the form. */
+.item-row.is-editing {
+  background: var(--fj-orange-pale);
+  box-shadow: inset 3px 0 0 var(--primary);
+  padding-left: 12px;
+}
